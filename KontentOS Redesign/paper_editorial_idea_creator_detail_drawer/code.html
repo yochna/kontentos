@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,300..800&amp;family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-variant":"#dde4df","primary-container":"#285c4d","tertiary-fixed-dim":"#feb882","on-background":"#161d1a","background":"#f4fbf6","on-primary-fixed-variant":"#1a4f41","on-surface":"#161d1a","on-secondary":"#ffffff","tertiary-container":"#79471b","secondary-container":"#c2ecda","primary-fixed":"#b7eeda","surface":"#f4fbf6","on-tertiary-fixed-variant":"#6a3b0f","primary-fixed-dim":"#9cd2be","surface-container-high":"#e3eae5","error-container":"#ffdad6","on-error-container":"#93000a","on-surface-variant":"#404945","tertiary-fixed":"#ffdcc4","tertiary":"#5d3105","on-tertiary-container":"#feb882","on-primary-fixed":"#002018","error":"#ba1a1a","on-tertiary-fixed":"#2f1500","surface-container-low":"#eef5f0","outline":"#707975","on-error":"#ffffff","inverse-surface":"#2b322f","on-primary-container":"#9dd2bf","outline-variant":"#c0c9c3","primary":"#0a4436","on-tertiary":"#ffffff","surface-bright":"#f4fbf6","inverse-on-surface":"#ebf2ed","on-primary":"#ffffff","surface-dim":"#d4dcd7","surface-container":"#e8f0ea","secondary-fixed-dim":"#a7cfbf","on-secondary-container":"#466c5e","surface-tint":"#346858","inverse-primary":"#9cd2be","secondary-fixed":"#c2ecda","surface-container-highest":"#dde4df","secondary":"#406658","on-secondary-fixed":"#002117","on-secondary-fixed-variant":"#284e41","surface-container-lowest":"#ffffff"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"margin":"2rem","space-md":"1rem","gutter":"1.5rem","space-lg":"1.5rem","space-sm":"0.5rem","space-xl":"2.5rem","space-xs":"0.25rem"},fontFamily:{"label-md":["Hanken Grotesk"],"label-lg":["Hanken Grotesk"],"headline-sm":["Newsreader"],"display-mobile":["Newsreader"],"body-lg":["Newsreader"],"headline-lg":["Newsreader"],"body-sm":["Hanken Grotesk"],"body-md":["Hanken Grotesk"],"headline-md":["Newsreader"],"label-sm":["Hanken Grotesk"],"display":["Newsreader"],"headline-lg-mobile":["Newsreader"]},fontSize:{"label-md":["12px",{lineHeight:"16px",letterSpacing:"0.02em",fontWeight:"500"}],"label-lg":["14px",{lineHeight:"20px",letterSpacing:"0.01em",fontWeight:"600"}],"headline-sm":["20px",{lineHeight:"28px",fontWeight:"500"}],"display-mobile":["36px",{lineHeight:"44px",letterSpacing:"-0.015em",fontWeight:"400"}],"body-lg":["19px",{lineHeight:"32px",letterSpacing:"0.005em",fontWeight:"400"}],"headline-lg":["36px",{lineHeight:"44px",letterSpacing:"-0.015em",fontWeight:"400"}],"body-sm":["13px",{lineHeight:"20px",fontWeight:"400"}],"body-md":["15px",{lineHeight:"24px",letterSpacing:"-0.005em",fontWeight:"400"}],"headline-md":["26px",{lineHeight:"34px",letterSpacing:"-0.01em",fontWeight:"400"}],"label-sm":["11px",{lineHeight:"14px",letterSpacing:"0.04em",fontWeight:"600"}],"display":["48px",{lineHeight:"56px",letterSpacing:"-0.02em",fontWeight:"400"}],"headline-lg-mobile":["28px",{lineHeight:"36px",letterSpacing:"-0.01em",fontWeight:"400"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col justify-between select-none"><div class="flex flex-col"><div class="h-16 px-space-lg flex items-center border-b border-outline-variant/30"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center"><span class="material-symbols-outlined text-[20px]">eco</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-primary font-bold tracking-tight leading-none">KontentOS</span><span class="font-label-sm text-label-sm text-outline tracking-wider uppercase mt-1">Studio Workspace</span></div></div></div><div class="px-space-md py-space-sm"><button class="w-full flex items-center justify-between px-space-sm py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container border border-outline-variant/40 text-on-surface transition-colors"><div class="flex items-center gap-2 overflow-hidden"><div class="w-5 h-5 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center text-[11px] font-semibold">E</div><span class="font-label-md text-label-md truncate text-on-surface">Editorial Studio</span></div><span class="material-symbols-outlined text-[16px] text-on-surface-variant">unfold_more</span></button></div><nav class="px-space-md py-space-xs space-y-space-md" data-active-classes="bg-secondary-container text-on-secondary-container font-semibold"><div class="space-y-0.5"><div class="px-space-sm pb-1 font-label-sm text-label-sm text-outline uppercase tracking-wider">Core Workflow</div><a aria-current="page" class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg transition-colors bg-secondary-container text-on-secondary-container font-semibold" data-path="ideas" href="#"><span class="material-symbols-outlined text-[18px]">auto_awesome</span><span class="font-label-md text-label-md">Ideas</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="raw-reel" href="#"><span class="material-symbols-outlined text-[18px]">smart_display</span><span class="font-label-md text-label-md">Raw → Reel</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="smart-editor" href="#"><span class="material-symbols-outlined text-[18px]">content_cut</span><span class="font-label-md text-label-md">Smart Editor</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="publish-schedule" href="#"><span class="material-symbols-outlined text-[18px]">schedule_send</span><span class="font-label-md text-label-md">Publish &amp; Schedule</span></a></div><div class="space-y-0.5"><div class="px-space-sm pb-1 font-label-sm text-label-sm text-outline uppercase tracking-wider">Workspace</div><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="content-library" href="#"><span class="material-symbols-outlined text-[18px]">grid_view</span><span class="font-label-md text-label-md">Content Library</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="calendar" href="#"><span class="material-symbols-outlined text-[18px]">calendar_today</span><span class="font-label-md text-label-md">Calendar</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="analytics" href="#"><span class="material-symbols-outlined text-[18px]">equalizer</span><span class="font-label-md text-label-md">Analytics</span></a></div></nav></div><div class="p-space-md border-t border-outline-variant/30 space-y-0.5"><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="brand-kit" href="#"><span class="material-symbols-outlined text-[18px]">palette</span><span class="font-label-md text-label-md">Brand Kit</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="settings" href="#"><span class="material-symbols-outlined text-[18px]">settings</span><span class="font-label-md text-label-md">Settings</span></a><div class="pt-space-sm mt-space-sm border-t border-outline-variant/20 flex items-center justify-between px-space-sm"><div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-primary"></div><span class="font-label-sm text-label-sm text-outline">v2.4.0 · Studio</span></div><span class="material-symbols-outlined text-[16px] text-outline hover:text-on-surface cursor-pointer">help_outline</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/40 z-40 flex items-center justify-between px-space-lg"><div class="flex items-center flex-1 max-w-xl"><div class="relative w-full flex items-center"><span class="material-symbols-outlined absolute left-3 text-[18px] text-outline pointer-events-none">search</span><input class="w-full pl-9 pr-14 py-1.5 bg-surface-container-lowest border border-outline-variant/50 rounded-lg text-on-surface placeholder:text-outline/70 focus:outline-none focus:border-primary font-body-sm text-body-sm transition-colors" placeholder="Search ideas, projects, or content..." type="text"/><kbd class="absolute right-2.5 px-1.5 py-0.5 bg-surface-container-high border border-outline-variant rounded text-[10px] font-label-sm text-on-surface-variant select-none">&amp;cmdK</kbd></div></div><div class="flex items-center gap-space-md pl-space-md"><button class="relative w-9 h-9 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary"></span></button><div class="h-4 w-px bg-outline-variant/40"></div><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="relative pt-16 bg-surface min-h-screen w-full px-space-lg"><div class="flex flex-col w-full pb-space-xl">
+<!-- Dynamic Control Header & Spark Prompt Bar -->
+<header class="w-full mb-space-lg">
+<div class="flex items-center justify-between gap-space-md mb-space-md">
+<div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline tracking-widest uppercase">Atelier Generation Module</span>
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span class="font-label-sm text-label-sm text-primary font-semibold">Active Engine: Editorial AI v4.2</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight mt-0.5">Idea Canvas &amp; Narrative Sparks</h1>
+</div>
+<div class="flex items-center gap-space-sm">
+<button class="px-space-md py-2 rounded-lg bg-surface-container-lowest text-on-surface border border-outline-variant/60 hover:bg-surface-container-low transition-colors shadow-sm flex items-center gap-2 font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px] text-outline">tune</span>
+          Filter Synthesis
+        </button>
+<button class="px-space-md py-2 rounded-lg bg-primary-container text-on-primary hover:bg-primary transition-colors shadow-sm flex items-center gap-2 font-label-md text-label-md font-semibold">
+<span class="material-symbols-outlined text-[18px]">add</span>
+          New Concept Draft
+        </button>
+</div>
+</div>
+<!-- The Studio Prompt Input -->
+<div class="w-full bg-surface-container-lowest rounded-xl border border-outline-variant/70 p-2 shadow-sm transition-all duration-200 focus-within:border-primary-container focus-within:ring-1 focus-within:ring-primary-container">
+<div class="flex items-center gap-space-md px-space-sm">
+<div class="flex items-center gap-1.5 text-primary-container select-none">
+<span class="material-symbols-outlined text-[20px] animate-pulse">auto_awesome</span>
+<span class="font-label-md text-label-md font-bold tracking-tight uppercase">Spark Engine</span>
+</div>
+<div class="h-5 w-px bg-outline-variant/50"></div>
+<div class="flex-1 flex items-center relative">
+<input class="w-full bg-transparent border-0 py-2.5 px-1 font-body-lg text-body-lg text-on-surface placeholder:text-outline/60 focus:outline-none focus:ring-0" id="spark-input" placeholder="Describe a narrative spark, audience tension, or topic..." type="text" value="AI tools for small businesses"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-lg hover:bg-surface-container text-on-surface-variant flex items-center transition-colors" title="Toggle Deep Persona Match">
+<span class="material-symbols-outlined text-[19px]">psychology</span>
+</button>
+<button class="flex items-center gap-2 px-space-md py-2.5 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md tracking-tight transition-all" id="generate-trigger">
+<span>Synthesize</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Category Filter Pills -->
+<div class="flex items-center gap-2 mt-space-md overflow-x-auto pb-1 select-none">
+<button class="filter-pill active px-4 py-1.5 rounded-full bg-primary-container text-on-primary font-label-md text-label-md transition-all shadow-sm">
+        All Ideas (24)
+      </button>
+<button class="filter-pill px-4 py-1.5 rounded-full bg-surface-container-lowest text-on-surface-variant border border-outline-variant/50 hover:border-primary-container font-label-md text-label-md transition-all">
+<span class="text-tertiary font-bold">🔥</span> Trending Wave
+      </button>
+<button class="filter-pill px-4 py-1.5 rounded-full bg-surface-container-lowest text-on-surface-variant border border-outline-variant/50 hover:border-primary-container font-label-md text-label-md transition-all">
+<span>🎯</span> Your Niche (Studio &amp; SaaS)
+      </button>
+<button class="filter-pill px-4 py-1.5 rounded-full bg-surface-container-lowest text-on-surface-variant border border-outline-variant/50 hover:border-primary-container font-label-md text-label-md transition-all">
+<span>🔖</span> Saved Archetypes (12)
+      </button>
+<button class="filter-pill px-4 py-1.5 rounded-full bg-surface-container-lowest text-on-surface-variant border border-outline-variant/50 hover:border-primary-container font-label-md text-label-md transition-all">
+<span>↻</span> From Historical Transcripts
+      </button>
+<div class="ml-auto hidden xl:flex items-center gap-1.5 text-outline font-label-sm text-label-sm pl-4">
+<span>Sort:</span>
+<button class="font-semibold text-on-surface hover:underline flex items-center">Predictive Velocity <span class="material-symbols-outlined text-[14px]">expand_more</span></button>
+</div>
+</div>
+</header>
+<!-- Studio Workspace Canvas Split (Grid + Docked Drawer) -->
+<div class="grid grid-cols-12 gap-space-lg items-start">
+<!-- Left Area: Idea Cards Grid (Pinterest/Notion hybrid) -->
+<section class="col-span-12 lg:col-span-7 xl:col-span-8 space-y-space-md">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+<!-- CARD 1 (Selected State) -->
+<article class="idea-card relative group bg-surface-container-lowest rounded-xl border-2 border-primary-container p-space-md shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between" data-id="1">
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-bold tracking-wide">
+<span class="material-symbols-outlined text-[13px]">trending_up</span> TRENDING SPRINT
+              </span>
+<div class="flex items-center gap-1 text-outline">
+<button class="w-7 h-7 rounded-md hover:bg-surface-container flex items-center justify-center text-primary-container" title="Quick save">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">bookmark</span>
+</button>
+<button class="w-7 h-7 rounded-md hover:bg-surface-container flex items-center justify-center" title="More options">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Card Visual Anchor Media Preview -->
+<div class="w-full h-36 rounded-lg overflow-hidden relative bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="High-end editorial photograph of a minimalist wooden workspace desk with an open matte black tablet showing AI analytics interfaces, soft natural morning window light, deep forest green botanical accents, ultra-fine studio stillness" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9joSoUTfYI8omcqmPaI9-7QHgFddMNr53jGQ9qtoEWvR16dMCWxcvrf4-keP4pYQVJUPLZsw_eO5bEh5cSFzxKIP1fe_Cqcwhfvf_MXm9aYuOxKt40p-0tEz-NS20gEvzITGLD3NSvzUZuoHixIo9bRGg7F6Nb4RcPqaK2PCKazerMaW0my8AtwxYmisk4ZcduEsopSpIl3vxd1N0lXSwjqp9XJPM4ZrjA69nd3o1d3ARUreOiHjAhw"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+<span class="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm font-label-sm text-label-sm text-on-surface font-semibold">
+                Short-form Archetype
+              </span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors leading-snug">
+                5 AI tools that actually save small businesses time
+              </h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1.5 line-clamp-2">
+                Exposing zero-productivity gimmickry and presenting 5 grounded agents that execute invoicing, research, and follow-ups.
+              </p>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-outline-variant/40 flex flex-col gap-2.5">
+<div class="flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-outline">smart_display</span> Reel · 30 sec</span>
+<span class="flex items-center gap-1 text-primary-container font-semibold">
+<span class="material-symbols-outlined text-[15px]">bolt</span> Hook: 94%
+              </span>
+</div>
+<div class="flex items-center gap-2 pt-1">
+<button class="flex-1 py-1.5 rounded-lg border border-outline-variant hover:bg-surface-container font-label-md text-label-md text-on-surface transition-colors flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">bookmark_border</span>
+<span>Saved</span>
+</button>
+<button class="flex-1 py-1.5 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md transition-colors flex items-center justify-center gap-1 shadow-sm">
+<span>Start Creating</span>
+<span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</article>
+<!-- CARD 2 -->
+<article class="idea-card relative group bg-surface-container-lowest rounded-xl border border-outline-variant/60 hover:border-outline p-space-md shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between" data-id="2">
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold tracking-wide">
+<span class="material-symbols-outlined text-[13px]">insights</span> HIGH POTENTIAL
+              </span>
+<div class="flex items-center gap-1 text-outline">
+<button class="w-7 h-7 rounded-md hover:bg-surface-container flex items-center justify-center" title="Quick save">
+<span class="material-symbols-outlined text-[18px]">bookmark_border</span>
+</button>
+<button class="w-7 h-7 rounded-md hover:bg-surface-container flex items-center justify-center" title="More options">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div class="w-full h-36 rounded-lg overflow-hidden relative bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Refined graphic presentation of clean data cards and financial ledger sheets spread on a travertine desk, monochrome editorial color palette with forest green highlights, architectural layout framing" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCKyAbfdWRgVpAsKSFwjPFvlGx8f6NayRN52COoAm7N12XFd6Z2OfCai3HsU8mgT_LxYEgOMJDpWbhE9qZsh61u-sdbht7zRM2QKytIu8DcDcDStnlfJ0ziUDhwujFrDxXxwSa9nOHbg3WCaZmjba9qxeLRSDPTMpm13x391MZiS4ulDZ76wFFcgQS0PY8lCGO9UoYaoH9jvHbm_jVyUXRT-WpU0KznRSONudxzZnKO_jR37acw4-wuCA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+<span class="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm font-label-sm text-label-sm text-on-surface font-semibold">
+                Multi-slide Anatomy
+              </span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors leading-snug">
+                Why small businesses are replacing spreadsheets with automated ops
+              </h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1.5 line-clamp-2">
+                A sharp breakdown of manual calculation fragility compared against modern autonomous ledger triggers.
+              </p>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-outline-variant/40 flex flex-col gap-2.5">
+<div class="flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-outline">view_carousel</span> Carousel · 8 slides</span>
+<span class="flex items-center gap-1 text-primary-container font-semibold">
+<span class="material-symbols-outlined text-[15px]">electric_bolt</span> Viral Resonance
+              </span>
+</div>
+<div class="flex items-center gap-2 pt-1">
+<button class="flex-1 py-1.5 rounded-lg border border-outline-variant hover:bg-surface-container font-label-md text-label-md text-on-surface transition-colors flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">bookmark_border</span>
+<span>Save</span>
+</button>
+<button class="flex-1 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors flex items-center justify-center gap-1">
+<span>Start Creating</span>
+<span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</article>
+<!-- CARD 3 -->
+<article class="idea-card relative group bg-surface-container-lowest rounded-xl border border-outline-variant/60 hover:border-outline p-space-md shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between" data-id="3">
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container-highest text-on-surface font-label-sm text-label-sm font-bold tracking-wide">
+<span class="material-symbols-outlined text-[13px]">my_location</span> YOUR NICHE
+              </span>
+<div class="flex items-center gap-1 text-outline">
+<button class="w-7 h-7 rounded-md hover:bg-surface-container flex items-center justify-center" title="Quick save">
+<span class="material-symbols-outlined text-[18px]">bookmark_border</span>
+</button>
+<button class="w-7 h-7 rounded-md hover:bg-surface-container flex items-center justify-center" title="More options">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div class="w-full h-36 rounded-lg overflow-hidden relative bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Intimate cinematic portrait of an indie founder working late in a Scandinavian loft studio, cinematic warm lighting, dark green monstera plants in the background, sharp focus on vintage film microphone" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRk7tLsthprD2SxR5NS-PmzzjRIA35vTQw4WH2KNbpEbqSvm7BcKLpOxgTYsAz42SklvrHaRhgjpOntnes-d1rHH69k8CcVrTjgL3rh-GGQ9iUjrSCcslhQqUDyaDAmN9vGUE-ucD-akhUAsgywIHIGmr-8wEA8bPYebEjbeGCvcRQXPzmfBHl_VnJZrly7VhmAIpKN82Vx-7IOCy8K23wKSWeYPLD9I7-s75mCEK42M6QBZOk2kE18w"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+<span class="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-sm font-label-sm text-label-sm text-on-surface font-semibold">
+                Contrarian Essay
+              </span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors leading-snug">
+                What nobody tells you about creator automation in 2025
+              </h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1.5 line-clamp-2">
+                The uncomfortable reality: when everyone uses identical LLM chains, bespoke artisanal curation becomes the sole differentiator.
+              </p>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-outline-variant/40 flex flex-col gap-2.5">
+<div class="flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-outline">videocam</span> Reel / Short · 45 sec</span>
+<span class="flex items-center gap-1 text-primary-container font-semibold">
+<span class="material-symbols-outlined text-[15px]">chat_bubble</span> Direct Dialogue
+              </span>
+</div>
+<div class="flex items-center gap-2 pt-1">
+<button class="flex-1 py-1.5 rounded-lg border border-outline-variant hover:bg-surface-container font-label-md text-label-md text-on-surface transition-colors flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">bookmark_border</span>
+<span>Save</span>
+</button>
+<button class="flex-1 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors flex items-center justify-center gap-1">
+<span>Start Creating</span>
+<span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</article>
+<!-- CARD 4 -->
+<article class="idea-card relative group bg-surface-container-lowest rounded-xl border border-outline-variant/60 hover:border-outline p-space-md shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between" data-id="4">
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-medium">
+<span class="material-symbols-outlined text-[13px]">visibility</span> TRANSPARENT STUDIO
+              </span>
+<div class="flex items-center gap-1 text-outline">
+<button class="w-7 h-7 rounded-md hover:bg-surface-container flex items-center justify-center" title="Quick save">
+<span class="material-symbols-outlined text-[18px]">bookmark_border</span>
+</button>
+<button class="w-7 h-7 rounded-md hover:bg-surface-container flex items-center justify-center" title="More options">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors leading-snug">
+                Behind the scenes of our 4-person design studio workflow
+              </h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1.5 line-clamp-2">
+                A documentary-style walk through asynchronous handoffs, Figma design tokens, and zero internal scheduled meetings.
+              </p>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-outline-variant/40 flex flex-col gap-2.5">
+<div class="flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-outline">article</span> Longform Thread · 6 parts</span>
+<span class="flex items-center gap-1 text-outline font-medium">
+                Authority builder
+              </span>
+</div>
+<div class="flex items-center gap-2 pt-1">
+<button class="flex-1 py-1.5 rounded-lg border border-outline-variant hover:bg-surface-container font-label-md text-label-md text-on-surface transition-colors flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">bookmark_border</span>
+<span>Save</span>
+</button>
+<button class="flex-1 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors flex items-center justify-center gap-1">
+<span>Start Creating</span>
+<span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</article>
+<!-- CARD 5 -->
+<article class="idea-card relative group bg-surface-container-lowest rounded-xl border border-outline-variant/60 hover:border-outline p-space-md shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between" data-id="5">
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container/60 text-on-secondary-container font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[13px]">query_stats</span> METRIC RUNBOOK
+              </span>
+<div class="flex items-center gap-1 text-outline">
+<button class="w-7 h-7 rounded-md hover:bg-surface-container flex items-center justify-center" title="Quick save">
+<span class="material-symbols-outlined text-[18px]">bookmark_border</span>
+</button>
+<button class="w-7 h-7 rounded-md hover:bg-surface-container flex items-center justify-center" title="More options">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors leading-snug">
+                The 3 metrics every solo founder should track daily
+              </h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1.5 line-clamp-2">
+                Cutting through vanity analytics: cash runway burn velocity, creator retention quotient, and raw reply rates.
+              </p>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-outline-variant/40 flex flex-col gap-2.5">
+<div class="flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-outline">smart_display</span> Reel · 40 sec</span>
+<span class="flex items-center gap-1 text-primary-container font-semibold">
+<span class="material-symbols-outlined text-[15px]">trending_up</span> Evergreen
+              </span>
+</div>
+<div class="flex items-center gap-2 pt-1">
+<button class="flex-1 py-1.5 rounded-lg border border-outline-variant hover:bg-surface-container font-label-md text-label-md text-on-surface transition-colors flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[16px]">bookmark_border</span>
+<span>Save</span>
+</button>
+<button class="flex-1 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors flex items-center justify-center gap-1">
+<span>Start Creating</span>
+<span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</article>
+<!-- CARD 6: Architectural Discovery Slot -->
+<div class="rounded-xl border border-dashed border-outline-variant p-space-md flex flex-col items-center justify-center text-center bg-surface-container-low/40 hover:bg-surface-container-low transition-colors group cursor-pointer min-h-[220px]">
+<div class="w-10 h-10 rounded-full bg-surface-container-lowest border border-outline-variant/80 flex items-center justify-center text-primary-container mb-2 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+</div>
+<span class="font-headline-sm text-headline-sm text-on-surface">Generate Bespoke Angle</span>
+<p class="font-body-sm text-body-sm text-outline max-w-[200px] mt-1">
+            Mine historical newsletter archives for unfilmed core arguments.
+          </p>
+</div>
+</div>
+</section>
+<!-- Right-Side: "Idea Detail & Action Drawer" (Docked Atelier Inspector) -->
+<aside class="col-span-12 lg:col-span-5 xl:col-span-4 sticky top-20 bg-surface-container-lowest rounded-xl border border-outline-variant/70 shadow-sm p-space-lg flex flex-col">
+<!-- Top Inspector Bar -->
+<div class="flex items-center justify-between pb-space-sm border-b border-outline-variant/40 mb-space-md">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary-container"></span>
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">Active Blueprint</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-1.5 rounded hover:bg-surface-container text-on-surface-variant transition-colors" title="Fork Idea">
+<span class="material-symbols-outlined text-[18px]">fork_right</span>
+</button>
+<button class="p-1.5 rounded hover:bg-surface-container text-on-surface-variant transition-colors" title="Export Script">
+<span class="material-symbols-outlined text-[18px]">ios_share</span>
+</button>
+</div>
+</div>
+<!-- Selected Idea Meta Title -->
+<div class="mb-space-md">
+<div class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-bold uppercase tracking-wider mb-2">
+          Trending Focus
+        </div>
+<h3 class="font-headline-md text-headline-md text-on-surface leading-tight">
+          5 AI tools that actually save small businesses time
+        </h3>
+</div>
+<!-- SECTION: WHY IT WORKS -->
+<div class="mb-space-md bg-surface-container-low/60 rounded-lg p-space-sm border border-outline-variant/40">
+<div class="flex items-center gap-1.5 text-primary-container font-label-sm text-label-sm font-bold uppercase tracking-wider mb-1">
+<span class="material-symbols-outlined text-[15px]">psychology_alt</span>
+<span>Why It Works</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface leading-snug">
+          Strong pain point + practical tangible outcome for founders. Addresses cynicism around generic AI hype by promising zero-friction utilitarian tools.
+        </p>
+</div>
+<!-- SECTION: SUGGESTED FORMATS -->
+<div class="mb-space-md">
+<span class="block font-label-sm text-label-sm text-outline uppercase tracking-wider mb-2">Suggested Formats</span>
+<div class="flex flex-wrap gap-1.5">
+<button class="px-3 py-1 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">check</span> Reel (30s)
+          </button>
+<button class="px-3 py-1 rounded-full bg-surface-container border border-outline-variant hover:border-primary-container text-on-surface font-label-sm text-label-sm transition-colors">
+            Carousel
+          </button>
+<button class="px-3 py-1 rounded-full bg-surface-container border border-outline-variant hover:border-primary-container text-on-surface font-label-sm text-label-sm transition-colors">
+            LinkedIn Post
+          </button>
+<button class="px-3 py-1 rounded-full bg-surface-container border border-outline-variant hover:border-primary-container text-on-surface font-label-sm text-label-sm transition-colors">
+            YouTube Short
+          </button>
+</div>
+</div>
+<!-- SECTION: SUGGESTED HOOK -->
+<div class="mb-space-md">
+<div class="flex items-center justify-between mb-1.5">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Suggested Hook</span>
+<span class="font-label-sm text-label-sm text-primary font-bold">Score: 94/100</span>
+</div>
+<div class="p-space-sm bg-surface-container-lowest rounded-lg border-l-2 border-primary-container shadow-xs">
+<blockquote class="font-body-lg text-body-lg italic text-on-surface leading-relaxed">
+            “You're probably wasting 3 hours every week doing manual reporting. Here's what we do instead:”
+          </blockquote>
+</div>
+</div>
+<!-- SECTION: VISUAL SCRIPT OUTLINE -->
+<div class="mb-space-lg flex-1">
+<span class="block font-label-sm text-label-sm text-outline uppercase tracking-wider mb-2">Visual Script Outline</span>
+<div class="space-y-2 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-outline-variant/60">
+<div class="relative pl-6">
+<span class="absolute left-1 top-1.5 w-2 h-2 rounded-full bg-primary-container ring-4 ring-surface-container-lowest"></span>
+<div class="flex items-baseline justify-between">
+<span class="font-label-md text-label-md font-bold text-on-surface">Beat 1: The Problem</span>
+<span class="font-label-sm text-label-sm text-outline">5 sec</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              Quick cut of overwhelming desktop spreadsheets with a red overlay timer.
+            </p>
+</div>
+<div class="relative pl-6">
+<span class="absolute left-1 top-1.5 w-2 h-2 rounded-full bg-primary-container ring-4 ring-surface-container-lowest"></span>
+<div class="flex items-baseline justify-between">
+<span class="font-label-md text-label-md font-bold text-on-surface">Beat 2: 3 Tool Demos</span>
+<span class="font-label-sm text-label-sm text-outline">18 sec</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              Rapid 6s screen recordings showing one-click pipeline automations.
+            </p>
+</div>
+<div class="relative pl-6">
+<span class="absolute left-1 top-1.5 w-2 h-2 rounded-full bg-primary-container ring-4 ring-surface-container-lowest"></span>
+<div class="flex items-baseline justify-between">
+<span class="font-label-md text-label-md font-bold text-on-surface">Beat 3: Key Takeaway</span>
+<span class="font-label-sm text-label-sm text-outline">7 sec</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              Founders checklist graphic displayed with bookmark prompt call to action.
+            </p>
+</div>
+</div>
+</div>
+<!-- Action Button Dock -->
+<div class="pt-space-sm border-t border-outline-variant/40 mt-auto">
+<button class="w-full py-3 px-space-md rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-lg text-label-lg font-semibold shadow-sm transition-all duration-150 flex items-center justify-center gap-2">
+<span>Start Creating in Raw → Reel Studio</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+<div class="flex items-center justify-center gap-4 mt-2 text-outline font-label-sm text-label-sm">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">auto_fix_high</span> Teleprompter Ready</span>
+<span>•</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">history</span> Auto-synced to drafts</span>
+</div>
+</div>
+</aside>
+</div>
+</div>
+<script>
+  // Atelier Interactive State Handling
+  (function initIdeaWorkspace() {
+    const cards = document.querySelectorAll('.idea-card');
+    const pills = document.querySelectorAll('.filter-pill');
+    const generateBtn = document.getElementById('generate-trigger');
+    const sparkInput = document.getElementById('spark-input');
+
+    // Handle Card Selection
+    cards.forEach(card => {
+      card.addEventListener('click', function(e) {
+        if (e.target.closest('button')) return; // Allow internal action buttons to act independently
+        cards.forEach(c => {
+          c.classList.remove('border-primary-container', 'border-2');
+          c.classList.add('border-outline-variant/60', 'border');
+        });
+        this.classList.remove('border-outline-variant/60', 'border');
+        this.classList.add('border-primary-container', 'border-2');
+      });
+    });
+
+    // Handle Filter Switch
+    pills.forEach(pill => {
+      pill.addEventListener('click', function() {
+        pills.forEach(p => {
+          p.classList.remove('bg-primary-container', 'text-on-primary', 'active');
+          p.classList.add('bg-surface-container-lowest', 'text-on-surface-variant', 'border');
+        });
+        this.classList.remove('bg-surface-container-lowest', 'text-on-surface-variant', 'border');
+        this.classList.add('bg-primary-container', 'text-on-primary', 'active');
+      });
+    });
+
+    // Spark Synthesis Trigger Micro-feedback
+    if (generateBtn && sparkInput) {
+      generateBtn.addEventListener('click', () => {
+        const originalContent = generateBtn.innerHTML;
+        generateBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span><span>Synthesizing...</span>';
+        generateBtn.disabled = true;
+        setTimeout(() => {
+          generateBtn.innerHTML = originalContent;
+          generateBtn.disabled = false;
+        }, 900);
+      });
+    }
+  })();
+</script></main></div></body></html>

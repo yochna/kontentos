@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,300..800&amp;family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-variant":"#dde4df","primary-container":"#285c4d","tertiary-fixed-dim":"#feb882","on-background":"#161d1a","background":"#f4fbf6","on-primary-fixed-variant":"#1a4f41","on-surface":"#161d1a","on-secondary":"#ffffff","tertiary-container":"#79471b","secondary-container":"#c2ecda","primary-fixed":"#b7eeda","surface":"#f4fbf6","on-tertiary-fixed-variant":"#6a3b0f","primary-fixed-dim":"#9cd2be","surface-container-high":"#e3eae5","error-container":"#ffdad6","on-error-container":"#93000a","on-surface-variant":"#404945","tertiary-fixed":"#ffdcc4","tertiary":"#5d3105","on-tertiary-container":"#feb882","on-primary-fixed":"#002018","error":"#ba1a1a","on-tertiary-fixed":"#2f1500","surface-container-low":"#eef5f0","outline":"#707975","on-error":"#ffffff","inverse-surface":"#2b322f","on-primary-container":"#9dd2bf","outline-variant":"#c0c9c3","primary":"#0a4436","on-tertiary":"#ffffff","surface-bright":"#f4fbf6","inverse-on-surface":"#ebf2ed","on-primary":"#ffffff","surface-dim":"#d4dcd7","surface-container":"#e8f0ea","secondary-fixed-dim":"#a7cfbf","on-secondary-container":"#466c5e","surface-tint":"#346858","inverse-primary":"#9cd2be","secondary-fixed":"#c2ecda","surface-container-highest":"#dde4df","secondary":"#406658","on-secondary-fixed":"#002117","on-secondary-fixed-variant":"#284e41","surface-container-lowest":"#ffffff"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"margin":"2rem","space-md":"1rem","gutter":"1.5rem","space-lg":"1.5rem","space-sm":"0.5rem","space-xl":"2.5rem","space-xs":"0.25rem"},fontFamily:{"label-md":["Hanken Grotesk"],"label-lg":["Hanken Grotesk"],"headline-sm":["Newsreader"],"display-mobile":["Newsreader"],"body-lg":["Newsreader"],"headline-lg":["Newsreader"],"body-sm":["Hanken Grotesk"],"body-md":["Hanken Grotesk"],"headline-md":["Newsreader"],"label-sm":["Hanken Grotesk"],"display":["Newsreader"],"headline-lg-mobile":["Newsreader"]},fontSize:{"label-md":["12px",{lineHeight:"16px",letterSpacing:"0.02em",fontWeight:"500"}],"label-lg":["14px",{lineHeight:"20px",letterSpacing:"0.01em",fontWeight:"600"}],"headline-sm":["20px",{lineHeight:"28px",fontWeight:"500"}],"display-mobile":["36px",{lineHeight:"44px",letterSpacing:"-0.015em",fontWeight:"400"}],"body-lg":["19px",{lineHeight:"32px",letterSpacing:"0.005em",fontWeight:"400"}],"headline-lg":["36px",{lineHeight:"44px",letterSpacing:"-0.015em",fontWeight:"400"}],"body-sm":["13px",{lineHeight:"20px",fontWeight:"400"}],"body-md":["15px",{lineHeight:"24px",letterSpacing:"-0.005em",fontWeight:"400"}],"headline-md":["26px",{lineHeight:"34px",letterSpacing:"-0.01em",fontWeight:"400"}],"label-sm":["11px",{lineHeight:"14px",letterSpacing:"0.04em",fontWeight:"600"}],"display":["48px",{lineHeight:"56px",letterSpacing:"-0.02em",fontWeight:"400"}],"headline-lg-mobile":["28px",{lineHeight:"36px",letterSpacing:"-0.01em",fontWeight:"400"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col justify-between select-none"><div class="flex flex-col"><div class="h-16 px-space-lg flex items-center border-b border-outline-variant/30"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center"><span class="material-symbols-outlined text-[20px]">eco</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-primary font-bold tracking-tight leading-none">KontentOS</span><span class="font-label-sm text-label-sm text-outline tracking-wider uppercase mt-1">Studio Workspace</span></div></div></div><div class="px-space-md py-space-sm"><button class="w-full flex items-center justify-between px-space-sm py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container border border-outline-variant/40 text-on-surface transition-colors"><div class="flex items-center gap-2 overflow-hidden"><div class="w-5 h-5 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center text-[11px] font-semibold">E</div><span class="font-label-md text-label-md truncate text-on-surface">Editorial Studio</span></div><span class="material-symbols-outlined text-[16px] text-on-surface-variant">unfold_more</span></button></div><nav class="px-space-md py-space-xs space-y-space-md" data-active-classes="bg-secondary-container text-on-secondary-container font-semibold"><div class="space-y-0.5"><div class="px-space-sm pb-1 font-label-sm text-label-sm text-outline uppercase tracking-wider">Core Workflow</div><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="ideas" href="#"><span class="material-symbols-outlined text-[18px]">auto_awesome</span><span class="font-label-md text-label-md">Ideas</span></a><a aria-current="page" class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg transition-colors bg-secondary-container text-on-secondary-container font-semibold" data-path="raw-reel" href="#"><span class="material-symbols-outlined text-[18px]">smart_display</span><span class="font-label-md text-label-md">Raw → Reel</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="smart-editor" href="#"><span class="material-symbols-outlined text-[18px]">content_cut</span><span class="font-label-md text-label-md">Smart Editor</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="publish-schedule" href="#"><span class="material-symbols-outlined text-[18px]">schedule_send</span><span class="font-label-md text-label-md">Publish &amp; Schedule</span></a></div><div class="space-y-0.5"><div class="px-space-sm pb-1 font-label-sm text-label-sm text-outline uppercase tracking-wider">Workspace</div><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="content-library" href="#"><span class="material-symbols-outlined text-[18px]">grid_view</span><span class="font-label-md text-label-md">Content Library</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="calendar" href="#"><span class="material-symbols-outlined text-[18px]">calendar_today</span><span class="font-label-md text-label-md">Calendar</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="analytics" href="#"><span class="material-symbols-outlined text-[18px]">equalizer</span><span class="font-label-md text-label-md">Analytics</span></a></div></nav></div><div class="p-space-md border-t border-outline-variant/30 space-y-0.5"><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="brand-kit" href="#"><span class="material-symbols-outlined text-[18px]">palette</span><span class="font-label-md text-label-md">Brand Kit</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="settings" href="#"><span class="material-symbols-outlined text-[18px]">settings</span><span class="font-label-md text-label-md">Settings</span></a><div class="pt-space-sm mt-space-sm border-t border-outline-variant/20 flex items-center justify-between px-space-sm"><div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-primary"></div><span class="font-label-sm text-label-sm text-outline">v2.4.0 · Studio</span></div><span class="material-symbols-outlined text-[16px] text-outline hover:text-on-surface cursor-pointer">help_outline</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/40 z-40 flex items-center justify-between px-space-lg"><div class="flex items-center flex-1 max-w-xl"><div class="relative w-full flex items-center"><span class="material-symbols-outlined absolute left-3 text-[18px] text-outline pointer-events-none">search</span><input class="w-full pl-9 pr-14 py-1.5 bg-surface-container-lowest border border-outline-variant/50 rounded-lg text-on-surface placeholder:text-outline/70 focus:outline-none focus:border-primary font-body-sm text-body-sm transition-colors" placeholder="Search ideas, projects, or content..." type="text"/><kbd class="absolute right-2.5 px-1.5 py-0.5 bg-surface-container-high border border-outline-variant rounded text-[10px] font-label-sm text-on-surface-variant select-none">&amp;cmdK</kbd></div></div><div class="flex items-center gap-space-md pl-space-md"><button class="relative w-9 h-9 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary"></span></button><div class="h-4 w-px bg-outline-variant/40"></div><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="relative pt-16 bg-surface min-h-screen w-full px-space-lg"><div class="flex flex-col w-full pb-space-xl">
+<!-- Top Global Editorial Toolbar -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md py-space-md mb-space-md">
+<div class="flex items-center gap-space-md">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></span>
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">Raw → Reel Studio</span>
+</div>
+<span class="text-outline text-label-md">•</span>
+<span class="font-label-md text-label-md text-outline">Project: #RR-8842 • "Architecting Focus in High Noise"</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-medium">Auto-synced</span>
+</div>
+<div class="flex items-center gap-space-sm self-end lg:self-auto">
+<button class="px-space-md py-2 rounded-lg bg-surface-container-lowest text-on-surface hover:bg-surface-container-low shadow-sm flex items-center gap-1.5 font-label-md text-label-md transition-all">
+<span class="material-symbols-outlined text-[18px] text-outline">bookmark_border</span>
+<span>Save Draft</span>
+</button>
+<button class="px-space-md py-2 rounded-lg bg-surface-container-lowest text-on-surface hover:bg-surface-container-low shadow-sm flex items-center gap-1.5 font-label-md text-label-md transition-all">
+<span class="material-symbols-outlined text-[18px] text-outline">file_download</span>
+<span>Export 4K (9:16)</span>
+</button>
+<button class="px-space-lg py-2 rounded-lg bg-primary text-on-primary hover:bg-primary-container shadow-md flex items-center gap-2 font-label-lg text-label-lg transition-all">
+<span class="material-symbols-outlined text-[18px]">send</span>
+<span>Publish to Channels →</span>
+</button>
+</div>
+</div>
+<!-- Studio Main Workstation Grid -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg items-start">
+<!-- LEFT COLUMN: Raw Media Ingestion & Assist Insights (xl:col-span-3) -->
+<div class="xl:col-span-3 flex flex-col gap-space-md">
+<!-- Uploaded Media Drawer Card -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px] text-primary">video_library</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-medium">Raw Media Pool</h2>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-label-sm text-on-surface-variant font-semibold">4 Clips</span>
+</div>
+<!-- Media Drag-Drop Banner -->
+<div class="rounded-lg bg-surface-container-low hover:bg-surface-container p-space-md text-center cursor-pointer transition-colors flex flex-col items-center justify-center gap-1">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]">cloud_upload</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface font-medium">Add B-Roll &amp; Audio Takes</span>
+<span class="font-label-sm text-label-sm text-outline">ProRes, MP4, H.265 up to 4GB</span>
+</div>
+<!-- Clip List -->
+<div class="flex flex-col gap-space-xs">
+<!-- Clip 1 (Active / Primary) -->
+<div class="p-2.5 rounded-lg bg-secondary-container/40 flex items-center gap-3 transition-all hover:bg-secondary-container/60 cursor-pointer">
+<div class="relative w-16 h-12 rounded bg-surface-container-high overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="Close up editorial cinematic portrait shot of an author talking directly to camera, shallow depth of field, warm morning Scandinavian window light, warm earth tones, deep green aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWFRfHiC69-omKHGqjC0IlbNoG_RHAGzQRSnLxdh5C4XioSXzm9Eg1Ft07nZvlWjFqR_GppI5R7PIB4b4GwKIs8vPLFLtr2G4IBqb8gtB6HiYFD9X9ZJDkDRhIz6r9ku_r5-DaYeqLywtFPfeF-KkMwILr7PmQoqZuFP3ZwJTn0338rsvDNuKrQaGerKpmZsEXolYxUjLHXc2l3L5j4oVx4lSf0bti_5bSVQiwQ42-tAnJ7zSB_yL3Rw"/>
+<span class="absolute bottom-1 right-1 px-1 rounded bg-inverse-surface/80 text-inverse-on-surface font-label-sm text-[10px] leading-tight font-mono">00:45</span>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<div class="flex items-center justify-between gap-1">
+<span class="font-label-md text-label-md font-semibold text-on-surface truncate">Clip 1: Main Talking Head</span>
+<span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+</div>
+<span class="font-label-sm text-label-sm text-primary font-medium">A-Roll Master • 4K 24fps</span>
+</div>
+</div>
+<!-- Clip 2 -->
+<div class="p-2.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container-low flex items-center gap-3 transition-all cursor-pointer">
+<div class="relative w-16 h-12 rounded bg-surface-container-high overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="High resolution macbook display screengrab presenting editorial minimal software dashboard with deep forest green accents, high contrast typographical design interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAXoazsvBUaYA4hcE1eJm_JqUuUvByllhmYcdl9ctANG7LHbm1LedagVP_P4WJYqQTFq7QZiRXfOKXYa_1NJtWtYksNLe8VL9_weaDb9dGVAOhOC2WLfKTcAgGEGQpq6bimD465_JSVUIUoiwDmEi3SNjqvW3cgFYEAaD99bRgZ9BTa6wQTgTUSjYg8aJX6dAv8eslA_rPquOFvCI2c8N6Ki-zVxV8KyD1veRphKcOMlwA_lS0BgiW1XA"/>
+<span class="absolute bottom-1 right-1 px-1 rounded bg-inverse-surface/80 text-inverse-on-surface font-label-sm text-[10px] leading-tight font-mono">00:20</span>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<span class="font-label-md text-label-md font-medium text-on-surface truncate">Clip 2: Screen capture</span>
+<span class="font-label-sm text-label-sm text-outline">B-Roll UI • 60fps</span>
+</div>
+</div>
+<!-- Clip 3 -->
+<div class="p-2.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container-low flex items-center gap-3 transition-all cursor-pointer">
+<div class="relative w-16 h-12 rounded bg-surface-container-high overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="Artistic b-roll overhead flatlay of ceramic coffee mug next to a vintage leather journal and fountain pen on light ash wood writing desk, soft Nordic ambient light." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_g3rtxZmJAv86Z9NEo2GcbackFE3K9vlTZv1ZUeI_h7jwxs_YZS1I6TT-tufdqPBjwE-0ABGhDZt0LO8eJHz95XvnrzlC2KLDj3XN_CD7vGxRcr1RV6mIUlfNIRyNioMUFj2pFF0uDKID0-we3VM-IH_gcrBsuwPmAAIjMemrUybKg2pS7M7B8Y1Jqib-dqtcVvECaDYulhPJ9luwHZLLEAmcgv2yHE5TpIBntotZgyACDclo38a4LA"/>
+<span class="absolute bottom-1 right-1 px-1 rounded bg-inverse-surface/80 text-inverse-on-surface font-label-sm text-[10px] leading-tight font-mono">00:15</span>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<span class="font-label-md text-label-md font-medium text-on-surface truncate">Clip 3: Coffee / Desk Aesthetic</span>
+<span class="font-label-sm text-label-sm text-outline">B-Roll Cut • Atmospheric</span>
+</div>
+</div>
+<!-- Clip 4 -->
+<div class="p-2.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container-low flex items-center gap-3 transition-all cursor-pointer">
+<div class="relative w-16 h-12 rounded bg-surface-container-high overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="Profile angle of modern creative thinker smiling and nodding enthusiastically in a minimalist sunlit studio with linen curtains and fiddle leaf fig." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiVSe7FdMPyF3NHoNjt64IJtAaLEshAwr2xcvYiuCgTJD9Lrx_CKcTE2QuyZV1hnoawT89AXmeM9ObLopT8Ahfjkm7RgQ8A1EERmK4OEXqurS4iF7a6WjE_r2r4tMkWChcOur4I9-IJhbl2advpCW4DjInarcfyVaY-RPNdOy3b9Hm-0VgLz0eQzebPEA6ZSadC2k7e3inGPOoyKvCRaOdgUQ4kp7vHxhgg6zHr7tGbtmJCnJJtFJ1AA"/>
+<span class="absolute bottom-1 right-1 px-1 rounded bg-inverse-surface/80 text-inverse-on-surface font-label-sm text-[10px] leading-tight font-mono">00:08</span>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<span class="font-label-md text-label-md font-medium text-on-surface truncate">Clip 4: Reaction nod cut</span>
+<span class="font-label-sm text-label-sm text-outline">Micro B-Roll • 120fps</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Smart Assist Suggestions Panel -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-tertiary">auto_awesome</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-medium">Smart Assist Insights</h3>
+</div>
+<div class="space-y-2 mt-1">
+<div class="p-2.5 rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+<span class="font-label-md text-label-md text-on-surface">14 clips detected</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Raw sync ok</span>
+</div>
+<div class="p-2.5 rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+<span class="font-label-md text-label-md text-on-surface">6 strong moments</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary font-medium">High Energy</span>
+</div>
+<div class="p-2.5 rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+<span class="font-label-md text-label-md text-on-surface">3 potential hooks</span>
+</div>
+<span class="px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-semibold">Ranked #1</span>
+</div>
+<div class="p-2.5 rounded-lg bg-secondary-container/50 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">cut</span>
+<span class="font-label-md text-label-md text-on-surface font-medium">1 long silence removed</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-secondary-container font-mono">-3.4s cut</span>
+</div>
+</div>
+<button class="w-full mt-2 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-label-md text-label-md transition-colors flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">tune</span>
+<span>Re-analyze Audio Cadence</span>
+</button>
+</div>
+</div>
+<!-- MIDDLE COLUMN: High-Fidelity 9:16 Video Player & Visual Multi-Track Timeline (xl:col-span-6) -->
+<div class="xl:col-span-6 flex flex-col gap-space-md">
+<!-- Video Stage Container -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
+<!-- Live Playback Stage: 9:16 Aspect Ratio Frame -->
+<div class="relative w-[310px] h-[552px] rounded-xl overflow-hidden shadow-2xl bg-on-background flex flex-col justify-between select-none">
+<!-- Background Video Mock Canvas -->
+<div class="absolute inset-0 z-0">
+<img class="w-full h-full object-cover" data-alt="High quality vertical portrait 9:16 of thoughtful content creator speaking passionately in a chic modernist studio loft with indoor trees and archival books in background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGEw-3YPFQMwjIxfLaqILNPTPo1eZvE62cHtDwdZBy7t_vDOBRhs0Vd-nHcvFc40VCoTaHQ9n3IDTUMtW3XbqmFHRJ3r4uOfSYWo1f0ezEBy3X-c0Pypgtsl0j2XmzdAXlQ1Grf8C_1PUyG-0Cq5ZwByF1BfQMttOcvFjAVxekPcRd7Ld-Tvo0XLnpzsELSjn1bNBD07M0KukqGkvDVToqU_CVWs62X2NCy4ZPjyuM2etOoWRGyRoPVQ"/>
+<div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/70"></div>
+</div>
+<!-- Video Overlays: Top Status Bar -->
+<div class="relative z-10 p-3 flex items-center justify-between text-on-secondary">
+<div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-fixed animate-ping"></span>
+<span class="font-label-sm text-[10px] tracking-wider uppercase">9:16 Preview</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md font-mono text-[11px]">1080 × 1920</span>
+</div>
+<!-- Video Overlays: Kinetic Caption Center Stage -->
+<div class="relative z-10 px-6 pb-12 flex flex-col items-center text-center">
+<div class="bg-on-background/80 backdrop-blur-md px-4 py-2.5 rounded-xl shadow-lg transform -rotate-1 max-w-[270px]">
+<span class="font-headline-md text-headline-sm uppercase tracking-wide leading-tight text-white font-bold drop-shadow-md">
+                THE BEST <span class="bg-primary px-1.5 py-0.5 rounded text-primary-fixed">VIEWS</span> ARE THE ONES YOU EARN
+              </span>
+</div>
+<div class="mt-2 flex items-center gap-1">
+<span class="w-1 h-1 rounded-full bg-primary-fixed"></span>
+<span class="font-label-sm text-[11px] text-white/90 uppercase tracking-widest font-semibold">Word Highlight Kinetic</span>
+</div>
+</div>
+<!-- Video Overlays: Quick Floating Action Buttons in-screen -->
+<div class="absolute right-3 bottom-24 z-10 flex flex-col gap-3">
+<button class="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/80 transition-colors">
+<span class="material-symbols-outlined text-[18px]">aspect_ratio</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/80 transition-colors">
+<span class="material-symbols-outlined text-[18px]">grid_4x4</span>
+</button>
+</div>
+</div>
+<!-- Video Player Scrubber & Controls -->
+<div class="w-full mt-space-md flex flex-col gap-space-xs max-w-xl">
+<!-- Scrubber Bar -->
+<div class="relative w-full h-2 bg-surface-container rounded-full cursor-pointer flex items-center">
+<div class="h-full bg-primary rounded-full" style="width: 43.75%;"></div>
+<div class="absolute w-4 h-4 rounded-full bg-primary border-2 border-surface-container-lowest shadow-md -ml-2" style="left: 43.75%;"></div>
+</div>
+<!-- Time & Playback Controls -->
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-space-sm">
+<button class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[20px]">replay_10</span>
+</button>
+<button class="w-9 h-9 rounded-full bg-primary text-on-primary flex items-center justify-center shadow hover:bg-primary-container transition-all">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">pause</span>
+</button>
+<button class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[20px]">forward_10</span>
+</button>
+<span class="font-mono text-label-md text-on-surface font-medium ml-2">00:14 <span class="text-outline">/ 00:32</span></span>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="px-2 py-1 rounded text-label-sm font-label-sm bg-surface-container text-on-surface-variant font-mono hover:bg-surface-container-high">1.0x</button>
+<button class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[20px]">volume_up</span>
+</button>
+<button class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[20px]">fullscreen</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Multi-Track Visual Timeline Canvas -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between pb-1 border-b border-surface-container">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-secondary">view_timeline</span>
+<span class="font-headline-sm text-headline-sm text-on-surface font-medium">Smart Sequencer &amp; Multi-Track</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-outline">Zoom</span>
+<div class="w-20 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="w-3/5 h-full bg-outline"></div>
+</div>
+<span class="material-symbols-outlined text-[18px] text-outline cursor-pointer">splitscreen</span>
+</div>
+</div>
+<!-- Track Canvas -->
+<div class="relative w-full rounded-lg bg-surface-container-low p-space-sm space-y-2 overflow-x-auto">
+<!-- Playhead Vertical Needle -->
+<div class="absolute top-0 bottom-0 z-20 pointer-events-none flex flex-col items-center" style="left: 44%;">
+<div class="w-3 h-3 bg-primary rounded-full shadow -mt-1.5"></div>
+<div class="w-0.5 flex-1 bg-primary"></div>
+</div>
+<!-- Track 1: Captions Markers -->
+<div class="flex items-center gap-2">
+<div class="w-20 shrink-0 font-label-sm text-label-sm text-outline flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">subtitles</span> Text
+            </div>
+<div class="flex-1 grid grid-cols-12 gap-1 h-7">
+<div class="col-span-3 bg-primary/20 rounded px-2 flex items-center truncate text-[11px] font-label-sm text-primary font-medium">
+                "THE BEST VIEWS..."
+              </div>
+<div class="col-span-4 bg-primary/20 rounded px-2 flex items-center truncate text-[11px] font-label-sm text-primary font-medium">
+                "ARE THE ONES YOU EARN..."
+              </div>
+<div class="col-span-3 bg-primary/10 rounded px-2 flex items-center truncate text-[11px] font-label-sm text-outline">
+                "WHEN YOU WORK..."
+              </div>
+<div class="col-span-2 bg-surface-container rounded px-1 flex items-center truncate text-[11px] font-label-sm text-outline">
+                [Outro]
+              </div>
+</div>
+</div>
+<!-- Track 2: Video Slices / Thumbs -->
+<div class="flex items-center gap-2">
+<div class="w-20 shrink-0 font-label-sm text-label-sm text-outline flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">videocam</span> Video
+            </div>
+<div class="flex-1 grid grid-cols-12 gap-1.5 h-12">
+<!-- Clip 1 block -->
+<div class="col-span-5 bg-surface-container-high rounded flex items-center p-1 gap-1.5 overflow-hidden shadow-sm relative group">
+<div class="w-10 h-full rounded bg-surface-container-highest shrink-0 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Macro frame thumb clip of content creator talking with studio mic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUbQ2gKA3Ta0hcmrzZo72LQFNkKRTHcEy5VVkirPU4m2Qkv6_UbESsh1hGYxW0FFBCRSpnmU4NmmeDh6mRdEBnwRmT2h7pVZB9PKpkUCARNBOfonwdOGsHfrRQuRebce0p4PDYMk1f_LRiM9kNimMZz-rSQVH7kL_vD72wOs8H_ubuZJ-FUBZIjv_ZM-H2YR5s94ZNYd397YwNs9vvIs8PQZLZ_YzKDiBdATbSzYP_GR_H8QnUwg6-kg"/>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-[11px] font-semibold text-on-surface truncate">Clip 1 • Talking Head</span>
+<span class="font-mono text-[9px] text-outline">00:00 - 00:14</span>
+</div>
+</div>
+<!-- Clip 2 block -->
+<div class="col-span-4 bg-surface-container-high rounded flex items-center p-1 gap-1.5 overflow-hidden shadow-sm">
+<div class="w-10 h-full rounded bg-surface-container-highest shrink-0 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Macro frame thumb clip of crisp software dashboard UI presentation." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIPwHz8jBBoQ2NSRx-BE__BeMMdDR6TVRDO_Yni2o3xr9N82IpRm12NG7rJhVo_drQs5on6juRysBPX-_0GdIHHo46df9teoV-7VgVNPBG5eq7vHWBSXerbBorI7HmspQbL8oRYQu8UMDFZuuWAC8aA5COB-yioJEvZ0prajqklcvSWm-oW0a1LbA2D7KX0Q6yNSFdpxzN9RIXrHD4Hy4-OMziq9RZJt4lLcmo9H24gmf5KCAR_hhpJQ"/>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-[11px] font-semibold text-on-surface truncate">Clip 2 • Desk B-Roll</span>
+<span class="font-mono text-[9px] text-outline">00:14 - 00:24</span>
+</div>
+</div>
+<!-- Clip 3 block -->
+<div class="col-span-3 bg-surface-container-high rounded flex items-center p-1 gap-1.5 overflow-hidden shadow-sm">
+<div class="w-8 h-full rounded bg-surface-container-highest shrink-0 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Macro frame thumb clip of coffee mug warm sunlight aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAz08XfelcAWHn96R6cuIqXOvPV-O-TVEhSRACn5ZvmGXzRTD1D1P4A-zZU0qQ6Y6emZELrF-lbasT_2e5mwlAbv3nlbXXYteWh0ThYjL7SUhbTiatX3QnEnItjHAc0kgOsuORqBpLG1tP9gVjATN3yiYPSCif2tbh_jZYUcNrr80Sc15D_VyKczh0Qxitd6iJTWJDwpWWj3U35yothmnCQ6wlgkOuxm--8aqPO2BIjarIFoOzbVmttZw"/>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-[11px] font-semibold text-on-surface truncate">Clip 3</span>
+<span class="font-mono text-[9px] text-outline">00:24 - 00:32</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Track 3: Audio Waveform with Silence Detection Cuts -->
+<div class="flex items-center gap-2">
+<div class="w-20 shrink-0 font-label-sm text-label-sm text-outline flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">graphic_eq</span> Audio
+            </div>
+<div class="flex-1 h-8 rounded bg-surface-container-highest/60 flex items-center px-1 relative overflow-hidden">
+<!-- Silence removed indicator notch -->
+<div class="absolute left-[38%] top-0 bottom-0 w-4 bg-error-container/80 flex items-center justify-center z-10" title="Silence auto-clipped (-1.8s)">
+<span class="material-symbols-outlined text-[10px] text-on-error-container font-bold">content_cut</span>
+</div>
+<!-- SVG Waveform -->
+<svg class="w-full h-6 text-secondary" fill="none" preserveaspectratio="none" viewbox="0 0 500 24">
+<path d="M0,12 Q5,2 10,12 T20,12 T30,0 T40,12 T50,22 T60,12 T70,4 T80,12 T90,20 T100,12 T110,6 T120,12 T130,18 T140,12 T150,2 T160,12 T170,22 T180,12 L190,12 L200,12 T210,5 T220,12 T230,19 T240,12 T250,1 T260,12 T270,23 T280,12 T290,4 T300,12 T310,20 T320,12 T330,6 T340,12 T350,18 T360,12 T370,3 T380,12 T390,21 T400,12 T410,7 T420,12 T430,17 T440,12 T450,2 T460,12 T470,22 T480,12 T490,5 T500,12" stroke="currentColor" stroke-linecap="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: Smart Tools & Visual Caption Styling (xl:col-span-3) -->
+<div class="xl:col-span-3 flex flex-col gap-space-md">
+<!-- Smart Controllable Toolbar (Section 6) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px] text-primary">psychology</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-medium">Smart AI Actions</h2>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Select • Apply</span>
+</div>
+<!-- Quick Smart Action Modules -->
+<div class="flex flex-col gap-space-xs">
+<!-- Silence Removal -->
+<div class="p-3 rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-primary-fixed flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[16px]">content_cut</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-medium">Remove Silence</span>
+<span class="font-label-sm text-label-sm text-outline">Threshold: -42dB</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-[11px] font-semibold">Applied</span>
+</div>
+<!-- Optimize Hook -->
+<div class="p-3 rounded-lg bg-secondary-container/30 flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed">
+<span class="material-symbols-outlined text-[16px]">bolt</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Optimize Hook</span>
+<span class="font-label-sm text-label-sm text-secondary font-medium">Retention booster</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded bg-primary text-on-primary font-label-sm text-[10px] uppercase font-bold tracking-wider">Active</span>
+</div>
+<!-- Hook Selection Variant Pill -->
+<div class="p-2 rounded bg-surface-container-lowest text-on-surface shadow-xs flex items-center justify-between">
+<div class="flex items-center gap-2 min-w-0">
+<span class="w-1.5 h-1.5 rounded-full bg-primary shrink-0"></span>
+<span class="font-label-sm text-label-sm truncate">Variant A: "The best views..."</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary font-bold shrink-0">+34% ret</span>
+</div>
+</div>
+<!-- Smart B-Roll Inserter -->
+<div class="p-3 rounded-lg bg-surface-container-low hover:bg-surface-container flex items-center justify-between cursor-pointer transition-colors">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-surface-container-highest flex items-center justify-center text-outline">
+<span class="material-symbols-outlined text-[16px]">movie_filter</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-medium">Auto B-Roll Pacing</span>
+<span class="font-label-sm text-label-sm text-outline">3 switch points recommended</span>
+</div>
+</div>
+<button class="px-2.5 py-1 rounded bg-surface-container-highest text-on-surface hover:bg-surface-variant font-label-sm text-[11px] font-medium">Apply</button>
+</div>
+</div>
+</div>
+<!-- Caption Styling Controls (Section 7) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px] text-primary">text_fields</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-medium">Visual Captions Mode</h3>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-[10px] font-bold uppercase">Dynamic</span>
+</div>
+<!-- Caption Style Selector -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Preset Style</label>
+<div class="grid grid-cols-4 gap-1.5">
+<button class="py-1.5 px-1 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-label-sm text-label-sm text-center">Clean</button>
+<button class="py-1.5 px-1 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-label-sm text-label-sm text-center font-bold">Bold</button>
+<button class="py-1.5 px-1 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm text-center font-semibold shadow-xs">Kinetic</button>
+<button class="py-1.5 px-1 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-label-sm text-label-sm text-center">Minimal</button>
+</div>
+</div>
+<!-- Caption Animation Mode -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Animation Dynamics</label>
+<div class="p-2 rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">motion_photos_on</span>
+<span class="font-label-md text-label-md text-on-surface font-medium">Word-by-Word Highlight</span>
+</div>
+<span class="w-3 h-3 rounded-full bg-primary flex items-center justify-center">
+<span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+</span>
+</div>
+</div>
+<!-- Position Placement -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Screen Placement</label>
+<div class="grid grid-cols-3 gap-1.5">
+<button class="py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-label-sm text-label-sm">Top (15%)</button>
+<button class="py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant font-label-sm text-label-sm">Center</button>
+<button class="py-1.5 rounded-lg bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-semibold">Bottom (80%)</button>
+</div>
+</div>
+<!-- Brand Color & Palette Swatches -->
+<div class="flex flex-col gap-2 pt-1 border-t border-surface-container">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Brand Palette Pills</span>
+<span class="font-label-sm text-label-sm text-primary font-medium">Editorial Green</span>
+</div>
+<div class="flex items-center gap-2">
+<!-- Active Primary -->
+<button class="w-7 h-7 rounded-full bg-primary ring-2 ring-offset-2 ring-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</button>
+<!-- Secondary -->
+<button class="w-7 h-7 rounded-full bg-secondary-container hover:scale-105 transition-transform"></button>
+<!-- Accent Gold / Ochre -->
+<button class="w-7 h-7 rounded-full bg-tertiary-fixed-dim hover:scale-105 transition-transform"></button>
+<!-- Dark Broadsheet Charcoal -->
+<button class="w-7 h-7 rounded-full bg-inverse-surface hover:scale-105 transition-transform"></button>
+<!-- Crisp Paper White -->
+<button class="w-7 h-7 rounded-full bg-surface-container-lowest border border-outline-variant hover:scale-105 transition-transform"></button>
+<button class="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center text-outline hover:text-on-surface transition-colors ml-auto">
+<span class="material-symbols-outlined text-[16px]">colorize</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Quick Export Preset Metadata Card -->
+<div class="p-space-md rounded-xl bg-surface-container flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-outline font-semibold uppercase">Channel Profiles</span>
+<span class="material-symbols-outlined text-[16px] text-outline">tune</span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="px-2 py-1 rounded bg-surface-container-lowest text-on-surface font-label-sm text-label-sm font-medium shadow-xs">Instagram Reels</span>
+<span class="px-2 py-1 rounded bg-surface-container-lowest text-on-surface font-label-sm text-label-sm font-medium shadow-xs">TikTok</span>
+<span class="px-2 py-1 rounded bg-surface-container-lowest text-on-surface font-label-sm text-label-sm font-medium shadow-xs">YouTube Shorts</span>
+</div>
+</div>
+</div>
+</div>
+</div></main></div></body></html>

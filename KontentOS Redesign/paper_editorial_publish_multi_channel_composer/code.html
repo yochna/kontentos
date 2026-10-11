@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,300..800&amp;family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-variant":"#dde4df","primary-container":"#285c4d","tertiary-fixed-dim":"#feb882","on-background":"#161d1a","background":"#f4fbf6","on-primary-fixed-variant":"#1a4f41","on-surface":"#161d1a","on-secondary":"#ffffff","tertiary-container":"#79471b","secondary-container":"#c2ecda","primary-fixed":"#b7eeda","surface":"#f4fbf6","on-tertiary-fixed-variant":"#6a3b0f","primary-fixed-dim":"#9cd2be","surface-container-high":"#e3eae5","error-container":"#ffdad6","on-error-container":"#93000a","on-surface-variant":"#404945","tertiary-fixed":"#ffdcc4","tertiary":"#5d3105","on-tertiary-container":"#feb882","on-primary-fixed":"#002018","error":"#ba1a1a","on-tertiary-fixed":"#2f1500","surface-container-low":"#eef5f0","outline":"#707975","on-error":"#ffffff","inverse-surface":"#2b322f","on-primary-container":"#9dd2bf","outline-variant":"#c0c9c3","primary":"#0a4436","on-tertiary":"#ffffff","surface-bright":"#f4fbf6","inverse-on-surface":"#ebf2ed","on-primary":"#ffffff","surface-dim":"#d4dcd7","surface-container":"#e8f0ea","secondary-fixed-dim":"#a7cfbf","on-secondary-container":"#466c5e","surface-tint":"#346858","inverse-primary":"#9cd2be","secondary-fixed":"#c2ecda","surface-container-highest":"#dde4df","secondary":"#406658","on-secondary-fixed":"#002117","on-secondary-fixed-variant":"#284e41","surface-container-lowest":"#ffffff"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"margin":"2rem","space-md":"1rem","gutter":"1.5rem","space-lg":"1.5rem","space-sm":"0.5rem","space-xl":"2.5rem","space-xs":"0.25rem"},fontFamily:{"label-md":["Hanken Grotesk"],"label-lg":["Hanken Grotesk"],"headline-sm":["Newsreader"],"display-mobile":["Newsreader"],"body-lg":["Newsreader"],"headline-lg":["Newsreader"],"body-sm":["Hanken Grotesk"],"body-md":["Hanken Grotesk"],"headline-md":["Newsreader"],"label-sm":["Hanken Grotesk"],"display":["Newsreader"],"headline-lg-mobile":["Newsreader"]},fontSize:{"label-md":["12px",{lineHeight:"16px",letterSpacing:"0.02em",fontWeight:"500"}],"label-lg":["14px",{lineHeight:"20px",letterSpacing:"0.01em",fontWeight:"600"}],"headline-sm":["20px",{lineHeight:"28px",fontWeight:"500"}],"display-mobile":["36px",{lineHeight:"44px",letterSpacing:"-0.015em",fontWeight:"400"}],"body-lg":["19px",{lineHeight:"32px",letterSpacing:"0.005em",fontWeight:"400"}],"headline-lg":["36px",{lineHeight:"44px",letterSpacing:"-0.015em",fontWeight:"400"}],"body-sm":["13px",{lineHeight:"20px",fontWeight:"400"}],"body-md":["15px",{lineHeight:"24px",letterSpacing:"-0.005em",fontWeight:"400"}],"headline-md":["26px",{lineHeight:"34px",letterSpacing:"-0.01em",fontWeight:"400"}],"label-sm":["11px",{lineHeight:"14px",letterSpacing:"0.04em",fontWeight:"600"}],"display":["48px",{lineHeight:"56px",letterSpacing:"-0.02em",fontWeight:"400"}],"headline-lg-mobile":["28px",{lineHeight:"36px",letterSpacing:"-0.01em",fontWeight:"400"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col justify-between select-none"><div class="flex flex-col"><div class="h-16 px-space-lg flex items-center border-b border-outline-variant/30"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center"><span class="material-symbols-outlined text-[20px]">eco</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-primary font-bold tracking-tight leading-none">KontentOS</span><span class="font-label-sm text-label-sm text-outline tracking-wider uppercase mt-1">Studio Workspace</span></div></div></div><div class="px-space-md py-space-sm"><button class="w-full flex items-center justify-between px-space-sm py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container border border-outline-variant/40 text-on-surface transition-colors"><div class="flex items-center gap-2 overflow-hidden"><div class="w-5 h-5 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center text-[11px] font-semibold">E</div><span class="font-label-md text-label-md truncate text-on-surface">Editorial Studio</span></div><span class="material-symbols-outlined text-[16px] text-on-surface-variant">unfold_more</span></button></div><nav class="px-space-md py-space-xs space-y-space-md" data-active-classes="bg-secondary-container text-on-secondary-container font-semibold"><div class="space-y-0.5"><div class="px-space-sm pb-1 font-label-sm text-label-sm text-outline uppercase tracking-wider">Core Workflow</div><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="ideas" href="#"><span class="material-symbols-outlined text-[18px]">auto_awesome</span><span class="font-label-md text-label-md">Ideas</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="raw-reel" href="#"><span class="material-symbols-outlined text-[18px]">smart_display</span><span class="font-label-md text-label-md">Raw → Reel</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="smart-editor" href="#"><span class="material-symbols-outlined text-[18px]">content_cut</span><span class="font-label-md text-label-md">Smart Editor</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="publish-schedule" href="#"><span class="material-symbols-outlined text-[18px]">schedule_send</span><span class="font-label-md text-label-md">Publish &amp; Schedule</span></a></div><div class="space-y-0.5"><div class="px-space-sm pb-1 font-label-sm text-label-sm text-outline uppercase tracking-wider">Workspace</div><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="content-library" href="#"><span class="material-symbols-outlined text-[18px]">grid_view</span><span class="font-label-md text-label-md">Content Library</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="calendar" href="#"><span class="material-symbols-outlined text-[18px]">calendar_today</span><span class="font-label-md text-label-md">Calendar</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="analytics" href="#"><span class="material-symbols-outlined text-[18px]">equalizer</span><span class="font-label-md text-label-md">Analytics</span></a></div></nav></div><div class="p-space-md border-t border-outline-variant/30 space-y-0.5"><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="brand-kit" href="#"><span class="material-symbols-outlined text-[18px]">palette</span><span class="font-label-md text-label-md">Brand Kit</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="settings" href="#"><span class="material-symbols-outlined text-[18px]">settings</span><span class="font-label-md text-label-md">Settings</span></a><div class="pt-space-sm mt-space-sm border-t border-outline-variant/20 flex items-center justify-between px-space-sm"><div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-primary"></div><span class="font-label-sm text-label-sm text-outline">v2.4.0 · Studio</span></div><span class="material-symbols-outlined text-[16px] text-outline hover:text-on-surface cursor-pointer">help_outline</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/40 z-40 flex items-center justify-between px-space-lg"><div class="flex items-center flex-1 max-w-xl"><div class="relative w-full flex items-center"><span class="material-symbols-outlined absolute left-3 text-[18px] text-outline pointer-events-none">search</span><input class="w-full pl-9 pr-14 py-1.5 bg-surface-container-lowest border border-outline-variant/50 rounded-lg text-on-surface placeholder:text-outline/70 focus:outline-none focus:border-primary font-body-sm text-body-sm transition-colors" placeholder="Search ideas, projects, or content..." type="text"/><kbd class="absolute right-2.5 px-1.5 py-0.5 bg-surface-container-high border border-outline-variant rounded text-[10px] font-label-sm text-on-surface-variant select-none">&amp;cmdK</kbd></div></div><div class="flex items-center gap-space-md pl-space-md"><button class="relative w-9 h-9 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary"></span></button><div class="h-4 w-px bg-outline-variant/40"></div><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="relative pt-16 bg-surface min-h-screen w-full px-space-lg"><div class="flex flex-col w-full pb-16">
+<!-- Top Utility Ribbon & Editorial Header -->
+<header class="w-full pt-4 pb-6 border-b border-outline-variant/30">
+<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+<div>
+<div class="flex items-center gap-2 mb-1.5">
+<span class="font-label-sm text-label-sm text-outline tracking-widest uppercase">Publish &amp; Distribution</span>
+<span class="text-outline-variant text-[11px]">•</span>
+<span class="font-label-sm text-label-sm text-primary-container font-semibold tracking-wider uppercase">Omnichannel Orchestration Desk</span>
+</div>
+<div class="flex items-baseline gap-3">
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Publish &amp; Schedule</h1>
+<span class="font-label-md text-label-md px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant">Draft #KD-8821</span>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex items-center gap-3 self-start lg:self-auto">
+<button class="px-4 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/60 text-on-surface hover:bg-surface-container-low font-label-md text-label-md transition-all flex items-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[17px] text-outline">save</span>
+          Save as Draft
+        </button>
+<button class="px-4 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/60 text-on-surface hover:bg-surface-container-low font-label-md text-label-md transition-all flex items-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[17px] text-outline">visibility</span>
+          Preview Matrix (5)
+        </button>
+<button class="px-5 py-2 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md tracking-wide transition-all flex items-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+          Schedule &amp; Dispatch
+        </button>
+</div>
+</div>
+<!-- Platform Selector Strip -->
+<div class="mt-6 pt-4 border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-4">
+<div class="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+<!-- IG Reel (Active) -->
+<button class="px-3 py-1.5 rounded-lg bg-secondary-container text-on-secondary-container border border-secondary/30 flex items-center gap-2 shadow-xs transition-all flex-shrink-0">
+<span class="material-symbols-outlined text-[17px] text-primary">play_circle</span>
+<div class="text-left">
+<div class="font-label-md text-label-md font-bold leading-tight">Instagram Reel</div>
+<div class="font-label-sm text-[10px] text-on-secondary-container/80 leading-none">@amanshades</div>
+</div>
+<span class="w-1.5 h-1.5 rounded-full bg-primary ml-1"></span>
+</button>
+<!-- YouTube Shorts (Active) -->
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container-low border border-outline-variant/50 text-on-surface flex items-center gap-2 transition-all flex-shrink-0">
+<span class="material-symbols-outlined text-[17px] text-error">video_library</span>
+<div class="text-left">
+<div class="font-label-md text-label-md font-semibold leading-tight">YouTube Shorts</div>
+<div class="font-label-sm text-[10px] text-outline leading-none">@AmanSharmaFilms</div>
+</div>
+<span class="w-1.5 h-1.5 rounded-full bg-primary ml-1"></span>
+</button>
+<!-- TikTok (Active) -->
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container-low border border-outline-variant/50 text-on-surface flex items-center gap-2 transition-all flex-shrink-0">
+<span class="material-symbols-outlined text-[17px] text-on-surface">music_note</span>
+<div class="text-left">
+<div class="font-label-md text-label-md font-semibold leading-tight">TikTok</div>
+<div class="font-label-sm text-[10px] text-outline leading-none">@amanshades</div>
+</div>
+<span class="w-1.5 h-1.5 rounded-full bg-primary ml-1"></span>
+</button>
+<!-- LinkedIn (Active) -->
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest hover:bg-surface-container-low border border-outline-variant/50 text-on-surface flex items-center gap-2 transition-all flex-shrink-0">
+<span class="material-symbols-outlined text-[17px] text-secondary">feed</span>
+<div class="text-left">
+<div class="font-label-md text-label-md font-semibold leading-tight">LinkedIn Post</div>
+<div class="font-label-sm text-[10px] text-outline leading-none">Aman Sharma</div>
+</div>
+<span class="w-1.5 h-1.5 rounded-full bg-primary ml-1"></span>
+</button>
+<!-- X / Twitter (Inactive) -->
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-low/60 hover:bg-surface-container-low border border-dashed border-outline-variant text-outline flex items-center gap-2 opacity-75 transition-all flex-shrink-0">
+<span class="material-symbols-outlined text-[16px]">terminal</span>
+<div class="text-left">
+<div class="font-label-md text-label-md leading-tight">X / Twitter</div>
+<div class="font-label-sm text-[10px] leading-none text-outline-variant">Disconnected</div>
+</div>
+<span class="material-symbols-outlined text-[14px]">add_circle</span>
+</button>
+<!-- Facebook (Inactive) -->
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-low/60 hover:bg-surface-container-low border border-dashed border-outline-variant text-outline flex items-center gap-2 opacity-75 transition-all flex-shrink-0">
+<span class="material-symbols-outlined text-[16px]">public</span>
+<div class="text-left">
+<div class="font-label-md text-label-md leading-tight">Facebook</div>
+<div class="font-label-sm text-[10px] leading-none text-outline-variant">Inactive</div>
+</div>
+<span class="material-symbols-outlined text-[14px]">add_circle</span>
+</button>
+</div>
+<!-- Auto-Adaptation Toggle -->
+<div class="flex items-center gap-3 px-3 py-1.5 bg-surface-container-lowest rounded-lg border border-outline-variant/40 shadow-xs flex-shrink-0">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-semibold text-on-surface flex items-center gap-1">
+            Omnichannel Auto-Adaptation
+            <span class="material-symbols-outlined text-[14px] text-primary" title="Smartly reformats character limits, tags &amp; crop ratios per platform">auto_fix_high</span>
+</span>
+<span class="font-label-sm text-[11px] text-outline">Smart aspect crop &amp; tag syntax</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" id="auto-adapt-toggle" type="checkbox"/>
+<div class="w-9 h-5 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+</div>
+</header>
+<!-- Three-Column Bespoke Editorial Composer Canvas -->
+<main class="mt-6 grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+<!-- COLUMN 1: Live Interactive Device Mockup (3.5 cols) -->
+<section class="xl:col-span-4 flex flex-col items-center">
+<!-- Device Viewport Toggle Pills -->
+<div class="w-full flex items-center justify-between mb-3 px-1">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline">Live Canvas View</span>
+<div class="inline-flex bg-surface-container-lowest p-0.5 rounded-lg border border-outline-variant/40 shadow-xs">
+<button class="px-2.5 py-1 rounded bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-semibold transition-colors">Reels</button>
+<button class="px-2.5 py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors">Feed</button>
+<button class="px-2.5 py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors">Story</button>
+<button class="px-2.5 py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors">Grid</button>
+</div>
+</div>
+<!-- Smartphone Hardware Shell Frame -->
+<div class="relative w-full max-w-[340px] aspect-[9/19] bg-on-background rounded-[40px] p-2.5 shadow-xl border border-outline-variant/50 select-none">
+<!-- Dynamic Island / Speaker cutout -->
+<div class="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-4 bg-on-background rounded-full z-30 flex items-center justify-center">
+<div class="w-2.5 h-2.5 rounded-full bg-surface-container-highest/30 mr-2"></div>
+<div class="w-2 h-2 rounded-full bg-primary-container/60"></div>
+</div>
+<!-- Phone Screen Interior -->
+<div class="relative w-full h-full rounded-[32px] overflow-hidden bg-on-background text-surface flex flex-col justify-between">
+<!-- Video Screen Background Simulation -->
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Editorial portrait cinematography of a focused male founder sitting at a minimalist oak wooden desk surrounded by architectural books and high-end studio lighting, looking directly at camera while holding a ceramic coffee mug in warm natural daylight." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAZoMYEzH6sZmU38zlL0zSeA6jomOTEUmB1twzHG6BbEiWg093hMjZ1zvGqm4yQGZH6s9G7_2xNGYujKytgNYV7ICFMdqDzrX3n26lHOqcudKPD80RJQSrmc8GKsrX0pL19djIPeCIxYa2L4wm0byVuWlr9-tWnbgXre1YDuTXKhNHROu44O2OL9-4vcbBa-InD4b4nK_tBHnt69vu3eamoG6wfgUtFwpn_QQXWMtZg2EPP_siIA6BN9w')">
+<div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/85"></div>
+</div>
+<!-- Phone Top Bar -->
+<div class="relative z-20 pt-3 px-5 flex items-center justify-between text-surface/90 text-xs font-label-sm">
+<span>09:41</span>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px]">signal_cellular_4_bar</span>
+<span class="material-symbols-outlined text-[13px]">wifi</span>
+<span class="material-symbols-outlined text-[15px]">battery_full</span>
+</div>
+</div>
+<!-- Reel Header Pill -->
+<div class="relative z-20 px-4 pt-4 flex items-center justify-between">
+<span class="font-headline-sm text-[17px] text-surface font-semibold tracking-wide">Reels</span>
+<span class="material-symbols-outlined text-surface text-[20px] cursor-pointer">photo_camera</span>
+</div>
+<!-- Right Action Bar (Heart, Comment, Share, Audio) -->
+<div class="absolute right-3 bottom-20 z-20 flex flex-col items-center gap-4 text-surface">
+<div class="flex flex-col items-center">
+<button class="w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[26px] text-error fill-1" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</button>
+<span class="font-label-sm text-[11px] font-medium text-surface drop-shadow-sm">1,420</span>
+</div>
+<div class="flex flex-col items-center">
+<button class="w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[24px] text-surface drop-shadow-sm">chat_bubble</span>
+</button>
+<span class="font-label-sm text-[11px] font-medium text-surface drop-shadow-sm">84</span>
+</div>
+<div class="flex flex-col items-center">
+<button class="w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[24px] text-surface drop-shadow-sm">send</span>
+</button>
+<span class="font-label-sm text-[11px] font-medium text-surface drop-shadow-sm">312</span>
+</div>
+<button class="w-8 h-8 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px] text-surface drop-shadow-sm">more_horiz</span>
+</button>
+<!-- Spinning Vinyl Avatar Audio -->
+<div class="w-8 h-8 rounded-full border-2 border-surface overflow-hidden mt-1 animate-spin duration-3000">
+<div class="w-full h-full bg-cover bg-center" data-alt="Square crop close up of modern aesthetic serif logo monogram embossed in dark forest green paper." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBMemOMIYD0GFBJPsWETelYDpV-3bXww1m1Z40mgAp2G8NcV6VhK952Rxasq-157zNYRGp_iXXxv7oXqiFZ__0sSzFOASh1O3GQFj6IOGI-zzRNSD3RXI7gE7xF5SJH2QSlpnVoPDnnf6OgnIUhdxpYNwUNBM5Oimq_0-oUAn_s3DoEP7k-UtS4egXdCq4oB_KujWA0eATOu3zhLhSDYaaX_LUqj0Xtc9JdZIzQn_-X4NUVJqgZ34_Uew')"></div>
+</div>
+</div>
+<!-- Bottom Metadata Overlay (Creator, Caption, Audio Tag) -->
+<div class="relative z-20 px-4 pb-5 flex flex-col gap-2">
+<!-- Creator row -->
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-full bg-primary-fixed border border-surface/40 flex items-center justify-center text-on-primary-fixed font-bold text-xs">
+                AS
+              </div>
+<span class="font-label-md text-label-md font-semibold text-surface drop-shadow-sm">@amanshades</span>
+<button class="px-2 py-0.5 rounded-full border border-surface/50 text-[10px] font-label-sm text-surface font-medium hover:bg-surface/20 transition-colors backdrop-blur-xs">
+                Follow
+              </button>
+</div>
+<!-- Dynamic Caption Preview -->
+<div class="text-surface drop-shadow-md text-body-sm font-body-sm pr-12">
+<span id="preview-caption-text">Swipe to see the 5 tools saving founders 10+ hrs every week ⚡️ Most people get overwhelmed by manual workflows, but these quiet engines...</span>
+<span class="font-semibold text-surface-container-high cursor-pointer ml-1 text-[12px]">...more</span>
+</div>
+<!-- Audio attribution pill -->
+<div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 w-fit text-surface text-[11px] font-label-sm">
+<span class="material-symbols-outlined text-[13px] text-secondary-fixed">graphic_eq</span>
+<span class="truncate max-w-[170px]">Original audio • Aman Sharma (Acoustic Minimal)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Safe-Zone Quality Indicator Badge -->
+<div class="mt-4 flex items-center gap-2 px-3 py-1.5 bg-surface-container-low rounded-full border border-outline-variant/40 text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[15px] text-primary">verified_user</span>
+<span>Reel safe-zone 100% compliant (no HUD overlap)</span>
+</div>
+</section>
+<!-- COLUMN 2: Content Asset & Native Customization Deck (4.5 cols) -->
+<section class="xl:col-span-5 flex flex-col gap-5">
+<!-- Video Asset Metadata Card -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/40 p-4 shadow-sm">
+<div class="flex items-start justify-between gap-3 mb-3">
+<div class="flex items-center gap-3">
+<div class="w-12 h-14 rounded-lg bg-surface-container overflow-hidden relative flex-shrink-0 border border-outline-variant/30">
+<div class="w-full h-full bg-cover bg-center" data-alt="Sharp vertical visual frame of modern productivity desk setup with cinematic lighting and deep green shadows." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD4n178beKGVVqUnZgi5-TtnbY_ANH7hl6R6pDGMSYAtdoLh1CBEZ1tatRvqORgs2u9LIuCzCtiZi31cfibw2rWI_6o5OXqNSsB1RF5NyED_tj_xpdWQyR3LvTffMG9Y3qAgU_stGeA3564YLfFLEwrdqi-Fzx3eB1OVn-oPNmr6uQI0j0RzpL2VfAs1njS0KTvGzO7nAyxcrHtKUH5-vbKE8V-pxuqhQsCopM50bSgTtrLwVvAFDbTjw')"></div>
+<span class="absolute inset-0 flex items-center justify-center bg-black/20 text-white">
+<span class="material-symbols-outlined text-[16px]">play_circle</span>
+</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-[16px] text-on-surface font-semibold truncate max-w-[220px]">5 AI tools for busy founders.mp4</h3>
+<div class="flex items-center gap-2 mt-0.5 text-outline font-label-sm text-[11px]">
+<span>4K UHD • 60 FPS</span>
+<span>•</span>
+<span>00:32s</span>
+<span>•</span>
+<span class="font-mono">1080×1920 (9:16)</span>
+</div>
+</div>
+</div>
+<button class="text-outline hover:text-primary p-1 rounded-md hover:bg-surface-container transition-colors" title="Replace video asset">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+</button>
+</div>
+<!-- Thumbnail / Cover Frame Scrub Selector -->
+<div class="pt-3 border-t border-outline-variant/20">
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-outline">Cover Frame Scrub Selector</span>
+<span class="font-label-sm text-[11px] text-primary font-medium">Selected: Frame 00:08.4s</span>
+</div>
+<div class="grid grid-cols-4 gap-2">
+<!-- Scrub Frame 1 -->
+<div class="relative rounded-md overflow-hidden aspect-[9/14] border-2 border-transparent hover:border-primary/50 cursor-pointer group">
+<div class="w-full h-full bg-cover bg-center" data-alt="Editorial still of speaker pointing at transparent glass board with hand-drawn process arrows." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAi05GZfl8FMXrl38ECVCeJ2LkB3WVzXAQ635dH1FeA-t5vrMgGH7uOFq9F4358xPJT4rFZ1Zxa2dzsYHXyw2regOs7FCt1d1D2_BBfhBOazxb-c7DgooI89myi7-iQMG3TZ_7JQeFn5anDknoizlM0JjTai2xOmeAzxa3tsPc_l8TjmQrAZb9QmqLy7Sabz-qWihV6CmM0pEOThaQz-Yv17xzBVLezTi2wY1sg7-SZ9sZ6_D9NTl_H5g')"></div>
+<span class="absolute bottom-1 right-1 font-mono text-[9px] bg-black/60 text-white px-1 rounded">00:02</span>
+</div>
+<!-- Scrub Frame 2 (Active) -->
+<div class="relative rounded-md overflow-hidden aspect-[9/14] border-2 border-primary cursor-pointer ring-2 ring-primary/20 shadow-xs">
+<div class="w-full h-full bg-cover bg-center" data-alt="Cinematic still frame of creator seated at Scandinavian wooden table with coffee, looking confident into the camera." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBKqiDykCHSKaPbN-ZdrTh9X7Unzszea-8tLzj0DU1fhp5CcjiiU-sY6iSppwD3b_I2c3tF2OUbWKxU9wTbvO83mKLzftnUxcS4rZfhE-kNUTwdhvIEeJ0amp_XeCxabuk81056xDi2U5gOk8vicY-nztBBAQMM5XkWESRCsrnGmBka04OOwUhdXHUresHJaGvmMPbbL78Iama9b2KYgcdJ6kgMvG9rXwC5FnRTSpDeIylaIK5f9v0dsw')"></div>
+<div class="absolute inset-0 bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-surface bg-primary rounded-full p-0.5">check</span>
+</div>
+<span class="absolute bottom-1 right-1 font-mono text-[9px] bg-black/60 text-white px-1 rounded">00:08</span>
+</div>
+<!-- Scrub Frame 3 -->
+<div class="relative rounded-md overflow-hidden aspect-[9/14] border-2 border-transparent hover:border-primary/50 cursor-pointer group">
+<div class="w-full h-full bg-cover bg-center" data-alt="Close up of mechanical keyboard and glowing smartphone display reflecting warm ambient lights." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDjwEJy7oVtzOsOmIXjPCyzVM_lx1_zVDd9r19IL_PSPVV2fE21XuhuVeg8xE6AYi_J0_eN5p-0Mor5Z0nVtojz56WPTC3BkpwIGIhALJisAVCItglwjt32Sc1TYyZyH9nXubbhdmPWWyBcWCXIwmCM3QITsg7jMkl2ameNbUTaBCMRNUQBtahpcOvlscIcPLEu_CsdBTF0ijPBpJ-AsbVDQ6b0N8YeJCPWScdsndnXOctR9ISjGjJmpg')"></div>
+<span class="absolute bottom-1 right-1 font-mono text-[9px] bg-black/60 text-white px-1 rounded">00:16</span>
+</div>
+<!-- Custom Upload Tile -->
+<div class="rounded-md border border-dashed border-outline-variant hover:border-primary/60 bg-surface-container-low flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors group">
+<span class="material-symbols-outlined text-[18px] text-outline group-hover:text-primary">upload</span>
+<span class="font-label-sm text-[10px] text-outline group-hover:text-on-surface">Upload PNG</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Rich Caption Composer & Hook Engine -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/40 p-4 shadow-sm flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-surface">Master Editorial Caption</span>
+<span class="text-xs text-outline font-label-sm font-mono" id="char-count">248 / 2,200</span>
+</div>
+<!-- AI Actions -->
+<div class="flex items-center gap-1.5">
+<button class="px-2.5 py-1 rounded-md bg-secondary-container hover:bg-secondary-fixed text-on-secondary-container font-label-sm text-label-sm font-semibold flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+              AI Optimize Hook
+            </button>
+<button class="px-2 py-1 rounded-md hover:bg-surface-container text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors" title="Format bullet points">
+<span class="material-symbols-outlined text-[16px]">format_list_bulleted</span>
+</button>
+</div>
+</div>
+<!-- Editable Area -->
+<div class="relative">
+<textarea class="w-full p-3 text-body-md font-body-md text-on-surface bg-surface-container-low/40 rounded-lg border border-outline-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary leading-relaxed transition-all resize-none" id="caption-editor" placeholder="Craft your narrative here..." rows="5">Swipe to see the 5 tools saving founders 10+ hrs every week ⚡️
+
+Most people get overwhelmed by manual workflows, but these quiet engines run in the background.
+
+Which of these 5 would you automate first?</textarea>
+</div>
+<!-- AI Suggested Hooks Pill Carousel -->
+<div class="bg-surface-container-low/60 rounded-lg p-2.5 flex flex-col gap-1.5 border border-outline-variant/30">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-[11px] font-semibold text-outline uppercase tracking-wider flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-tertiary-container">psychology</span>
+              Alternative High-Retention Openers
+            </span>
+<span class="text-label-sm text-[10px] text-primary font-medium">Click to inject</span>
+</div>
+<div class="flex flex-col gap-1 text-body-sm font-body-sm">
+<button class="text-left px-2 py-1 rounded hover:bg-surface-container-lowest text-on-surface-variant hover:text-primary transition-colors truncate">
+              “Stop wasting 2 hours a day on admin work. Here is the secret stack →”
+            </button>
+<button class="text-left px-2 py-1 rounded hover:bg-surface-container-lowest text-on-surface-variant hover:text-primary transition-colors truncate">
+              “I tested 37 workflow tools in 2024. Only these 5 survived my cut ✂️”
+            </button>
+</div>
+</div>
+<!-- Hashtag Quick Tags -->
+<div class="flex flex-wrap items-center gap-1.5 pt-1">
+<span class="font-label-sm text-[11px] text-outline mr-1">Recommended tags:</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container hover:bg-secondary-container hover:text-on-secondary-container text-on-surface-variant font-label-sm text-label-sm cursor-pointer transition-colors">#creatorops</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container hover:bg-secondary-container hover:text-on-secondary-container text-on-surface-variant font-label-sm text-label-sm cursor-pointer transition-colors">#solopreneur</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container hover:bg-secondary-container hover:text-on-secondary-container text-on-surface-variant font-label-sm text-label-sm cursor-pointer transition-colors">#aiworkflow</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container hover:bg-secondary-container hover:text-on-secondary-container text-on-surface-variant font-label-sm text-label-sm cursor-pointer transition-colors">#videotools</span>
+<button class="w-6 h-6 rounded-full bg-surface-container-high text-outline hover:text-on-surface flex items-center justify-center text-xs">
+<span class="material-symbols-outlined text-[14px]">add</span>
+</button>
+</div>
+<!-- First Comment Checkbox -->
+<div class="pt-2 border-t border-outline-variant/20 flex items-center justify-between">
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="font-label-md text-label-md text-on-surface">Auto-post First Comment for resources link</span>
+</label>
+<span class="material-symbols-outlined text-[16px] text-outline cursor-pointer hover:text-primary">edit_note</span>
+</div>
+</div>
+<!-- Platform-Specific Overrides Accordion Deck -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/40 shadow-sm overflow-hidden">
+<!-- Sub tabs -->
+<div class="flex border-b border-outline-variant/30 bg-surface-container-low/50 px-2 pt-1 gap-1">
+<button class="px-3 py-2 border-b-2 border-primary font-label-md text-label-md font-bold text-primary flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px]">photo_camera</span>
+            Instagram Reels Config
+          </button>
+<button class="px-3 py-2 border-b-2 border-transparent font-label-md text-label-md text-outline hover:text-on-surface flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[15px]">play_arrow</span>
+            YouTube Shorts Overrides
+          </button>
+<button class="px-3 py-2 border-b-2 border-transparent font-label-md text-label-md text-outline hover:text-on-surface flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[15px]">work</span>
+            LinkedIn Post Overrides
+          </button>
+</div>
+<!-- Instagram Specific Settings Panel -->
+<div class="p-4 space-y-3.5">
+<div class="flex items-center justify-between">
+<div>
+<div class="font-label-md text-label-md font-semibold text-on-surface">Recommend on Facebook Reels</div>
+<div class="font-label-sm text-[11px] text-outline">Expose video to cross-app algorithmic distribution</div>
+</div>
+<input checked="" class="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+</div>
+<div class="pt-2 border-t border-outline-variant/20 grid grid-cols-1 md:grid-cols-2 gap-3">
+<div>
+<label class="block font-label-sm text-[11px] uppercase tracking-wider text-outline mb-1">Tag Co-Author / Collaborator</label>
+<div class="flex items-center gap-1.5 bg-surface-container-low px-2.5 py-1.5 rounded-lg border border-outline-variant/50">
+<span class="material-symbols-outlined text-[15px] text-outline">group_add</span>
+<input class="bg-transparent text-body-sm font-body-sm text-on-surface focus:outline-none w-full" placeholder="@partnerhandle" type="text"/>
+</div>
+</div>
+<div>
+<label class="block font-label-sm text-[11px] uppercase tracking-wider text-outline mb-1">Location Tag</label>
+<div class="flex items-center gap-1.5 bg-surface-container-low px-2.5 py-1.5 rounded-lg border border-outline-variant/50">
+<span class="material-symbols-outlined text-[15px] text-outline">location_on</span>
+<input class="bg-transparent text-body-sm font-body-sm text-on-surface focus:outline-none w-full" type="text" value="New York, NY"/>
+</div>
+</div>
+</div>
+<div class="pt-2 border-t border-outline-variant/20 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-outline">tune</span>
+<span>Advanced: Upload highest quality &amp; Disable comments</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-outline cursor-pointer">chevron_right</span>
+</div>
+</div>
+</div>
+</section>
+<!-- COLUMN 3: Intelligent Scheduling & Dispatch Engine (4 cols) -->
+<section class="xl:col-span-3 flex flex-col gap-5">
+<!-- Dispatch Timing Engine Card -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/40 p-4 shadow-sm flex flex-col gap-4">
+<div>
+<span class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-surface block mb-1">Dispatch Timing Mode</span>
+<p class="font-label-sm text-[11px] text-outline">Algorithmic velocity matching based on follower activity</p>
+</div>
+<!-- Mode Radio Options -->
+<div class="space-y-2">
+<!-- Optimal Option (Selected) -->
+<label class="flex items-start gap-3 p-3 rounded-lg bg-surface-container border border-primary-container/40 cursor-pointer transition-all">
+<input checked="" class="mt-0.5 text-primary focus:ring-primary" name="timing_mode" type="radio"/>
+<div class="flex-1">
+<div class="font-label-md text-label-md font-bold text-on-surface flex items-center justify-between">
+<span>Peak Audience Window</span>
+<span class="font-label-sm text-[10px] bg-secondary-container text-on-secondary-container px-1.5 py-0.5 rounded font-semibold uppercase">Optimal</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5 leading-snug">Calculated dynamic dispatch based on real-time viewer concurrency</p>
+</div>
+</label>
+<!-- Custom Time -->
+<label class="flex items-start gap-3 p-3 rounded-lg hover:bg-surface-container-low border border-transparent hover:border-outline-variant/40 cursor-pointer transition-all">
+<input class="mt-0.5 text-primary focus:ring-primary" name="timing_mode" type="radio"/>
+<div class="flex-1">
+<span class="font-label-md text-label-md font-semibold text-on-surface">Custom Scheduled Slot</span>
+<p class="font-body-sm text-[12px] text-outline leading-snug">Define bespoke publishing calendar coordinates</p>
+</div>
+</label>
+<!-- Publish Now -->
+<label class="flex items-start gap-3 p-3 rounded-lg hover:bg-surface-container-low border border-transparent hover:border-outline-variant/40 cursor-pointer transition-all">
+<input class="mt-0.5 text-primary focus:ring-primary" name="timing_mode" type="radio"/>
+<div class="flex-1">
+<span class="font-label-md text-label-md font-semibold text-on-surface">Publish Immediately</span>
+<p class="font-body-sm text-[12px] text-outline leading-snug">Immediate webhook dispatch across all active platforms</p>
+</div>
+</label>
+</div>
+<!-- AI Best Recommendation Banner -->
+<div class="rounded-lg bg-surface-container-low border border-secondary/30 p-3 flex flex-col gap-2 relative overflow-hidden">
+<div class="absolute -right-6 -bottom-6 w-20 h-20 bg-secondary-container/40 rounded-full blur-xl pointer-events-none"></div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 text-primary">
+<span class="material-symbols-outlined text-[16px]">stars</span>
+<span class="font-label-sm text-label-sm font-bold uppercase tracking-wider">AI Best Timing Pick</span>
+</div>
+<span class="font-label-sm text-[11px] font-bold text-primary px-2 py-0.5 bg-surface-container-lowest rounded-full border border-secondary/20">
+              +34% Velocity
+            </span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-md text-headline-md text-on-surface font-normal">Tomorrow, 10:15 AM</span>
+<span class="font-label-sm text-label-sm text-outline">EST</span>
+</div>
+<p class="font-body-sm text-[12px] text-on-surface-variant leading-relaxed">
+            Historical Thursday analytics indicate peak executive screen time between 10:00 &amp; 11:30 AM across IG &amp; YouTube.
+          </p>
+</div>
+<!-- Mini Calendar & Dispatch Slot Rail -->
+<div class="pt-2 border-t border-outline-variant/20 flex flex-col gap-2">
+<span class="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">Weekly Pipeline Slot Grid</span>
+<div class="space-y-1.5 font-label-sm text-label-sm">
+<!-- Slot 1: Past/Done -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low/50 text-outline">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px] text-outline">check_circle</span>
+<span>Wed, Oct 24 • 14:00</span>
+</div>
+<span class="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-surface-container-high rounded text-outline">Published</span>
+</div>
+<!-- Slot 2: Current Selected Target -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-primary-container text-on-primary font-semibold shadow-xs">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px] text-on-primary">schedule</span>
+<span>Thu, Oct 25 • 10:15</span>
+</div>
+<span class="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-primary rounded text-on-primary">Queue Slot</span>
+</div>
+<!-- Slot 3: Future Open -->
+<div class="flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-low border border-dashed border-outline-variant text-on-surface-variant transition-colors cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px] text-outline">more_time</span>
+<span>Fri, Oct 26 • 11:30</span>
+</div>
+<span class="text-[10px] uppercase font-mono text-primary font-semibold">Open Slot</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Cross-Platform Readiness Checklist -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/40 p-4 shadow-sm flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-surface">Dispatch Readiness</span>
+<span class="font-label-sm text-[11px] font-bold text-primary">4 / 4 Passed</span>
+</div>
+<ul class="space-y-2 text-body-sm font-body-sm text-on-surface">
+<li class="flex items-center gap-2">
+<span class="w-4 h-4 rounded-full bg-secondary-container text-primary flex items-center justify-center text-[10px] font-bold">✓</span>
+<span>9:16 Video normalized &amp; encoded</span>
+</li>
+<li class="flex items-center gap-2">
+<span class="w-4 h-4 rounded-full bg-secondary-container text-primary flex items-center justify-center text-[10px] font-bold">✓</span>
+<span>Safe-zone captions &amp; stickers verified</span>
+</li>
+<li class="flex items-center gap-2">
+<span class="w-4 h-4 rounded-full bg-secondary-container text-primary flex items-center justify-center text-[10px] font-bold">✓</span>
+<span>Thumbnails rendered for IG / YouTube</span>
+</li>
+<li class="flex items-center gap-2">
+<span class="w-4 h-4 rounded-full bg-secondary-container text-primary flex items-center justify-center text-[10px] font-bold">✓</span>
+<span>Platform metadata schemas matched</span>
+</li>
+</ul>
+<!-- Auxiliary Action Triggers -->
+<div class="pt-3 border-t border-outline-variant/20 flex flex-col gap-2">
+<button class="w-full py-1.5 px-3 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm flex items-center justify-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[15px]">send_to_mobile</span>
+            Send Test Push Notification to iPhone
+          </button>
+<button class="w-full py-1.5 px-3 rounded-lg hover:bg-surface-container text-outline hover:text-on-surface font-label-sm text-label-sm flex items-center justify-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[15px]">verified</span>
+            Add Editorial Approval Gate
+          </button>
+</div>
+</div>
+<!-- Quick Omnichannel Sync Summary Stat Bar -->
+<div class="p-3 rounded-xl bg-surface-container border border-outline-variant/40 flex items-center justify-between text-on-surface">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px] text-primary">hub</span>
+<div class="leading-tight">
+<div class="font-label-sm text-label-sm font-bold">4 Channels Synchronized</div>
+<div class="font-label-sm text-[10px] text-outline">Target Reach: ~48.2k Followers</div>
+</div>
+</div>
+<span class="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></span>
+</div>
+</section>
+</main>
+</div>
+<script>
+  // Simple reactive caption sync from composer input to live mobile preview mock
+  (function() {
+    const editor = document.getElementById('caption-editor');
+    const preview = document.getElementById('preview-caption-text');
+    const charCounter = document.getElementById('char-count');
+
+    if (editor && preview) {
+      editor.addEventListener('input', (e) => {
+        const val = e.target.value;
+        charCounter.textContent = `${val.length} / 2,200`;
+        // Truncate cleanly for mobile overlay simulation
+        if (val.trim() === '') {
+          preview.textContent = 'Enter a caption to preview...';
+        } else {
+          preview.textContent = val.length > 110 ? val.substring(0, 110) + '...' : val;
+        }
+      });
+    }
+  })();
+</script></main></div></body></html>

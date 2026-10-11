@@ -1,0 +1,6 @@
+{
+  "name": "KontentOS",
+  "description": "AI Creator Operating System for video auto-captioning, copy generation, and multi-platform publishing",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

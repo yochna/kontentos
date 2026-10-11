@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,300..800&amp;family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-variant":"#dde4df","primary-container":"#285c4d","tertiary-fixed-dim":"#feb882","on-background":"#161d1a","background":"#f4fbf6","on-primary-fixed-variant":"#1a4f41","on-surface":"#161d1a","on-secondary":"#ffffff","tertiary-container":"#79471b","secondary-container":"#c2ecda","primary-fixed":"#b7eeda","surface":"#f4fbf6","on-tertiary-fixed-variant":"#6a3b0f","primary-fixed-dim":"#9cd2be","surface-container-high":"#e3eae5","error-container":"#ffdad6","on-error-container":"#93000a","on-surface-variant":"#404945","tertiary-fixed":"#ffdcc4","tertiary":"#5d3105","on-tertiary-container":"#feb882","on-primary-fixed":"#002018","error":"#ba1a1a","on-tertiary-fixed":"#2f1500","surface-container-low":"#eef5f0","outline":"#707975","on-error":"#ffffff","inverse-surface":"#2b322f","on-primary-container":"#9dd2bf","outline-variant":"#c0c9c3","primary":"#0a4436","on-tertiary":"#ffffff","surface-bright":"#f4fbf6","inverse-on-surface":"#ebf2ed","on-primary":"#ffffff","surface-dim":"#d4dcd7","surface-container":"#e8f0ea","secondary-fixed-dim":"#a7cfbf","on-secondary-container":"#466c5e","surface-tint":"#346858","inverse-primary":"#9cd2be","secondary-fixed":"#c2ecda","surface-container-highest":"#dde4df","secondary":"#406658","on-secondary-fixed":"#002117","on-secondary-fixed-variant":"#284e41","surface-container-lowest":"#ffffff"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"margin":"2rem","space-md":"1rem","gutter":"1.5rem","space-lg":"1.5rem","space-sm":"0.5rem","space-xl":"2.5rem","space-xs":"0.25rem"},fontFamily:{"label-md":["Hanken Grotesk"],"label-lg":["Hanken Grotesk"],"headline-sm":["Newsreader"],"display-mobile":["Newsreader"],"body-lg":["Newsreader"],"headline-lg":["Newsreader"],"body-sm":["Hanken Grotesk"],"body-md":["Hanken Grotesk"],"headline-md":["Newsreader"],"label-sm":["Hanken Grotesk"],"display":["Newsreader"],"headline-lg-mobile":["Newsreader"]},fontSize:{"label-md":["12px",{lineHeight:"16px",letterSpacing:"0.02em",fontWeight:"500"}],"label-lg":["14px",{lineHeight:"20px",letterSpacing:"0.01em",fontWeight:"600"}],"headline-sm":["20px",{lineHeight:"28px",fontWeight:"500"}],"display-mobile":["36px",{lineHeight:"44px",letterSpacing:"-0.015em",fontWeight:"400"}],"body-lg":["19px",{lineHeight:"32px",letterSpacing:"0.005em",fontWeight:"400"}],"headline-lg":["36px",{lineHeight:"44px",letterSpacing:"-0.015em",fontWeight:"400"}],"body-sm":["13px",{lineHeight:"20px",fontWeight:"400"}],"body-md":["15px",{lineHeight:"24px",letterSpacing:"-0.005em",fontWeight:"400"}],"headline-md":["26px",{lineHeight:"34px",letterSpacing:"-0.01em",fontWeight:"400"}],"label-sm":["11px",{lineHeight:"14px",letterSpacing:"0.04em",fontWeight:"600"}],"display":["48px",{lineHeight:"56px",letterSpacing:"-0.02em",fontWeight:"400"}],"headline-lg-mobile":["28px",{lineHeight:"36px",letterSpacing:"-0.01em",fontWeight:"400"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col justify-between select-none"><div class="flex flex-col"><div class="h-16 px-space-lg flex items-center border-b border-outline-variant/30"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center"><span class="material-symbols-outlined text-[20px]">eco</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-primary font-bold tracking-tight leading-none">KontentOS</span><span class="font-label-sm text-label-sm text-outline tracking-wider uppercase mt-1">Studio Workspace</span></div></div></div><div class="px-space-md py-space-sm"><button class="w-full flex items-center justify-between px-space-sm py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container border border-outline-variant/40 text-on-surface transition-colors"><div class="flex items-center gap-2 overflow-hidden"><div class="w-5 h-5 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center text-[11px] font-semibold">E</div><span class="font-label-md text-label-md truncate text-on-surface">Editorial Studio</span></div><span class="material-symbols-outlined text-[16px] text-on-surface-variant">unfold_more</span></button></div><nav class="px-space-md py-space-xs space-y-space-md" data-active-classes="bg-secondary-container text-on-secondary-container font-semibold"><div class="space-y-0.5"><div class="px-space-sm pb-1 font-label-sm text-label-sm text-outline uppercase tracking-wider">Core Workflow</div><a aria-current="page" class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg transition-colors bg-secondary-container text-on-secondary-container font-semibold" data-path="ideas" href="#"><span class="material-symbols-outlined text-[18px]">auto_awesome</span><span class="font-label-md text-label-md">Ideas</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="raw-reel" href="#"><span class="material-symbols-outlined text-[18px]">smart_display</span><span class="font-label-md text-label-md">Raw → Reel</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="smart-editor" href="#"><span class="material-symbols-outlined text-[18px]">content_cut</span><span class="font-label-md text-label-md">Smart Editor</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="publish-schedule" href="#"><span class="material-symbols-outlined text-[18px]">schedule_send</span><span class="font-label-md text-label-md">Publish &amp; Schedule</span></a></div><div class="space-y-0.5"><div class="px-space-sm pb-1 font-label-sm text-label-sm text-outline uppercase tracking-wider">Workspace</div><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="content-library" href="#"><span class="material-symbols-outlined text-[18px]">grid_view</span><span class="font-label-md text-label-md">Content Library</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="calendar" href="#"><span class="material-symbols-outlined text-[18px]">calendar_today</span><span class="font-label-md text-label-md">Calendar</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="analytics" href="#"><span class="material-symbols-outlined text-[18px]">equalizer</span><span class="font-label-md text-label-md">Analytics</span></a></div></nav></div><div class="p-space-md border-t border-outline-variant/30 space-y-0.5"><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="brand-kit" href="#"><span class="material-symbols-outlined text-[18px]">palette</span><span class="font-label-md text-label-md">Brand Kit</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="settings" href="#"><span class="material-symbols-outlined text-[18px]">settings</span><span class="font-label-md text-label-md">Settings</span></a><div class="pt-space-sm mt-space-sm border-t border-outline-variant/20 flex items-center justify-between px-space-sm"><div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-primary"></div><span class="font-label-sm text-label-sm text-outline">v2.4.0 · Studio</span></div><span class="material-symbols-outlined text-[16px] text-outline hover:text-on-surface cursor-pointer">help_outline</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/40 z-40 flex items-center justify-between px-space-lg"><div class="flex items-center flex-1 max-w-xl"><div class="relative w-full flex items-center"><span class="material-symbols-outlined absolute left-3 text-[18px] text-outline pointer-events-none">search</span><input class="w-full pl-9 pr-14 py-1.5 bg-surface-container-lowest border border-outline-variant/50 rounded-lg text-on-surface placeholder:text-outline/70 focus:outline-none focus:border-primary font-body-sm text-body-sm transition-colors" placeholder="Search ideas, projects, or content..." type="text"/><kbd class="absolute right-2.5 px-1.5 py-0.5 bg-surface-container-high border border-outline-variant rounded text-[10px] font-label-sm text-on-surface-variant select-none">&amp;cmdK</kbd></div></div><div class="flex items-center gap-space-md pl-space-md"><button class="relative w-9 h-9 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary"></span></button><div class="h-4 w-px bg-outline-variant/40"></div><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="relative pt-16 bg-surface min-h-screen w-full px-space-lg"><div class="flex flex-col w-full pb-16 space-y-12">
+<!-- TOP WORKFLOW BANNER (Archival Paper Slip Style) -->
+<section class="w-full relative overflow-hidden rounded-xl bg-surface-container-lowest p-8 shadow-sm transition-all duration-300 hover:shadow-md">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6">
+<div class="max-w-2xl space-y-2">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+<p class="font-label-sm text-label-sm uppercase tracking-widest text-primary-container font-semibold">Continuous Studio Engine</p>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface tracking-tight leading-tight">
+          Your content workflow, without the tool chaos.
+        </h2>
+<p class="font-body-md text-body-md text-on-surface-variant">
+          Find ideas. Make the content. Edit it. Publish everywhere. One calm, unified drafting desk.
+        </p>
+</div>
+<div class="flex items-center gap-3 shrink-0">
+<button class="px-4 py-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary-container">tune</span>
+          Studio Preferences
+        </button>
+<button class="px-5 py-2.5 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md shadow-sm transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+          Resume Pipeline
+        </button>
+</div>
+</div>
+<!-- Interactive Visual Flow Sequence -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pt-4">
+<!-- Step 1: Idea -->
+<div class="group relative p-5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between cursor-pointer">
+<div class="flex items-center justify-between mb-3">
+<span class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-surface-container-lowest text-primary-container shadow-xs">
+<span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+</span>
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Phase 01</span>
+</div>
+<div>
+<div class="font-label-sm text-label-sm font-semibold uppercase text-on-surface-variant mb-1">Capture &amp; Curate</div>
+<p class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors">
+            5 AI tools for busy founders
+          </p>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span>4 validated hooks</span>
+<span class="material-symbols-outlined text-[16px] text-outline group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</div>
+</div>
+<!-- Step 2: Create -->
+<div class="group relative p-5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between cursor-pointer">
+<div class="flex items-center justify-between mb-3">
+<span class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-surface-container-lowest text-primary-container shadow-xs">
+<span class="material-symbols-outlined text-[18px]">videocam</span>
+</span>
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Phase 02</span>
+</div>
+<div>
+<div class="font-label-sm text-label-sm font-semibold uppercase text-on-surface-variant mb-1">Assemble Footage</div>
+<p class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors">
+            Raw clips ingested · 3 takes
+          </p>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>A-roll + B-roll synced</span>
+<span class="material-symbols-outlined text-[16px] text-outline group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</div>
+</div>
+<!-- Step 3: Edit -->
+<div class="group relative p-5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between cursor-pointer">
+<div class="flex items-center justify-between mb-3">
+<span class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-surface-container-lowest text-primary-container shadow-xs">
+<span class="material-symbols-outlined text-[18px]">content_cut</span>
+</span>
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Phase 03</span>
+</div>
+<div>
+<div class="font-label-sm text-label-sm font-semibold uppercase text-on-surface-variant mb-1">Editorial Precision</div>
+<p class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors">
+            Smart cuts &amp; kinetic captions
+          </p>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim"></span>12 dead-airs purged</span>
+<span class="material-symbols-outlined text-[16px] text-outline group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</div>
+</div>
+<!-- Step 4: Publish -->
+<div class="group relative p-5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all flex flex-col justify-between cursor-pointer">
+<div class="flex items-center justify-between mb-3">
+<span class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-surface-container-lowest text-primary-container shadow-xs">
+<span class="material-symbols-outlined text-[18px]">send</span>
+</span>
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Phase 04</span>
+</div>
+<div>
+<div class="font-label-sm text-label-sm font-semibold uppercase text-on-surface-variant mb-1">Broadcast Distribution</div>
+<p class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors">
+            IG, YT Shorts &amp; LI scheduled
+          </p>
+</div>
+<div class="mt-4 pt-3 flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary-fixed"></span>Optimal slot: 09:15 AM</span>
+<span class="material-symbols-outlined text-[16px] text-outline group-hover:translate-x-1 transition-transform">check</span>
+</div>
+</div>
+</div>
+</section>
+<!-- COMMAND CENTRE HEADER & TACTILE ACTION TILES -->
+<section class="space-y-6">
+<div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+<div>
+<p class="font-label-sm text-label-sm uppercase tracking-widest text-outline">Editorial Command</p>
+<h3 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">What are we creating today?</h3>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant italic font-headline-sm">
+        Desk ready — 3 items in production
+      </span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+<!-- Action 1 -->
+<div class="group p-6 rounded-xl bg-surface-container-lowest hover:bg-surface-container-low shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[190px]">
+<div class="flex items-start justify-between">
+<div class="w-11 h-11 rounded-lg bg-surface-container-high group-hover:bg-primary-container group-hover:text-on-primary transition-colors flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[24px]">lightbulb</span>
+</div>
+<span class="material-symbols-outlined text-[20px] text-outline group-hover:text-primary-container transition-colors">north_east</span>
+</div>
+<div class="mt-4">
+<h4 class="font-headline-sm text-headline-sm text-on-surface mb-1">Find an idea</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+            Discover what to create next &amp; analyze trending publisher signals.
+          </p>
+</div>
+<div class="mt-3 flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-label-sm text-on-surface-variant">#FounderLed</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-label-sm text-on-surface-variant">+12 tags</span>
+</div>
+</div>
+<!-- Action 2 -->
+<div class="group p-6 rounded-xl bg-surface-container-lowest hover:bg-surface-container-low shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[190px]">
+<div class="flex items-start justify-between">
+<div class="w-11 h-11 rounded-lg bg-surface-container-high group-hover:bg-primary-container group-hover:text-on-primary transition-colors flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[24px]">smart_display</span>
+</div>
+<span class="material-symbols-outlined text-[20px] text-outline group-hover:text-primary-container transition-colors">north_east</span>
+</div>
+<div class="mt-4">
+<h4 class="font-headline-sm text-headline-sm text-on-surface mb-1">Make a Reel</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+            Turn raw ingested clips into a finished, narrative vertical broadcast.
+          </p>
+</div>
+<div class="mt-3 flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-primary-container font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">auto_fix_high</span> Auto-stitch ready
+          </span>
+</div>
+</div>
+<!-- Action 3 -->
+<div class="group p-6 rounded-xl bg-surface-container-lowest hover:bg-surface-container-low shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[190px]">
+<div class="flex items-start justify-between">
+<div class="w-11 h-11 rounded-lg bg-surface-container-high group-hover:bg-primary-container group-hover:text-on-primary transition-colors flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[24px]">tune</span>
+</div>
+<span class="material-symbols-outlined text-[20px] text-outline group-hover:text-primary-container transition-colors">north_east</span>
+</div>
+<div class="mt-4">
+<h4 class="font-headline-sm text-headline-sm text-on-surface mb-1">Edit content</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+            Refine existing compositions with our smart editorial assistance bar.
+          </p>
+</div>
+<div class="mt-3 flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Precision timeline · 60fps</span>
+</div>
+</div>
+<!-- Action 4 -->
+<div class="group p-6 rounded-xl bg-surface-container-lowest hover:bg-surface-container-low shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[190px]">
+<div class="flex items-start justify-between">
+<div class="w-11 h-11 rounded-lg bg-surface-container-high group-hover:bg-primary-container group-hover:text-on-primary transition-colors flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[24px]">schedule_send</span>
+</div>
+<span class="material-symbols-outlined text-[20px] text-outline group-hover:text-primary-container transition-colors">north_east</span>
+</div>
+<div class="mt-4">
+<h4 class="font-headline-sm text-headline-sm text-on-surface mb-1">Publish</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+            Sync, preview, and deploy natively across all connected publisher channels.
+          </p>
+</div>
+<div class="mt-3 flex items-center gap-2">
+<div class="flex -space-x-1.5">
+<span class="w-4 h-4 rounded-full bg-secondary-container flex items-center justify-center text-[8px] font-bold text-on-secondary-container">IG</span>
+<span class="w-4 h-4 rounded-full bg-primary-fixed flex items-center justify-center text-[8px] font-bold text-on-primary-fixed">YT</span>
+<span class="w-4 h-4 rounded-full bg-surface-container-high flex items-center justify-center text-[8px] font-bold text-on-surface">IN</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Multi-channel sync</span>
+</div>
+</div>
+</div>
+</section>
+<!-- CONTINUE CREATING: MEDIA-FIRST GRID -->
+<section class="space-y-5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<h3 class="font-headline-md text-headline-md text-on-surface tracking-tight">Continue Creating</h3>
+<span class="px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-medium">3 active drafts</span>
+</div>
+<a class="font-label-md text-label-md text-primary-container hover:text-primary transition-colors flex items-center gap-1" href="#">
+        View library archive <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+<!-- Media Card 1 -->
+<div class="group flex flex-col rounded-xl bg-surface-container-lowest overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+<div class="relative h-56 w-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out" data-alt="Cinematic frame of a modern minimalist creator walking through an airy architectural concrete studio in Tokyo at twilight, warm low ambient lighting, cinematic grain, elegant 4K documentary style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzNBW5gXyJcvQUaJ_s_Lc1PIH55r6NmkSPoW6WkZkF8lI9JBj3rtrZD5DxdRejHvnO4Sf0pgNlj6Cx13C7rYBO2LpJv-OIG8w4cLlkko8UvRnZofNKQVc4BwCnHyeyCVH9dZulGCqUqGZBGS1UdfkYaGOpWPNBoO7WEksOCbcEI4bL0m6cuc8lRavPWlzs6Iab-wdjnmO4Gw2bJTqpmY2YZjQvKXB7Y-NURuWnPNX7LzEett9Yo_ROBQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface/80 via-transparent to-transparent"></div>
+<div class="absolute top-3 left-3 flex items-center gap-2">
+<span class="px-2.5 py-1 rounded-md bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-sm text-label-sm uppercase font-semibold">
+              Edited · 72%
+            </span>
+<span class="px-2 py-0.5 rounded-md bg-on-surface/60 backdrop-blur-md text-surface-container-lowest font-label-sm text-label-sm">
+              4K 60fps
+            </span>
+</div>
+<button class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[20px]">play_arrow</span>
+</button>
+</div>
+<div class="p-6 flex-1 flex flex-col justify-between space-y-4">
+<div class="space-y-2">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>Episode 14 · Visual Essay</span>
+<span class="font-label-sm text-label-sm text-outline">Edited 12m ago</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors">
+              Travel Vlog: Architecture of Stillness
+            </h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
+              Color grade locked, audio waveforms normalized. Awaiting final B-roll overlay cut and title typography treatment.
+            </p>
+</div>
+<div class="space-y-2 pt-2">
+<div class="flex justify-between items-center font-label-sm text-label-sm text-on-surface-variant">
+<span>Timeline Progress</span>
+<span class="font-medium text-on-surface">72%</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-primary-container rounded-full transition-all duration-500" style="width: 72%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Media Card 2 -->
+<div class="group flex flex-col rounded-xl bg-surface-container-lowest overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+<div class="relative h-56 w-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out" data-alt="Close-up of sleek brushed titanium desk accessories, a vintage fountain pen, a ceramic mug of pour-over coffee, and a glowing tablet displaying analytical charts in an editorial Scandinavian office setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6GoLsYJig1-fntYNs4oDBb4lWPODYk_nBWUjU1R_KVyYqBrPixNFlYWtSUgLTxQP-FT8kV-2GAf-oFZt8MgxN0X519ohzpgtEGaixiBBMVCsaxyy7_BlsAH-EXos9QEofSgw6q0W4SIO3K1wjXxBOpPan4hSYe-3qmhPT7Meznv61AKPdYrdAtrt3FRLy6wDPpclDuBi_LI56BxHcU2Ku4knkPwVrSSM6J93tcmmzqv4U7In-ab8wLA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface/80 via-transparent to-transparent"></div>
+<div class="absolute top-3 left-3 flex items-center gap-2">
+<span class="px-2.5 py-1 rounded-md bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-sm text-label-sm uppercase font-semibold">
+              Draft · 48%
+            </span>
+<span class="px-2 py-0.5 rounded-md bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-medium">
+              Hook Optimized
+            </span>
+</div>
+<button class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+<div class="p-6 flex-1 flex flex-col justify-between space-y-4">
+<div class="space-y-2">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>Educational Short · AI Productivity</span>
+<span class="font-label-sm text-label-sm text-outline">Edited 2h ago</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors">
+              5 AI tools for busy founders
+            </h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
+              Opening 3-second hook retention model applied. Script segmented into 5 rapid-fire value assertions with screen recordings.
+            </p>
+</div>
+<div class="space-y-2 pt-2">
+<div class="flex justify-between items-center font-label-sm text-label-sm text-on-surface-variant">
+<span>Timeline Progress</span>
+<span class="font-medium text-on-surface">48%</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-primary-container rounded-full transition-all duration-500" style="width: 48%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Media Card 3 -->
+<div class="group flex flex-col rounded-xl bg-surface-container-lowest overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+<div class="relative h-56 w-full overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out" data-alt="Portrait of a contemplative creator sitting by a sun-drenched timber window overlooking a tranquil moss garden, gentle morning light, soft shadows, warm natural wood tones and archival aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5erumnemfqYDQmdfzw_XAtIKMXHOcceXC2EnijWQdlQkC87qzbFeX_qIIMK-DGpXU7IRGmN_5XmaQ9of_rkoMcNCEgLRYL7zSvtnsRvndSYvGPMI_JzWKbGn7zs9y3qujxQp1mnbRcKwcETOB-hkk1zS5H46QvW0sKUk53l8RfQa9_5rtsypHOOOIkgrkupfGdzkoJg7eP6AzxktaCEfGarWCMfgACn-XUOpRiGl0gUD-XbQLzK_DNA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface/80 via-transparent to-transparent"></div>
+<div class="absolute top-3 left-3 flex items-center gap-2">
+<span class="px-2.5 py-1 rounded-md bg-primary-container text-on-primary font-label-sm text-label-sm uppercase font-semibold">
+              Ready to publish
+            </span>
+<span class="px-2 py-0.5 rounded-md bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-sm text-label-sm">
+              Tomorrow · 08:30 AM
+            </span>
+</div>
+<button class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-surface-container-lowest text-on-surface flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[20px]">calendar_month</span>
+</button>
+</div>
+<div class="p-6 flex-1 flex flex-col justify-between space-y-4">
+<div class="space-y-2">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>Monologue Reel · Perspective</span>
+<span class="font-label-sm text-label-sm text-outline">Rendered</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container transition-colors">
+              Weekend founder thoughts
+            </h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
+              Ready for distribution. Metadata packaged: 4 platform-specific descriptions and thumbnail frames pre-selected.
+            </p>
+</div>
+<div class="space-y-2 pt-2">
+<div class="flex justify-between items-center font-label-sm text-label-sm text-on-surface-variant">
+<span>Queue Status</span>
+<span class="font-medium text-primary-container">100% · Scheduled</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-primary-container rounded-full" style="width: 100%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- YOUR CONTENT THIS WEEK: 7-DAY CALENDAR STRIP -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<div>
+<p class="font-label-sm text-label-sm uppercase tracking-widest text-outline">Publishing Cadence</p>
+<h3 class="font-headline-md text-headline-md text-on-surface tracking-tight">Your Content This Week</h3>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-8 h-8 rounded-lg bg-surface-container-lowest hover:bg-surface-container flex items-center justify-center text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<span class="font-label-md text-label-md text-on-surface font-medium px-2">May 19 – May 25</span>
+<button class="w-8 h-8 rounded-lg bg-surface-container-lowest hover:bg-surface-container flex items-center justify-center text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- 7-Day Horizontal Responsive Strip -->
+<div class="grid grid-cols-1 md:grid-cols-7 gap-3">
+<!-- Monday -->
+<div class="p-4 rounded-xl bg-surface-container-lowest flex flex-col justify-between min-h-[160px] opacity-75">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-sm text-label-sm font-semibold uppercase text-outline">Mon 19</span>
+<span class="material-symbols-outlined text-[16px] text-primary-container">check_circle</span>
+</div>
+<div class="p-2 rounded-lg bg-surface-container-low space-y-1.5">
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-3.5 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center text-[7px] font-bold">IG</span>
+<span class="font-label-sm text-label-sm truncate font-medium text-on-surface">Systems Mindset</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Published · 09:00</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline mt-3">12.4K views</span>
+</div>
+<!-- Tuesday -->
+<div class="p-4 rounded-xl bg-surface-container-lowest flex flex-col justify-between min-h-[160px] opacity-75">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-sm text-label-sm font-semibold uppercase text-outline">Tue 20</span>
+<span class="material-symbols-outlined text-[16px] text-primary-container">check_circle</span>
+</div>
+<div class="p-2 rounded-lg bg-surface-container-low space-y-1.5">
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-3.5 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center text-[7px] font-bold">YT</span>
+<span class="font-label-sm text-label-sm truncate font-medium text-on-surface">Notion Setup</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Published · 14:30</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline mt-3">8.9K views</span>
+</div>
+<!-- Wednesday (Today) -->
+<div class="p-4 rounded-xl bg-surface-container-lowest ring-2 ring-primary-container shadow-sm flex flex-col justify-between min-h-[160px] relative overflow-hidden">
+<div class="absolute top-0 right-0 px-2 py-0.5 bg-primary-container text-on-primary font-label-sm text-[9px] uppercase font-bold tracking-wider rounded-bl-md">Today</div>
+<div>
+<div class="flex items-center justify-between mb-2 pt-1">
+<span class="font-label-sm text-label-sm font-bold uppercase text-primary-container">Wed 21</span>
+</div>
+<div class="p-2 rounded-lg bg-surface-container space-y-1.5">
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-3.5 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center text-[7px] font-bold">IG</span>
+<span class="w-3.5 h-3.5 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center text-[7px] font-bold">YT</span>
+<span class="font-label-sm text-label-sm truncate font-medium text-on-surface">5 AI Tools</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary-container font-semibold">Ready · 17:00</span>
+</div>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm mt-3">
+<span>Final preview</span>
+<span class="material-symbols-outlined text-[14px]">arrow_right_alt</span>
+</div>
+</div>
+<!-- Thursday -->
+<div class="p-4 rounded-xl bg-surface-container-lowest flex flex-col justify-between min-h-[160px]">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-sm text-label-sm font-semibold uppercase text-on-surface">Thu 22</span>
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+</div>
+<div class="p-2 rounded-lg bg-surface-container-low space-y-1.5">
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-3.5 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center text-[7px] font-bold">IG</span>
+<span class="font-label-sm text-label-sm truncate font-medium text-on-surface">Founder Thoughts</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Scheduled · 08:30</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline mt-3">Assets rendered</span>
+</div>
+<!-- Friday -->
+<div class="p-4 rounded-xl bg-surface-container-lowest flex flex-col justify-between min-h-[160px]">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-sm text-label-sm font-semibold uppercase text-on-surface">Fri 23</span>
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span>
+</div>
+<div class="p-2 rounded-lg bg-surface-container-low space-y-1.5">
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-3.5 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center text-[7px] font-bold">LI</span>
+<span class="font-label-sm text-label-sm truncate font-medium text-on-surface">Weekly Breakdown</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Scheduled · 11:15</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline mt-3">Text copy locked</span>
+</div>
+<!-- Saturday -->
+<div class="p-4 rounded-xl bg-surface-container-lowest flex flex-col justify-between min-h-[160px]">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-sm text-label-sm font-semibold uppercase text-outline">Sat 24</span>
+</div>
+<div class="p-3 rounded-lg bg-surface-container-low/50 text-center flex flex-col items-center justify-center">
+<span class="material-symbols-outlined text-[18px] text-outline mb-1">add</span>
+<span class="font-label-sm text-label-sm text-outline">Empty slot</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline mt-3">Open day</span>
+</div>
+<!-- Sunday -->
+<div class="p-4 rounded-xl bg-surface-container-lowest flex flex-col justify-between min-h-[160px]">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-sm text-label-sm font-semibold uppercase text-on-surface">Sun 25</span>
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+</div>
+<div class="p-2 rounded-lg bg-surface-container-low space-y-1.5">
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-3.5 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center text-[7px] font-bold">YT</span>
+<span class="font-label-sm text-label-sm truncate font-medium text-on-surface">Architecture Vlog</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Drafting · 20:00</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline mt-3">Awaiting review</span>
+</div>
+</div>
+</section>
+<!-- QUICK STATS STRIP: WHAT WORKED THIS WEEK -->
+<section class="rounded-xl bg-surface-container-lowest p-6 shadow-sm">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+<!-- Metrics Group -->
+<div class="flex flex-wrap items-center gap-8 xl:gap-12">
+<div>
+<p class="font-label-sm text-label-sm uppercase tracking-wider text-outline mb-1">What worked this week</p>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-lg text-headline-lg text-on-surface font-semibold">48.2K</span>
+<span class="font-label-sm text-label-sm text-primary-container font-medium flex items-center">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span> 18.4%
+            </span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Total Impressions / Views</span>
+</div>
+<div class="h-10 w-px bg-surface-container hidden sm:block"></div>
+<div>
+<p class="font-label-sm text-label-sm uppercase tracking-wider text-outline mb-1">Bookmark Rate</p>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-lg text-headline-lg text-on-surface font-semibold">3,842</span>
+<span class="font-label-sm text-label-sm text-primary-container font-medium flex items-center">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span> 24%
+            </span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Archived Saves</span>
+</div>
+<div class="h-10 w-px bg-surface-container hidden sm:block"></div>
+<div>
+<p class="font-label-sm text-label-sm uppercase tracking-wider text-outline mb-1">Virality Multiplier</p>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-lg text-headline-lg text-on-surface font-semibold">1,208</span>
+<span class="font-label-sm text-label-sm text-outline font-medium">Direct</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Shared &amp; Forwarded</span>
+</div>
+</div>
+<!-- Studio Insight Pill / Callout -->
+<div class="flex-1 max-w-md p-4 rounded-lg bg-surface-container-low flex items-center gap-4">
+<div class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">insights</span>
+</div>
+<div class="space-y-0.5">
+<span class="font-label-sm text-label-sm font-semibold uppercase text-primary-container tracking-wider">Editorial Intelligence</span>
+<p class="font-body-sm text-body-sm text-on-surface font-medium leading-snug">
+            “Videos under 35 seconds received <span class="text-primary-container font-semibold">41% more saves</span> across Instagram and Shorts.”
+          </p>
+</div>
+</div>
+</div>
+</section>
+</div>
+<script>
+  // Quick tactile hover micro-interaction for studio items
+  document.querySelectorAll('[data-path]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      // Gentle feedback
+      el.classList.add('scale-[0.98]');
+      setTimeout(() => el.classList.remove('scale-[0.98]'), 150);
+    });
+  });
+</script></main></div></body></html>

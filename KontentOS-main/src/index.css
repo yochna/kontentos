@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .clip-playhead {
+    clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
+  }
+}
+
+/* Custom sleek scrollbars for editor panels */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Hide outer topbar header completely when in AI video engine editor */
+div#app-container > main > div#topbar-container > header {
+  display: none !important;
+}
+
+/* Allow toggling outer desktop sidebar */
+div#app-container > aside#desktop-sidebar.collapsed {
+  display: none !important;
+}
