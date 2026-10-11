@@ -763,6 +763,21 @@ This log tracks every architectural change, component implementation, bug fix, a
 - **TypeScript & Build Verification**:
   - `npx tsc --noEmit` and `npm run build` passed with **0 errors**.
 
+---
+
+## [Baseline Snapshot Checkpoint] — 2026-10-11
+
+- **Tag:** `snapshot-baseline-editor`
+- **Git Commit:** `SNAPSHOT: Stable baseline before advanced in-app editor implementation`
+- **Physical Backup:** `.snapshots/baseline-editor/`
+- **State:**
+  - Zero TypeScript errors (`npx tsc --noEmit` passed).
+  - Production build successful (`npm run build`).
+  - Icons and glyph issues resolved (`tag` and `send` icons verified).
+  - Calendar integration and quick scheduling fully operational.
+  - Ready for Canva-like advanced in-app editor implementation.
+  - **Rollback instruction:** If the user requests `rollback`, restore this exact state using `git reset --hard snapshot-baseline-editor`.
+
 
 
 

@@ -15,3 +15,5 @@ uploads
 .vscode
 .idea
 .DS_Store
+.snapshots
+**/.snapshots
