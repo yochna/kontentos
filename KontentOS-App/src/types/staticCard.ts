@@ -1,3 +1,12 @@
+import type { SlideSceneState } from './canvasScene';
+export type {
+  CanvasElementId,
+  ElementTransform,
+  SlideSceneState,
+  TransformHandleType,
+  CanvasInteractionState,
+} from './canvasScene';
+
 export type CardFormat =
   | 'instagram-overlay'
   | 'linkedin-split'
@@ -170,4 +179,5 @@ export interface StaticCardState {
     profileUrl?: string;
   };
   layerStyles?: LayerStyleConfig;
+  sceneOverrides?: Record<number, SlideSceneState>;
 }

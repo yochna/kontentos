@@ -8,6 +8,8 @@ import { CarouselSlideCard } from './formats/CarouselSlideCard';
 import { EditorialQuoteCard } from './formats/EditorialQuoteCard';
 import { SafeZoneOverlay } from './SafeZoneOverlay';
 import { CanvasGridOverlay } from './CanvasGridOverlay';
+import { SelectionBox } from './canvas/SelectionBox';
+import { useCanvasInteraction } from '../hooks/useCanvasInteraction';
 
 interface CardCanvasProps {
   state: StaticCardState;

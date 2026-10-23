@@ -765,23 +765,409 @@ This log tracks every architectural change, component implementation, bug fix, a
 
 ---
 
-## [Baseline Snapshot Checkpoint] — 2026-10-11
+---
 
-- **Tag:** `snapshot-baseline-editor`
-- **Git Commit:** `SNAPSHOT: Stable baseline before advanced in-app editor implementation`
-- **Physical Backup:** `.snapshots/baseline-editor/`
-- **State:**
-  - Zero TypeScript errors (`npx tsc --noEmit` passed).
-  - Production build successful (`npm run build`).
-  - Icons and glyph issues resolved (`tag` and `send` icons verified).
-  - Calendar integration and quick scheduling fully operational.
-  - Ready for Canva-like advanced in-app editor implementation.
-  - **Rollback instruction:** If the user requests `rollback`, restore this exact state using `git reset --hard snapshot-baseline-editor`.
+## [Advanced In-App Visual Editor (Canva-Grade)] — 2026-10-12
 
+### Phase 1–9 Complete Implementation Log & Build Validation
 
+1. **Phase 1: Scene Graph Data Model & State Architecture**
+   - Implemented `canvasScene.ts` and extended `StaticCardState` with `sceneOverrides` (per-slide isolated maps).
+   - Created `useCanvasInteraction.ts` with drag, hover, selection, lock, snap, and per-slide scene management.
+   - Built `<TransformableElement />` with relative percentage-based positioning (`x%`, `y%`, `width%`, `height%`, `zIndex`, `scale`, `rotation`).
 
+2. **Phase 2: Selection Box & Transform Bounding Handles**
+   - Built `<SelectionBox />` with crisp SVG borders, active/hover styling, and quick action buttons.
+   - Built `<TransformHandles />` with 8 directional resize handles (NW, N, NE, E, SE, S, SW, W) and cursor styles.
+   - Connected selection wrapper across all card templates and `CardCanvas`.
 
+3. **Phase 3: Drag & Drop Translation (Move) Engine**
+   - Created `canvasMath.ts` with coordinate clamping (`clampElementTransform`) to prevent elements from escaping canvas boundaries.
+   - Implemented pointer translation in `<TransformableElement />` with delta tracking and dynamic scale factoring.
+   - Built `useCanvasKeyboardNudge.ts` for pixel nudging (1px Arrow keys, 10px Shift+Arrow keys) with form-input isolation.
 
+4. **Phase 4: 8-Point Resize & Aspect Ratio Scaling Engine**
+   - Implemented `computeResizeDelta` supporting directional expansion/contraction and minimum boundary protection (60x30px).
+   - Integrated dynamic typography auto-reflow (`typography.ts`) adapting font sizes smoothly to custom element widths.
 
+5. **Phase 5: In-Place Inline Text Editing (WYSIWYG)**
+   - Created `<InlineTextEditor />` for double-click in-canvas contentEditable editing with ESC / outside-click commit.
+   - Built `<ElementQuickToolbar />` floating contextual toolbar for font size adjustments, bold/italic toggles, text alignment cycling, glow highlight, locking, and element deletion.
+   - Maintained two-way synchronization between canvas edits and sidebar slide state.
 
+6. **Phase 6: Smart Snapping Guides & Alignment Rules**
+   - Built `snapEngine.ts` calculating magnetic snaps (Canvas Center X/Y, 8% safe margins, sibling element edges/centers) within a 6px threshold.
+   - Created `<SmartGuidesOverlay />` rendering glowing SVG guidelines (`#06b6d4` cyan and `#ec4899` magenta) with a "CENTER" pill indicator.
+   - Added snap toggle controls in `CanvasControls.tsx` (Magnet button) and `S` shortcut key.
 
+7. **Phase 7: Undo / Redo History & Keyboard Hotkeys**
+   - Built `useCanvasHistory.ts` providing an immutable past/present/future history stack (up to 50 states, 300ms debouncing) with `isHistoryRestoring` loop guards.
+   - Implemented `useCanvasShortcuts.ts` supporting `Ctrl+Z`, `Ctrl+Y` / `Cmd+Shift+Z`, `Delete`/`Backspace`, `Ctrl+D` (duplicate), `Escape`, `Ctrl+]` / `Ctrl+[` (layer ordering), isolated from text inputs.
+   - Added Undo/Redo visual buttons with tooltips and disabled states in `CanvasControls.tsx`.
+
+8. **Phase 8: Layer Hierarchy, Ordering & Context Menu**
+   - Created `layerOrdering.ts` supporting `bringToFront`, `sendToBack`, `bringForward`, `sendBackward`, and z-index normalization.
+   - Built `<CanvasContextMenu />` glassmorphic dark context menu clamped to canvas bounds.
+   - Added slide-level "Reset Layout" action with confirmation dialog to safely restore pristine template defaults.
+
+9. **Phase 9: High-Resolution Export Fidelity & Multi-Format Parity**
+   - Implemented clean headless export filter (`cleanExportFilter` in `useCardExporter.ts`) excluding all bounding boxes, handles, guidelines, toolbars, and menus at 300 DPI (`pixelRatio: 3`).
+   - Added render flush cycle ensuring overlays unmount cleanly before snapshot capture.
+   - Enabled per-slide independent scenes across multi-slide deck exports (ZIP & PDF) with zero bleed between slides.
+   - Complete parity verified across all 5 card formats:
+     - `InstagramOverlayCard`
+     - `CarouselSlideCard`
+     - `LinkedInSplitCard`
+     - `TweetCardLayout`
+     - `EditorialQuoteCard`
+   - Verified across aspect ratios (`1:1`, `4:5`, `9:16`, `16:9`) and color themes.
+
+### 4. Build & Regression Audit
+- **TypeScript Check**: `npx tsc --noEmit` exited with **0 errors**.
+- **Production Bundle**: `npm run build` compiled **2,010 modules** into optimized production chunks with **0 errors**.
+
+---
+
+## [Hotfix: Visual Editor In-Place Text Editing & Layout Stability] — 2026-10-12
+
+### Root Cause Analysis
+1. **Unintended Coordinate Injection**: `updateElementTransform` previously defaulted `existing` with `x: 0, y: 0` when updating styling overrides (e.g., Bold, Font Size, Alignment, Accent Highlight).
+2. **Absolute Positioning Displacement**: `TransformableElement` was applying `position: absolute; left: 0%; top: 0%` when `x` and `y` were present, pulling the element out of its parent flex/grid flow and collapsing the card container, displacing elements to the bottom of the preview panel.
+3. **Missing WYSIWYG Text Handler**: `commitTextUpdate` was dispatching to an unregistered handler in `StaticGenerator.tsx`, preventing canvas edits from writing back to state.
+4. **Unstyled Inline Editor**: `<InlineTextEditor>` lacked typographical style inheritance from the underlying heading/paragraph tags.
+
+### Architectural Resolution
+1. **Flow-Preserving CSS Transforms**: Replaced `position: absolute` in `<TransformableElement />` with `transform: translate3d(x, y, 0) rotate(...)`. Elements now remain in their semantic flex/grid layout flow with zero layout shift when styled or edited.
+2. **Clean Styling Overrides**: Removed dummy `x: 0, y: 0` injections in `useCanvasInteraction.ts`. Non-positional style changes preserve default layout positions without translation drift.
+3. **Typography-Accurate Inline Editor**: Passed `textStyle` down to `<InlineTextEditor />` across all 5 card formats (`InstagramOverlayCard`, `CarouselSlideCard`, `LinkedInSplitCard`, `TweetCardLayout`, `EditorialQuoteCard`), matching font family, size, line-height, letter-spacing, weight, and color 1:1.
+4. **Two-Way Text Synchronization**: Registered `setTextUpdateHandler` in `StaticGenerator.tsx` to automatically update `state.headline` and `state.supportingText` (as well as carousel slide deck arrays) in real time.
+5. **Direct 1-Click Edit Action**: Added an explicit `Edit3` (Pencil) action button on `<ElementQuickToolbar />` in addition to double-click in-canvas editing.
+6. **Validation**: Verified with `tsc --noEmit` and `npm run build` (both PASSED with 0 errors).
+
+---
+
+## [Hotfix: Text Top-Level Visibility, Overflow Clipping & Layer Hierarchy] — 2026-10-12
+
+### Root Cause Analysis
+1. **Container Overflow Clipping**: Container boxes (`content-box`) across `InstagramOverlayCard`, `TweetCardLayout`, and `LinkedInSplitCard` defined `overflow-hidden`. When dragging `headline` or `body` text elements outside the bounding box and onto the background, the text was immediately clipped at the box border and disappeared.
+2. **Layer Stacking & Default Z-Index**: Text elements lacked default z-index specifications relative to `content-box`, causing ambiguity in layer ordering during user drag-and-drop operations.
+3. **Contrast on Background Drag**: Text lacked protective text shadow when dragged out of the card container directly onto background images or gradients with variable brightness.
+
+### Resolution & Implementation
+1. **Unrestricted Drag Across Backgrounds (`overflow-visible`)**:
+   - Replaced `overflow-hidden` with `overflow-visible` on `content-box` across all 5 card formats (`InstagramOverlayCard`, `TweetCardLayout`, `LinkedInSplitCard`, `CarouselSlideCard`, `EditorialQuoteCard`).
+   - Text elements (`headline`, `body`, `badge`, `profile`) can now be freely dragged anywhere on the canvas, over the box, or directly over the background photo/gradient without clipping.
+2. **Enforced Layer Hierarchy (`z-index`)**:
+   - In `TransformableElement.tsx`: Default `zIndex` is now strictly prioritized: `content-box` defaults to `10`, while text and badge elements default to `20`.
+   - While dragging, `innerRef.current.style.zIndex = '50'` guarantees that active elements float above all canvas layers.
+   - Selected elements automatically receive a `zIndex` boost of `30`.
+   - Updated `layerOrdering.ts` (`ensureElement`) to maintain this hierarchy across bring-forward and send-to-back operations.
+3. **Protective Background Contrast**:
+   - Updated `getTextShadowForBackground` in `layerStyles.ts` to provide crisp fallback drop shadows so text dragged onto backgrounds remains sharp and legible across all generated images.
+4. **Validation**:
+   - `npx tsc --noEmit` passed with 0 errors.
+   - Vite dev server hot-reloading confirmed.
+
+---
+
+## [Feature: Per-Letter & Complete Text Customization for Color, Size, Bold, & Italics] — 2026-10-12
+
+### User Requirement
+- Option to change the colour of each letter or complete heading and description.
+- Same capabilities for font size, bold, and italics.
+
+### Architectural Implementation
+1. **Per-Letter & Selected-Text Rich WYSIWYG Editing (`src/screens/StaticGenerator/components/canvas/InlineTextEditor.tsx`)**:
+   - Upgraded inline text editor to a Canva-grade `contentEditable` WYSIWYG engine.
+   - Built a floating rich formatting toolbar attached directly above the text being edited:
+     - **Dynamic Scope Pill**: Automatically displays `"{N} Letters"` when text is highlighted, or `"Complete"` when formatting the whole block.
+     - **Color Picker**: Dropdown popover featuring 12 curated creator color swatches, active Theme Accent shortcut, and native color picker `<input type="color" />` with hex input. Wraps selected letter(s) in `<span style="color: ...">` or changes base element color.
+     - **Font Size Stepper (`-` / `+`)**: Adjusts font size of individual selected letters (`<span style="font-size: ...px">`) or complete element.
+     - **Bold (`B`)**: Toggles bold on individual selected letters (`<span style="font-weight: bold">`) or complete element.
+     - **Italics (`I`)**: Toggles italics on individual selected letters (`<span style="font-style: italic">`) or complete element.
+     - **Clear Formatting (`X`)**: Removes custom styling spans from selected text back to base styles.
+     - **Done Action**: Commits HTML markup directly into state and exits edit mode.
+
+2. **Complete Heading & Description Quick Formatting (`src/screens/StaticGenerator/components/canvas/ElementQuickToolbar.tsx`)**:
+   - Added a dedicated Color Palette button and popover on the floating canvas toolbar.
+   - One-click application of any color, size, bold, italic, or alignment across the complete heading or description.
+
+3. **Multi-Format HTML Rich Spans & Legacy Bracket Rendering (`src/screens/StaticGenerator/utils/textHighlighter.tsx`)**:
+   - Enhanced `renderHighlightedText` to parse HTML DOM trees with full support for per-letter `color`, `fontSize`, `fontWeight`, `fontStyle`, and `textShadow`.
+   - Backward-compatible with legacy bracket syntax (`[keyword]`) and markdown asterisks (`*keyword*`).
+   - Clean HTML tag stripping implemented in `cleanTextForAlt` (`altTextGenerator.ts`) to maintain clean alt-text, export titles, and calendar metadata.
+
+4. **Toolbar Elevation & Clearance Polish (`InlineTextEditor.tsx` & `ElementQuickToolbar.tsx`)**:
+   - Elevated the inline rich text editing toolbar from `-top-12` (`-48px`) to `-top-[84px]`.
+   - Elevated `ElementQuickToolbar` from `-top-[72px]` to `-top-[84px]`.
+   - Adjusted the top flip boundary to `92px`, providing generous daylight above the rotation handle (`-24px`) and the selection element tag pill (`QUOTE / BODY`).
+
+5. **Validation**:
+   - `npx tsc --noEmit` passed with **0 errors**.
+   - Hot-reload verified in Vite development server.
+
+---
+
+## [Feature: Editable Accent Indicator Line Across All Card Types] — 2026-10-12
+
+### User Requirement
+- Make the accent indicator line editable (remove, resize, recolour) across all card formats.
+
+### Architectural Implementation
+1. **Registered in Canvas Scene (`src/types/canvasScene.ts` & `SelectionBox.tsx`)**:
+   - Registered `'accent-line'` in `CanvasElementId` union.
+   - Added `'accent-line': 'Accent Line'` label in `SelectionBox.tsx` for type pill identification.
+
+2. **Dedicated Quick Toolbar Controls (`src/screens/StaticGenerator/components/canvas/ElementQuickToolbar.tsx`)**:
+   - **Recolour**: Color palette button with `ColorPalettePopover` allowing custom hex, theme accent, or 12 preset swatches.
+   - **Resize (Width)**: Precision width stepper buttons (`-8px` / `+8px`) with live pixel readout.
+   - **Resize (Thickness / Height)**: Precision thickness stepper buttons (`-1px` / `+1px`) with live pixel readout.
+   - **Remove**: Dedicated Trash action button (sets `isHidden: true`). Also supports keyboard `Delete`/`Backspace` and right-click context menu removal.
+   - **Direct Manipulation**: 8-point bounding box handles allow direct dragging to resize or move anywhere on canvas.
+
+3. **Multi-Format Parity Across All 5 Card Types**:
+   - **Instagram Overlay Card** (`InstagramOverlayCard.tsx`)
+   - **LinkedIn Split Card** (`LinkedInSplitCard.tsx`)
+   - **Carousel Slide Card** (`CarouselSlideCard.tsx`)
+   - **Tweet Card Layout** (`TweetCardLayout.tsx`)
+   - **Editorial Quote Card** (`EditorialQuoteCard.tsx`)
+   - Each card format renders `<TransformableElement id="accent-line">` reading custom styles (`background`, `width`, `height`, `x`, `y`, `rotation`, `zIndex`) with theme fallback and glow shadow.
+
+4. **Pixel-Perfect Selection & Handle Polish**:
+   - Eliminated container padding artifacts (`p-2 -m-2`) that caused 16px phantom padding on the bounding box and ballooned line height during resize.
+   - Introduced zero-overhead pseudo-element hit area (`before:absolute before:-inset-y-3 before:-inset-x-2`) so the line is effortless to click without expanding its layout bounds.
+   - Prevented outer wrapper background pollution in `TransformableElement.tsx` so recolouring strictly styles the inner rounded glowing bar.
+   - Filtered active handles to orthogonal axes (`w`, `e`, `n`, `s`) to eliminate handle collisions on thin lines and preserved thickness when dragging endpoint width handles.
+   - **Elevated Editing Box Placement**: Unified all floating editing toolbars across all elements (lines, text, container boxes, profile badges) to float higher at `-top-[96px]` with generous clearance above element tags and rotation handles, and `-bottom-16` when flipped near top canvas boundary.
+   - **Left-Handle Anchor Fix**: Fixed translate delta math in `TransformHandles.tsx` by anchoring `x`/`y` to `initialTranslateRef` recorded on `pointerdown` rather than cumulatively reading mutated state on each frame, preventing the line from running to the left when stretched from the west (`w`) handle.
+
+5. **Validation**:
+   - `npx tsc --noEmit` passed with **0 errors**.
+   - Verified across all 5 card templates.
+
+---
+
+## [Feature: Copy & Paste All Elements, Text Box, and Accent Line] — 2026-10-12
+
+### User Requirement
+- Add an option to copy and paste all the elements, including text boxes, the line, headlines, descriptions, badges, and layout overrides.
+
+### Architectural Implementation
+1. **Zustand Clipboard State (`src/screens/StaticGenerator/hooks/useCanvasInteraction.ts`)**:
+   - Added `CanvasClipboardItem` supporting both `'single'` element copies and `'all'` elements scene copies.
+   - `copySelectedElement()`: Copies currently selected element (headline, body, content box, accent line, badge, etc.) along with all custom colors, sizes, weights, and coordinates.
+   - `copyAllElements()`: Captures complete scene graph containing all standard elements (`content-box`, `accent-line`, `headline`, `body`, `badge`, `profile`, `quote-mark`, `stats-row`) and active overrides.
+   - `pasteClipboard(targetSlideIndex?)`:
+     - **Same-Slide Duplicate Offset**: Applies a `+16px, +16px` nudge offset when duplicating elements on the same slide so duplicated items are immediately visible and selected.
+     - **Cross-Slide Alignment**: Preserves identical coordinates and typography styles when copying from one slide and pasting into another in multi-slide decks.
+     - Triggers undo/redo history recording (`recordSceneSnapshot`) for every paste action.
+   - `clipboardNotification`: Dispatches transient visual feedback messages (e.g. *"Copied Accent Line"*, *"Copied All Elements (Text, Box, Line, Layout)"*, *"Duplicated All Elements (+16px)"*).
+
+2. **Native Keyboard Shortcuts (`src/screens/StaticGenerator/hooks/useCanvasShortcuts.ts`)**:
+   - <kbd>Ctrl+C</kbd> / <kbd>Cmd+C</kbd>: Copies the selected canvas element.
+   - <kbd>Ctrl+Shift+C</kbd> / <kbd>Cmd+Shift+C</kbd>: Copies all elements on the active slide.
+   - <kbd>Ctrl+V</kbd> / <kbd>Cmd+V</kbd> or <kbd>Ctrl+Shift+V</kbd>: Pastes the copied elements to the active canvas.
+   - Guarded against native text selection inside input fields and contentEditable inline editors.
+
+3. **Floating Quick Toolbar Integration (`src/screens/StaticGenerator/components/canvas/ElementQuickToolbar.tsx`)**:
+   - Added direct **Copy** button (<kbd>Ctrl+C</kbd>) and dynamic **Paste** button (<kbd>Ctrl+V</kbd>, displayed when clipboard contains items) right on the floating toolbar directly above the selected element.
+
+4. **Right-Click Context Menu Integration (`src/screens/StaticGenerator/components/canvas/CanvasContextMenu.tsx`)**:
+   - Added:
+     - **Copy Element** (<kbd>Ctrl+C</kbd>)
+     - **Paste** (<kbd>Ctrl+V</kbd>)
+     - **Copy All Elements** (<kbd>Ctrl+Shift+C</kbd>)
+     - **Paste All Elements** (<kbd>Ctrl+Shift+V</kbd>)
+   - Clamped context menu boundaries to fit comfortably within the canvas view.
+
+5. **Top Canvas Controls Header (`src/screens/StaticGenerator/components/CanvasControls.tsx`)**:
+   - Added **Copy All** (`copy_all` icon) button to copy all canvas elements with a single click.
+   - Added **Paste** (`content_paste` icon) button to paste all elements into the current slide.
+
+6. **Canvas Feedback Toast (`src/screens/StaticGenerator/components/CardCanvas.tsx`)**:
+   - Renders a floating frosted pill toast at the top of the canvas with a glowing indicator, auto-dismissing after 2.2 seconds.
+
+7. **Validation**:
+   - `npx tsc --noEmit` passed with **0 errors**.
+
+---
+
+## [Feature: Drag-and-Drop Vectors, Shapes, Custom Text Boxes & Image Uploads] — 2026-10-12
+
+### User Requirements
+1. Add a new section of vectors, shapes, or designs that you can simply drag and drop into the editing canvas.
+2. Add an option to add custom text boxes anywhere on the editing canvas.
+3. Add an option to add images into the editing canvas from local storage with resize, opacity, blur, corner radius, etc.
+
+### Architectural Implementation
+1. **Vectors & Shapes Catalog (`src/data/vectorShapesCatalog.ts`)**:
+   - Curated library of 28+ vector graphics, geometric shapes, engagement badges, arrows, lines, and design accents.
+   - Categorized into:
+     - **Geometric Shapes**: Circle Disc, Pill Capsule, Glass Card Plate, 4-Point Retro Star, Diamond, Hexagon, Halo Ring.
+     - **Vectors & Icons**: Magic Sparkles, Verified Checkmark, Curved Callout Arrow, Growth Trend Arrow, Bold Next Arrow, Quotation Marks, Trending Flame, Engagement Heart, Save Bookmark.
+     - **Stickers & Badges**: "PRO TIP", "MUST READ", "SWIPE ➔", "SAVE THIS 🔖", "NEW ✨", "KEY TAKEAWAY 💡", "10X ⚡".
+     - **Lines & Accents**: Glowing Neon Bar, Dashed Separator, Zigzag Wave, Fade Horizon Line, Editorial Brackets `[ ]`, Focus Reticle Crosshair.
+   - Full search bar filtering and category tabs.
+
+2. **Sidebar Tool: Vectors & Shapes Section (`src/screens/StaticGenerator/components/VectorShapesSection.tsx`)**:
+   - Added `'elements'` tab in the studio tool switcher (`category` icon).
+   - Each item in the catalog is `draggable={true}` with live HTML5 payload.
+   - 1-click **`+ Add`** action inserts the element centered on the active slide.
+   - Includes quick-creation banners:
+     - **`+ Heading Text`** (instant bold title text box).
+     - **`Upload Image`** (native file dialog from device storage).
+
+3. **Drag-and-Drop & File Drop on Canvas (`src/screens/StaticGenerator/components/CardCanvas.tsx`)**:
+   - Implemented `onDragOver`, `onDragLeave`, and `onDrop` on the canvas container.
+   - Animated drag-over target indicator: luminous dashed border with glowing *"Drop image or shape here"* pill.
+   - **Direct OS File Drop**: Dragging any image file from desktop or file explorer directly onto the canvas automatically reads it via `FileReader` and places an interactive image element at the cursor coordinates!
+   - Drop coordinates are normalized to the canvas frame and clamped within bounds.
+
+4. **Dynamic Canvas Elements Renderer (`src/screens/StaticGenerator/components/canvas/CustomShapeRenderer.tsx`)**:
+   - Scalable SVG vector and CSS shape rendering with live fill, stroke, glow, and opacity.
+   - **Custom Images**: Renders uploaded images with fluid object-fit, lens blur (`blur(...)`), opacity, custom border-radius, and specular drop shadow.
+   - **Custom Text Boxes**: Renders text with optical font size, weight, color, alignment, and glow shadow.
+
+5. **Direct Manipulation & Inline Editing Integration**:
+   - Dynamic elements wrapped in `<TransformableElement>`:
+     - Seamless 8-point handles (`TransformHandles`) for direct resizing.
+     - Free-form drag translation with magnetic snap guides.
+     - Double-click to inline edit text with `<InlineTextEditor>`.
+     - Full keyboard nudge (arrow keys) and shortcuts (<kbd>Ctrl+C</kbd>, <kbd>Ctrl+V</kbd>, <kbd>Del</kbd>).
+
+6. **Canvas Controls Header (`src/screens/StaticGenerator/components/CanvasControls.tsx`)**:
+   - Added **`+ Add Text`** (`title` icon): Inserts a movable text box anywhere on the active slide.
+   - Added **`+ Add Image`** (`add_photo_alternate` icon): Launches local file picker to upload any image from disk.
+
+7. **Floating Quick Toolbar Polish (`src/screens/StaticGenerator/components/canvas/ElementQuickToolbar.tsx`)**:
+   - **For Images**: Opacity cycle button (`100% -> 80% -> 60% -> 40% -> 20%`), Lens Blur cycle button (`0px -> 2px -> 5px -> 10px -> 16px`), Corner Radius cycle button (`Square -> Rounded -> Smooth -> Circle`), Scale steppers, Duplicate, Lock, Delete.
+   - **For Shapes**: Shape Fill Color palette popover, Neon Glow toggle, Scale steppers, Duplicate, Delete.
+   - **For Text Boxes**: Font size stepper, Bold, Italic, Alignment, Complete Text Color picker, Glow highlight, Duplicate, Delete.
+
+8. **Add Text Box Anywhere Everywhere Implementation (`src/screens/StaticGenerator/`)**:
+   - **Store Actions (`useCanvasInteraction.ts`)**: Added centralized `addTextBox(...)` and `addImageElement(...)` actions with automatic snapshot recording for undo/redo history, dynamic unique ID generation (`text-*`, `image-*`), bounding box placement, and immediate inline editing activation.
+   - **Double-Click Anywhere (`CardCanvas.tsx`)**: Double-clicking any empty canvas space immediately instantiates a new text box centered directly at cursor coordinates and activates inline editing so users can start typing instantly.
+   - **Right-Click Canvas Context Menu (`CanvasContextMenu.tsx`)**: Right-clicking empty canvas space opens a dedicated canvas-level menu with:
+     - **Add Text Box Here** (<kbd>T</kbd>)
+     - **Add Image from Storage** (opens file selector and places image right where clicked)
+     - **Paste Element** (<kbd>Ctrl+V</kbd>)
+     - **Copy All Elements** (<kbd>Ctrl+Shift+C</kbd>) / **Paste All Elements** (<kbd>Ctrl+Shift+V</kbd>)
+     - **Reset Slide Layout**
+     - Also provided `+ Add Text Box` when right-clicking on or near an existing element.
+   - **Global Keyboard Shortcut (<kbd>T</kbd>) (`useCanvasShortcuts.ts`)**: Pressing single key <kbd>T</kbd> anywhere on the canvas immediately creates and focuses a new text box.
+   - **Copy Editor Panel Integration (`CopyEditor.tsx`)**: Added quick pre-styled text choices (**`+ Heading`**, **`+ Subhead`**, **`+ Body`**) that creators can either click to insert or drag & drop anywhere onto the canvas.
+   - **Vector & Shapes Section Integration (`VectorShapesSection.tsx`)**: Unified text and image insertion via `addTextBox` and `addImageElement`.
+
+9. **Validation**:
+   - TypeScript compilation verified via `npx tsc --noEmit` with **0 errors**.
+
+10. **Center Placement & Non-Distorting Media Protection**:
+    - **Dead-Center Double-Click**: Double-clicking anywhere on the card canvas now automatically places the text box at the exact horizontal and vertical center of the card (`(canvasWidth - width) / 2, (canvasHeight - height) / 2`), preventing awkward edge word-wrapping and selection overflow.
+    - **Proportional Natural Aspect Ratio on Media Uploads**: When uploading or dropping images from storage or desktop, `new Image()` calculates real `naturalWidth` and `naturalHeight`. Media is scaled proportionally without distortion (preserving aspect ratio) and centered directly at the canvas midpoint.
+    - **Proportional Corner Resizing**: In `TransformHandles.tsx`, corner handles on image elements now preserve natural aspect ratio by default (`keepAspect = true`), eliminating image squashing/stretching during resize.
+    - **Protected Split Card Layout Integrity**: In `LinkedInSplitCard.tsx`, added full-bleed underlay and wrapped content-box to keep the visual split panel intact and prevent background gaps when elements are moved.
+    - **Build Check**: Verified clean TypeScript compilation with **0 errors**.
+
+11. **Accent Line Position & Reset Layout Enhancements**:
+    - **Right-Aligned Accent Line**: Fixed positioning in `TransformableElement.tsx` where Tailwind pseudo-classes like `before:absolute` were incorrectly setting `position: absolute` on `accent-line`, causing it to pop out of flex flow and overlap the creator profile badge on the left. Strictly isolated standalone `absolute` class checking and added `ml-auto mr-1` to `accent-line` in `InstagramOverlayCard.tsx` so it cleanly and consistently anchors to the right from start.
+    - **Reset Layout Button Fixed**:
+      - Made the "Reset Layout" button permanently visible in `CanvasControls.tsx` with a distinct toolbar style (`restart_alt` icon).
+      - Removed the intrusive/blocking browser `window.confirm` dialog, enabling instant 1-click execution.
+      - Updated `resetSlideOverrides` in `useCanvasInteraction.ts` to unconditionally clear all slide overrides, selection, editing mode, active guides, and trigger a prominent confirmation toast ("Layout reset to default template").
+      - Integrated design keyboard shortcuts: <kbd>Ctrl+D</kbd> (resets selected element, or entire slide if none selected) and <kbd>Ctrl+Shift+R</kbd> (resets entire slide layout).
+      - Verified clean TypeScript compilation with **0 errors**.
+
+12. **Contextual Element Inspector & 0-100% Parameter Sliders**:
+    - **Right Panel Contextual Switching (`src/screens/StaticGenerator.tsx`)**:
+      - When any element is clicked / selected on the card canvas (`selectedElementId !== null`), the general studio tools panel in the right column (`lg:col-span-5`) is automatically hidden, and the dedicated **Element Inspector Window** (`<ElementInspectorPanel />`) opens in its place.
+      - When deselected (clicking canvas background, clicking "✕ Close", or pressing <kbd>Esc</kbd>), the inspector seamlessly closes and the studio tools panel returns.
+      - Added top switcher pill tab allowing users to toggle between "Element Inspector" and "Studio Tools" at any time.
+    - **Element Inspector Panel (`src/screens/StaticGenerator/components/canvas/ElementInspectorPanel.tsx`)**:
+      - **0% — 100% Parameter Sliders**: Real-time sliding bars for Font Size (14px–72px), Layer Opacity (0–100%), Lens / Frosted Blur (0–24px), Corner Curvature (0–50px), Neon Glow Intensity (0–100%), Stroke / Border Width (0–12px), Line Thickness (2px–16px), Rotation Angle (-180°–+180°), and Element Width (16px–500px).
+      - **Text Editing**: Direct multi-line textarea with real-time two-way synchronization for headlines, body copy, and custom text boxes.
+      - **Typography Controls**: Bold, Italic, Text Alignment (Left, Center, Right), Font Weight steppers, and Glow toggle.
+      - **Color Palette & Native Hex Picker**: Quick color swatches, theme accent shortcut, and native color input.
+      - **Layer Arrangement & Centering**: Bring to Front, Bring Forward, Send Backward, Send to Back, Center Horizontally, and Center Vertically.
+      - **Action Controls**: Lock/Unlock toggle, Reset Element to Default (<kbd>Ctrl+D</kbd>), Duplicate Element (<kbd>Ctrl+C</kbd>/<kbd>Ctrl+V</kbd>), and Delete/Hide (<kbd>Del</kbd>).
+    - **Build Check**: Verified clean TypeScript compilation with **0 errors**.
+
+13. **Alignment & Layer Stacking Fixes (Center H/V, To Front, Forward, Backward, To Back)**:
+    - **Root Causes Identified**:
+      - **Selection zIndex Hijack**: In `TransformableElement.tsx`, `zIndex` was hardcoded to `isSelected ? 30 : ...`. Because any element clicked or selected in the Inspector was active, changing its layer order ("Send Backward", "Send to Back") was completely nullified and suppressed while selected.
+      - **Tailwind Class Conflict**: In `CardCanvas.tsx`, custom overlay elements were given a static `className="absolute top-0 left-0 z-20 ..."`, competing with and blocking dynamic computed z-index changes.
+      - **Z-Index Floor Collision**: Previous layer ordering normalized z-indices to `1, 2, 3...`. As a result, lowering an element's layer caused it to sink behind the base `content-box` (`z-10`) and template elements (`z-15`), making it invisible instead of stacking over the card canvas.
+      - **Flow Offset Centering Math**: Template elements (`headline`, `body`, `accent-line`) use flex/flow positioning with transforms applied relative to their flow origin, NOT top-left `(0, 0)`. Setting `x = (canvasW - width) / 2` threw them completely off-screen.
+    - **Key Fixes Implemented**:
+      - **Fixed Selection zIndex Stacking (`TransformableElement.tsx`)**: Replaced hardcoded `isSelected ? 30` with `computedStyle.zIndex = storeIsDragging ? 60 : activeZ`. Reordering an element now takes live visual effect immediately while selected in the Inspector or canvas.
+      - **Removed Tailwind z-20 class in `CardCanvas.tsx`**: Removed static `z-20` on custom elements, ensuring inline computed z-index has full priority.
+      - **Elevated Base Layer Ordering (`layerOrdering.ts`)**: Set `BASE_LAYER_Z = 20` and `LAYER_STEP = 2`. All custom elements and overlays are assigned `20 + index * 2`, ensuring they stay strictly on top of `content-box` (`z-10`) while supporting accurate depth stacking.
+      - **Exact DOM Delta Offset Centering (`useCanvasInteraction.ts`)**: Implemented `centerElementHorizontally`, `centerElementVertically`, and `centerElement` using real-time DOM geometry:
+        `diffX = (canvasRect.left + canvasRect.width / 2) - (elemRect.left + elemRect.width / 2)`
+        `diffY = (canvasRect.top + canvasRect.height / 2) - (elemRect.top + elemRect.height / 2)`
+        `newX = (existing.x ?? 0) + diffX; newY = (existing.y ?? 0) + diffY;`
+        This guarantees pixel-perfect centering for both absolute custom overlays and flow-positioned template elements across all aspect ratios (1:1, 4:5, 9:16, 16:9).
+      - **Inspector Panel & Context Menu Integration**:
+        - Provided 3 centering actions (**Center H**, **Center V**, **Center Both**) and 4 layer ordering actions (**Bring to Front**, **Bring Forward**, **Send Backward**, **Send to Back**) with live z-index readouts in `<ElementInspectorPanel />`.
+        - Added corresponding actions to the canvas right-click context menu (`CanvasContextMenu.tsx`).
+        - Added global keyboard shortcuts: <kbd>Alt+H</kbd> (Center Horizontally), <kbd>Alt+V</kbd> (Center Vertically), and <kbd>Alt+C</kbd> (Center on Canvas) in `useCanvasShortcuts.ts`, along with <kbd>Ctrl+]</kbd> / <kbd>Ctrl+[</kbd> / <kbd>Ctrl+Shift+]</kbd> / <kbd>Ctrl+Shift+[</kbd> for layer stacking.
+      - **Interactive Feedback**: Added floating toast notifications confirming layer changes ("Brought to Front", "Brought Forward (+1)", "Sent Backward (-1)", "Sent to Back") and centering movements.
+    - **Build Check**: Verified clean TypeScript compilation with **0 errors** (`npx tsc --noEmit`).
+
+14. **Canvas Controls Toolbar UI Restructure & Noise Reduction**:
+    - **Removed Clutter Buttons**:
+      - Completely removed the `Randomize Atmosphere` button.
+      - Removed the `Safe Zones` button from the toolbar and removed the floating badges over the card viewport.
+      - Removed the `Grid` button from the toolbar and floating badges over the card viewport.
+    - **Re-architected 2-Tier Modular Hierarchy (`CanvasControls.tsx`)**:
+      - **Tier 1 (Export & Publishing Actions)**: Clean, balanced flex row containing:
+        - `Export PNG (300 DPI)` (Primary green CTA)
+        - `LinkedIn PDF Carousel` / `Full Deck PNGs` (dynamic for carousel format)
+        - `Copy Image & Caption`
+        - `Publish Pack`
+        - `Calendar`
+      - **Tier 2 (Design Studio Toolbar Dock)**: Sleek, unified floating dock with subtle segment dividers:
+        - **Creation Cluster**: `+ Add Text` (<kbd>T</kbd>) and `+ Add Image` (upload).
+        - **History Cluster**: `Undo` (<kbd>Ctrl+Z</kbd>), `Redo` (<kbd>Ctrl+Y</kbd>), and `Reset Layout` (<kbd>Ctrl+D</kbd>).
+        - **Clipboard Cluster**: `Copy All` (<kbd>Ctrl+Shift+C</kbd>) and `Paste` (<kbd>Ctrl+V</kbd>).
+        - **Snapping Cluster**: `Magnet: On` / `Magnet` toggle (<kbd>S</kbd>).
+      - Styled with single-row `flex-nowrap`, compact pill badges, and high-contrast dark aesthetic matching the Paper Editorial / Studio system.
+    - **Validation**: Verified in live browser sessions and confirmed **0 TypeScript errors** with `npx tsc --noEmit`.
+
+15. **Complete Removal of Analytics & Brand Kit**:
+    - **Navigation & Routing Updates**:
+      - In [`src/lib/nav.ts`](file:///d:/Abu%20Horairah%20Ansari/Internship_Projects/KontentOS%20v3/KontentOS-App/src/lib/nav.ts), removed `'analytics'` and `'brand-kit'` from the `ScreenId` union type, `NAV_GROUPS` (Workspace group), `UTILITY_ITEMS` (sidebar bottom group), and `SCREEN_TITLES` map.
+      - In [`src/App.tsx`](file:///d:/Abu%20Horairah%20Ansari/Internship_Projects/KontentOS%20v3/KontentOS-App/src/App.tsx), removed screen imports and screen registrations for `analytics` and `'brand-kit'`.
+    - **File Deletion**:
+      - Deleted `src/screens/Analytics.tsx` and `src/screens/BrandKit.tsx`.
+    - **Validation**:
+      - Verified in the live browser sidebar that `Analytics` is removed from Workspace and `Brand Kit` is removed from Utilities.
+      - Ran `npx tsc --noEmit` — completed with **0 errors**.
+
+16. **Canvas Controls Dock Width Optimization & Enlarge Undo/Reset**:
+    - **Eliminated Horizontal Scrolling**:
+      - Removed `overflow-x-auto` from the dock container.
+      - Streamlined companion button footprints (Insert to `Text` & `Image`, Clipboard to icon buttons, Snap to `Snap`) to reduce overall dock width from >680px to ~510px, leaving over 90px of breathing room inside the container.
+    - **Big, High-Visibility Undo & Reset Layout Buttons**:
+      - **Undo**: Enlaraged to `px-3.5 py-2 font-bold` with a 16px icon and clear text label, providing a tactile, prominent target with high-contrast active styling.
+      - **Reset Layout**: Enlarged to `px-3.5 py-2 font-bold` with a 16px restart icon, prominent amber badge styling (`bg-amber-500/15 border-amber-500/40 text-amber-300`), and instant feedback.
+    - **Validation**:
+      - Confirmed via live browser inspection that the dock renders on a single line without any scrollbar appearing.
+17. **Universal Copy, Paste & Duplicate Across All Surfaces**:
+    - **Root Cause Identified**:
+      - `isCustom` in `useCanvasInteraction.ts` previously only checked for `shape-`, `vector-`, `badge-`, `line-`, and `sticker-`. Custom text elements (`text-*`) and uploaded images (`image-*`) were not recognized as custom elements, causing them to reuse their original ID on paste and merely shift position rather than creating a new clone.
+      - "Copy All" pasted elements on the same slide using their original IDs, overwriting existing elements in place rather than duplicating them.
+      - The Inspector panel's "Duplicate" button called `copySelectedElement()` without pasting.
+    - **Comprehensive Architectural Fixes**:
+      - **Dedicated Store Action (`duplicateElement`)**: Added `duplicateElement: (targetSlideIndex?: number, elementId?: CanvasElementId) => void` to `CanvasInteractionActions` in `useCanvasInteraction.ts`. When triggered, it copies the target or active element and pastes an independent clone with a fresh unique ID, elevated z-index, and a +20px offset in a single atomic transaction.
+      - **Universal Custom Element Recognition**: Updated `isCustom` to include `text-*` and `image-*` prefixes alongside shapes, vectors, lines, stickers, and badges.
+      - **Collision-Free Cloning with Fresh Unique IDs**: Cloned elements now receive unique IDs generated as `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, preventing any ID collisions.
+      - **Template Element Conversion on Duplicate**: Duplicating built-in template items (e.g. `headline`, `body`, `badge`) on the same slide converts them into a new custom editable text box, preserving all typographical styles and text content.
+      - **Copy All Elements Enhancement**: "Copy All" now captures all active custom elements and template overrides. Pasting on the same slide duplicates all custom overlay elements with fresh unique IDs and a +20px offset, while pasting across slides copies layout overrides and graphics cleanly to the target slide.
+      - **Inspector Panel Integration (`ElementInspectorPanel.tsx`)**: Connected the "Duplicate" button directly to `duplicateElement()`.
+      - **Dock Clipboard Integration (`CanvasControls.tsx`)**: Updated bottom dock clipboard buttons: dynamic copy copies the selected element if active (<kbd>Ctrl+C</kbd>) or copies all elements if none selected (<kbd>Ctrl+Shift+C</kbd>). Paste dynamically pastes according to clipboard contents.
+      - **Canvas Context Menu Integration (`CanvasContextMenu.tsx`)**: Added dedicated "Duplicate Element" (<kbd>Ctrl+D</kbd>) menu action alongside Copy and Paste.
+      - **Quick Floating Toolbar Integration (`ElementQuickToolbar.tsx`)**: Added dedicated "Duplicate Element" (<kbd>Ctrl+D</kbd>) button beside the Copy button.
+      - **Keyboard Hotkey Integration (`useCanvasShortcuts.ts`)**: Mapped <kbd>Ctrl+D</kbd> / <kbd>Cmd+D</kbd> to `duplicateElement` when an element is selected (industry standard across Figma, Canva, and Illustrator).
+    - **Validation**:
+      - Ran `npx tsc --noEmit` — completed with **0 errors**.
+      - Verified in live browser subagent session: added text element, duplicated via Inspector, verified clone appeared on canvas with confirmation toast, and verified dock copy/paste buttons.
