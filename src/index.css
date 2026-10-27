@@ -1,0 +1,479 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   KontentOS — Editorial Studio design tokens
+   Light (Paper Editorial) is the DEFAULT. Dark (Evergreen) is opt-in.
+   Raw palette lives on :root / [data-theme] so it can switch at runtime;
+   @theme inline maps Tailwind color utilities onto those runtime vars.
+   ========================================================================== */
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  --app: #faf9f5; /* warm archival cream canvas */
+  --surface: #ffffff; /* paper sheets / cards */
+  --surface-2: #f4f2ec; /* subtle fills, hovers */
+  --surface-3: #edeae1; /* stronger fills, tracks */
+  --line: #dde7df; /* pale lichen hairlines */
+  --line-strong: #c7d3ca;
+
+  --ink: #1e2522; /* primary carbon-forest text */
+  --ink-muted: #68736d; /* secondary stone-green */
+  --ink-dim: #9aa39d; /* tertiary metadata */
+
+  --primary: #285c4d; /* deep forest green */
+  --primary-hover: #1f473b;
+  --on-primary: #ffffff;
+  --primary-soft: rgba(40, 92, 77, 0.08);
+
+  --secondary: #4d7365; /* muted pine */
+  --secondary-soft: rgba(77, 115, 101, 0.12);
+  --tertiary: #c98a58; /* warm terracotta */
+  --tertiary-soft: rgba(201, 138, 88, 0.14);
+
+  --success: #2f7d5b;
+  --warning: #b08233;
+  --danger: #b4503f;
+
+  --ring: rgba(40, 92, 77, 0.35);
+  --shadow-1: 0 1px 3px rgba(30, 37, 34, 0.05), 0 4px 12px rgba(30, 37, 34, 0.03);
+  --shadow-2: 0 8px 24px rgba(30, 37, 34, 0.08), 0 2px 6px rgba(30, 37, 34, 0.04);
+  --scrim: rgba(30, 37, 34, 0.28);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --app: #14171a;
+  --surface: #1c2023;
+  --surface-2: #232829;
+  --surface-3: #2e3537;
+  --line: #2f3638;
+  --line-strong: #3c4547;
+
+  --ink: #ecebe4;
+  --ink-muted: #a7ada6;
+  --ink-dim: #767d76;
+
+  --primary: #7fb09a;
+  --primary-hover: #96c3ae;
+  --on-primary: #10201a;
+  --primary-soft: rgba(127, 176, 154, 0.16);
+
+  --secondary: #a8c3a0;
+  --secondary-soft: rgba(168, 195, 160, 0.16);
+  --tertiary: #d9a06a;
+  --tertiary-soft: rgba(217, 160, 106, 0.16);
+
+  --success: #6fbf95;
+  --warning: #d8b863;
+  --danger: #d9776a;
+
+  --ring: rgba(127, 176, 154, 0.4);
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --scrim: rgba(0, 0, 0, 0.6);
+}
+
+@theme inline {
+  --color-app: var(--app);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-dim: var(--ink-dim);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-soft: var(--secondary-soft);
+  --color-tertiary: var(--tertiary);
+  --color-tertiary-soft: var(--tertiary-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --font-display: 'Newsreader', ui-serif, Georgia, serif;
+  --font-body: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-playfair: 'Playfair Display', Georgia, serif;
+  --font-jakarta: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-space: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-syne: 'Syne', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-btn: 8px;
+  --radius-card: 12px;
+
+  --shadow-paper: var(--shadow-1);
+  --shadow-float: var(--shadow-2);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+* {
+  border-color: var(--line);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--app);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--ink);
+}
+
+/* Material Symbols */
+.material-symbols-outlined,
+.material-symbols-rounded {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* Scrollbars — quiet, editorial */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--line-strong);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Reusable surface + focus helpers */
+.kt-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--app), 0 0 0 4px var(--ring);
+}
+
+.kt-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-1);
+}
+
+.kt-eyebrow {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* Range slider (timeline zoom, etc.) */
+input[type='range'] {
+  accent-color: var(--primary);
+}
+
+@keyframes ktSpin { to { transform: rotate(360deg); } }
+.kt-spin { display: inline-flex; animation: ktSpin 900ms linear infinite; }
+
+/* ==========================================================================
+   Kinetic caption animations (Reel preview)
+   ========================================================================== */
+@keyframes ktCapPop {
+  0% { transform: scale(0.7); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes ktCapFade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ktCapWave {
+  0% { opacity: 0; transform: translateY(8px) rotate(-2deg); }
+  100% { opacity: 1; transform: translateY(0) rotate(0); }
+}
+.kt-cap-pop { animation: ktCapPop 260ms cubic-bezier(0.2, 0.9, 0.3, 1.4) both; }
+.kt-cap-fade { animation: ktCapFade 220ms ease-out both; }
+.kt-cap-wave { animation: ktCapWave 200ms ease-out both; }
+
+/* ==========================================================================
+   Magical KontentOS splash
+   ========================================================================== */
+.kt-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  overflow: hidden;
+  animation: ktSplashOut 620ms ease-in forwards;
+  animation-play-state: paused;
+}
+.kt-splash.is-leaving { animation-play-state: running; }
+@keyframes ktSplashOut {
+  to { opacity: 0; visibility: hidden; transform: scale(1.04); }
+}
+
+/* soft conjured glow */
+.kt-splash::before {
+  content: '';
+  position: absolute;
+  width: 120vmin;
+  height: 120vmin;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(40, 92, 77, 0.12), transparent 60%);
+  filter: blur(6px);
+  opacity: 0;
+  animation: ktGlow 3.6s ease-in-out forwards;
+}
+@keyframes ktGlow {
+  0% { opacity: 0; transform: scale(0.6); }
+  30% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.1); }
+}
+
+.kt-splash-inner { position: relative; text-align: center; padding: 0 24px; }
+
+.kt-splash-mark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(44px, 9vw, 92px);
+  line-height: 1;
+  color: #1e2522;
+  letter-spacing: 0.24em;
+  opacity: 0;
+  animation: ktGrow 1500ms cubic-bezier(0.16, 1, 0.3, 1) 250ms forwards;
+}
+.kt-splash-mark b { font-weight: 700; color: #285c4d; }
+@keyframes ktGrow {
+  0% { opacity: 0; transform: scale(0.55); letter-spacing: 0.5em; filter: blur(10px); }
+  55% { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: scale(1); letter-spacing: 0.14em; filter: blur(0); }
+}
+
+/* shimmering sweep across the wordmark */
+.kt-splash-shine {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  pointer-events: none;
+}
+.kt-splash-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  transform: skewX(-18deg);
+  opacity: 0;
+  animation: ktShine 1200ms ease-in-out 1400ms;
+}
+@keyframes ktShine {
+  0% { left: -60%; opacity: 0; }
+  20% { opacity: 0.9; }
+  100% { left: 120%; opacity: 0; }
+}
+
+.kt-splash-tag {
+  margin-top: 18px;
+  font-family: var(--font-body);
+  font-size: clamp(13px, 2.4vw, 18px);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #5b6560;
+  min-height: 1.4em;
+}
+.kt-splash-tag .ltr {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(10px) scale(0.8);
+  filter: blur(4px);
+  animation: ktConjure 520ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+@keyframes ktConjure {
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+/* the wand that waves the tagline into being */
+.kt-splash-wand {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  color: #c98a58;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: center;
+  animation: ktWand 2100ms ease-in-out 1500ms forwards;
+}
+@keyframes ktWand {
+  0% { opacity: 0; transform: translate(-140px, 46px) rotate(-40deg) scale(0.6); }
+  12% { opacity: 1; }
+  50% { transform: translate(0, 30px) rotate(18deg) scale(1.15); }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translate(150px, 22px) rotate(-12deg) scale(0.7); }
+}
+.kt-splash-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: #d9a06a;
+  box-shadow: 0 0 10px 3px rgba(217, 160, 106, 0.7);
+  opacity: 0;
+  pointer-events: none;
+  animation: ktSpark 1600ms ease-out 1700ms forwards;
+}
+@keyframes ktSpark {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.2); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1); }
+}
+
+.kt-splash-skip {
+  position: absolute;
+  right: 22px;
+  bottom: 20px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #98a29c;
+  background: transparent;
+  border: 1px solid #e6e2d6;
+  border-radius: 9999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  opacity: 0;
+  animation: ktFadeIn 500ms ease 1200ms forwards;
+}
+.kt-splash-skip:hover { color: #285c4d; border-color: #285c4d; }
+@keyframes ktFadeIn { to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .kt-splash { animation: none; }
+  .kt-splash-mark, .kt-splash-tag .ltr, .kt-splash-wand, .kt-splash-skip, .kt-splash-shine::after, .kt-splash::before {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    opacity: 1;
+  }
+  .kt-splash-wand, .kt-splash-spark, .kt-splash-shine::after { display: none; }
+}
+
+/* Curated Typography Bundle Font Utilities */
+.font-playfair { font-family: 'Playfair Display', Georgia, serif; }
+.font-jakarta { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }
+.font-space { font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; }
+.font-syne { font-family: 'Syne', ui-sans-serif, system-ui, sans-serif; }
+.font-jetbrains { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+.font-newsreader { font-family: 'Newsreader', ui-serif, Georgia, serif; }
+.font-hanken { font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; }
+
+/* Advanced canvas: hide underlying content while inline editor is active */
+.canvas-editing > :not([data-canvas-editor]) {
+  opacity: 0;
+}
+
+/* ==========================================================================
+   Shared motion & scroll utilities
+   ========================================================================== */
+@keyframes ktFadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ktScaleIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes ktScaleUp {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ktSlideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slidein {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in { animation: ktFadeUp 240ms ease-out both; }
+.animate-scale-in { animation: ktScaleIn 180ms ease-out both; }
+.animate-scale-up { animation: ktScaleUp 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.animate-in { animation: ktFadeUp 200ms ease-out both; }
+
+.scrollbar-none,
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-scale-up,
+  .animate-in {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+}
