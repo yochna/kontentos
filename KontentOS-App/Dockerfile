@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS build
+﻿FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 ENV NODE_ENV=development
@@ -6,8 +6,8 @@ ENV NODE_ENV=development
 COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY . .
-RUN npm run build
+COPY . ./
+RUN npx --no-install vite build
 
 FROM node:22-bookworm-slim AS runtime
 
@@ -28,8 +28,5 @@ COPY --from=build /app/vite.config.ts ./vite.config.ts
 RUN mkdir -p /app/.data /app/uploads
 
 EXPOSE 4111
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 4111) + '/api/health').then((r) => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
-
-CMD ["node", "--import", "tsx", "server.ts"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 CMD node -e \"require('http').get('http://localhost:'+process.env.PORT+'/api/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))\"
+CMD [\"node\", \"--import\", \"tsx\", \"server.ts\"]
