@@ -10,7 +10,7 @@ import CommandCenter from '@/screens/CommandCenter';
 import Ideas from '@/screens/Ideas';
 import RawReel from '@/screens/RawReel';
 import SmartEditor from '@/screens/SmartEditor';
-import StaticGenerator from '@/screens/StaticGenerator';
+
 import PublishSchedule from '@/screens/PublishSchedule';
 import ContentLibrary from '@/screens/ContentLibrary';
 import Calendar from '@/screens/Calendar';
@@ -23,7 +23,7 @@ const SCREENS: Record<ScreenId, () => React.JSX.Element> = {
   ideas: Ideas,
   'raw-reel': RawReel,
   'smart-editor': SmartEditor,
-  'static-generator': StaticGenerator,
+
   'publish-schedule': PublishSchedule,
   'content-library': ContentLibrary,
   calendar: Calendar,
