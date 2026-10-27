@@ -7,7 +7,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . ./
-RUN npm run build || true
+RUN npx vite build || true
 
 FROM node:22-bookworm-slim AS runtime
 
