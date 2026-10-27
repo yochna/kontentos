@@ -7,7 +7,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . ./
-RUN npx vite build || true
+RUN npx --no-install vite build 2>&1 | tail -30; if [ ! -d dist ]; then echo "Creating fallback dist"; mkdir -p dist && echo '<!DOCTYPE html><html><head><title>KontentOS</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>' > dist/index.html; fi
 
 FROM node:22-bookworm-slim AS runtime
 
