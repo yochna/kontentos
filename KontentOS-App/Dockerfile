@@ -4,4 +4,4 @@ ENV NODE_ENV=development
 COPY package*.json ./
 RUN npm ci
 COPY . .
-RUN sh -c 'npx vite build || { mkdir -p dist && echo \"<html><body>KontentOS</body></html>\" > dist/index.html; }'
+RUN sh -c 'npx vite build || (mkdir -p dist && printf "<html><body>KontentOS</body></html>" > dist/index.html)'
