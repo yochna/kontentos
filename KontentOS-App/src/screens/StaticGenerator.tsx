@@ -14,6 +14,8 @@ interface Props {
   onUpdateText?: (field: string, value: string) => void;
 }
 
+export const StaticGenerator: React.FC<Props> = ({ state, onUpdateText }) => { 
+
 export const InstagramOverlayCard: React.FC<Props> = ({ state, onUpdateText }) => {
   const theme = getActiveTheme(state);
   const layerStyles = getCardLayerStyles(state);
@@ -176,3 +178,5 @@ export const InstagramOverlayCard: React.FC<Props> = ({ state, onUpdateText }) =
     </div>
   );
 };
+
+export default StaticGenerator;
