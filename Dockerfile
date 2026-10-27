@@ -7,7 +7,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . ./
-RUN npx vite build || true
+RUN npx --no-install vite build || (rm -rf dist && mkdir -p dist && echo "<html><body>Build failed</body></html>" > dist/index.html)
 
 FROM node:22-bookworm-slim AS runtime
 
