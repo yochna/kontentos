@@ -2,19 +2,23 @@ import React from 'react';
 import { StaticCardState } from '../../../../types/staticCard';
 import { getActiveTheme } from '../../../../data/staticCardPresets';
 import { getCardLayerStyles } from '../../utils/layerStyles';
-import { WatermarkBadge } from '../WatermarkBadge';
 import { getSafeImageUrl } from '@/lib/images';
 import { calculateCardTypography } from '../../utils/typography';
 import { renderHighlightedText } from '../../utils/textHighlighter';
+import { TransformableElement } from '../canvas/TransformableElement';
+import { CanvasTextElement } from '../canvas/CanvasTextElement';
+import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 
 interface Props {
   state: StaticCardState;
+  onUpdateText?: (field: string, value: string) => void;
 }
 
-export const TweetCardLayout: React.FC<Props> = ({ state }) => {
+export const TweetCardLayout: React.FC<Props> = ({ state, onUpdateText }) => {
   const theme = getActiveTheme(state);
   const layerStyles = getCardLayerStyles(state);
   const typography = calculateCardTypography(state);
+  const scene = useCanvasInteraction((s) => s.scenes[s.activeSlide] || {});
 
   const getFontFamily = () => {
     switch (state.fontStyle) {
@@ -33,6 +37,12 @@ export const TweetCardLayout: React.FC<Props> = ({ state }) => {
   const isLight = theme.mode === 'light';
   const safeBg = getSafeImageUrl(state.backgroundUrl);
   const safeAvatar = getSafeImageUrl(state.creator.avatarUrl);
+  const headline =
+    state.headline ||
+    'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.';
+  const supporting =
+    state.supportingText ||
+    'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.';
 
   return (
     <div
@@ -59,7 +69,9 @@ export const TweetCardLayout: React.FC<Props> = ({ state }) => {
       />
 
       {/* Tweet Frame */}
-      <div
+      <TransformableElement
+        id="content-box"
+        transform={scene['content-box']}
         className={`relative z-10 w-full ${
           isLandscape
             ? 'max-w-2xl max-h-[94%]'
@@ -77,38 +89,40 @@ export const TweetCardLayout: React.FC<Props> = ({ state }) => {
       >
         {/* Header: Avatar, Name, Handle, X logo */}
         <div className="flex items-center justify-between mb-3 font-body shrink-0">
-          {state.showCreatorBadge ? (
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden flex items-center justify-center bg-cyan-600/40 text-cyan-100 font-bold ring-2 ring-white/15 shrink-0">
-                {safeAvatar ? (
-                  <img src={safeAvatar} alt="" className="w-full h-full object-cover" crossOrigin="anonymous" />
-                ) : (
-                  'A'
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className={`font-bold text-xs sm:text-sm truncate max-w-[150px] sm:max-w-[220px] ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                    {state.creator.name || 'Aman Shades'}
-                  </span>
-                  {/* Verified Badge */}
-                  <svg className="w-3.5 h-3.5 text-cyan-400 fill-current shrink-0" viewBox="0 0 24 24">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                  </svg>
+          <TransformableElement id="profile" transform={scene.profile} className="min-w-0">
+            {state.showCreatorBadge ? (
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden flex items-center justify-center bg-cyan-600/40 text-cyan-100 font-bold ring-2 ring-white/15 shrink-0">
+                  {safeAvatar ? (
+                    <img src={safeAvatar} alt="" className="w-full h-full object-cover" crossOrigin="anonymous" />
+                  ) : (
+                    'A'
+                  )}
                 </div>
-                <span className={`text-[11px] block truncate ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                  {state.creator.handle || '@amanshades'}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`font-bold text-xs sm:text-sm truncate max-w-[150px] sm:max-w-[220px] ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      {state.creator.name || 'Aman Shades'}
+                    </span>
+                    {/* Verified Badge */}
+                    <svg className="w-3.5 h-3.5 text-cyan-400 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+                    </svg>
+                  </div>
+                  <span className={`text-[11px] block truncate ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {state.creator.handle || '@amanshades'}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                <span className={`text-[11px] font-mono uppercase tracking-widest font-semibold ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
+                  Insight Statement
                 </span>
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              <span className={`text-[11px] font-mono uppercase tracking-widest font-semibold ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
-                Insight Statement
-              </span>
-            </div>
-          )}
+            )}
+          </TransformableElement>
 
           <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isLight ? 'bg-black/10 text-slate-800' : 'bg-white/10 text-slate-200'}`}>
             𝕏
@@ -117,7 +131,11 @@ export const TweetCardLayout: React.FC<Props> = ({ state }) => {
 
         {/* Tweet Body Content (Headline & Subtext with fluid scaling and keyword highlights) */}
         <div className="my-auto py-1 min-h-0 flex flex-col justify-center space-y-2">
-          <p
+          <CanvasTextElement
+            id="headline"
+            as="p"
+            text={headline}
+            onTextChange={(value) => onUpdateText?.('headline', value)}
             className="tracking-tight"
             style={{
               color: theme.textColor,
@@ -129,16 +147,14 @@ export const TweetCardLayout: React.FC<Props> = ({ state }) => {
               fontWeight: typography.headlineStyle.fontWeight,
               fontStyle: typography.headlineStyle.fontStyle,
             }}
-          >
-            {renderHighlightedText(
-              state.headline || 'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.',
-              theme.accent,
-              theme.glowColor,
-              isLight
-            )}
-          </p>
+            renderContent={(text) => renderHighlightedText(text, theme.accent, theme.glowColor, isLight)}
+          />
 
-          <p
+          <CanvasTextElement
+            id="body"
+            as="p"
+            text={supporting}
+            onTextChange={(value) => onUpdateText?.('supportingText', value)}
             className="whitespace-pre-line font-normal"
             style={{
               color: theme.subtextColor,
@@ -148,25 +164,25 @@ export const TweetCardLayout: React.FC<Props> = ({ state }) => {
               fontFamily: typography.supportingStyle.fontFamily,
               letterSpacing: typography.supportingStyle.letterSpacing,
             }}
-          >
-            {renderHighlightedText(
-              state.supportingText || 'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.',
-              theme.accent,
-              theme.glowColor,
-              isLight
-            )}
-          </p>
+            renderContent={(text) => renderHighlightedText(text, theme.accent, theme.glowColor, isLight)}
+          />
         </div>
 
         {/* Clean Post Footer */}
-        <div className={`pt-2.5 mt-2 shrink-0 font-body flex items-center justify-between text-xs ${isLight ? 'border-t border-black/10 text-slate-500' : 'border-t border-white/10 text-slate-400'}`}>
+        <TransformableElement
+          id="footer"
+          transform={scene.footer}
+          className={`pt-2.5 mt-2 shrink-0 font-body flex items-center justify-between text-xs ${
+            isLight ? 'border-t border-black/10 text-slate-500' : 'border-t border-white/10 text-slate-400'
+          }`}
+        >
           <div className="flex items-center gap-2 text-[11px]">
             <span>10:42 AM</span>
             <span>·</span>
             <span className={`font-mono ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>Social Card</span>
           </div>
-        </div>
-      </div>
+        </TransformableElement>
+      </TransformableElement>
     </div>
   );
 };

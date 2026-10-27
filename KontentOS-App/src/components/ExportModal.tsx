@@ -662,7 +662,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-[var(--scrim)] backdrop-blur-xs" onClick={!rendering ? onClose : undefined} />
+      <div className="fixed inset-0 z-50 bg-[var(--scrim)] backdrop-blur-sm" onClick={!rendering ? onClose : undefined} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-xl p-6 shadow-[var(--shadow-2)] animate-[slidein_.2s_ease] max-h-[90vh] flex flex-col">
           {/* Header */}

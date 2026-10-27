@@ -1,6 +1,6 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Badge, Button, Card, Chip, Eyebrow, Thumb } from '@/components/ui';
+import { Badge, Button, Card, Chip, Eyebrow, PageShell, Thumb } from '@/components/ui';
 import { unsplashPhoto } from '@/lib/images';
 import { ideas as initialMockIdeas, type Idea } from '@/data/mock';
 import { useStore } from '@/lib/store';
@@ -104,7 +104,7 @@ export default function Ideas() {
   ];
 
   return (
-    <div className="mx-auto max-w-[1180px] px-4 sm:px-6 lg:px-8 py-8">
+    <PageShell>
       {/* Spark engine banner */}
       <Card className="p-6 sm:p-7 mb-6 overflow-hidden relative">
         <div
@@ -113,13 +113,13 @@ export default function Ideas() {
         />
         <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="max-w-2xl">
-            <Eyebrow icon="auto_awesome">Spark Engine · Angle Synthesizer</Eyebrow>
+            <Eyebrow icon="auto_awesome">Spark Engine Â· Angle Synthesizer</Eyebrow>
             <h1 className="font-display text-[30px] sm:text-[34px] leading-tight text-ink mt-1">
               What should you create next?
             </h1>
             <p className="text-ink-muted mt-2 text-[14.5px] leading-relaxed">
               KontentOS scans publisher waves, high-signal creator hooks, and your own archives to surface angles with
-              guaranteed retention models — then writes the full production blueprint.
+              guaranteed retention models â€” then writes the full production blueprint.
             </p>
 
             {/* Keyword / Topic input */}
@@ -180,7 +180,7 @@ export default function Ideas() {
             </Button>
             <div className="text-[12px] text-ink-dim px-2 text-center lg:text-left flex items-center justify-center lg:justify-start gap-1">
               <Icon name="verified" size={14} className="text-primary" />
-              <span>AI Angle Scoring · Offline Resilient</span>
+              <span>AI Angle Scoring Â· Offline Resilient</span>
             </div>
           </div>
         </div>
@@ -291,7 +291,7 @@ export default function Ideas() {
                   aria-label={saved ? 'Remove from saved' : 'Save archetype'}
                   className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur transition-all ${
                     saved
-                      ? 'bg-primary text-white shadow-sm'
+                      ? 'bg-primary text-on-primary shadow-sm'
                       : 'bg-black/40 text-white/80 hover:bg-black/60 hover:text-white'
                   }`}
                 >
@@ -335,7 +335,7 @@ export default function Ideas() {
           onClose={() => setShowTranscriptPicker(false)}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -428,7 +428,7 @@ function BlueprintDrawer({
             <div className="space-y-3">
               {b.beats.map((beat, i) => (
                 <div key={i} className="flex gap-3 bg-surface-2/40 p-3 rounded-card border border-line/60">
-                  <span className="grid place-items-center shrink-0 w-7 h-7 rounded-full bg-primary text-white text-[12px] font-bold">
+                  <span className="grid place-items-center shrink-0 w-7 h-7 rounded-full bg-primary text-on-primary text-[12px] font-bold">
                     {i + 1}
                   </span>
                   <div className="pt-0.5">

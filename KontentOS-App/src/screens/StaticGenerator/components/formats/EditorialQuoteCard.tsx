@@ -2,24 +2,34 @@ import React from 'react';
 import { StaticCardState } from '../../../../types/staticCard';
 import { getActiveTheme } from '../../../../data/staticCardPresets';
 import { getCardLayerStyles } from '../../utils/layerStyles';
-import { WatermarkBadge } from '../WatermarkBadge';
 import { getSafeImageUrl } from '@/lib/images';
 import { calculateCardTypography } from '../../utils/typography';
 import { renderHighlightedText } from '../../utils/textHighlighter';
+import { TransformableElement } from '../canvas/TransformableElement';
+import { CanvasTextElement } from '../canvas/CanvasTextElement';
+import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 
 interface Props {
   state: StaticCardState;
+  onUpdateText?: (field: string, value: string) => void;
 }
 
-export const EditorialQuoteCard: React.FC<Props> = ({ state }) => {
+export const EditorialQuoteCard: React.FC<Props> = ({ state, onUpdateText }) => {
   const theme = getActiveTheme(state);
   const layerStyles = getCardLayerStyles(state);
   const typography = calculateCardTypography(state);
+  const scene = useCanvasInteraction((s) => s.scenes[s.activeSlide] || {});
 
   const isVerticalStory = state.aspectRatio === '9:16';
   const isLight = theme.mode === 'light';
   const safeBg = getSafeImageUrl(state.backgroundUrl);
   const safeAvatar = getSafeImageUrl(state.creator.avatarUrl);
+  const headline =
+    state.headline ||
+    'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.';
+  const supporting =
+    state.supportingText ||
+    'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.';
 
   return (
     <div
@@ -46,16 +56,22 @@ export const EditorialQuoteCard: React.FC<Props> = ({ state }) => {
       />
 
       {/* Stylized Giant Quotation Graphic */}
-      <div
+      <TransformableElement
+        id="quote-mark"
+        transform={scene['quote-mark']}
         className="relative z-10 text-4xl sm:text-5xl font-display font-black leading-none select-none opacity-45 shrink-0"
         style={{ color: theme.accent }}
       >
         “
-      </div>
+      </TransformableElement>
 
       {/* Quote Statement & Takeaway with Fluid Auto-Fit & Keyword Highlighting */}
       <div className="relative z-10 my-auto py-1 min-h-0 flex flex-col justify-center">
-        <blockquote
+        <CanvasTextElement
+          id="headline"
+          as="blockquote"
+          text={headline}
+          onTextChange={(value) => onUpdateText?.('headline', value)}
           className="tracking-normal"
           style={{
             color: theme.textColor,
@@ -68,16 +84,14 @@ export const EditorialQuoteCard: React.FC<Props> = ({ state }) => {
             fontStyle: typography.headlineStyle.fontStyle || 'italic',
             letterSpacing: typography.headlineStyle.letterSpacing,
           }}
-        >
-          {renderHighlightedText(
-            state.headline || 'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.',
-            theme.accent,
-            theme.glowColor,
-            isLight
-          )}
-        </blockquote>
+          renderContent={(text) => renderHighlightedText(text, theme.accent, theme.glowColor, isLight)}
+        />
 
-        <p
+        <CanvasTextElement
+          id="body"
+          as="p"
+          text={supporting}
+          onTextChange={(value) => onUpdateText?.('supportingText', value)}
           className="font-normal leading-relaxed pl-3.5 border-l-2"
           style={{
             color: theme.subtextColor,
@@ -88,18 +102,18 @@ export const EditorialQuoteCard: React.FC<Props> = ({ state }) => {
             letterSpacing: typography.supportingStyle.letterSpacing,
             opacity: typography.supportingStyle.opacity,
           }}
-        >
-          {renderHighlightedText(
-            state.supportingText || 'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.',
-            theme.accent,
-            theme.glowColor,
-            isLight
-          )}
-        </p>
+          renderContent={(text) => renderHighlightedText(text, theme.accent, theme.glowColor, isLight)}
+        />
       </div>
 
       {/* Signature & Author Footer */}
-      <div className={`relative z-10 flex items-center justify-start pt-2.5 shrink-0 font-body mt-1 ${isLight ? 'border-t border-black/10' : 'border-t border-white/10'}`}>
+      <TransformableElement
+        id="profile"
+        transform={scene.profile}
+        className={`relative z-10 flex items-center justify-start pt-2.5 shrink-0 font-body mt-1 ${
+          isLight ? 'border-t border-black/10' : 'border-t border-white/10'
+        }`}
+      >
         {state.showCreatorBadge && (
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center bg-cyan-600/40 text-white font-bold ring-2 ring-white/15">
@@ -115,7 +129,7 @@ export const EditorialQuoteCard: React.FC<Props> = ({ state }) => {
             </div>
           </div>
         )}
-      </div>
+      </TransformableElement>
     </div>
   );
 };

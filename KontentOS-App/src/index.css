@@ -423,3 +423,57 @@ input[type='range'] {
 .font-jetbrains { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
 .font-newsreader { font-family: 'Newsreader', ui-serif, Georgia, serif; }
 .font-hanken { font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; }
+
+/* Advanced canvas: hide underlying content while inline editor is active */
+.canvas-editing > :not([data-canvas-editor]) {
+  opacity: 0;
+}
+
+/* ==========================================================================
+   Shared motion & scroll utilities
+   ========================================================================== */
+@keyframes ktFadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ktScaleIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes ktScaleUp {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ktSlideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slidein {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in { animation: ktFadeUp 240ms ease-out both; }
+.animate-scale-in { animation: ktScaleIn 180ms ease-out both; }
+.animate-scale-up { animation: ktScaleUp 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.animate-in { animation: ktFadeUp 200ms ease-out both; }
+
+.scrollbar-none,
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-scale-up,
+  .animate-in {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+}

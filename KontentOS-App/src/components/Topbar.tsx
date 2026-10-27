@@ -22,21 +22,24 @@ export function Topbar({
       <IconButton name="menu" label="Open navigation" className="lg:hidden" onClick={onOpenMobile} />
 
       <div className="min-w-0">
-        <div className="kt-eyebrow hidden sm:block">KontentOS</div>
-        <h1 className="font-display text-[20px] leading-tight text-ink truncate">{SCREEN_TITLES[screen]}</h1>
+        <div className="kt-eyebrow hidden sm:block">Workspace</div>
+        <div className="font-display text-[18px] leading-tight text-ink truncate">
+          {SCREEN_TITLES[screen]}
+        </div>
       </div>
 
       <div className="flex-1" />
 
       {/* Search */}
-      <label className="hidden md:flex items-center gap-2 w-[240px] lg:w-[300px] h-10 px-3 rounded-btn bg-surface border border-line focus-within:border-ink-muted transition-colors">
+      <label className="hidden md:flex items-center gap-2 w-[240px] lg:w-[320px] h-10 px-3 rounded-btn bg-surface border border-line shadow-xs focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15 transition-all">
         <Icon name="search" size={18} className="text-ink-dim" />
         <input
-          type="text"
+          type="search"
+          aria-label="Search workspace"
           placeholder="Search ideas, clips, reels…"
-          className="flex-1 bg-transparent border-0 outline-none text-sm text-ink placeholder:text-ink-dim"
+          className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm text-ink placeholder:text-ink-dim"
         />
-        <kbd className="text-[10px] text-ink-dim border border-line rounded px-1.5 py-0.5">⌘K</kbd>
+        <kbd className="hidden lg:inline text-[10px] text-ink-dim border border-line rounded px-1.5 py-0.5">⌘K</kbd>
       </label>
 
       <IconButton name="search" label="Search" className="md:hidden" />
@@ -54,7 +57,13 @@ export function Topbar({
         onClick={onToggleTheme}
       />
 
-      <button className="ml-1 grid place-items-center w-9 h-9 rounded-full text-on-primary text-sm font-semibold kt-focus" style={{ background: 'var(--primary)' }}>
+      <button
+        type="button"
+        aria-label="Open profile"
+        title={profile.name}
+        className="ml-1 grid place-items-center w-9 h-9 rounded-full text-on-primary text-sm font-semibold kt-focus ring-offset-2 ring-offset-app"
+        style={{ background: 'var(--primary)' }}
+      >
         {profile.initials}
       </button>
 

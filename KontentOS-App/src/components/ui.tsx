@@ -191,6 +191,69 @@ export function SectionTitle({
   );
 }
 
+/* ------------------------------- Page layout -------------------------------- */
+
+type PageWidth = 'default' | 'wide' | 'full';
+
+const pageWidths: Record<PageWidth, string> = {
+  default: 'max-w-[1280px]',
+  wide: 'max-w-[1500px]',
+  full: 'max-w-none',
+};
+
+export function PageShell({
+  children,
+  width = 'default',
+  className = '',
+}: {
+  children: ReactNode;
+  width?: PageWidth;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 ${pageWidths[width]} ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function PageHeader({
+  eyebrow,
+  icon,
+  title,
+  description,
+  actions,
+  className = '',
+}: {
+  eyebrow: ReactNode;
+  icon?: string;
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between ${className}`}
+    >
+      <div className="min-w-0 max-w-3xl">
+        <Eyebrow icon={icon}>{eyebrow}</Eyebrow>
+        <h1 className="font-display text-[30px] sm:text-[34px] leading-[1.12] tracking-tight text-ink mt-1 text-balance break-words">
+          {title}
+        </h1>
+        {description && (
+          <p className="text-sm sm:text-[15px] leading-relaxed text-ink-muted mt-2 max-w-2xl">
+            {description}
+          </p>
+        )}
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div>}
+    </div>
+  );
+}
+
 /* ---------------------------------- Thumb ----------------------------------- */
 
 export function Thumb({

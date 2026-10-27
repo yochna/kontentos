@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, StatusPill, Badge } from '@/components/ui';
+import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/components/ui';
 import { channels as initialChannels, recommendedTags } from '@/data/mock';
 import { useStore, useDisplayProfile } from '@/lib/store';
 import type { SocialPlatform } from '@/lib/types';
@@ -230,7 +230,7 @@ export default function PublishSchedule() {
             hashtags: data.data.facebook?.hashtags || copyBundle.facebook.hashtags,
           },
         });
-        setFlash({ tone: 'ok', msg: '✓ Gemini AI generated fresh platform-tailored copy for all channels!' });
+        setFlash({ tone: 'ok', msg: 'âœ“ Gemini AI generated fresh platform-tailored copy for all channels!' });
       } else {
         throw new Error(data?.error || 'AI copy generation failed');
       }
@@ -324,27 +324,24 @@ export default function PublishSchedule() {
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1440px] mx-auto">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <Eyebrow icon="schedule_send">Omnichannel Publisher</Eyebrow>
-          <h1 className="font-display text-[28px] sm:text-[32px] leading-tight text-ink mt-0.5">
-            Publish & Multi-Channel Composer
-          </h1>
-          <p className="text-[14px] text-ink-muted mt-1">
-            Simultaneously package, preview, and syndicate your video across all creator channels.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" icon="download" onClick={handleExportManualBundle}>
-            Export Bundle
-          </Button>
-          <Button icon="send" onClick={handleScheduleDispatch} disabled={busy || !selectedVideo}>
-            {busy ? 'Scheduling…' : 'Schedule Dispatch'}
-          </Button>
-        </div>
-      </div>
+    <PageShell>
+      <PageHeader
+        eyebrow="Omnichannel Publisher"
+        icon="schedule_send"
+        title="Publish & Multi-Channel Composer"
+        description="Simultaneously package, preview, and syndicate your video across all creator channels."
+        actions={
+          <>
+            <Button variant="secondary" icon="download" onClick={handleExportManualBundle}>
+              Export Bundle
+            </Button>
+            <Button icon="send" onClick={handleScheduleDispatch} disabled={busy || !selectedVideo}>
+              {busy ? 'Schedulingâ€¦' : 'Schedule Dispatch'}
+            </Button>
+          </>
+        }
+        className="mb-6"
+      />
 
       {/* Flash Alert Message */}
       {flash && (
@@ -381,7 +378,7 @@ export default function PublishSchedule() {
               </h2>
               {selectedVideo && (
                 <span className="text-xs text-ink-dim font-mono">
-                  Duration: {Math.round(selectedVideo.duration || 0)}s · 9:16
+                  Duration: {Math.round(selectedVideo.duration || 0)}s Â· 9:16
                 </span>
               )}
             </div>
@@ -465,7 +462,7 @@ export default function PublishSchedule() {
                   >
                     <span
                       className={`grid place-items-center w-9 h-9 rounded-btn shrink-0 ${
-                        active ? 'bg-primary text-white' : 'bg-surface-2 text-ink-muted'
+                        active ? 'bg-primary text-on-primary' : 'bg-surface-2 text-ink-muted'
                       }`}
                     >
                       <Icon name={c.icon} size={18} />
@@ -476,7 +473,7 @@ export default function PublishSchedule() {
                     </span>
                     <span
                       className={`w-4 h-4 rounded border grid place-items-center shrink-0 ${
-                        active ? 'bg-primary border-primary text-white' : 'border-line bg-surface-2'
+                        active ? 'bg-primary border-primary text-on-primary' : 'border-line bg-surface-2'
                       }`}
                     >
                       {active && <Icon name="check" size={12} />}
@@ -715,7 +712,7 @@ export default function PublishSchedule() {
                       </p>
                       <div className="flex items-center gap-1 text-[9px] text-white/70 mt-1">
                         <Icon name="music_note" size={10} />
-                        <span className="truncate">Original audio · {profile.handle}</span>
+                        <span className="truncate">Original audio Â· {profile.handle}</span>
                       </div>
                     </div>
                   </>
@@ -822,6 +819,6 @@ export default function PublishSchedule() {
           </Card>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

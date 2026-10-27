@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, StatusPill } from '@/components/ui';
+import { Button, Card, PageHeader, PageShell, StatusPill } from '@/components/ui';
 import { settingsSections } from '@/data/mock';
 import { useTheme } from '@/lib/theme';
 import { useStore, useDisplayProfile } from '@/lib/store';
@@ -127,17 +127,14 @@ export default function Settings() {
   }
 
   return (
-    <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
-      {/* Header */}
-      <div className="mb-6">
-        <Eyebrow icon="settings">Workspace Configuration</Eyebrow>
-        <h1 className="font-display text-[32px] font-bold text-ink tracking-tight mt-1">
-          Settings &amp; Integration Vault
-        </h1>
-        <p className="text-[14px] text-ink-muted mt-0.5">
-          Manage creator profile, connected channels, AI neural temperature, and workspace security.
-        </p>
-      </div>
+    <PageShell className="animate-fade-in">
+      <PageHeader
+        eyebrow="Workspace Configuration"
+        icon="settings"
+        title="Settings & Integration Vault"
+        description="Manage creator profile, connected channels, AI neural temperature, and workspace security."
+        className="mb-6"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 items-start">
         {/* Section Navigation Rail */}
@@ -635,7 +632,7 @@ export default function Settings() {
           )}
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
 

@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
+﻿import { useMemo, useRef, useState, useEffect } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, StatusPill, Badge } from '@/components/ui';
+import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { ingestFeatures } from '@/data/mock';
 import { getPreset } from '@/lib/timeline';
@@ -93,39 +93,37 @@ export default function ContentLibrary() {
   };
 
   return (
-    <div className="mx-auto max-w-[1300px] px-4 sm:px-6 lg:px-8 py-8">
-      {/* Screen Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div>
-          <Eyebrow icon="grid_view">Media Vault</Eyebrow>
-          <h1 className="font-display text-[28px] sm:text-[32px] leading-tight text-ink mt-0.5">
-            Content Library & Media Vault
-          </h1>
-          <p className="text-ink-muted text-sm mt-1">
-            {online
-              ? 'Your high-signal raw footage and assembled compositions — searchable, indexed, and ready.'
-              : 'Backend offline — showing cached assets.'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileRef}
-            type="file"
-            accept="video/*,audio/*"
-            multiple
-            hidden
-            onChange={(e) => handleFiles(e.target.files)}
-          />
-          <Button
-            icon={busy ? 'hourglass_top' : 'cloud_upload'}
-            disabled={busy}
-            onClick={() => fileRef.current?.click()}
-          >
-            {busy ? `Uploading ${progress}%` : 'Ingest media'}
-          </Button>
-        </div>
-      </div>
+    <PageShell>
+      <PageHeader
+        eyebrow="Media Vault"
+        icon="grid_view"
+        title="Content Library & Media Vault"
+        description={
+          online
+            ? 'Your high-signal raw footage and assembled compositions â€” searchable, indexed, and ready.'
+            : 'Backend offline â€” showing cached assets.'
+        }
+        actions={
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="video/*,audio/*"
+              multiple
+              hidden
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+            <Button
+              icon={busy ? 'hourglass_top' : 'cloud_upload'}
+              disabled={busy}
+              onClick={() => fileRef.current?.click()}
+            >
+              {busy ? `Uploading ${progress}%` : 'Ingest media'}
+            </Button>
+          </>
+        }
+        className="mb-6"
+      />
 
       {/* Storage & Vault Statistics Banner */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -358,7 +356,7 @@ export default function ContentLibrary() {
                 <Icon name="cloud_upload" size={24} />
               </span>
               <span className="text-[14px] font-semibold text-ink">Drop footage here to ingest</span>
-              <span className="text-xs text-ink-dim mt-1">MP4, MOV, WEBM, WAV · Up to 8 GB</span>
+              <span className="text-xs text-ink-dim mt-1">MP4, MOV, WEBM, WAV Â· Up to 8 GB</span>
               <span className="mt-3 text-xs font-semibold text-primary inline-flex items-center gap-1">
                 <Icon name="add" size={14} /> Browse local files
               </span>
@@ -407,7 +405,7 @@ export default function ContentLibrary() {
           }}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -670,7 +668,7 @@ function VideoDetailModal({
                         >
                           <button
                             type="button"
-                            className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-surface-2 border border-line shrink-0 text-primary font-bold hover:bg-primary hover:text-white transition-colors"
+                            className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-surface-2 border border-line shrink-0 text-primary font-bold hover:bg-primary hover:text-on-primary transition-colors"
                             title="Jump video to this offset"
                           >
                             {String(seg.start).replace(',', '.').slice(0, 8)}

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, StatusPill, Badge } from '@/components/ui';
+import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/components/ui';
 import { ReelPreview } from '@/components/ReelPreview';
 import { PRESETS, fmtTime, totalDuration, type EditPreset } from '@/lib/timeline';
 import type { AutoEditOutcome } from '@/lib/store';
@@ -147,7 +147,7 @@ export default function RawReel() {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
+    <PageShell>
       {/* Hidden File Upload Input */}
       <input
         type="file"
@@ -157,29 +157,30 @@ export default function RawReel() {
         className="hidden"
       />
 
-      {/* Screen Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <Eyebrow icon="smart_display">Raw → Reel Studio</Eyebrow>
-          <h1 className="font-display text-[28px] sm:text-[32px] leading-tight text-ink mt-0.5">
-            One click. Pick a look. Ship the reel.
-          </h1>
-          <p className="text-[14px] text-ink-muted mt-1">
-            Automated dead-air trimming, kinetic subtitle typography, and punch zooms from your raw smartphone takes.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {result?.offline && <StatusPill tone="neutral">Offline engine active</StatusPill>}
-          {result?.source === 'gemini' && <StatusPill tone="tertiary">Gemini AI Enhanced</StatusPill>}
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Raw â†’ Reel Studio"
+        icon="smart_display"
+        title="One click. Pick a look. Ship the reel."
+        description="Automated dead-air trimming, kinetic subtitle typography, and punch zooms from your raw smartphone takes."
+        actions={
+          result && (result.offline || result.source === 'gemini') ? (
+            <>
+              {result.offline && <StatusPill tone="neutral">Offline engine active</StatusPill>}
+              {result.source === 'gemini' && (
+                <StatusPill tone="tertiary">Gemini AI Enhanced</StatusPill>
+              )}
+            </>
+          ) : undefined
+        }
+        className="mb-6"
+      />
 
       {/* Active Blueprint & Script Guidance Banner (if initiated from an idea) */}
       {activeDraft?.idea && (
         <Card className="p-4 sm:p-5 mb-6 bg-primary-soft/60 border-primary/20 relative overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-3">
-              <span className="w-8 h-8 rounded-btn bg-primary text-white grid place-items-center shrink-0 mt-0.5">
+              <span className="w-8 h-8 rounded-btn bg-primary text-on-primary grid place-items-center shrink-0 mt-0.5">
                 <Icon name="lightbulb" size={18} />
               </span>
               <div>
@@ -280,7 +281,7 @@ export default function RawReel() {
                           {fmtTime(v.duration || 0)}
                         </span>
                         {isSelected && (
-                          <span className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-primary text-white grid place-items-center shadow-sm">
+                          <span className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-primary text-on-primary grid place-items-center shadow-sm">
                             <Icon name="check" size={13} />
                           </span>
                         )}
@@ -334,7 +335,7 @@ export default function RawReel() {
                     <div className="flex items-start gap-3 mb-3">
                       <span
                         className={`grid place-items-center w-10 h-10 rounded-btn shrink-0 ${
-                          active ? 'bg-primary text-white' : 'bg-surface-2 text-primary'
+                          active ? 'bg-primary text-on-primary' : 'bg-surface-2 text-primary'
                         }`}
                       >
                         <Icon name={p.icon} size={20} />
@@ -343,8 +344,8 @@ export default function RawReel() {
                         <div className="flex items-center gap-1.5">
                           <span className="text-[14px] font-semibold text-ink">{p.name}</span>
                           {active && (
-                            <span className="w-4 h-4 rounded-full bg-primary text-white grid place-items-center text-[10px]">
-                              ✓
+                            <span className="w-4 h-4 rounded-full bg-primary text-on-primary grid place-items-center text-[10px]">
+                              âœ“
                             </span>
                           )}
                         </div>
@@ -392,8 +393,8 @@ export default function RawReel() {
                 <span className="text-[13px] text-ink-muted flex items-center gap-2 bg-surface-2/60 px-3 py-1.5 rounded-btn border border-line">
                   <Icon name="check_circle" size={17} className="text-tertiary shrink-0" />
                   <span>
-                    <strong>{result.stats?.cutsCount || 0} cuts</strong> ·{' '}
-                    <strong>{result.stats?.captionsCount || 0} captions</strong> ·{' '}
+                    <strong>{result.stats?.cutsCount || 0} cuts</strong> Â·{' '}
+                    <strong>{result.stats?.captionsCount || 0} captions</strong> Â·{' '}
                     <strong>{fmtTime(result.stats?.silenceRemovedSec || 0)} dead-air purged</strong>
                   </span>
                 </span>
@@ -555,7 +556,7 @@ export default function RawReel() {
           )}
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
 

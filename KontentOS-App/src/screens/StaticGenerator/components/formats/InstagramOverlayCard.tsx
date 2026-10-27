@@ -2,19 +2,23 @@ import React from 'react';
 import { StaticCardState } from '../../../../types/staticCard';
 import { getActiveTheme } from '../../../../data/staticCardPresets';
 import { getCardLayerStyles } from '../../utils/layerStyles';
-import { WatermarkBadge } from '../WatermarkBadge';
 import { getSafeImageUrl } from '@/lib/images';
 import { calculateCardTypography } from '../../utils/typography';
 import { renderHighlightedText } from '../../utils/textHighlighter';
+import { TransformableElement } from '../canvas/TransformableElement';
+import { CanvasTextElement } from '../canvas/CanvasTextElement';
+import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 
 interface Props {
   state: StaticCardState;
+  onUpdateText?: (field: string, value: string) => void;
 }
 
-export const InstagramOverlayCard: React.FC<Props> = ({ state }) => {
+export const InstagramOverlayCard: React.FC<Props> = ({ state, onUpdateText }) => {
   const theme = getActiveTheme(state);
   const layerStyles = getCardLayerStyles(state);
   const typography = calculateCardTypography(state);
+  const scene = useCanvasInteraction((s) => s.scenes[s.activeSlide] || {});
 
   const getFontFamily = () => {
     switch (state.fontStyle) {
@@ -33,6 +37,12 @@ export const InstagramOverlayCard: React.FC<Props> = ({ state }) => {
   const isLight = theme.mode === 'light';
   const safeBg = getSafeImageUrl(state.backgroundUrl);
   const safeAvatar = getSafeImageUrl(state.creator.avatarUrl);
+  const headline =
+    state.headline ||
+    'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.';
+  const supporting =
+    state.supportingText ||
+    'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.';
 
   return (
     <div
@@ -64,7 +74,9 @@ export const InstagramOverlayCard: React.FC<Props> = ({ state }) => {
       />
 
       {/* Center/Bottom Glassmorphic Content Card */}
-      <div
+      <TransformableElement
+        id="content-box"
+        transform={scene['content-box']}
         className={`relative z-10 w-full ${
           isLandscape
             ? 'max-w-3xl my-auto max-h-[94%]'
@@ -83,7 +95,9 @@ export const InstagramOverlayCard: React.FC<Props> = ({ state }) => {
         {/* Card Header: Creator Badge (if enabled) + Accent Bar */}
         <div className="flex items-center justify-between mb-2 shrink-0">
           {state.showCreatorBadge ? (
-            <div
+            <TransformableElement
+              id="profile"
+              transform={scene.profile}
               className={`inline-flex items-center gap-2 px-3 py-1 rounded-full backdrop-blur-md border shadow-sm ${
                 isLight ? 'bg-black/5 border-black/10 text-slate-900' : 'bg-black/60 border-white/15 text-white'
               }`}
@@ -103,21 +117,29 @@ export const InstagramOverlayCard: React.FC<Props> = ({ state }) => {
               <span className={`text-xs font-medium tracking-tight font-body truncate max-w-[180px] ${isLight ? 'text-slate-800' : 'text-white'}`}>
                 {state.creator.handle || '@amanshades'}
               </span>
-            </div>
+            </TransformableElement>
           ) : (
             <div />
           )}
 
           {/* Accent Glow Indicator Bar */}
-          <div
+          <TransformableElement
+            id="accent-line"
+            transform={scene['accent-line']}
             className="w-10 h-1 rounded-full opacity-85"
             style={{ background: theme.accentGradient }}
-          />
+          >
+            <span className="sr-only">Accent line</span>
+          </TransformableElement>
         </div>
 
         {/* Text Content (Headline & Supporting with fluid auto-fit & keyword highlighting) */}
         <div className="my-auto py-1 min-h-0 flex flex-col justify-center">
-          <h2
+          <CanvasTextElement
+            id="headline"
+            as="h2"
+            text={headline}
+            onTextChange={(value) => onUpdateText?.('headline', value)}
             className="tracking-tight drop-shadow-sm"
             style={{
               color: theme.textColor,
@@ -130,16 +152,14 @@ export const InstagramOverlayCard: React.FC<Props> = ({ state }) => {
               fontWeight: typography.headlineStyle.fontWeight,
               fontStyle: typography.headlineStyle.fontStyle,
             }}
-          >
-            {renderHighlightedText(
-              state.headline || 'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.',
-              theme.accent,
-              theme.glowColor,
-              isLight
-            )}
-          </h2>
+            renderContent={(text) => renderHighlightedText(text, theme.accent, theme.glowColor, isLight)}
+          />
 
-          <p
+          <CanvasTextElement
+            id="body"
+            as="p"
+            text={supporting}
+            onTextChange={(value) => onUpdateText?.('supportingText', value)}
             className="whitespace-pre-line font-normal"
             style={{
               color: theme.subtextColor,
@@ -149,16 +169,10 @@ export const InstagramOverlayCard: React.FC<Props> = ({ state }) => {
               fontFamily: typography.supportingStyle.fontFamily,
               letterSpacing: typography.supportingStyle.letterSpacing,
             }}
-          >
-            {renderHighlightedText(
-              state.supportingText || 'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.',
-              theme.accent,
-              theme.glowColor,
-              isLight
-            )}
-          </p>
+            renderContent={(text) => renderHighlightedText(text, theme.accent, theme.glowColor, isLight)}
+          />
         </div>
-      </div>
+      </TransformableElement>
     </div>
   );
 };

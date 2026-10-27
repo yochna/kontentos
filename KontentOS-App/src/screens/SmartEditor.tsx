@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, IconButton, StatusPill } from '@/components/ui';
+import { Button, Card, IconButton, PageHeader, StatusPill } from '@/components/ui';
 import { ReelPreview, type ReelHandle } from '@/components/ReelPreview';
 import { ExportModal } from '@/components/ExportModal';
 import { useStore } from '@/lib/store';
@@ -717,7 +717,7 @@ export default function SmartEditor() {
     applyEdit(() => res.project, { label: `Auto-insert ${res.insertedCount} B-Roll clips` });
     if (res.insertedCount > 0) {
       setBrollNotice(
-        `✨ Auto-matched ${res.insertedCount} B-Roll overlays to speech topics! (${res.matchedKeywords.slice(0, 4).join(', ')})`
+        `âœ¨ Auto-matched ${res.insertedCount} B-Roll overlays to speech topics! (${res.matchedKeywords.slice(0, 4).join(', ')})`
       );
     } else {
       setBrollNotice(
@@ -943,12 +943,12 @@ export default function SmartEditor() {
   if (!project) {
     const ready = videos.filter((v) => v.status === 'ready' || v.status === 'processing');
     return (
-      <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1200px] mx-auto">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-[1280px] mx-auto">
         <Header offline={false} hasProject={false} />
         <Card className="p-12 text-center">
           {polishing ? (
             <div className="py-8 space-y-3">
-              <div className="kt-spin mx-auto w-10 h-10 rounded-full border-3 border-primary border-t-transparent" />
+              <div className="kt-spin mx-auto w-10 h-10 rounded-full border-[3px] border-primary border-t-transparent" />
               <h2 className="font-display text-[22px] text-ink">Preparing Video Timeline...</h2>
               <p className="text-[14px] text-ink-muted mt-1 max-w-md mx-auto">
                 Auto-assembling cuts, syncing kinetic captions, and optimizing playback rhythm.
@@ -961,8 +961,8 @@ export default function SmartEditor() {
               </div>
               <h2 className="font-display text-[22px] text-ink">Nothing on the timeline yet</h2>
               <p className="text-[14px] text-ink-muted mt-1 max-w-md mx-auto">
-                Assemble a reel in Raw → Reel Studio and click <b className="text-ink">Fine-tune in Editor</b> to load it
-                here — or start directly from an uploaded clip.
+                Assemble a reel in Raw â†’ Reel Studio and click <b className="text-ink">Fine-tune in Editor</b> to load it
+                here â€” or start directly from an uploaded clip.
               </p>
               {/* Upload from Device Dropzone */}
               <div className="mt-6 max-w-md mx-auto p-5 rounded-card border-2 border-dashed border-line hover:border-primary/50 bg-surface-2/40 hover:bg-surface-2/70 transition-all text-center">
@@ -1024,7 +1024,7 @@ export default function SmartEditor() {
     !!selectedClip || !!clipAt(project, 'video', time) || !!clipAt(project, 'text', time);
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1500px] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-[1500px] mx-auto">
       <Header
         offline={false}
         hasProject
@@ -1065,7 +1065,7 @@ export default function SmartEditor() {
                     onClick={() => handleSetAspectRatio(ar.id as TargetAspectRatio)}
                     className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 transition-all ${
                       (project.projectMetadata.targetAspectRatio || '9:16') === ar.id
-                        ? 'bg-primary text-white shadow-xs'
+                        ? 'bg-primary text-on-primary shadow-xs'
                         : 'text-ink-muted hover:text-ink hover:bg-surface-2'
                     }`}
                     title={`Switch canvas to ${ar.label}`}
@@ -1169,8 +1169,8 @@ export default function SmartEditor() {
                 </div>
 
                 <div className="text-[13px] text-ink-muted leading-relaxed bg-surface-2/60 p-3 rounded-btn border border-line">
-                  Scrub the multi-track timeline below. Press <Key>S</Key> to split, <Key>⌫</Key> to ripple-delete, and{' '}
-                  <Key>⌘/Ctrl</Key>+<Key>Z</Key> to undo.
+                  Scrub the multi-track timeline below. Press <Key>S</Key> to split, <Key>âŒ«</Key> to ripple-delete, and{' '}
+                  <Key>âŒ˜/Ctrl</Key>+<Key>Z</Key> to undo.
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap pt-1">
@@ -1179,7 +1179,7 @@ export default function SmartEditor() {
                   <StatusPill tone="secondary">{tClips.length} subtitle cues</StatusPill>
                   {sClips.length > 0 && <StatusPill tone="tertiary">{sClips.length} SFX triggers</StatusPill>}
                   <StatusPill tone="neutral">
-                    {project.projectMetadata.targetAspectRatio} · {fps}fps
+                    {project.projectMetadata.targetAspectRatio} Â· {fps}fps
                   </StatusPill>
                 </div>
               </div>
@@ -1202,7 +1202,7 @@ export default function SmartEditor() {
                 onClick={() => doTrim('end')}
                 disabled={!selectedClip}
               />
-              <ToolBtn icon="delete" label="Ripple Delete (⌫)" onClick={doDelete} disabled={!canCut} danger />
+              <ToolBtn icon="delete" label="Ripple Delete (âŒ«)" onClick={doDelete} disabled={!canCut} danger />
               <ToolBtn
                 icon="align_horizontal_left"
                 label="Tighten gaps"
@@ -1251,7 +1251,7 @@ export default function SmartEditor() {
                   ? `Selected: ${selectedIds.length} clips (Shift+Click / Marquee)`
                   : selectedClip
                   ? `Selected: ${clipLabel(selectedClip)}`
-                  : 'Click clip to select · Drag ruler to scrub · Drag background to marquee select'}
+                  : 'Click clip to select Â· Drag ruler to scrub Â· Drag background to marquee select'}
               </span>
             </div>
 
@@ -1521,7 +1521,7 @@ export default function SmartEditor() {
                       onClick={() => setMediaNotice(null)}
                       className="text-ink-muted hover:text-ink text-[11px]"
                     >
-                      ✕
+                      âœ•
                     </button>
                   </div>
                 )}
@@ -1552,14 +1552,14 @@ export default function SmartEditor() {
                             <div className="text-xs font-semibold text-ink truncate flex items-center gap-1.5">
                               <span>{v.title}</span>
                               {isCurrentSource && (
-                                <span className="px-1.5 py-0.2 rounded-full bg-primary text-[9px] text-white font-bold tracking-tight">
+                                <span className="px-1.5 py-0.5 rounded-full bg-primary text-[9px] text-on-primary font-bold tracking-tight">
                                   Active Base
                                 </span>
                               )}
                             </div>
                             <div className="text-[10.5px] text-ink-dim flex items-center gap-2 mt-0.5">
                               <span>{fmtTime(v.duration || 0)}</span>
-                              <span>·</span>
+                              <span>Â·</span>
                               <span>{v.status}</span>
                             </div>
                           </div>
@@ -1570,7 +1570,7 @@ export default function SmartEditor() {
                           <button
                             type="button"
                             onClick={() => handleInsertExistingVideo(v, 'playhead')}
-                            className="px-2 py-1 rounded-btn text-[11px] font-medium bg-surface-2 hover:bg-primary hover:text-white text-ink transition-colors flex items-center gap-1"
+                            className="px-2 py-1 rounded-btn text-[11px] font-medium bg-surface-2 hover:bg-primary hover:text-on-primary text-ink transition-colors flex items-center gap-1"
                             title="Insert this clip into video track at scrubber playhead"
                           >
                             <Icon name="add" size={12} />
@@ -1664,13 +1664,13 @@ export default function SmartEditor() {
                     className="w-full p-2 rounded-btn bg-surface-2 border border-line text-xs font-medium text-ink focus:outline-none focus:border-primary"
                   >
                     <option value="English">English</option>
-                    <option value="Spanish">Spanish (Español)</option>
-                    <option value="French">French (Français)</option>
+                    <option value="Spanish">Spanish (EspaÃ±ol)</option>
+                    <option value="French">French (FranÃ§ais)</option>
                     <option value="German">German (Deutsch)</option>
-                    <option value="Hindi">Hindi (हिन्दी)</option>
-                    <option value="Japanese">Japanese (日本語)</option>
-                    <option value="Portuguese">Portuguese (Português)</option>
-                    <option value="Chinese">Chinese (中文)</option>
+                    <option value="Hindi">Hindi (à¤¹à¤¿à¤¨à¥à¤¦à¥€)</option>
+                    <option value="Japanese">Japanese (æ—¥æœ¬èªž)</option>
+                    <option value="Portuguese">Portuguese (PortuguÃªs)</option>
+                    <option value="Chinese">Chinese (ä¸­æ–‡)</option>
                   </select>
                 </div>
 
@@ -1936,7 +1936,7 @@ export default function SmartEditor() {
                               <span className="text-[10px] text-ink-dim px-1.5 py-0.5 rounded bg-surface-muted border border-line font-mono shrink-0">
                                 {p.duration}
                               </span>
-                              <span className="text-[9.5px] text-secondary font-medium px-1 py-0.2 rounded bg-secondary/10 shrink-0">
+                              <span className="text-[9.5px] text-secondary font-medium px-1 py-0.5 rounded bg-secondary/10 shrink-0">
                                 {p.genre}
                               </span>
                             </div>
@@ -2136,7 +2136,7 @@ export default function SmartEditor() {
                       onClick={() => setBrollNotice(null)}
                       className="text-ink-muted hover:text-ink text-[11px]"
                     >
-                      ✕
+                      âœ•
                     </button>
                   </div>
                 )}
@@ -2200,7 +2200,7 @@ export default function SmartEditor() {
                           <div className="min-w-0">
                             <div className="text-xs font-semibold text-ink truncate flex items-center gap-1.5">
                               <span>{asset.title}</span>
-                              <span className="px-1.5 py-0.2 rounded-full bg-surface-2 text-[9px] text-ink-dim uppercase font-bold tracking-tight">
+                              <span className="px-1.5 py-0.5 rounded-full bg-surface-2 text-[9px] text-ink-dim uppercase font-bold tracking-tight">
                                 {asset.tag}
                               </span>
                             </div>
@@ -2338,7 +2338,7 @@ export default function SmartEditor() {
                 onClick={() => window.dispatchEvent(new CustomEvent('kt:navigate', { detail: 'raw-reel' }))}
                 className="hover:text-primary"
               >
-                ← Raw Studio
+                â† Raw Studio
               </button>
             </div>
           </Card>
@@ -2426,15 +2426,14 @@ function Header({
   onShowShortcuts?: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-      <div className="min-w-0">
-        <Eyebrow icon="content_cut">Smart Editor · 60fps Multi-Track</Eyebrow>
-        <h1 className="font-display text-[28px] sm:text-[32px] leading-tight text-ink mt-0.5 truncate">
-          {hasProject && title ? title : 'Editorial precision on the timeline'}
-        </h1>
-      </div>
-      {hasProject && (
-        <div className="flex items-center gap-2">
+    <PageHeader
+      eyebrow="Smart Editor Â· 60fps Multi-Track"
+      icon="content_cut"
+      title={hasProject && title ? title : 'Editorial precision on the timeline'}
+      className="mb-6"
+      actions={
+        hasProject && (
+        <div className="flex flex-wrap items-center gap-2">
           <IconButton name="keyboard" label="Keyboard shortcuts" onClick={onShowShortcuts} />
 
           {/* Undo / Redo Control Cluster with Step Badges */}
@@ -2494,8 +2493,9 @@ function Header({
             Publish
           </Button>
         </div>
-      )}
-    </div>
+        )
+      }
+    />
   );
 }
 
@@ -2796,7 +2796,7 @@ function ClipBlock({
       {/* Cut Transition Badge Indicator on Video Clip */}
       {clip.type === 'video' && (clip as VideoClip).transition?.type && (clip as VideoClip).transition?.type !== 'none' && (
         <span
-          className="absolute -top-2 left-1 z-30 px-1 py-0.2 rounded bg-amber-500 text-black text-[9px] font-black tracking-tight uppercase shadow-xs flex items-center gap-0.5 pointer-events-none"
+          className="absolute -top-2 left-1 z-30 px-1 py-0.5 rounded bg-amber-500 text-black text-[9px] font-black tracking-tight uppercase shadow-xs flex items-center gap-0.5 pointer-events-none"
           title={`Transition: ${(clip as VideoClip).transition!.type}`}
         >
           <Icon name={(clip as VideoClip).transition!.type === 'flash' ? 'bolt' : 'auto_awesome_motion'} size={9} />
@@ -2941,7 +2941,7 @@ function SelectedPanel({
           </div>
           <div className="text-[13px] font-semibold text-ink truncate">{clipLabel(clip)}</div>
           <div className="text-[11px] text-ink-dim font-mono mt-0.5 tabular-nums">
-            {fmtTime(clip.startOnTimeline)} → {fmtTime(end)} · {clip.duration.toFixed(2)}s duration
+            {fmtTime(clip.startOnTimeline)} â†’ {fmtTime(end)} Â· {clip.duration.toFixed(2)}s duration
           </div>
         </div>
       </div>
@@ -2956,7 +2956,7 @@ function SelectedPanel({
                 Caption Text
               </label>
               <span className="text-[10px] text-ink-dim font-mono">
-                {textDraft.trim().split(/\s+/).filter(Boolean).length} words · {textDraft.length} chars
+                {textDraft.trim().split(/\s+/).filter(Boolean).length} words Â· {textDraft.length} chars
               </span>
             </div>
             <textarea
@@ -3077,7 +3077,7 @@ function SelectedPanel({
                     }
                     className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-all ${
                       Math.abs(textClip.style.fontSize - sz) < 5
-                        ? 'border-primary bg-primary text-white font-semibold'
+                        ? 'border-primary bg-primary text-on-primary font-semibold'
                         : 'border-line text-ink-muted hover:text-ink'
                     }`}
                   >
@@ -3161,7 +3161,7 @@ function SelectedPanel({
                   onClick={() => onUpdateVideoClip(clip.id, { speedMultiplier: s })}
                   className={`py-1 rounded-btn text-xs font-mono border transition-all ${
                     (videoClip.speedMultiplier || 1.0) === s
-                      ? 'border-primary bg-primary text-white font-semibold'
+                      ? 'border-primary bg-primary text-on-primary font-semibold'
                       : 'border-line text-ink-muted hover:text-ink'
                   }`}
                 >
@@ -3182,7 +3182,7 @@ function SelectedPanel({
                 {(() => {
                   const kfs = videoClip.keyframes || [];
                   if (kfs.length === 0) return 'Standard 1.0x';
-                  if (kfs.length > 1) return `Push ${kfs[0].scale}x → ${kfs[kfs.length - 1].scale}x`;
+                  if (kfs.length > 1) return `Push ${kfs[0].scale}x â†’ ${kfs[kfs.length - 1].scale}x`;
                   return `${kfs[0].scale}x Zoom`;
                 })()}
               </span>
@@ -3207,7 +3207,7 @@ function SelectedPanel({
                 {
                   id: 'push',
                   label: 'Slow Push',
-                  desc: '1.0x → 1.2x',
+                  desc: '1.0x â†’ 1.2x',
                   makeKfs: () => [
                     { timeOffset: 0, scale: 1.0, position: { x: 0, y: 0 }, easing: 'easeInOut' as const },
                     { timeOffset: clip.duration, scale: 1.22, position: { x: 0, y: 0 }, easing: 'easeInOut' as const },
@@ -3224,7 +3224,7 @@ function SelectedPanel({
                 {
                   id: 'pull',
                   label: 'Slow Pull',
-                  desc: '1.25x → 1.0x',
+                  desc: '1.25x â†’ 1.0x',
                   makeKfs: () => [
                     { timeOffset: 0, scale: 1.25, position: { x: 0, y: 0 }, easing: 'easeOut' as const },
                     { timeOffset: clip.duration, scale: 1.0, position: { x: 0, y: 0 }, easing: 'easeOut' as const },
@@ -3308,7 +3308,7 @@ function SelectedPanel({
                   title={tr.label}
                   className={`py-1.5 px-1 rounded-btn text-[10px] font-medium border flex flex-col items-center justify-center gap-0.5 transition-all ${
                     (videoClip.transition?.type || 'none') === tr.id
-                      ? 'border-primary bg-primary text-white font-semibold shadow-xs'
+                      ? 'border-primary bg-primary text-on-primary font-semibold shadow-xs'
                       : 'border-line text-ink-muted hover:text-ink hover:bg-surface-2'
                   }`}
                 >
@@ -3337,7 +3337,7 @@ function SelectedPanel({
                       }
                       className={`px-2 py-0.5 rounded text-[10.5px] font-mono border transition-all ${
                         (videoClip.transition?.durationSec || 0.3) === dur
-                          ? 'border-primary bg-primary text-white font-bold'
+                          ? 'border-primary bg-primary text-on-primary font-bold'
                           : 'border-line text-ink-muted hover:text-ink'
                       }`}
                     >
@@ -3492,15 +3492,15 @@ function ShortcutsModal({ onClose }: { onClose: () => void }) {
   const shortcuts = [
     { key: 'Space', label: 'Play / Pause' },
     { key: 'S / B', label: 'Split clip at playhead' },
-    { key: 'Delete / ⌫', label: 'Ripple delete selected clip(s)' },
+    { key: 'Delete / âŒ«', label: 'Ripple delete selected clip(s)' },
     { key: 'Shift + Click', label: 'Toggle / Multi-select clips' },
     { key: 'Marquee Drag', label: 'Box-select clips on timeline' },
     { key: 'Ctrl + A', label: 'Select all timeline clips' },
     { key: 'Escape', label: 'Deselect all clips' },
     { key: 'Ctrl + Z', label: 'Undo timeline mutation' },
     { key: 'Ctrl + Shift + Z', label: 'Redo timeline mutation' },
-    { key: '← / →', label: 'Step 1 frame backward / forward' },
-    { key: 'Shift + ← / →', label: 'Step 10 frames backward / forward' },
+    { key: 'â† / â†’', label: 'Step 1 frame backward / forward' },
+    { key: 'Shift + â† / â†’', label: 'Step 10 frames backward / forward' },
     { key: 'J / K / L', label: 'Shuttle backward / Pause / Fast-forward' },
   ];
 
@@ -3587,7 +3587,7 @@ function GeminiKeyModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs animate-fade-in"
+        className="fixed inset-0 z-50 bg-[var(--scrim)] backdrop-blur-sm animate-fade-in"
         onClick={onClose}
       />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">

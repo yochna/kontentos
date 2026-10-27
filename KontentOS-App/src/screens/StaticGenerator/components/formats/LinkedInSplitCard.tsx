@@ -2,19 +2,23 @@ import React from 'react';
 import { StaticCardState } from '../../../../types/staticCard';
 import { getActiveTheme } from '../../../../data/staticCardPresets';
 import { getCardLayerStyles } from '../../utils/layerStyles';
-import { WatermarkBadge } from '../WatermarkBadge';
 import { getSafeImageUrl } from '@/lib/images';
 import { calculateCardTypography } from '../../utils/typography';
 import { renderHighlightedText } from '../../utils/textHighlighter';
+import { TransformableElement } from '../canvas/TransformableElement';
+import { CanvasTextElement } from '../canvas/CanvasTextElement';
+import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 
 interface Props {
   state: StaticCardState;
+  onUpdateText?: (field: string, value: string) => void;
 }
 
-export const LinkedInSplitCard: React.FC<Props> = ({ state }) => {
+export const LinkedInSplitCard: React.FC<Props> = ({ state, onUpdateText }) => {
   const theme = getActiveTheme(state);
   const layerStyles = getCardLayerStyles(state);
   const typography = calculateCardTypography(state);
+  const scene = useCanvasInteraction((s) => s.scenes[s.activeSlide] || {});
 
   const getFontFamily = () => {
     switch (state.fontStyle) {
@@ -33,6 +37,12 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state }) => {
   const isLight = theme.mode === 'light';
   const safeBg = getSafeImageUrl(state.backgroundUrl);
   const safeAvatar = getSafeImageUrl(state.creator.avatarUrl);
+  const headline =
+    state.headline ||
+    'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.';
+  const supporting =
+    state.supportingText ||
+    'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.';
 
   return (
     <div
@@ -68,8 +78,8 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state }) => {
         />
 
         {/* Creator Identity (if enabled) */}
-        <div className="relative z-10">
-          {state.showCreatorBadge ? (
+        {state.showCreatorBadge && (
+          <TransformableElement id="profile" transform={scene.profile} className="relative z-10">
             <div
               className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full backdrop-blur-md border ${
                 isLight ? 'bg-black/5 border-black/10 text-slate-900' : 'bg-black/60 border-white/20 text-white'
@@ -86,11 +96,11 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state }) => {
                 {state.creator.name || 'Aman Shades'}
               </span>
             </div>
-          ) : null}
-        </div>
+          </TransformableElement>
+        )}
 
         {/* Format Tag */}
-        <div className="relative z-10">
+        <TransformableElement id="badge" transform={scene.badge} className="relative z-10">
           <span
             className={`text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded backdrop-blur-sm border ${
               isLight ? 'bg-white/80 border-black/10' : 'bg-black/50 border-white/10'
@@ -99,11 +109,13 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state }) => {
           >
             Framework
           </span>
-        </div>
+        </TransformableElement>
       </div>
 
       {/* Content Panel (Bottom in 9:16, Right in standard) */}
-      <div
+      <TransformableElement
+        id="content-box"
+        transform={scene['content-box']}
         className={`relative flex-1 ${
           isVerticalStory ? 'w-full border-t border-l-0' : 'h-full border-l'
         } p-4 sm:p-6 md:p-7 flex flex-col justify-between overflow-hidden ${
@@ -117,13 +129,21 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state }) => {
       >
         <div className="my-auto py-1 min-h-0 flex flex-col justify-center">
           {/* Accent Line */}
-          <div
+          <TransformableElement
+            id="accent-line"
+            transform={scene['accent-line']}
             className="w-10 h-1 rounded-full mb-3 shrink-0"
             style={{ background: theme.accentGradient }}
-          />
+          >
+            <span className="sr-only">Accent line</span>
+          </TransformableElement>
 
           {/* Headline with Keyword Highlighting */}
-          <h1
+          <CanvasTextElement
+            id="headline"
+            as="h1"
+            text={headline}
+            onTextChange={(value) => onUpdateText?.('headline', value)}
             className="tracking-tight"
             style={{
               color: theme.textColor,
@@ -136,17 +156,15 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state }) => {
               fontWeight: typography.headlineStyle.fontWeight,
               fontStyle: typography.headlineStyle.fontStyle,
             }}
-          >
-            {renderHighlightedText(
-              state.headline || 'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.',
-              theme.accent,
-              theme.glowColor,
-              isLight
-            )}
-          </h1>
+            renderContent={(text) => renderHighlightedText(text, theme.accent, theme.glowColor, isLight)}
+          />
 
           {/* Supporting Takeaway with Keyword Highlighting */}
-          <p
+          <CanvasTextElement
+            id="body"
+            as="p"
+            text={supporting}
+            onTextChange={(value) => onUpdateText?.('supportingText', value)}
             className="whitespace-pre-line font-normal"
             style={{
               color: theme.subtextColor,
@@ -156,25 +174,25 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state }) => {
               fontFamily: typography.supportingStyle.fontFamily,
               letterSpacing: typography.supportingStyle.letterSpacing,
             }}
-          >
-            {renderHighlightedText(
-              state.supportingText || 'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.',
-              theme.accent,
-              theme.glowColor,
-              isLight
-            )}
-          </p>
+            renderContent={(text) => renderHighlightedText(text, theme.accent, theme.glowColor, isLight)}
+          />
         </div>
 
         {/* Footer */}
         {state.showCreatorBadge && (
-          <div className={`pt-2 mt-1 flex items-center justify-start shrink-0 ${isLight ? 'border-t border-black/10' : 'border-t border-white/10'}`}>
+          <TransformableElement
+            id="footer"
+            transform={scene.footer}
+            className={`pt-2 mt-1 flex items-center justify-start shrink-0 ${
+              isLight ? 'border-t border-black/10' : 'border-t border-white/10'
+            }`}
+          >
             <span className={`text-xs font-medium font-body truncate max-w-[180px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
               {state.creator.handle || '@amanshades'}
             </span>
-          </div>
+          </TransformableElement>
         )}
-      </div>
+      </TransformableElement>
     </div>
   );
 };

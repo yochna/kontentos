@@ -135,6 +135,49 @@ async function createApp() {
     </svg>`.trim()
   );
 
+  // ---- Media proxy hardening (SSRF protection) --------------------------------
+  // Only these hosts may be fetched. Add more via PROXY_ALLOWED_HOSTS="cdn.example.com,other.com".
+  const PROXY_ALLOWED_HOSTS = new Set<string>([
+    'images.unsplash.com',
+    'plus.unsplash.com',
+    'images.pexels.com',
+    'videos.pexels.com',
+  ]);
+  try {
+    const sb = (process.env.SUPABASE_URL || '').trim();
+    if (sb.startsWith('http')) PROXY_ALLOWED_HOSTS.add(new URL(sb).hostname.toLowerCase());
+  } catch { /* ignore malformed SUPABASE_URL */ }
+  for (const h of (process.env.PROXY_ALLOWED_HOSTS || '').split(',')) {
+    if (h.trim()) PROXY_ALLOWED_HOSTS.add(h.trim().toLowerCase());
+  }
+  const PROXY_MAX_BYTES = 100 * 1024 * 1024; // 100 MB hard cap per proxied file
+  const PROXY_TIMEOUT_MS = 15000;
+  const PROXY_MAX_REDIRECTS = 3;
+
+  const isAllowedProxyUrl = (u: URL): boolean =>
+    (u.protocol === 'https:' || u.protocol === 'http:') &&
+    !u.username && !u.password &&
+    PROXY_ALLOWED_HOSTS.has(u.hostname.toLowerCase());
+
+  /** fetch() that re-validates every redirect hop against the allowlist. */
+  const safeProxyFetch = async (startUrl: string, headers: Record<string, string>): Promise<Response> => {
+    let current = new URL(startUrl);
+    for (let hop = 0; hop <= PROXY_MAX_REDIRECTS; hop++) {
+      if (!isAllowedProxyUrl(current)) throw new Error(`Host not allowed: ${current.hostname}`);
+      const resp = await fetch(current, {
+        headers,
+        redirect: 'manual',
+        signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
+      });
+      if (resp.status >= 300 && resp.status < 400 && resp.headers.get('location')) {
+        current = new URL(resp.headers.get('location')!, current);
+        continue;
+      }
+      return resp;
+    }
+    throw new Error('Too many redirects');
+  };
+
   // Universal Media Proxy Endpoint to bypass browser CORS / COEP restrictions for external media assets
   app.get('/api/proxy-media', async (req, res) => {
     let mediaUrl = req.query.url as string;
@@ -168,6 +211,10 @@ async function createApp() {
       if (!['http:', 'https:'].includes(parsed.protocol)) {
         return res.status(400).json({ error: 'Invalid URL protocol' });
       }
+      if (!isAllowedProxyUrl(parsed)) {
+        console.warn(`[proxy-media] Blocked non-allowlisted host: ${parsed.hostname}`);
+        return res.status(403).json({ error: 'Host not allowed' });
+      }
 
       const headers: Record<string, string> = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -176,7 +223,11 @@ async function createApp() {
         headers.range = req.headers.range;
       }
 
-      const upstream = await fetch(mediaUrl, { headers });
+      const upstream = await safeProxyFetch(mediaUrl, headers);
+      const declaredLen = Number(upstream.headers.get('content-length') || 0);
+      if (declaredLen > PROXY_MAX_BYTES) {
+        return res.status(413).json({ error: 'Remote file too large' });
+      }
       if (!upstream.ok && upstream.status !== 206) {
         console.warn(`[proxy-media] Upstream status ${upstream.status} for ${mediaUrl}. Serving atmosphere fallback.`);
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -202,6 +253,9 @@ async function createApp() {
 
       const arrayBuffer = await upstream.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
+      if (buffer.length > PROXY_MAX_BYTES) {
+        return res.status(413).json({ error: 'Remote file too large' });
+      }
 
       // Store in memory cache if sensible size (< 15MB)
       if (buffer.length < 15 * 1024 * 1024) {

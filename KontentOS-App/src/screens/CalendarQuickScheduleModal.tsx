@@ -141,7 +141,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur-sm animate-in duration-200"
       onClick={onClose}
       role="dialog"
       aria-modal="true"

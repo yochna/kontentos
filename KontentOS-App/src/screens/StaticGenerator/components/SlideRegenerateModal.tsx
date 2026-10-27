@@ -111,7 +111,7 @@ export const SlideRegenerateModal: React.FC<Props> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur-sm transition-opacity animate-in duration-150"
       onClick={onClose}
       role="dialog"
       aria-modal="true"

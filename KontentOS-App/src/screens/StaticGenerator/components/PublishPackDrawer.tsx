@@ -85,7 +85,7 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex justify-end bg-[var(--scrim)] backdrop-blur-sm transition-opacity animate-in duration-200"
       onClick={onClose}
       role="dialog"
       aria-modal="true"

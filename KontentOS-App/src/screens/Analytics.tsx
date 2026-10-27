@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, StatusPill, Thumb } from '@/components/ui';
+import { Button, Card, PageHeader, PageShell, StatusPill, Thumb } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { navigate } from '@/lib/nav';
 import { analyticsKpis, observations, leaderboard, tagClusters, recommendations } from '@/data/mock';
@@ -123,50 +123,46 @@ ${tagClusters.map((t) => `- ${t.tag}: ${t.pct}% (${t.roi})`).join('\n')}
   };
 
   return (
-    <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
+    <PageShell className="animate-fade-in">
       {/* Toast Notice */}
       {exportNotice && (
-        <div className="fixed bottom-6 right-6 z-50 bg-ink text-surface px-4 py-2.5 rounded-btn shadow-lg text-[13px] font-medium flex items-center gap-2 animate-scale-up">
-          <Icon name="check_circle" size={16} className="text-emerald-400" />
+        <div className="fixed bottom-6 right-6 z-50 max-w-[calc(100vw-3rem)] bg-ink text-surface px-4 py-2.5 rounded-btn shadow-lg text-[13px] font-medium flex items-center gap-2 animate-scale-up">
+          <Icon name="check_circle" size={16} className="text-success" />
           {exportNotice}
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div>
-          <Eyebrow icon="equalizer">Creator Intelligence</Eyebrow>
-          <h1 className="font-display text-[32px] font-bold text-ink tracking-tight mt-1">
-            Performance &amp; Virality Analytics
-          </h1>
-          <p className="text-[14px] text-ink-muted mt-0.5">
-            Real algorithmic retention signals, audience resonance curves, and actionable "What to make next" recommendations.
-          </p>
-        </div>
+      <PageHeader
+        eyebrow="Creator Intelligence"
+        icon="equalizer"
+        title="Performance & Virality Analytics"
+        description="Real algorithmic retention signals, audience resonance curves, and actionable recommendations."
+        actions={
+          <>
+            <div className="flex items-center rounded-btn border border-line bg-surface p-1 shadow-xs">
+              {(['7d', '30d', '90d', 'all'] as TimeRange[]).map((t) => (
+                <button
+                  type="button"
+                  key={t}
+                  onClick={() => setTimeRange(t)}
+                  className={`px-3 py-1 text-[12px] font-semibold rounded-btn transition-colors ${
+                    timeRange === t
+                      ? 'bg-primary text-on-primary shadow-xs'
+                      : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {t === '7d' ? '7 Days' : t === '30d' ? '30 Days' : t === '90d' ? '90 Days' : 'All Time'}
+                </button>
+              ))}
+            </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Timeframe Selector */}
-          <div className="flex items-center rounded-btn border border-line bg-surface p-1 shadow-xs">
-            {(['7d', '30d', '90d', 'all'] as TimeRange[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTimeRange(t)}
-                className={`px-3 py-1 text-[12px] font-semibold rounded-btn transition-colors ${
-                  timeRange === t
-                    ? 'bg-primary text-on-primary shadow-xs'
-                    : 'text-ink-muted hover:text-ink'
-                }`}
-              >
-                {t === '7d' ? '7 Days' : t === '30d' ? '30 Days' : t === '90d' ? '90 Days' : 'All Time'}
-              </button>
-            ))}
-          </div>
-
-          <Button variant="secondary" icon="download" onClick={handleExportData}>
-            Export Report
-          </Button>
-        </div>
-      </div>
+            <Button variant="secondary" icon="download" onClick={handleExportData}>
+              Export Report
+            </Button>
+          </>
+        }
+        className="mb-6"
+      />
 
       {/* Actionable KPI Cards with Deltas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -406,6 +402,6 @@ ${tagClusters.map((t) => `- ${t.tag}: ${t.pct}% (${t.roi})`).join('\n')}
           </section>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

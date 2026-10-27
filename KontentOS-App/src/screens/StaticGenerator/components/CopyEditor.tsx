@@ -9,6 +9,8 @@ interface Props {
   onSupportingTextChange: (val: string) => void;
   onTextSizeAdjustChange?: (val: number) => void;
   onOpenRegenerate?: () => void;
+  onInsertHeadlineLayer?: () => void;
+  onInsertBodyLayer?: () => void;
   hasUndo?: boolean;
   onUndo?: () => void;
   onDismissUndo?: () => void;
@@ -22,6 +24,8 @@ export const CopyEditor: React.FC<Props> = ({
   onSupportingTextChange,
   onTextSizeAdjustChange,
   onOpenRegenerate,
+  onInsertHeadlineLayer,
+  onInsertBodyLayer,
   hasUndo,
   onUndo,
   onDismissUndo,
@@ -67,6 +71,17 @@ export const CopyEditor: React.FC<Props> = ({
             <span>Headline / Main Hook Statement</span>
           </label>
           <div className="flex items-center gap-2">
+            {onInsertHeadlineLayer && (
+              <button
+                type="button"
+                onClick={onInsertHeadlineLayer}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-ink-muted hover:text-primary transition-colors cursor-pointer bg-surface-2 hover:bg-primary/10 border border-line hover:border-primary/30 px-2 py-0.5 rounded-md"
+                title="Add this headline as a free-floating editable text layer"
+              >
+                <Icon name="add_box" size={12} />
+                <span>Add as layer</span>
+              </button>
+            )}
             {onOpenRegenerate && (
               <button
                 type="button"
@@ -105,9 +120,22 @@ export const CopyEditor: React.FC<Props> = ({
             <Icon name="notes" size={16} className="text-primary" />
             <span>Supporting Text / Tactical Takeaway</span>
           </label>
-          <span className="text-[11px] text-ink-dim font-mono">
-            {supportingText.length} chars
-          </span>
+          <div className="flex items-center gap-2">
+            {onInsertBodyLayer && (
+              <button
+                type="button"
+                onClick={onInsertBodyLayer}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-ink-muted hover:text-primary transition-colors cursor-pointer bg-surface-2 hover:bg-primary/10 border border-line hover:border-primary/30 px-2 py-0.5 rounded-md"
+                title="Add this supporting text as a free-floating editable text layer"
+              >
+                <Icon name="add_box" size={12} />
+                <span>Add as layer</span>
+              </button>
+            )}
+            <span className="text-[11px] text-ink-dim font-mono">
+              {supportingText.length} chars
+            </span>
+          </div>
         </div>
         <textarea
           rows={3}

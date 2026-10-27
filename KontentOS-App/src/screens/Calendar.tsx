@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, StatusPill } from '@/components/ui';
+import { Button, Card, PageHeader, PageShell, StatusPill } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { navigate } from '@/lib/nav';
 import type { ScheduledPost, SocialPlatform } from '@/lib/types';
@@ -170,53 +170,47 @@ export default function Calendar() {
   };
 
   return (
-    <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div>
-          <Eyebrow icon="calendar_today">Distribution Engine</Eyebrow>
-          <h1 className="font-display text-[32px] font-bold text-ink tracking-tight mt-1">
-            Publishing Calendar
-          </h1>
-          <p className="text-[14px] text-ink-muted mt-0.5">
-            Coordinate multi-platform reels, manage release cadence, and dispatch scheduled drops.
-          </p>
-        </div>
+    <PageShell className="animate-fade-in">
+      <PageHeader
+        eyebrow="Distribution Engine"
+        icon="calendar_today"
+        title="Publishing Calendar"
+        description="Coordinate multi-platform reels, manage release cadence, and dispatch scheduled drops."
+        actions={
+          <>
+            <div className="flex items-center rounded-btn border border-line bg-surface shadow-xs">
+              <button
+                type="button"
+                onClick={prevMonth}
+                className="p-2 hover:bg-surface-2 text-ink-muted hover:text-ink transition-colors rounded-l-btn kt-focus"
+                title="Previous Month"
+              >
+                <Icon name="chevron_left" size={18} />
+              </button>
+              <span className="text-[13.5px] font-semibold text-ink px-3 min-w-[140px] text-center">
+                {MONTH_NAMES[month]} {year}
+              </span>
+              <button
+                type="button"
+                onClick={nextMonth}
+                className="p-2 hover:bg-surface-2 text-ink-muted hover:text-ink transition-colors rounded-r-btn kt-focus"
+                title="Next Month"
+              >
+                <Icon name="chevron_right" size={18} />
+              </button>
+            </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Month Navigator */}
-          <div className="flex items-center rounded-btn border border-line bg-surface shadow-xs">
-            <button
-              onClick={prevMonth}
-              className="p-2 hover:bg-surface-2 text-ink-muted hover:text-ink transition-colors rounded-l-btn kt-focus"
-              title="Previous Month"
-            >
-              <Icon name="chevron_left" size={18} />
-            </button>
-            <span className="text-[13.5px] font-semibold text-ink px-3 min-w-[140px] text-center">
-              {MONTH_NAMES[month]} {year}
-            </span>
-            <button
-              onClick={nextMonth}
-              className="p-2 hover:bg-surface-2 text-ink-muted hover:text-ink transition-colors rounded-r-btn kt-focus"
-              title="Next Month"
-            >
-              <Icon name="chevron_right" size={18} />
-            </button>
-          </div>
+            <Button size="sm" variant="soft" onClick={jumpToToday}>
+              Today
+            </Button>
 
-          <Button size="sm" variant="soft" onClick={jumpToToday}>
-            Today
-          </Button>
-
-          <Button
-            icon="add"
-            onClick={() => handleQuickScheduleForDay(selectedDay)}
-          >
-            Schedule Post
-          </Button>
-        </div>
-      </div>
+            <Button icon="add" onClick={() => handleQuickScheduleForDay(selectedDay)}>
+              Schedule Post
+            </Button>
+          </>
+        }
+        className="mb-6"
+      />
 
       {/* Platform Filter Bar & Quick Stats */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-3 bg-surface border border-line rounded-card mb-6">
@@ -272,7 +266,9 @@ export default function Calendar() {
       {/* Main Grid & Rail Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
         {/* Calendar Grid */}
-        <Card className="p-5 shadow-sm overflow-hidden">
+        <Card className="p-3 sm:p-5 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto scrollbar-none -mx-1 px-1">
+            <div className="min-w-[720px]">
           {/* Day Headers (Mon - Sun) */}
           <div className="grid grid-cols-7 gap-2 mb-2">
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName) => (
@@ -378,6 +374,8 @@ export default function Calendar() {
                 </div>
               );
             })}
+          </div>
+            </div>
           </div>
         </Card>
 
@@ -503,7 +501,7 @@ export default function Calendar() {
 
       {/* Post Detail & Inspector Modal */}
       {activePostModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-[560px] bg-surface rounded-card border border-line shadow-xl overflow-hidden animate-scale-up">
             <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-surface-2/40">
               <div className="flex items-center gap-2.5">
@@ -660,7 +658,7 @@ export default function Calendar() {
           setSelectedDay(d.getDate());
         }}
       />
-    </div>
+    </PageShell>
   );
 }
 

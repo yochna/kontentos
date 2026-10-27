@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Icon } from '@/lib/icons';
-import { Badge, Button, Card, Eyebrow } from '@/components/ui';
+import { Badge, Button, Card, PageHeader, PageShell } from '@/components/ui';
 import { brandKit as defaultBrandKit } from '@/data/mock';
 
 interface BrandKitData {
@@ -109,36 +109,32 @@ export default function BrandKit() {
   };
 
   return (
-    <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
+    <PageShell className="animate-fade-in">
       {/* Toast */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-ink text-surface px-4 py-2.5 rounded-btn shadow-lg text-[13px] font-medium flex items-center gap-2 animate-scale-up">
-          <Icon name="check_circle" size={16} className="text-emerald-400" />
+        <div className="fixed bottom-6 right-6 z-50 max-w-[calc(100vw-3rem)] bg-ink text-surface px-4 py-2.5 rounded-btn shadow-lg text-[13px] font-medium flex items-center gap-2 animate-scale-up">
+          <Icon name="check_circle" size={16} className="text-success" />
           {toastMessage}
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div>
-          <Eyebrow icon="palette">Voice &amp; Identity Studio</Eyebrow>
-          <h1 className="font-display text-[32px] font-bold text-ink tracking-tight mt-1">
-            Brand Kit &amp; Style Codex
-          </h1>
-          <p className="text-[14px] text-ink-muted mt-0.5">
-            The stylistic DNA KontentOS writes, captions, scores, and formats every draft against.
-          </p>
-        </div>
-
-        <Button
-          variant="secondary"
-          icon={trainingActive ? 'sync' : 'auto_fix_high'}
-          disabled={trainingActive}
-          onClick={handleRetrain}
-        >
-          {trainingActive ? 'Analyzing Archive...' : 'Re-train on my archive'}
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Voice & Identity Studio"
+        icon="palette"
+        title="Brand Kit & Style Codex"
+        description="The stylistic DNA KontentOS writes, captions, scores, and formats every draft against."
+        actions={
+          <Button
+            variant="secondary"
+            icon={trainingActive ? 'sync' : 'auto_fix_high'}
+            disabled={trainingActive}
+            onClick={handleRetrain}
+          >
+            {trainingActive ? 'Analyzing Archive...' : 'Re-train on my archive'}
+          </Button>
+        }
+        className="mb-6"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Voice Profile Card */}
@@ -359,7 +355,7 @@ export default function BrandKit() {
           </div>
         </Card>
       </div>
-    </div>
+    </PageShell>
   );
 }
 

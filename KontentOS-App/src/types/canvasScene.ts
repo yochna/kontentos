@@ -13,14 +13,18 @@ export type CanvasElementId =
   | 'badge'
   | 'media-box'
   | 'watermark'
+  | 'content-box'
+  | 'accent-line'
+  | 'quote-mark'
+  | 'footer'
   | (string & {});
 
 export interface ElementTransform {
   id: CanvasElementId;
-  x: number; // percentage (0-100) or pixels
-  y: number; // percentage (0-100) or pixels
-  width?: number; // percentage or px
-  height?: number; // percentage or px
+  x: number; // px translate for semantic elements, absolute px for custom elements
+  y: number;
+  width?: number; // px
+  height?: number; // px
   rotation?: number; // degrees (-180 to 180)
   zIndex: number;
   isLocked?: boolean;
@@ -30,9 +34,6 @@ export interface ElementTransform {
 
 export type SlideSceneState = Record<string, ElementTransform>;
 
-/**
- * Interactive handle anchors for 8-point resizing and rotation
- */
 export type TransformHandleType =
   | 'nw'
   | 'n'
@@ -43,6 +44,69 @@ export type TransformHandleType =
   | 'sw'
   | 'w'
   | 'rot';
+
+export type CustomElementKind = 'text' | 'image' | 'shape' | 'badge' | 'line';
+
+export interface CanvasCustomElement {
+  id: string;
+  kind: CustomElementKind;
+  // Text content
+  text?: string;
+  fontSize?: number;
+  fontWeight?: number | string;
+  fontStyle?: 'normal' | 'italic';
+  fontFamily?: string;
+  textAlign?: 'left' | 'center' | 'right';
+  lineHeight?: number;
+  letterSpacing?: number;
+  color?: string;
+  glow?: number;
+  // Image
+  imageUrl?: string;
+  objectFit?: 'cover' | 'contain';
+  opacity?: number;
+  blur?: number;
+  radius?: number;
+  // Shapes / vectors
+  shapeType?: string;
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  // Shared appearance
+  shadow?: boolean;
+}
+
+export interface GuideLine {
+  orientation: 'vertical' | 'horizontal';
+  position: number;
+  label?: string;
+  kind?: 'center' | 'safe' | 'sibling';
+}
+
+export interface CanvasBoxRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface CanvasSnapshot {
+  scenes: Record<number, SlideSceneState>;
+  customElements: Record<number, CanvasCustomElement[]>;
+}
+
+export type CanvasClipboardItem =
+  | {
+      type: 'single';
+      elementId: string;
+      transform: ElementTransform;
+      custom?: CanvasCustomElement;
+    }
+  | {
+      type: 'all';
+      scene: SlideSceneState;
+      customElements: CanvasCustomElement[];
+    };
 
 /**
  * Active interaction state for canvas selection, drag, and resize operations

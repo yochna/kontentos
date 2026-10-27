@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, Progress, StatusPill, Thumb } from '@/components/ui';
+import { Button, Card, Eyebrow, PageHeader, PageShell, Progress, StatusPill, Thumb } from '@/components/ui';
 import { homeStats, quickActions, continueCreating, weekStrip } from '@/data/mock';
 import { useDisplayProfile, useStore } from '@/lib/store';
 import type { ScreenId } from '@/lib/nav';
@@ -114,27 +114,23 @@ export default function CommandCenter() {
   }, [scheduled]);
 
   return (
-    <div className="mx-auto max-w-[1180px] px-4 sm:px-6 lg:px-8 py-8 space-y-10">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Eyebrow icon="space_dashboard">Good morning, {firstName}</Eyebrow>
-          <h1 className="font-display text-[34px] sm:text-[40px] leading-tight text-ink mt-1">
-            Your creator command center
-          </h1>
-          <p className="text-ink-muted mt-1 max-w-xl">
-            One calm desk for the whole loop — find the idea, cut the reel, publish everywhere.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" icon="history" onClick={() => navigate('content-library')}>
-            Media vault ({videos.length})
-          </Button>
-          <Button icon="add" onClick={() => navigate('ideas')}>
-            New idea
-          </Button>
-        </div>
-      </div>
+    <PageShell className="space-y-10">
+      <PageHeader
+        eyebrow={`Good morning, ${firstName}`}
+        icon="space_dashboard"
+        title="Your creator command center"
+        description="One calm desk for the whole loop — find the idea, cut the reel, publish everywhere."
+        actions={
+          <>
+            <Button variant="secondary" icon="history" onClick={() => navigate('content-library')}>
+              Media vault ({videos.length})
+            </Button>
+            <Button icon="add" onClick={() => navigate('ideas')}>
+              New idea
+            </Button>
+          </>
+        }
+      />
 
       {/* Stats strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -392,6 +388,6 @@ export default function CommandCenter() {
           ))}
         </div>
       </section>
-    </div>
+    </PageShell>
   );
 }

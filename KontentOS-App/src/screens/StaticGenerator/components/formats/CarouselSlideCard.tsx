@@ -5,15 +5,20 @@ import { getCardLayerStyles } from '../../utils/layerStyles';
 import { getSafeImageUrl } from '@/lib/images';
 import { calculateCardTypography } from '../../utils/typography';
 import { renderHighlightedText } from '../../utils/textHighlighter';
+import { TransformableElement } from '../canvas/TransformableElement';
+import { CanvasTextElement } from '../canvas/CanvasTextElement';
+import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 
 interface Props {
   state: StaticCardState;
+  onUpdateText?: (field: string, value: string) => void;
 }
 
-export const CarouselSlideCard: React.FC<Props> = ({ state }) => {
+export const CarouselSlideCard: React.FC<Props> = ({ state, onUpdateText }) => {
   const theme = getActiveTheme(state);
   const layerStyles = getCardLayerStyles(state);
   const typography = calculateCardTypography(state);
+  const scene = useCanvasInteraction((s) => s.scenes[s.activeSlide] || {});
 
   const getFontFamily = () => {
     switch (state.fontStyle) {
@@ -36,6 +41,12 @@ export const CarouselSlideCard: React.FC<Props> = ({ state }) => {
   const totalNum = state.slideTotal || 5;
   const isHookSlide = currentNum === 1;
   const isLastSlide = currentNum === totalNum && totalNum > 1;
+  const headline =
+    state.headline ||
+    'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.';
+  const supporting =
+    state.supportingText ||
+    'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.';
 
   const getSlideBadgeText = () => {
     if (isHookSlide) return `HOOK • 01 / ${String(totalNum).padStart(2, '0')}`;
@@ -70,7 +81,7 @@ export const CarouselSlideCard: React.FC<Props> = ({ state }) => {
       {/* Top Bar: Progress & Slide Indicator */}
       <div className="relative z-10 flex items-center justify-between font-body shrink-0 mb-1">
         {state.showCreatorBadge ? (
-          <div className="flex items-center gap-2">
+          <TransformableElement id="profile" transform={scene.profile} className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center bg-cyan-600/40 text-cyan-100 text-[10px] font-bold ring-1 ring-white/20">
               {safeAvatar ? (
                 <img src={safeAvatar} alt="" className="w-full h-full object-cover" crossOrigin="anonymous" />
@@ -81,7 +92,7 @@ export const CarouselSlideCard: React.FC<Props> = ({ state }) => {
             <span className={`text-xs font-semibold tracking-tight truncate max-w-[150px] ${isLight ? 'text-slate-800' : 'text-white'}`}>
               {state.creator.name || 'Aman Shades'}
             </span>
-          </div>
+          </TransformableElement>
         ) : (
           <div />
         )}
@@ -101,7 +112,9 @@ export const CarouselSlideCard: React.FC<Props> = ({ state }) => {
 
       {/* Main Content Layout: Standard Carousel Framework */}
       <div className="relative z-10 my-auto py-1 min-h-0 flex flex-col justify-center">
-        <div
+        <TransformableElement
+          id="badge"
+          transform={scene.badge}
           className="inline-block px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-2 border font-body self-start"
           style={{
             backgroundColor: theme.pillBg,
@@ -110,9 +123,13 @@ export const CarouselSlideCard: React.FC<Props> = ({ state }) => {
           }}
         >
           {getSlideBadgeText()}
-        </div>
+        </TransformableElement>
 
-        <h2
+        <CanvasTextElement
+          id="headline"
+          as="h2"
+          text={headline}
+          onTextChange={(value) => onUpdateText?.('headline', value)}
           className="tracking-tight"
           style={{
             color: theme.textColor,
@@ -125,16 +142,12 @@ export const CarouselSlideCard: React.FC<Props> = ({ state }) => {
             fontWeight: typography.headlineStyle.fontWeight,
             fontStyle: typography.headlineStyle.fontStyle,
           }}
-        >
-          {renderHighlightedText(
-            state.headline || 'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.',
-            theme.accent,
-            theme.glowColor,
-            isLight
-          )}
-        </h2>
+          renderContent={(text) => renderHighlightedText(text, theme.accent, theme.glowColor, isLight)}
+        />
 
-        <div
+        <TransformableElement
+          id="content-box"
+          transform={scene['content-box']}
           className="p-3 sm:p-4 rounded-xl border transition-all"
           style={{
             backgroundColor: theme.cardBg,
@@ -144,7 +157,11 @@ export const CarouselSlideCard: React.FC<Props> = ({ state }) => {
             WebkitBackdropFilter: layerStyles.backdropFilter,
           }}
         >
-          <p
+          <CanvasTextElement
+            id="body"
+            as="p"
+            text={supporting}
+            onTextChange={(value) => onUpdateText?.('supportingText', value)}
             className="whitespace-pre-line font-medium"
             style={{
               color: theme.subtextColor,
@@ -154,19 +171,19 @@ export const CarouselSlideCard: React.FC<Props> = ({ state }) => {
               fontFamily: typography.supportingStyle.fontFamily,
               letterSpacing: typography.supportingStyle.letterSpacing,
             }}
-          >
-            {renderHighlightedText(
-              state.supportingText || 'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.',
-              theme.accent,
-              theme.glowColor,
-              isLight
-            )}
-          </p>
-        </div>
+            renderContent={(text) => renderHighlightedText(text, theme.accent, theme.glowColor, isLight)}
+          />
+        </TransformableElement>
       </div>
 
       {/* Bottom Bar: Swipe Prompt vs Final Slide Save Prompt */}
-      <div className={`relative z-10 flex items-center justify-between pt-2.5 font-body shrink-0 mt-1 ${isLight ? 'border-t border-black/10' : 'border-t border-white/10'}`}>
+      <TransformableElement
+        id="footer"
+        transform={scene.footer}
+        className={`relative z-10 flex items-center justify-between pt-2.5 font-body shrink-0 mt-1 ${
+          isLight ? 'border-t border-black/10' : 'border-t border-white/10'
+        }`}
+      >
         {isLastSlide ? (
           <div className="flex items-center gap-1.5">
             <span className={`text-[11px] font-bold uppercase tracking-widest ${isLight ? 'text-slate-700' : 'text-slate-200'}`}>
@@ -182,7 +199,7 @@ export const CarouselSlideCard: React.FC<Props> = ({ state }) => {
             <span className="text-sm animate-pulse" style={{ color: theme.accent }}>➔</span>
           </div>
         )}
-      </div>
+      </TransformableElement>
     </div>
   );
 };

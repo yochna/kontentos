@@ -1,6 +1,7 @@
-import type { SlideSceneState } from './canvasScene';
+import type { CanvasCustomElement, SlideSceneState } from './canvasScene';
 export type {
   CanvasElementId,
+  CanvasCustomElement,
   ElementTransform,
   SlideSceneState,
   TransformHandleType,
@@ -180,4 +181,5 @@ export interface StaticCardState {
   };
   layerStyles?: LayerStyleConfig;
   sceneOverrides?: Record<number, SlideSceneState>;
+  customElements?: Record<number, CanvasCustomElement[]>;
 }

@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 import type { CanvasElementId } from '../../../../types/canvasScene';
+import { TransformHandles } from './TransformHandles';
+import { ElementQuickToolbar } from './ElementQuickToolbar';
 
 export interface SelectionBoxProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -21,6 +23,10 @@ const ELEMENT_LABELS: Record<string, string> = {
   body: 'Quote / Body',
   profile: 'Author Profile',
   badge: 'Accent Badge',
+  'content-box': 'Content Panel',
+  'accent-line': 'Accent Line',
+  'quote-mark': 'Quote Mark',
+  footer: 'Footer',
   'media-box': 'Media Box',
   watermark: 'Watermark',
 };
@@ -43,6 +49,13 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
   const isDragging = useCanvasInteraction((s) => s.isDragging);
   const isResizing = useCanvasInteraction((s) => s.isResizing);
   const editingElementId = useCanvasInteraction((s) => s.editingElementId);
+  const revision = useCanvasInteraction((s) => s.revision);
+  const selectedTransform = useCanvasInteraction((s) =>
+    s.selectedElementId
+      ? (s.scenes[s.activeSlide] || {})[s.selectedElementId]
+      : undefined
+  );
+  const isLocked = selectedTransform?.isLocked ?? false;
 
   const [rect, setRect] = useState<BoxRect | null>(null);
   const animFrameRef = useRef<number | null>(null);
@@ -55,7 +68,7 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
 
     const container = containerRef.current;
     const element = container.querySelector(
-      `[data-canvas-element-id="${selectedElementId}"]`
+      `[data-canvas-element-id="${CSS.escape(selectedElementId)}"]`
     ) as HTMLElement | null;
 
     if (!element) {
@@ -87,10 +100,10 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
     });
   }, [selectedElementId, disabled, containerRef]);
 
-  // Update on selection, drag, resize, or editing change
+  // Update on selection, transform changes, drag, resize, or editing change
   useEffect(() => {
     updateRect();
-  }, [updateRect, selectedElementId, isDragging, isResizing, editingElementId]);
+  }, [updateRect, selectedElementId, isDragging, isResizing, editingElementId, revision]);
 
   // Continuous tracking during drag/resize animations
   useEffect(() => {
@@ -137,7 +150,9 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
 
   return (
     <div
-      className="absolute pointer-events-none z-40 transition-[top,left,width,height] duration-75"
+      className="absolute pointer-events-none z-[120] transition-[top,left,width,height] duration-75"
+      data-canvas-ui="true"
+      data-canvas-no-drag="true"
       style={{
         left: `${rect.x}px`,
         top: `${rect.y}px`,
@@ -149,8 +164,10 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
       <div
         className="w-full h-full relative"
         style={{
-          border: `1.5px solid ${accentColor}`,
-          boxShadow: `0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 16px ${accentColor}25`,
+          border: `1.5px solid ${isLocked ? '#94a3b8' : accentColor}`,
+          boxShadow: `0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 16px ${
+            isLocked ? '#94a3b825' : `${accentColor}25`
+          }`,
         }}
       >
         {/* Element Type Pill Tag */}
@@ -168,7 +185,12 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
           <span>{getElementLabel(selectedElementId)}</span>
         </div>
 
-        {/* Slot for 8-Point Transform Handles (Task 2.2) */}
+        <TransformHandles rect={rect} accentColor={accentColor} disabled={isLocked} />
+
+        {!isDragging && !isResizing && !editingElementId && (
+          <ElementQuickToolbar rect={rect} />
+        )}
+
         {children}
       </div>
     </div>
