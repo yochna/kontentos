@@ -3,10 +3,10 @@
 WORKDIR /app
 ENV NODE_ENV=development
 
-COPY package.json package-lock.json ./
+COPY KontentOS-App/package.json KontentOS-App/package-lock.json ./
 RUN npm ci
 
-COPY . ./
+COPY KontentOS-App/ ./
 RUN npm run build
 
 FROM node:22-bookworm-slim AS runtime
@@ -15,7 +15,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4111
 
-COPY package.json package-lock.json ./
+COPY KontentOS-App/package.json KontentOS-App/package-lock.json ./
 RUN npm ci && npm cache clean --force
 
 COPY --from=build /app/dist ./dist
