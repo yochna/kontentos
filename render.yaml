@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: kontentos
+    runtime: docker
+    plan: free
+    rootDir: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4111
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: VITE_GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
