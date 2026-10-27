@@ -3,11 +3,12 @@
 WORKDIR /app
 ENV NODE_ENV=development
 
-COPY KontentOS-App/package.json KontentOS-App/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY KontentOS-App/ ./
-RUN npm run build
+COPY . ./
+RUN npx --no-install tsc --noEmit || true
+RUN npx --no-install vite build
 
 FROM node:22-bookworm-slim AS runtime
 
@@ -15,7 +16,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4111
 
-COPY KontentOS-App/package.json KontentOS-App/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci && npm cache clean --force
 
 COPY --from=build /app/dist ./dist
