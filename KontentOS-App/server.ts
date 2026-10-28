@@ -665,6 +665,32 @@ async function createApp() {
             }
           }
 
+          // Once Supabase Storage is configured, file_url is a public https URL and the clip
+          // never exists on this container's disk. Without reading it back, every transcription
+          // silently became invented speech-cadence subtitles instead of the real words.
+          // Restricted to the app's own Supabase bucket so a crafted file_url cannot make the
+          // server request an arbitrary address.
+          if (!mediaBuffer && /^https:\/\/[a-z0-9.-]+\.supabase\.co\//i.test(video.file_url || '')) {
+            try {
+              const remote = await fetch(video.file_url, { signal: AbortSignal.timeout(90_000) });
+              if (remote.ok) {
+                const buf = Buffer.from(await remote.arrayBuffer());
+                if (buf.length > 0 && buf.length <= 25 * 1024 * 1024) {
+                  mediaBuffer = buf;
+                  const remoteExt = path.extname(new URL(video.file_url).pathname).toLowerCase();
+                  if (remoteExt === '.webm') mimeType = 'video/webm';
+                  else if (remoteExt === '.mov') mimeType = 'video/quicktime';
+                  else if (remoteExt === '.mp3') mimeType = 'audio/mp3';
+                  else if (remoteExt === '.wav') mimeType = 'audio/wav';
+                  else if (remoteExt === '.m4a' || remoteExt === '.aac') mimeType = 'audio/aac';
+                  else mimeType = 'video/mp4';
+                }
+              }
+            } catch (dlErr: any) {
+              console.warn('[KontentOS AI CC] Could not download the clip for transcription:', dlErr?.message);
+            }
+          }
+
           if (mediaBuffer) {
             let ai = new GoogleGenAI({
               apiKey: activeApiKey as string,

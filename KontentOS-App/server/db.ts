@@ -291,9 +291,36 @@ export async function updateVideoStatus(
   return store.videos[idx];
 }
 
+// Public object URLs look like
+// https://<project>.supabase.co/storage/v1/object/public/videos/<file>, and the bucket name is
+// the same 'videos' constant upload.ts uploads into.
+async function removeStoredVideoFile(client: SupabaseClient, fileUrl: string): Promise<void> {
+  if (!fileUrl.startsWith('https://') || !fileUrl.includes('.supabase.co/')) return;
+  const marker = '/videos/';
+  const at = fileUrl.indexOf(marker);
+  if (at === -1) return;
+  const fileName = decodeURIComponent(fileUrl.slice(at + marker.length));
+  if (!fileName) return;
+  try {
+    await client.storage.from('videos').remove([fileName]);
+  } catch (err: any) {
+    console.warn('Supabase deleteVideo could not remove the stored file:', err?.message);
+  }
+}
+
 export async function deleteVideo(id: string): Promise<boolean> {
   if (supabaseClient) {
     try {
+      // The database row and its blob are separate objects. Without this call every deleted
+      // video left its file behind in the bucket, and the free plan's 1 GB fills up with clips
+      // that nothing can reference any more.
+      const { data: row } = await supabaseClient
+        .from('videos')
+        .select('file_url')
+        .eq('id', id)
+        .maybeSingle();
+      if (row?.file_url) await removeStoredVideoFile(supabaseClient, row.file_url);
+
       const { error } = await supabaseClient.from('videos').delete().eq('id', id);
       if (error) {
         console.warn('Supabase deleteVideo warning:', error.message);

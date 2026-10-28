@@ -123,3 +123,11 @@ revoke all on public.scheduled_posts from anon, authenticated;
 
 grant all on public.users, public.videos, public.subtitles, public.captions,
   public.publishing_history, public.scheduled_posts to service_role;
+
+-- Uploads. server/routes/upload.ts pushes every assembled clip into a bucket named "videos"
+-- and stores getPublicUrl() in videos.file_url, so the bucket has to be PUBLIC for the player
+-- to work. If this statement is refused by your project's permissions, create it by hand
+-- instead: Storage → New bucket → name "videos", "Public bucket" switched on.
+insert into storage.buckets (id, name, public)
+values ('videos', 'videos', true)
+on conflict (id) do update set public = true;
