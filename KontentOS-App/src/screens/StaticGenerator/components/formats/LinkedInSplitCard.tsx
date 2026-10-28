@@ -7,7 +7,7 @@ import { calculateCardTypography } from '../../utils/typography';
 import { renderHighlightedText } from '../../utils/textHighlighter';
 import { TransformableElement } from '../canvas/TransformableElement';
 import { CanvasTextElement } from '../canvas/CanvasTextElement';
-import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
+import { useCanvasInteraction, EMPTY_SCENE } from '../../hooks/useCanvasInteraction';
 
 interface Props {
   state: StaticCardState;
@@ -18,7 +18,7 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state, onUpdateText }) => {
   const theme = getActiveTheme(state);
   const layerStyles = getCardLayerStyles(state);
   const typography = calculateCardTypography(state);
-  const scene = useCanvasInteraction((s) => s.scenes[s.activeSlide] || {});
+  const scene = useCanvasInteraction((s) => s.scenes[s.activeSlide] || EMPTY_SCENE);
 
   const getFontFamily = () => {
     switch (state.fontStyle) {
