@@ -99,6 +99,9 @@ export default function Analytics() {
     const summary = `# KontentOS Analytics Report (${timeRange.toUpperCase()})
 Generated on: ${new Date().toLocaleDateString()}
 
+> Sample metrics only: KontentOS is not connected to any platform analytics API,
+> so the numbers below are illustrative and do not measure real content performance.
+
 ## Performance KPIs
 - Total Impressions: ${dynamicKpis[0].value} (${dynamicKpis[0].delta})
 - Total Watch Time: ${dynamicKpis[1].value} (${dynamicKpis[1].delta})
@@ -132,11 +135,20 @@ ${tagClusters.map((t) => `- ${t.tag}: ${t.pct}% (${t.roi})`).join('\n')}
         </div>
       )}
 
+      {/* No platform metrics API is connected yet, so every figure below is illustrative. */}
+      <div className="mb-4 flex items-start gap-2 rounded-card border border-line bg-surface px-4 py-3 text-[12px] text-ink-muted">
+        <Icon name="info" size={15} className="text-primary shrink-0 mt-px" />
+        <span>
+          Sample metrics — KontentOS does not pull data from Instagram, YouTube or TikTok yet. The
+          figures, leaderboard and tag clusters on this page are illustrative, not your real performance.
+        </span>
+      </div>
+
       <PageHeader
         eyebrow="Creator Intelligence"
         icon="equalizer"
         title="Performance & Virality Analytics"
-        description="Real algorithmic retention signals, audience resonance curves, and actionable recommendations."
+        description="Retention, resonance and recommendation views — currently sample data until channel metrics are connected."
         actions={
           <>
             <div className="flex items-center rounded-btn border border-line bg-surface p-1 shadow-xs">

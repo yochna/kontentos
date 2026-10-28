@@ -78,7 +78,7 @@ export const CreatorProfileSection: React.FC<Props> = ({
             type="text"
             value={creator.handle}
             onChange={(e) => onChange({ handle: e.target.value })}
-            placeholder="@amanshades"
+            placeholder="@yourhandle"
             className="w-full bg-surface border border-line rounded-btn px-3 py-2 text-xs font-medium text-ink placeholder-ink-dim focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all shadow-[var(--shadow-1)]"
           />
         </div>

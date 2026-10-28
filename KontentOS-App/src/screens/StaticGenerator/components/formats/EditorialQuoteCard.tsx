@@ -124,8 +124,8 @@ export const EditorialQuoteCard: React.FC<Props> = ({ state, onUpdateText }) => 
               )}
             </div>
             <div>
-              <div className={`font-bold text-xs sm:text-sm truncate max-w-[180px] ${isLight ? 'text-slate-900' : 'text-white'}`}>{state.creator.name || 'Aman Shades'}</div>
-              <div className={`text-[10px] truncate max-w-[180px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{state.creator.handle || '@amanshades'}</div>
+              <div className={`font-bold text-xs sm:text-sm truncate max-w-[180px] ${isLight ? 'text-slate-900' : 'text-white'}`}>{state.creator.name || 'Your Name'}</div>
+              <div className={`text-[10px] truncate max-w-[180px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{state.creator.handle || '@yourhandle'}</div>
             </div>
           </div>
         )}

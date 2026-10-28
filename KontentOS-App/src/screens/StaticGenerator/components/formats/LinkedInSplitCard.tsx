@@ -93,7 +93,7 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state, onUpdateText }) => {
                 )}
               </div>
               <span className={`text-xs font-semibold font-body truncate max-w-[120px] ${isLight ? 'text-slate-800' : 'text-white'}`}>
-                {state.creator.name || 'Aman Shades'}
+                {state.creator.name || 'Your Name'}
               </span>
             </div>
           </TransformableElement>
@@ -188,7 +188,7 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state, onUpdateText }) => {
             }`}
           >
             <span className={`text-xs font-medium font-body truncate max-w-[180px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-              {state.creator.handle || '@amanshades'}
+              {state.creator.handle || '@yourhandle'}
             </span>
           </TransformableElement>
         )}

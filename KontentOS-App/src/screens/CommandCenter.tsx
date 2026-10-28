@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, Card, Eyebrow, PageHeader, PageShell, Progress, StatusPill, Thumb } from '@/components/ui';
-import { homeStats, quickActions, continueCreating, weekStrip } from '@/data/mock';
+import { quickActions } from '@/data/mock';
 import { useDisplayProfile, useStore } from '@/lib/store';
-import type { ScreenId } from '@/lib/nav';
+import { DRAFT_STEP_SCREEN, SCREEN_TITLES, type ScreenId } from '@/lib/nav';
 import type { Video } from '@/lib/types';
 
 const STATUS_TONE: Record<Video['status'], { label: string; tone: string; pct: number }> = {
@@ -132,16 +132,19 @@ export default function CommandCenter() {
         }
       />
 
-      {/* Stats strip */}
+      {/* Stats strip — real workspace counts, not projected platform metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {homeStats.map((s) => (
+        {[
+          { label: 'Clips in library', value: String(videos.length), sub: 'Uploaded to KontentOS' },
+          { label: 'Scheduled posts', value: String(scheduled.length), sub: 'Queued in Calendar' },
+          { label: 'Saved ideas', value: String(savedIdeas.length), sub: 'On the Idea Canvas' },
+        ].map((s) => (
           <Card key={s.label} className="p-5">
             <div className="text-[12px] text-ink-dim">{s.label}</div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="font-display text-[30px] text-ink leading-none">{s.value}</span>
-              <span className="text-[13px] font-semibold text-success">{s.delta}</span>
             </div>
-            <div className="text-[12px] text-ink-muted mt-2">{s.sub}</div>
+            <div className="text-[12px] text-ink-muted mt-2">{online ? s.sub : 'Unavailable — server not reachable'}</div>
           </Card>
         ))}
       </div>
@@ -244,9 +247,9 @@ export default function CommandCenter() {
               <div className="flex items-center gap-2">
                 <Button
                   icon="play_arrow"
-                  onClick={() => navigate(activeDraft.step as ScreenId)}
+                  onClick={() => navigate(DRAFT_STEP_SCREEN[activeDraft.step])}
                 >
-                  Resume in {activeDraft.step === 'smart-editor' ? 'Smart Editor' : activeDraft.step === 'publish' ? 'Publish Composer' : 'Raw → Reel'}
+                  Resume in {SCREEN_TITLES[DRAFT_STEP_SCREEN[activeDraft.step]]}
                 </Button>
               </div>
             </div>
@@ -308,37 +311,15 @@ export default function CommandCenter() {
             })}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {continueCreating.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => navigate(c.id === 'c3' ? 'publish-schedule' : c.id === 'c2' ? 'raw-reel' : 'smart-editor')}
-                className="text-left kt-focus group"
-              >
-                <Card hover className="overflow-hidden flex flex-col h-full group-hover:border-primary/50 transition-colors">
-                  <Thumb k={c.id === 'c1' ? 'c' : c.id === 'c2' ? 'a' : 'b'} aspect="aspect-[16/9]">
-                    <span className="absolute top-2 left-2">
-                      <StatusPill tone={c.progress === 100 ? 'primary' : 'tertiary'}>{c.status}</StatusPill>
-                    </span>
-                    <span className="absolute bottom-2 right-2 text-[11px] font-semibold text-white/95 bg-black/35 backdrop-blur rounded-full px-2 py-0.5">
-                      {c.badge}
-                    </span>
-                  </Thumb>
-                  <div className="p-4 flex flex-col gap-2 flex-1">
-                    <div className="text-[11px] uppercase tracking-wider text-ink-dim">{c.kind}</div>
-                    <div className="font-semibold text-ink leading-snug group-hover:text-primary transition-colors">{c.title}</div>
-                    <p className="text-[12.5px] text-ink-muted leading-snug line-clamp-2">{c.body}</p>
-                    <div className="mt-auto pt-2 space-y-1.5">
-                      <Progress value={c.progress} />
-                      <div className="flex justify-between text-[11px] text-ink-dim">
-                        <span>{c.meta}</span>
-                        <span>{c.progress}%</span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </button>
-            ))}
+          <div className="rounded-card border border-dashed border-line px-6 py-10 text-center">
+            <p className="text-[14px] font-semibold text-ink">Nothing in progress yet</p>
+            <p className="text-[12.5px] text-ink-muted mt-1">
+              Upload a clip or save an idea and it will show up here.
+            </p>
+            <div className="flex justify-center gap-2 mt-4">
+              <Button size="sm" icon="upload" onClick={() => navigate('raw-reel')}>Upload clip</Button>
+              <Button size="sm" variant="ghost" icon="add" onClick={() => navigate('ideas')}>New idea</Button>
+            </div>
           </div>
         )}
       </section>
@@ -355,10 +336,7 @@ export default function CommandCenter() {
           </Button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-          {(!online && scheduled.length === 0
-            ? weekStrip.map((d) => ({ ...d, today: d.today }))
-            : week
-          ).map((d) => (
+          {week.map((d) => (
             <button
               key={`${d.day}-${d.date}`}
               onClick={() => navigate(d.state === 'Open' ? 'publish-schedule' : 'calendar')}

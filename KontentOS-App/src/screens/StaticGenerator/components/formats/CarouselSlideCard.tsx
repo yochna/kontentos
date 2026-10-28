@@ -90,7 +90,7 @@ export const CarouselSlideCard: React.FC<Props> = ({ state, onUpdateText }) => {
               )}
             </div>
             <span className={`text-xs font-semibold tracking-tight truncate max-w-[150px] ${isLight ? 'text-slate-800' : 'text-white'}`}>
-              {state.creator.name || 'Aman Shades'}
+              {state.creator.name || 'Your Name'}
             </span>
           </TransformableElement>
         ) : (

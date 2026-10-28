@@ -102,15 +102,17 @@ export const TweetCardLayout: React.FC<Props> = ({ state, onUpdateText }) => {
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className={`font-bold text-xs sm:text-sm truncate max-w-[150px] sm:max-w-[220px] ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                      {state.creator.name || 'Aman Shades'}
+                      {state.creator.name || 'Your Name'}
                     </span>
                     {/* Verified Badge */}
-                    <svg className="w-3.5 h-3.5 text-cyan-400 fill-current shrink-0" viewBox="0 0 24 24">
-                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                    </svg>
+                    {state.creator.verified && (
+                      <svg className="w-3.5 h-3.5 text-cyan-400 fill-current shrink-0" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+                      </svg>
+                    )}
                   </div>
                   <span className={`text-[11px] block truncate ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                    {state.creator.handle || '@amanshades'}
+                    {state.creator.handle || '@yourhandle'}
                   </span>
                 </div>
               </div>

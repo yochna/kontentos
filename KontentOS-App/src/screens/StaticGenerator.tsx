@@ -37,7 +37,7 @@ import { useCanvasInteraction } from './StaticGenerator/hooks/useCanvasInteracti
 import { getCanvasBounds } from './StaticGenerator/utils/canvasMath';
 import { Button, Card, Eyebrow } from '@/components/ui';
 import { Icon } from '@/lib/icons';
-import { useStore } from '@/lib/store';
+import { useStore, useDisplayProfile } from '@/lib/store';
 import { navigate } from '@/lib/nav';
 import { getSafeImageUrl } from '@/lib/images';
 
@@ -162,6 +162,7 @@ const STUDIO_SECTIONS: SectionMeta[] = [
 export default function StaticGenerator() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { updateActiveDraft } = useStore();
+  const profile = useDisplayProfile();
   const {
     isExporting,
     statusMessage,
@@ -214,10 +215,10 @@ export default function StaticGenerator() {
     supportingText: 'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.',
     socialCaption: 'Consistency is not about working harder—it is about removing friction from creation.\n\nSave this framework for your next production sprint.\n\n#ContentCreation #CreatorEconomy #Productivity #KontentOS',
     creator: {
-      name: 'Aman Shades',
-      handle: '@amanshades',
+      name: profile.real ? profile.name : '',
+      handle: profile.real ? profile.handle : '',
       avatarUrl: '',
-      verified: true,
+      verified: false,
     },
     showCreatorBadge: true,
     theme: 'midnight-cyan',

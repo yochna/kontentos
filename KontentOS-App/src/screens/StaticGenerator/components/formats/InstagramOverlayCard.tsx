@@ -115,7 +115,7 @@ export const InstagramOverlayCard: React.FC<Props> = ({ state, onUpdateText }) =
                 )}
               </div>
               <span className={`text-xs font-medium tracking-tight font-body truncate max-w-[180px] ${isLight ? 'text-slate-800' : 'text-white'}`}>
-                {state.creator.handle || '@amanshades'}
+                {state.creator.handle || '@yourhandle'}
               </span>
             </TransformableElement>
           ) : (

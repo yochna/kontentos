@@ -1,50 +1,14 @@
 // KontentOS — Editorial Studio · representative data for all screens.
-
-export const profile = {
-  name: 'Aman Sharma',
-  handle: '@amanshades',
-  initials: 'A',
-  tier: 'Creator Pro',
-  workspace: 'Editorial Studio',
-  version: 'v2.4.0 · Studio',
-};
+// Anything shown here is sample content: it is never a real creator's identity,
+// and screens must prefer live store data over these constants.
 
 /* ------------------------------- Command Center ------------------------------- */
-
-export const pipelinePhases = [
-  { phase: 'Phase 01', icon: 'auto_awesome', title: 'Capture & Curate', headline: '5 AI tools for busy founders', meta: '4 validated hooks' },
-  { phase: 'Phase 02', icon: 'smart_display', title: 'Assemble Footage', headline: 'Raw clips ingested · 3 takes', meta: 'A-roll + B-roll synced' },
-  { phase: 'Phase 03', icon: 'content_cut', title: 'Editorial Precision', headline: 'Smart cuts & kinetic captions', meta: '12 dead-airs purged' },
-  { phase: 'Phase 04', icon: 'schedule_send', title: 'Broadcast Distribution', headline: 'IG, YT Shorts & LI scheduled', meta: 'Optimal slot: 09:15 AM', done: true },
-];
 
 export const quickActions = [
   { id: 'ideas', icon: 'lightbulb', title: 'Find an idea', body: 'Discover what to create next & analyze trending publisher signals.', tag: '#FounderLed', tag2: '+12 tags' },
   { id: 'raw-reel', icon: 'play_circle', title: 'Make a Reel', body: 'Turn raw ingested clips into a finished, narrative vertical broadcast.', tag: 'Auto-stitch ready' },
   { id: 'smart-editor', icon: 'tune', title: 'Edit content', body: 'Refine existing compositions with our smart editorial assistance bar.', tag: 'Precision timeline · 60fps' },
-  { id: 'publish-schedule', icon: 'send', title: 'Publish', body: 'Sync, preview, and deploy natively across all connected publisher channels.', tag: 'Multi-channel sync' },
-];
-
-export const continueCreating = [
-  { id: 'c1', kind: 'Visual Essay', status: 'Edited · 72%', title: 'Travel Vlog: Architecture of Stillness', body: 'Color grade locked, audio waveforms normalized. Awaiting final B-roll overlay cut…', progress: 72, badge: '4K 60fps', meta: 'Episode 14 · Edited 12m ago' },
-  { id: 'c2', kind: 'Educational Short', status: 'Draft · 48%', title: '5 AI tools for busy founders', body: 'Opening 3-second hook retention model applied. Script segmented into 5 rapid-fire…', progress: 48, badge: 'Hook Optimized', meta: 'AI Productivity · Edited 2h ago' },
-  { id: 'c3', kind: 'Monologue Reel', status: 'Ready to publish', title: 'Weekend founder thoughts', body: 'Ready for distribution. Metadata packaged: 4 platform-specific descriptions and…', progress: 100, badge: 'Tomorrow · 08:30 AM', meta: 'Perspective · Rendered' },
-];
-
-export const weekStrip = [
-  { day: 'Mon', date: '19', state: 'Published', label: 'Systems M…', time: '09:00', views: '12.4K views', done: true },
-  { day: 'Tue', date: '20', state: 'Published', label: 'Notion Se…', time: '14:30', views: '8.9K views', done: true },
-  { day: 'Wed', date: '21', state: 'Ready', label: '5 AI To…', time: '17:00', note: 'Final preview', today: true },
-  { day: 'Thu', date: '22', state: 'Scheduled', label: 'Founder T…', time: '08:30', note: 'Assets rendered' },
-  { day: 'Fri', date: '23', state: 'Scheduled', label: 'Weekly Br…', time: '11:15', note: 'Text copy locked' },
-  { day: 'Sat', date: '24', state: 'Open', label: 'Empty slot', time: '', note: 'Open day' },
-  { day: 'Sun', date: '25', state: 'Drafting', label: 'Architectu…', time: '20:00', note: 'Awaiting review' },
-];
-
-export const homeStats = [
-  { label: 'What worked this week', value: '48.2K', delta: '↑ 18.4%', sub: 'Total impressions / views' },
-  { label: 'Bookmark rate', value: '3,842', delta: '↑ 24%', sub: 'Archived saves' },
-  { label: 'Virality multiplier', value: '1,208', delta: 'Direct', sub: 'Shared & forwarded' },
+  { id: 'publish-schedule', icon: 'send', title: 'Publish', body: 'Preview, package and schedule one dispatch for every channel you post to.', tag: 'Export bundle ready' },
 ];
 
 /* ---------------------------------- Ideas ---------------------------------- */
@@ -242,11 +206,13 @@ export const editorActions = [
 
 /* ---------------------------- Publish & Schedule ---------------------------- */
 
+// No OAuth is wired up, so no destination is verifiably connected and no handle is known
+// until the creator fills in Settings — PublishSchedule substitutes the saved profile handle.
 export const channels = [
-  { id: 'ig', name: 'Instagram Reel', handle: '@amanshades', icon: 'photo_camera', connected: true, on: true },
-  { id: 'yt', name: 'YouTube Shorts', handle: '@AmanSharmaFilms', icon: 'smart_display', connected: true, on: true },
-  { id: 'tt', name: 'TikTok', handle: '@amanshades', icon: 'music_note', connected: true, on: true },
-  { id: 'li', name: 'LinkedIn Post', handle: 'Aman Sharma', icon: 'badge', connected: true, on: true },
+  { id: 'ig', name: 'Instagram Reel', handle: '', icon: 'photo_camera', connected: false, on: true },
+  { id: 'yt', name: 'YouTube Shorts', handle: '', icon: 'smart_display', connected: false, on: true },
+  { id: 'tt', name: 'TikTok', handle: '', icon: 'music_note', connected: false, on: true },
+  { id: 'li', name: 'LinkedIn Post', handle: '', icon: 'badge', connected: false, on: true },
   { id: 'x', name: 'X / Twitter', handle: 'Disconnected', icon: 'tag', connected: false, on: false },
   { id: 'fb', name: 'Facebook', handle: 'Inactive', icon: 'group', connected: false, on: false },
 ];

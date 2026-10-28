@@ -42,10 +42,10 @@ export default function Settings() {
   const [burnCaptions, setBurnCaptions] = useState(true);
 
   useEffect(() => {
-    setFullName(user?.full_name ?? 'Aman Sharma');
-    setEmail(user?.email ?? 'aman@creatorops.io');
-    setIgHandle(user?.instagram_username ?? 'amanshades');
-    setYtHandle(user?.youtube_channel_id ?? '@AmanSharmaFilms');
+    setFullName(user?.full_name ?? '');
+    setEmail(user?.email ?? '');
+    setIgHandle(user?.instagram_username ?? '');
+    setYtHandle(user?.youtube_channel_id ?? '');
   }, [user]);
 
   useEffect(() => {
@@ -186,7 +186,7 @@ export default function Settings() {
                     <div className="text-[12.5px] text-ink-muted mt-0.5 flex items-center gap-2">
                       <span>{email}</span>
                       <span>•</span>
-                      <span className="text-primary font-medium">@{igHandle || 'amanshades'}</span>
+                      <span className="text-primary font-medium">@{igHandle || 'yourhandle'}</span>
                     </div>
                   </div>
                 </div>
