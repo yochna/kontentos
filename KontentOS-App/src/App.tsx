@@ -1,24 +1,28 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Topbar } from '@/components/Topbar';
 import { Splash } from '@/components/Splash';
+import { Icon } from '@/lib/icons';
 import { useTheme } from '@/lib/theme';
 import { StoreProvider } from '@/lib/store';
 import type { ScreenId } from '@/lib/nav';
 
 import CommandCenter from '@/screens/CommandCenter';
 import Ideas from '@/screens/Ideas';
-import RawReel from '@/screens/RawReel';
-import SmartEditor from '@/screens/SmartEditor';
-import StaticGenerator from '@/screens/StaticGenerator';
-import PublishSchedule from '@/screens/PublishSchedule';
-import ContentLibrary from '@/screens/ContentLibrary';
-import Calendar from '@/screens/Calendar';
-import Analytics from '@/screens/Analytics';
-import BrandKit from '@/screens/BrandKit';
-import Settings from '@/screens/Settings';
 
-const SCREENS: Record<ScreenId, () => React.JSX.Element> = {
+// Everything behind the first screen is loaded on demand: the editor, the card studio and the
+// analytics charts are the bulk of the bundle, and the Command Center is what a creator sees first.
+const RawReel = lazy(() => import('@/screens/RawReel'));
+const SmartEditor = lazy(() => import('@/screens/SmartEditor'));
+const StaticGenerator = lazy(() => import('@/screens/StaticGenerator'));
+const PublishSchedule = lazy(() => import('@/screens/PublishSchedule'));
+const ContentLibrary = lazy(() => import('@/screens/ContentLibrary'));
+const Calendar = lazy(() => import('@/screens/Calendar'));
+const Analytics = lazy(() => import('@/screens/Analytics'));
+const BrandKit = lazy(() => import('@/screens/BrandKit'));
+const Settings = lazy(() => import('@/screens/Settings'));
+
+const SCREENS: Record<ScreenId, React.ComponentType> = {
   home: CommandCenter,
   ideas: Ideas,
   'raw-reel': RawReel,
@@ -31,6 +35,15 @@ const SCREENS: Record<ScreenId, () => React.JSX.Element> = {
   'brand-kit': BrandKit,
   settings: Settings,
 };
+
+function ScreenSkeleton() {
+  return (
+    <div className="flex items-center gap-2 px-6 py-16 text-[13px] text-ink-muted">
+      <Icon name="hourglass_top" size={16} className="text-primary animate-pulse" />
+      Loading screen…
+    </div>
+  );
+}
 
 export default function App() {
   const { theme, toggle } = useTheme();
@@ -72,7 +85,9 @@ export default function App() {
             onOpenMobile={() => setMobileOpen(true)}
           />
           <main className="flex-1 min-w-0">
-            <Screen />
+            <Suspense fallback={<ScreenSkeleton />}>
+              <Screen />
+            </Suspense>
           </main>
         </div>
       </div>

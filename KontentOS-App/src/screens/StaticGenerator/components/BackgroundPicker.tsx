@@ -54,10 +54,19 @@ export const BackgroundPicker: React.FC<Props> = ({
     { label: 'Lifestyle', query: 'lifestyle' },
   ];
 
+  const stockReqRef = useRef<AbortController | null>(null);
+
   const fetchStockPhotos = async (q: string) => {
+    // Only the newest query may write results: overlapping searches otherwise race and the
+    // slower response overwrites the term the creator just typed.
+    stockReqRef.current?.abort();
+    const ctrl = new AbortController();
+    stockReqRef.current = ctrl;
     setIsLoadingStock(true);
     try {
-      const res = await fetch(`/api/static-card/stock-search?query=${encodeURIComponent(q)}&perPage=18`);
+      const res = await fetch(`/api/static-card/stock-search?query=${encodeURIComponent(q)}&perPage=18`, {
+        signal: ctrl.signal,
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.photos) && data.photos.length > 0) {
         setStockResults(data.photos);
@@ -71,6 +80,7 @@ export const BackgroundPicker: React.FC<Props> = ({
         setStockResults(fallback.length > 0 ? fallback : CURATED_STOCK_PHOTOS);
       }
     } catch (err) {
+      if (ctrl.signal.aborted) return;
       console.warn('Failed to fetch stock photos from API, using curated collection:', err);
       const qLower = q.toLowerCase().trim();
       const fallback = qLower
@@ -80,13 +90,14 @@ export const BackgroundPicker: React.FC<Props> = ({
         : CURATED_STOCK_PHOTOS;
       setStockResults(fallback.length > 0 ? fallback : CURATED_STOCK_PHOTOS);
     } finally {
-      setIsLoadingStock(false);
+      if (!ctrl.signal.aborted) setIsLoadingStock(false);
     }
   };
 
   // Initial fetch for curated stock collection on mount
   React.useEffect(() => {
     fetchStockPhotos('');
+    return () => stockReqRef.current?.abort();
   }, []);
 
   const handleCategoryClick = (cat: { label: string; query: string }) => {

@@ -131,6 +131,8 @@ export function useCardExporter() {
 
     setIsExporting(true);
     const originalSlide = state.slideCurrent;
+    // Counted, not assumed: the browser can block or drop programmatic downloads.
+    let exported = 0;
 
     try {
       if (document.fonts?.ready) {
@@ -174,17 +176,24 @@ export function useCardExporter() {
         link.download = filename;
         link.href = dataUrl;
         link.click();
+        exported += 1;
 
         await new Promise((r) => setTimeout(r, 260));
       }
 
       await switchToSlide(originalSlide);
       await waitForPaint();
-      setStatusMessage(`✓ All ${slides.length} carousel slides exported!`);
+      setStatusMessage(
+        `✓ Exported ${exported} of ${slides.length} slides — allow "multiple downloads" if the browser asked.`,
+      );
       setTimeout(() => setStatusMessage(null), 4000);
     } catch (err: any) {
       console.error('Failed to export carousel deck:', err);
-      setStatusMessage('Deck export encountered an error.');
+      setStatusMessage(
+        exported > 0
+          ? `Deck export stopped after ${exported} of ${slides.length} slides.`
+          : 'Deck export encountered an error — no files were saved.',
+      );
       setTimeout(() => setStatusMessage(null), 4000);
     } finally {
       setIsExporting(false);
