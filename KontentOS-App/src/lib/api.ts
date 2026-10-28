@@ -54,6 +54,25 @@ export const api = {
     return json<DbStatus>(await fetch('/api/db/status'));
   },
 
+  async accessStatus(): Promise<{ accessRequired: boolean; unlocked: boolean }> {
+    const d = await json<{ accessRequired: boolean; unlocked: boolean }>(
+      await fetch('/api/access/status'),
+    );
+    return { accessRequired: d.accessRequired, unlocked: d.unlocked };
+  },
+
+  // The server answers with the message to show ("Wrong access code.", "Too many unlock
+  // attempts…"), so json() throwing is the failure path here.
+  async unlockAccess(code: string): Promise<void> {
+    await json<{ success: boolean }>(
+      await fetch('/api/access/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      }),
+    );
+  },
+
   // ---- User ----
   async getUser(): Promise<User | null> {
     const d = await json<{ data: User }>(await fetch('/api/user'));

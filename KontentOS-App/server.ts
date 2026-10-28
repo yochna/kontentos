@@ -12,6 +12,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import rateLimit from 'express-rate-limit';
@@ -40,6 +41,40 @@ const uploadsDir = path.join(appRoot, 'uploads');
 for (const dir of [dataDir, uploadsDir]) if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4111;
+
+// Owner passcode gate. The studio has one tenant per deployment and no accounts, so every
+// route — including 33 anonymous writes and 3 deletes — was world-writable. ACCESS_CODE is
+// set in the host's environment and never reaches the browser.
+const ACCESS_CODE = (process.env.ACCESS_CODE || '').trim();
+const IS_PROD = process.env.NODE_ENV === 'production';
+const SESSION_COOKIE = 'kt_access';
+const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
+// The cookie holds a keyed hash of the code, not the code. Changing ACCESS_CODE in the host
+// environment logs every session out, because the expected value changes with it.
+const SESSION_VALUE = ACCESS_CODE
+  ? createHmac('sha256', 'kontentos-access-session').update(ACCESS_CODE).digest('hex')
+  : '';
+
+function readCookie(header: string | undefined, name: string): string | null {
+  if (!header) return null;
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    if (part.slice(0, eq).trim() === name) return decodeURIComponent(part.slice(eq + 1).trim());
+  }
+  return null;
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
+}
+
+function hasValidSession(req: express.Request): boolean {
+  const value = readCookie(req.headers.cookie, SESSION_COOKIE);
+  return !!SESSION_VALUE && !!value && safeEqual(value, SESSION_VALUE);
+}
 
 async function createApp() {
   const app = express();
@@ -108,6 +143,55 @@ async function createApp() {
       return res.status(400).json({ error: 'Malformed JSON payload in request body' });
     }
     next(err);
+  });
+
+  // Access gate. Everything under /api needs the session cookie except the health check
+  // (Render polls it) and the access routes themselves.
+  app.use('/api', (req, res, next) => {
+    if (req.path === '/health' || req.path.startsWith('/access/')) return next();
+    if (!ACCESS_CODE) {
+      // Nothing configured. Reads stay open so the studio still loads and can explain itself,
+      // but an unconfigured production server is never anonymously writable.
+      if (IS_PROD && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return res.status(503).json({
+          error: 'Saving is locked: set ACCESS_CODE in the host environment to use this studio.',
+        });
+      }
+      return next();
+    }
+    if (hasValidSession(req)) return next();
+    return res.status(401).json({ error: 'This studio is locked.', accessRequired: true });
+  });
+
+  app.get('/api/access/status', (req, res) => {
+    res.json({
+      success: true,
+      accessRequired: !!ACCESS_CODE,
+      unlocked: !ACCESS_CODE || hasValidSession(req),
+    });
+  });
+
+  const unlockLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Too many unlock attempts. Wait a few minutes and try again.' },
+  });
+
+  app.post('/api/access/unlock', unlockLimiter, (req, res) => {
+    if (!ACCESS_CODE) {
+      return res.status(503).json({ error: 'No access code is configured on this server.' });
+    }
+    const code = String((req.body as { code?: unknown })?.code ?? '').trim();
+    if (!safeEqual(code, ACCESS_CODE)) {
+      return res.status(401).json({ error: 'Wrong access code.' });
+    }
+    res.setHeader(
+      'Set-Cookie',
+      `${SESSION_COOKIE}=${SESSION_VALUE}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_MAX_AGE}${IS_PROD ? '; Secure' : ''}`,
+    );
+    res.json({ success: true });
   });
 
   // Serve media uploaded by THIS app instance with explicit CORP and Accept-Ranges.
@@ -328,6 +412,7 @@ async function createApp() {
       app: 'KontentOS — Editorial Studio (Redesign)',
       standalone: true,
       port: PORT,
+      accessRequired: !!ACCESS_CODE,
       timestamp: new Date().toISOString(),
     });
   });
@@ -938,6 +1023,13 @@ Output valid JSON:
     console.log(`  ▸ App + API : http://localhost:${PORT}`);
     console.log(`  ▸ Data       : ${dataDir}  (isolated from the original app)`);
     console.log(`  ▸ Uploads    : ${uploadsDir}\n`);
+    if (!ACCESS_CODE) {
+      console.log(
+        IS_PROD
+          ? '  ⚠️  ACCESS_CODE is not set: the studio is readable but nobody can save. Set it in the host environment.\n'
+          : '  ℹ️  ACCESS_CODE is not set: writes are open because this is a dev server.\n',
+      );
+    }
   });
 }
 

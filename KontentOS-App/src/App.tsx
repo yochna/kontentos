@@ -2,7 +2,9 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Topbar } from '@/components/Topbar';
 import { Splash } from '@/components/Splash';
+import { AccessLock } from '@/components/AccessLock';
 import { Icon } from '@/lib/icons';
+import { api } from '@/lib/api';
 import { useTheme } from '@/lib/theme';
 import { StoreProvider } from '@/lib/store';
 import type { ScreenId } from '@/lib/nav';
@@ -50,6 +52,24 @@ export default function App() {
   const [screen, setScreen] = useState<ScreenId>('home');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [access, setAccess] = useState<'checking' | 'locked' | 'open'>('checking');
+
+  // The store mounts API calls immediately, so the lock has to be resolved before it exists.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .accessStatus()
+      .then((s) => {
+        if (!cancelled) setAccess(s.unlocked ? 'open' : 'locked');
+      })
+      // An unreachable server is the app's own offline state, not a reason to show a lock screen.
+      .catch(() => {
+        if (!cancelled) setAccess('open');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Allow screens to navigate cross-cutting (e.g. Home cards → workflow screens).
   useEffect(() => {
@@ -64,6 +84,16 @@ export default function App() {
     window.addEventListener('kt:navigate', onNavigate);
     return () => window.removeEventListener('kt:navigate', onNavigate);
   }, []);
+
+  if (access === 'locked') return <AccessLock onUnlock={() => setAccess('open')} />;
+  if (access === 'checking') {
+    return (
+      <div className="flex min-h-screen items-center justify-center gap-2 bg-app font-body text-[13px] text-ink-dim">
+        <Icon name="hourglass_top" size={16} className="animate-pulse text-primary" />
+        Opening studio…
+      </div>
+    );
+  }
 
   const Screen = SCREENS[screen];
 
