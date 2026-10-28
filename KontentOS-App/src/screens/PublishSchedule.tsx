@@ -1,8 +1,9 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/components/ui';
 import { channels as initialChannels, recommendedTags } from '@/data/mock';
 import { useStore, useDisplayProfile } from '@/lib/store';
+import { useNavPayload } from '@/lib/nav';
 import type { SocialPlatform } from '@/lib/types';
 import {
   generateMultiPlatformCopy,
@@ -37,9 +38,16 @@ function getFormattedSlotDate(offsetDays: number, offsetHours: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function toSlotValue(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function PublishSchedule() {
   const profile = useDisplayProfile();
-  const { videos, schedulePost, activeDraft } = useStore();
+  const { videos, scheduled, schedulePost, updateScheduled, publishNow, activeDraft } = useStore();
 
   const readyVideos = useMemo(
     () => videos.filter((v) => v.status === 'ready' || v.status === 'processing'),
@@ -86,6 +94,34 @@ export default function PublishSchedule() {
   const [generatingCopy, setGeneratingCopy] = useState(false);
   const [flash, setFlash] = useState<{ tone: 'ok' | 'err'; msg: string } | null>(null);
 
+  // "Edit in Composer" from the Calendar deep-links here with the row to change. The composer
+  // otherwise always creates new posts, so that id has to survive until save.
+  const navPayload = useNavPayload<{ editingPostId?: string }>('publish-schedule');
+  const [editingPostId, setEditingPostId] = useState<string | undefined>(navPayload?.editingPostId);
+  const appliedEditRef = useRef(false);
+  // The auto-copy effect below refills the composer from Gemini on mount; in edit mode that
+  // would overwrite the caption the creator just asked to change.
+  const skipAutoCopyRef = useRef(!!navPayload?.editingPostId);
+  const editingPost = editingPostId ? scheduled.find((p) => p.id === editingPostId) : undefined;
+
+  useEffect(() => {
+    const id = navPayload?.editingPostId;
+    if (!id || appliedEditRef.current) return;
+    const post = scheduled.find((p) => p.id === id);
+    if (!post) return;
+    appliedEditRef.current = true;
+    setEditingPostId(id);
+    setSlot(toSlotValue(post.scheduled_at));
+    setCopyBundle((prev) => ({
+      ...prev,
+      instagram: {
+        ...prev.instagram,
+        caption: post.caption_text || '',
+        hashtags: post.hashtags?.length ? post.hashtags : prev.instagram.hashtags,
+      },
+    }));
+  }, [navPayload, scheduled]);
+
   // Synchronize videoId when activeDraft sourceVideo changes
   useEffect(() => {
     if (activeDraft?.sourceVideo?.id) {
@@ -109,6 +145,10 @@ export default function PublishSchedule() {
 
   // Sync real Gemini AI copy when video changes
   useEffect(() => {
+    if (skipAutoCopyRef.current) {
+      skipAutoCopyRef.current = false;
+      return;
+    }
     let cancelled = false;
     async function loadLiveCopy() {
       if (!selectedVideo) return;
@@ -175,8 +215,10 @@ export default function PublishSchedule() {
     () =>
       initialChannels
         .concat([
-          { id: 'threads', name: 'Threads', handle: profile.handle, icon: 'alternate_email', connected: true, on: false },
+          { id: 'threads', name: 'Threads', handle: '', icon: 'alternate_email', connected: false, on: false },
         ])
+        // Without OAuth the only identity the app knows is the handle saved in Settings.
+        .map((c) => ({ ...c, handle: c.handle || profile.handle }))
         .filter((c) => on[c.id]),
     [on, profile.handle],
   );
@@ -252,7 +294,7 @@ export default function PublishSchedule() {
       return;
     }
     if (activeChannels.length === 0) {
-      setFlash({ tone: 'err', msg: 'Select at least one connected publishing destination.' });
+      setFlash({ tone: 'err', msg: 'Select at least one publishing destination.' });
       return;
     }
 
@@ -260,6 +302,24 @@ export default function PublishSchedule() {
     const platforms = activeChannels.map((c) => PLATFORM_MAP[c.id] || (c.id as SocialPlatform)).filter(Boolean);
 
     try {
+      if (editingPostId) {
+        // One Calendar row = one channel, so an edit updates that row only; the channel
+        // toggles above apply to a new dispatch, not to the post being fixed.
+        const res = await updateScheduled(editingPostId, {
+          videoTitle: selectedVideo.title,
+          captionText: copyBundle.instagram.caption,
+          hashtags: copyBundle.instagram.hashtags,
+          scheduledAt: slot ? new Date(slot).toISOString() : undefined,
+        });
+        setFlash(
+          res.ok
+            ? { tone: 'ok', msg: res.message || 'Updated the scheduled post.' }
+            : { tone: 'err', msg: res.message || 'Could not update the scheduled post.' },
+        );
+        if (res.ok) setEditingPostId(undefined);
+        return;
+      }
+
       const res = await schedulePost({
         videoId: selectedVideo.id,
         videoTitle: selectedVideo.title,
@@ -303,10 +363,25 @@ export default function PublishSchedule() {
         hashtags: copyBundle.instagram.hashtags,
         scheduledAt: new Date().toISOString(),
       });
-      setFlash({
-        tone: 'ok',
-        msg: `Broadcast dispatched immediately to ${platforms.length} connected channel(s)!`,
-      });
+
+      if (!res.ok) {
+        setFlash({ tone: 'err', msg: res.message || 'Could not schedule the post.' });
+        return;
+      }
+
+      // No channel API is connected, so this only marks the posts as done inside KontentOS.
+      const ids = res.ids || [];
+      const results = await Promise.allSettled(ids.map((id) => publishNow(id)));
+      const failed = results.filter((r) => r.status === 'rejected').length;
+
+      if (failed > 0) {
+        setFlash({ tone: 'err', msg: `${failed} of ${ids.length} channel(s) could not be marked as published.` });
+      } else {
+        setFlash({
+          tone: 'ok',
+          msg: `Marked as published on ${ids.length} channel(s) in KontentOS. Nothing was sent to the platforms — no channel is connected yet, so post it yourself with "Export Bundle".`,
+        });
+      }
     } catch (err: any) {
       setFlash({ tone: 'err', msg: err?.message || 'Publish now failed.' });
     } finally {
@@ -366,6 +441,25 @@ export default function PublishSchedule() {
         </div>
       )}
 
+      {/* Editing an existing Calendar row instead of creating a new dispatch */}
+      {editingPost && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-card border border-tertiary/40 bg-tertiary/10 px-4 py-2.5 text-[13px]">
+          <span className="flex items-center gap-2 text-ink">
+            <Icon name="edit_note" size={17} className="text-tertiary" />
+            Editing <strong className="font-semibold">{editingPost.video_title || 'this post'}</strong>
+            <span className="text-ink-dim">
+              ({editingPost.platform}) — “Schedule Dispatch” updates this row instead of creating a new one.
+            </span>
+          </span>
+          <button
+            onClick={() => setEditingPostId(undefined)}
+            className="text-ink-dim hover:text-ink font-medium underline underline-offset-2"
+          >
+            Stop editing
+          </button>
+        </div>
+      )}
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-6">
         {/* Left Column: Composer Controls */}
@@ -413,7 +507,10 @@ export default function PublishSchedule() {
                 <h2 className="font-semibold text-ink text-[15px] flex items-center gap-2">
                   <Icon name="hub" size={18} className="text-primary" /> Publishing Destinations
                 </h2>
-                <p className="text-xs text-ink-muted mt-0.5">Toggle target channels to publish simultaneously</p>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  Choose where this dispatch goes. No platform API is connected yet, so KontentOS packages the
+                  bundle and records the schedule — you post it yourself.
+                </p>
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <button

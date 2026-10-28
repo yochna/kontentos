@@ -5,6 +5,7 @@ import { ReelPreview } from '@/components/ReelPreview';
 import { PRESETS, fmtTime, totalDuration, type EditPreset } from '@/lib/timeline';
 import type { AutoEditOutcome } from '@/lib/store';
 import { useStore } from '@/lib/store';
+import { useNavPayload } from '@/lib/nav';
 
 const STEPS = [
   { icon: 'graphic_eq', label: 'Analyzing audio waveform & speech cadences' },
@@ -79,6 +80,14 @@ export default function RawReel() {
       setVideoId(ready[0].id);
     }
   }, [ready, videoId]);
+
+  // Deep link from Command Center / Content Library: select the clip the creator clicked.
+  // The library loads asynchronously, so wait until that id actually exists.
+  const navPayload = useNavPayload<{ videoId?: string }>('raw-reel');
+  useEffect(() => {
+    const target = navPayload?.videoId;
+    if (target && videos.some((v) => v.id === target)) setVideoId(target);
+  }, [navPayload, videos]);
 
   const video = videos.find((v) => v.id === videoId);
   const preset = (PRESETS.find((p) => p.id === presetId) || PRESETS[0]) as EditPreset;

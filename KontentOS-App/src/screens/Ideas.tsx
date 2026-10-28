@@ -1,9 +1,10 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { Badge, Button, Card, Chip, Eyebrow, PageShell, Thumb } from '@/components/ui';
 import { unsplashPhoto } from '@/lib/images';
 import { ideas as initialMockIdeas, type Idea } from '@/data/mock';
 import { useStore } from '@/lib/store';
+import { useNavPayload } from '@/lib/nav';
 import { api } from '@/lib/api';
 
 const QUICK_TOPICS = [
@@ -40,6 +41,17 @@ export default function Ideas() {
       setGenerating(false);
     }
   };
+
+  // Deep link from Analytics ("explore this topic"): fill the box and run the same search
+  // the Generate button would, so the click lands on results instead of an empty field.
+  const navPayload = useNavPayload<{ topicQuery?: string }>('ideas');
+  useEffect(() => {
+    const topic = navPayload?.topicQuery?.trim();
+    if (!topic) return;
+    setSearchTopic(topic);
+    void handleGenerate(topic);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navPayload]);
 
   // Filter ideas
   const displayedIdeas = (() => {

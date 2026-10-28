@@ -516,6 +516,25 @@ Respond ONLY with pure JSON matching this exact structure:
       }),
     );
   },
+  async updateScheduled(
+    id: string,
+    patch: {
+      videoTitle?: string;
+      platform?: SocialPlatform;
+      captionText?: string;
+      hashtags?: string[];
+      scheduledAt?: string;
+      status?: 'scheduled' | 'published';
+    },
+  ) {
+    return json<{ data: ScheduledPost; message?: string }>(
+      await fetch(`/api/publish/schedule/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      }),
+    );
+  },
   async deleteScheduled(id: string) {
     return json<{ success: boolean }>(await fetch(`/api/publish/schedule/${id}`, { method: 'DELETE' }));
   },

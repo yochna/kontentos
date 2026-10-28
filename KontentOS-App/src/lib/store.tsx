@@ -93,7 +93,18 @@ interface StoreValue {
     scheduledAt?: string;
     status?: 'scheduled' | 'published';
     publishedAt?: string;
-  }) => Promise<{ ok: boolean; message?: string }>;
+  }) => Promise<{ ok: boolean; message?: string; ids?: string[] }>;
+  updateScheduled: (
+    id: string,
+    patch: {
+      videoTitle?: string;
+      platform?: SocialPlatform;
+      captionText?: string;
+      hashtags?: string[];
+      scheduledAt?: string;
+      status?: 'scheduled' | 'published';
+    },
+  ) => Promise<{ ok: boolean; message?: string }>;
   deleteScheduled: (id: string) => Promise<void>;
   publishNow: (id: string) => Promise<{ ok: boolean; message?: string }>;
   saveUser: (profile: Partial<User>) => Promise<void>;
@@ -269,13 +280,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setScheduled(s);
       setHistory(h);
       setDbStatus(d);
-      if (si && si.length > 0) {
+      // Every call above swallows its own error, so Promise.all never rejects. dbStatus is
+      // the only one that reports absence (null), so it is what actually detects downtime.
+      const serverReached = d !== null;
+      setOnline(serverReached);
+      if (serverReached && si) {
         setSavedIdeas(si);
         try {
           localStorage.setItem('kontentos_saved_ideas', JSON.stringify(si));
         } catch { /* ignore */ }
       }
-      setOnline(true);
     } catch {
       setOnline(false);
     } finally {
@@ -321,8 +335,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const res = await api.schedulePost(payload);
       const s = await api.getScheduled();
       setScheduled(s);
-      return { ok: true, message: res.message };
-    } catch {
+      const created = Array.isArray(res.data) ? res.data : [res.data].filter(Boolean);
+      return { ok: true, message: res.message, ids: created.map((p) => p.id) };
+    } catch (err) {
+      // A server-side rejection (validation, 500) must surface as a failure: the local
+      // fallback below is memory-only and disappears on the next refresh().
+      if (!(err instanceof TypeError)) {
+        return { ok: false, message: err instanceof Error ? err.message : 'Could not save to Calendar' };
+      }
       // Local fallback in case offline or API endpoint is unreachable
       const targetPlatforms = payload.platforms?.length ? payload.platforms : [payload.platform || 'instagram'];
       const fallbackPosts: ScheduledPost[] = targetPlatforms.map((plat) => ({
@@ -340,7 +360,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         created_at: new Date().toISOString(),
       }));
       setScheduled((prev) => [...fallbackPosts, ...prev]);
-      return { ok: true, message: 'Saved to Calendar' };
+      return { ok: true, message: 'Saved to this browser only — server unreachable, it will not survive a reload' };
+    }
+  }, []);
+
+  const updateScheduled = useCallback<StoreValue['updateScheduled']>(async (id, patch) => {
+    try {
+      const res = await api.updateScheduled(id, patch);
+      setScheduled(await api.getScheduled());
+      return { ok: true, message: res.message };
+    } catch (err) {
+      if (!(err instanceof TypeError)) {
+        return { ok: false, message: err instanceof Error ? err.message : 'Could not update the post' };
+      }
+      // Offline: apply the edit in memory so the Calendar matches what the creator typed.
+      setScheduled((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                video_title: patch.videoTitle ?? p.video_title,
+                platform: patch.platform ?? p.platform,
+                caption_text: patch.captionText ?? p.caption_text,
+                hashtags: patch.hashtags ?? p.hashtags,
+                scheduled_at: patch.scheduledAt ?? p.scheduled_at,
+                status: patch.status ?? p.status,
+              }
+            : p,
+        ),
+      );
+      return { ok: true, message: 'Updated in this browser only — server unreachable' };
     }
   }, []);
 
@@ -711,6 +760,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateVideo,
       deleteVideo,
       schedulePost,
+      updateScheduled,
       deleteScheduled,
       publishNow,
       saveUser,
@@ -750,6 +800,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateVideo,
       deleteVideo,
       schedulePost,
+      updateScheduled,
       deleteScheduled,
       publishNow,
       saveUser,
@@ -781,8 +832,10 @@ export function useStore(): StoreValue {
 /** Derive a display profile (with graceful mock fallback when offline). */
 export function useDisplayProfile() {
   const { user } = useStore();
-  const name = user?.full_name || 'Aman Sharma';
-  const handle = user?.instagram_username ? `@${user.instagram_username}` : '@amanshades';
-  const initials = (name || 'A').trim().charAt(0).toUpperCase();
+  // These strings get rasterized into exported cards, so the "not set yet" fallbacks must
+  // never be a real person's identity.
+  const name = user?.full_name || 'Your Name';
+  const handle = user?.instagram_username ? `@${user.instagram_username}` : '@yourhandle';
+  const initials = (name || '').trim().charAt(0).toUpperCase();
   return { name, handle, initials, real: !!user };
 }
