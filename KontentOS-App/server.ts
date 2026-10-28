@@ -636,7 +636,8 @@ Output valid JSON:
                   }
                 }
                 if (!extractedText) {
-                  const directText = typeof response.text === 'function' ? response.text() : response.text;
+                  // `text` is a getter on GenerateContentResponse, not a method.
+                  const directText = response.text;
                   if (directText && typeof directText === 'string') extractedText = directText;
                 }
 
@@ -942,5 +943,18 @@ Output valid JSON:
 
 createApp().catch((err) => {
   console.error('Failed to start server:', err);
+  process.exit(1);
+});
+
+// Express 4 does not await async handlers and Node terminates on an unhandled rejection, so
+// one failed request (e.g. the local DB rejecting a write) would take the container down.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection — request failed, server kept alive:', reason);
+});
+
+// An uncaught exception means in-process state is no longer trustworthy: log it and let the
+// platform restart the service rather than continue serving from a corrupted process.
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception — shutting down for a clean restart:', err);
   process.exit(1);
 });

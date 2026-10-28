@@ -31,7 +31,16 @@ if (isValidHttpUrl(rawUrl) && rawKey && rawKey !== 'MY_SUPABASE_KEY') {
     supabaseClient = null;
   }
 } else {
-  console.log('ℹ️ Supabase credentials not provided. Using local database storage engine.');
+  if (process.env.NODE_ENV === 'production') {
+    // Render/Railway containers have an ephemeral filesystem, so the JSON store below is
+    // deleted on every redeploy, restart or free-tier sleep.
+    console.warn(
+      '⚠️ Production is using the local JSON store: uploads, schedules and history will be ' +
+        'lost on the next redeploy. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for durable storage.',
+    );
+  } else {
+    console.log('ℹ️ Supabase credentials not provided. Using local database storage engine.');
+  }
 }
 
 export function isSupabaseConnected(): boolean {
@@ -110,7 +119,15 @@ function loadLocalStore(): LocalStoreSchema {
     if (!parsed.scheduled_posts) parsed.scheduled_posts = [];
     return parsed;
   } catch (err) {
-    console.error('Error reading local DB file, resetting to empty schema:', err);
+    // A truncated file (killed mid-write) must not be answered by wiping the database:
+    // keep the damaged bytes so the creator's data stays recoverable.
+    const backup = `${dbFile}.corrupt-${Date.now()}.json`;
+    try {
+      fs.copyFileSync(dbFile, backup);
+      console.error(`Local DB is unreadable; preserved damaged copy at ${backup}:`, err);
+    } catch {
+      console.error('Local DB is unreadable and the damaged copy could not be preserved:', err);
+    }
     return {
       users: [],
       videos: [],
@@ -124,10 +141,19 @@ function loadLocalStore(): LocalStoreSchema {
 
 function saveLocalStore(data: LocalStoreSchema) {
   const dbFile = getDbFile();
+  // Write to a sibling temp file then rename: rename is atomic on both Linux and Windows,
+  // so a crash mid-write leaves the previous good database intact instead of a truncated one.
+  const tmpFile = `${dbFile}.${process.pid}.tmp`;
   try {
-    fs.writeFileSync(dbFile, JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tmpFile, dbFile);
   } catch (err) {
+    try {
+      if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+    } catch { /* the temp file is not the problem worth masking */ }
+    // Propagate: swallowing this made every route report success while nothing was persisted.
     console.error('Error writing to local DB file:', err);
+    throw new Error('Could not persist to the local database');
   }
 }
 

@@ -48,14 +48,15 @@ router.post(['/reels', '/instagram', '/save'], async (req, res) => {
       });
     }
 
+    // KontentOS records the post but does not upload to Instagram (no API integration yet),
+    // so there is no real permalink to store. Fabricating instagram.com/... links sends
+    // creators to a URL that does not exist.
     const postId = `reel_${crypto.randomUUID().slice(0, 10)}`;
-    const postUrl = `https://www.instagram.com/reel/${postId.slice(5)}/`;
 
     const record = await db.recordPublish({
       video_id: videoId,
       platform: 'instagram',
       platform_post_id: postId,
-      url: postUrl,
       status: 'saved',
     });
 
@@ -68,7 +69,6 @@ router.post(['/reels', '/instagram', '/save'], async (req, res) => {
     res.json({
       success: true,
       data: record,
-      postUrl,
       message: 'Reel and caption saved to library successfully!',
     });
   } catch (err: any) {
@@ -335,14 +335,14 @@ router.put('/schedule/:id', async (req, res) => {
   }
 });
 
-// POST /api/publish/schedule/:id/publish-now - Trigger immediate publishing
+// POST /api/publish/schedule/:id/publish-now - Mark a scheduled post as manually published.
+// No channel API is wired up, so this only records the creator's completion in KontentOS;
+// inventing platform_post_id / post_url here would publish links that lead nowhere.
 router.post('/schedule/:id/publish-now', async (req, res) => {
   try {
     const updated = await db.updateScheduledPost(req.params.id, {
       status: 'published',
       published_at: new Date().toISOString(),
-      platform_post_id: `live_${crypto.randomUUID().slice(0, 8)}`,
-      post_url: `https://kontentos.ai/posts/${req.params.id}`,
     });
 
     if (!updated) {
@@ -358,7 +358,7 @@ router.post('/schedule/:id/publish-now', async (req, res) => {
       status: 'published',
     });
 
-    res.json({ success: true, data: updated, message: 'Post published immediately!' });
+    res.json({ success: true, data: updated, message: 'Marked as published in KontentOS.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

@@ -6,6 +6,10 @@
 
 import { CURATED_STOCK_PHOTOS, CuratedPhoto } from '../src/data/curatedStockPhotos.js';
 
+// Unsplash / Pexels return unversioned JSON over fetch(); only declare the fields read here.
+type UnsplashSearchResponse = { results?: any[]; total?: number };
+type PexelsSearchResponse = { photos?: any[]; total_results?: number };
+
 export interface StockPhotoResult {
   id: string;
   url: string;
@@ -74,8 +78,10 @@ export async function searchStockPhotos(params: {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        const photos: StockPhotoResult[] = (data.results || []).map((p: any) => ({
+        const data = (await res.json()) as UnsplashSearchResponse;
+        const photos: StockPhotoResult[] = (data.results || [])
+          .filter((p: any) => p?.urls?.regular || p?.urls?.full)
+          .map((p: any) => ({
           id: p.id,
           url: p.urls.regular || p.urls.full,
           thumbUrl: p.urls.thumb || p.urls.small,
@@ -123,8 +129,10 @@ export async function searchStockPhotos(params: {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        const photos: StockPhotoResult[] = (data.photos || []).map((p: any) => ({
+        const data = (await res.json()) as PexelsSearchResponse;
+        const photos: StockPhotoResult[] = (data.photos || [])
+          .filter((p: any) => p?.src?.large2x || p?.src?.large)
+          .map((p: any) => ({
           id: String(p.id),
           url: p.src.large2x || p.src.large,
           thumbUrl: p.src.tiny || p.src.small,

@@ -5,6 +5,16 @@ import { isValidGeminiKey, envGeminiKey } from '../geminiKey.js';
 
 const router = express.Router();
 
+// Gemini replies come back as untyped JSON over fetch(); only declare what is read.
+type GeminiReply = {
+  candidates?: { content?: { parts?: { text?: string }[] } }[];
+};
+
+function readGeminiText(payload: unknown): string {
+  const data = payload as GeminiReply;
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
 
 function getEffectiveApiKey(clientApiKey?: string): string {
   // Server key first, then a key the caller sent. Empty string = no key: the
@@ -95,8 +105,7 @@ Return ONLY valid JSON with keys: "headline", "supportingText", "socialCaption".
         continue;
       }
 
-      const data = await res.json();
-      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const rawText = readGeminiText(await res.json());
       const extracted = parseGeneratedCopy(rawText);
       if (extracted) {
         return extracted;
@@ -369,8 +378,7 @@ Return ONLY valid JSON with this exact schema:
         );
 
         if (!resp.ok) continue;
-        const data = await resp.json();
-        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const rawText = readGeminiText(await resp.json());
         const parsed = parseGeneratedDeck(rawText, count);
         if (parsed && parsed.slides.length >= 3) {
           generatedDeck = parsed;
@@ -639,8 +647,7 @@ Return ONLY valid JSON with this exact schema:
         );
 
         if (!resp.ok) continue;
-        const data = await resp.json();
-        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const rawText = readGeminiText(await resp.json());
         const parsed = parseRegeneratedSlide(rawText);
         if (parsed && (parsed.headline || parsed.supportingText)) {
           rewrittenSlide = parsed;

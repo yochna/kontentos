@@ -415,7 +415,8 @@ Output valid JSON:
                 }
               }
               if (!extractedText) {
-                const directText = typeof response.text === 'function' ? response.text() : response.text;
+                // `text` is a getter on GenerateContentResponse, not a method.
+                const directText = response.text;
                 if (directText && typeof directText === 'string') extractedText = directText;
               }
 

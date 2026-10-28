@@ -7,7 +7,7 @@ import {
   SFXClip,
   TextClip,
   WordTimestamp,
-} from '../../src/types/timeline.js';
+} from '../../src/lib/timeline.js';
 
 const router = express.Router();
 
