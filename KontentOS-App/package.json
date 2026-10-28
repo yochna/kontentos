@@ -8,7 +8,9 @@
     "dev:client": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "check": "npm run typecheck && npm run build"
   },
   "dependencies": {
     "@ffmpeg/core": "^0.12.6",
@@ -25,6 +27,7 @@
     "lucide-react": "^0.546.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "tsx": "^4.19.2",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
@@ -35,7 +38,6 @@
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^5.0.4",
     "tailwindcss": "^4.1.14",
-    "tsx": "^4.19.2",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
   }

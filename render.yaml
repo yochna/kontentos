@@ -2,6 +2,8 @@ services:
   - type: web
     name: kontentos
     runtime: docker
+    # The free plan has no persistent disk, so the local JSON store and /uploads are wiped on
+    # every redeploy or sleep. Set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY to keep data.
     plan: free
     rootDir: .
     healthCheckPath: /api/health
@@ -12,8 +14,11 @@ services:
         value: 4111
       - key: GEMINI_API_KEY
         sync: false
-      - key: VITE_GEMINI_API_KEY
-        sync: false
+      # server.ts rejects any cross-origin caller not listed here (comma-separated).
+      # Same-origin requests from the app itself need no entry.
+      - key: ALLOWED_ORIGINS
+        sync: false   # e.g. https://kontentos.onrender.com
+      # Never add a VITE_* key here: anything prefixed VITE_ is inlined into the public bundle.
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY

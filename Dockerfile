@@ -1,32 +1,37 @@
-﻿FROM node:22-bookworm-slim AS build
+# syntax=docker/dockerfile:1
+# KontentOS production image.
+# - Build stage runs "npm run check" (client + server tsc --noEmit, then vite build).
+#   If type-checking or the bundle fails, the image build FAILS (no placeholder page ships).
+# - Runtime stage serves dist/ from server.ts (NODE_ENV=production); Vite is not loaded.
+# - tsx lives in "dependencies", not "devDependencies": CMD below runs .ts sources and
+#   the `npm ci --omit=dev` install would otherwise strip it and crash-loop the container.
+# - --ignore-scripts: nothing here needs install scripts (esbuild/rollup ship prebuilt
+#   binaries), and it avoids onnxruntime-node downloading large binaries at install time
+#   (the app runs Whisper in the browser, not on the server).
 
+FROM node:22-bookworm-slim AS build
 WORKDIR /app
-ENV NODE_ENV=development
-
-COPY package.json package-lock.json ./
-RUN npm ci
-
-COPY . ./
-RUN sh -c 'npx --no-install vite build || { rm -rf dist; mkdir -p dist; echo "<html><body>Build failed</body></html>" > dist/index.html; }'
+COPY KontentOS-App/package.json KontentOS-App/package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY KontentOS-App/ ./
+RUN npm run check
 
 FROM node:22-bookworm-slim AS runtime
-
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4111
-
-COPY package.json package-lock.json ./
-RUN npm ci && npm cache clean --force
-
+COPY KontentOS-App/package.json KontentOS-App/package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
 COPY --from=build /app/server.ts ./server.ts
+# server/*.ts imports shared code and types from src/
+COPY --from=build /app/src ./src
 COPY --from=build /app/public ./public
 COPY --from=build /app/tsconfig.json ./tsconfig.json
-COPY --from=build /app/vite.config.ts ./vite.config.ts
-
 RUN mkdir -p /app/.data /app/uploads
 
 EXPOSE 4111
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 CMD node -e "require('http').get('http://localhost:'+process.env.PORT+'/api/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:'+process.env.PORT+'/api/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
 CMD ["node", "--import", "tsx", "server.ts"]

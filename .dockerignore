@@ -12,3 +12,11 @@ npm-debug.log*
 .vscode
 .idea
 .DS_Store
+
+# Only KontentOS-App/ is built; keep everything else out of the Docker context
+KontentOS-main
+KontentOS Redesign
+.snapshots
+*.md
+*.patch
+*.txt
