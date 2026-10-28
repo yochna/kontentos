@@ -14,6 +14,9 @@ interface BrandKitData {
   avatar: string;
 }
 
+const NOT_SET = 'Not set yet';
+const filled = (value: string) => (value.trim() ? value : NOT_SET);
+
 export default function BrandKit() {
   const [data, setData] = useState<BrandKitData>(() => {
     try {
@@ -145,9 +148,15 @@ export default function BrandKit() {
               <span className="text-[12px] text-ink-dim">Active persona and stylistic constraints</span>
             </div>
             <div className="flex items-center gap-2">
-              <Badge tone="primary" icon="verified_user">
-                {data.avatar}
-              </Badge>
+              {data.avatar.trim() ? (
+                <Badge tone="primary" icon="verified_user">
+                  {data.avatar}
+                </Badge>
+              ) : (
+                <Badge tone="neutral" icon="person_add_alt">
+                  Voice not claimed yet
+                </Badge>
+              )}
               <button
                 onClick={() => setIsEditingVoice(!isEditingVoice)}
                 className="text-[12px] font-semibold text-primary hover:underline px-2 py-1 rounded kt-focus"
@@ -210,10 +219,15 @@ export default function BrandKit() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <Stat label="Archetype" value={data.voiceArchetype} icon="psychology" />
-              <Stat label="Catchphrase" value={`“${data.catchphrase}”`} icon="format_quote" accent />
-              <Stat label="Tone & Pacing" value={data.tone} icon="tune" />
-              <Stat label="Avoid" value={data.bannedWords} icon="block" danger />
+              <Stat label="Archetype" value={filled(data.voiceArchetype)} icon="psychology" />
+              <Stat
+                label="Catchphrase"
+                value={data.catchphrase.trim() ? `“${data.catchphrase}”` : NOT_SET}
+                icon="format_quote"
+                accent
+              />
+              <Stat label="Tone & Pacing" value={filled(data.tone)} icon="tune" />
+              <Stat label="Avoid" value={filled(data.bannedWords)} icon="block" danger />
             </div>
           )}
         </Card>

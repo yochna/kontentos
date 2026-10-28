@@ -96,7 +96,9 @@ function loadLocalStore(): LocalStoreSchema {
           id: 'user_default',
           email: 'creator@kontentos.ai',
           full_name: 'KontentOS Creator',
-          avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+          // No stock portrait: shipping someone's face as the default creator identity is
+          // both a likeness problem and a false claim. The UI falls back to initials.
+          avatar_url: '',
           created_at: new Date().toISOString(),
         },
       ],

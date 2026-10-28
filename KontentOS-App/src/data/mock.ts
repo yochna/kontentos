@@ -315,10 +315,12 @@ export const recommendations = [
 /* --------------------------------- Brand Kit --------------------------------- */
 
 export const brandKit = {
-  voiceArchetype: 'High-Energy Operator',
-  catchphrase: 'Bhai suno!',
-  bannedWords: 'Synergy, Game-changer, Deep dive',
-  tone: 'Practical, contrarian, zero-hype',
+  // A new creator has no voice profile yet. These stay empty so the Brand Kit never shows
+  // someone else's persona; the palette, fonts and hook formulas below are product defaults.
+  voiceArchetype: '',
+  catchphrase: '',
+  bannedWords: '',
+  tone: '',
   palette: ['#285c4d', '#4d7365', '#c98a58', '#1e2522', '#faf9f5'],
   fonts: ['Newsreader', 'Hanken Grotesk'],
   hooks: [
@@ -326,7 +328,7 @@ export const brandKit = {
     'Negative Frame — “Stop paying for this…”',
     'Direct Address — “You’re probably wasting…”',
   ],
-  avatar: 'Aman Sharma · @amanshades',
+  avatar: '',
 };
 
 /* ---------------------------------- Settings ---------------------------------- */
