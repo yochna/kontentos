@@ -331,7 +331,10 @@ export async function saveSubtitles(
     try {
       const { data, error } = await supabaseClient
         .from('subtitles')
-        .upsert([newSub])
+        // Conflicts on the video_id unique index, not on id: this row always carries a fresh
+        // sub_ id, so the default primary-key conflict would insert a second row per video and
+        // then getSubtitles()'s maybeSingle() would fail.
+        .upsert([newSub], { onConflict: 'video_id' })
         .select()
         .single();
       if (!error && data) {
@@ -392,7 +395,9 @@ export async function saveCaption(
     try {
       const { data, error } = await supabaseClient
         .from('captions')
-        .upsert([newCap])
+        // Same as subtitles: the cap_ id is new every call, so the conflict target has to be the
+        // (video_id, platform) pair that getCaption() reads back as a single row.
+        .upsert([newCap], { onConflict: 'video_id,platform' })
         .select()
         .single();
       if (!error && data) {

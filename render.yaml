@@ -23,6 +23,8 @@ services:
       - key: ALLOWED_ORIGINS
         sync: false   # e.g. https://kontentos.onrender.com
       # Never add a VITE_* key here: anything prefixed VITE_ is inlined into the public bundle.
+      # Run KontentOS-App/supabase/schema.sql in the project's SQL editor BEFORE setting these;
+      # with the vars set and the tables missing, every save in the studio fails.
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
