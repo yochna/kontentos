@@ -1,22 +1,15 @@
 import express from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { searchStockPhotos } from '../stockSearchService.js';
+import { isValidGeminiKey, envGeminiKey } from '../geminiKey.js';
 
 const router = express.Router();
 
-const MASTER_GEMINI_KEY = 'AQ.Ab8RN6IYaEjUU-ija_S2rsV1M9hhARc8P7TeVDgclx7yQD67pQ';
 
 function getEffectiveApiKey(clientApiKey?: string): string {
-  const isValid = (k: any): boolean =>
-    typeof k === 'string' &&
-    k.trim().length > 15 &&
-    !k.includes('TODO') &&
-    !k.includes('your_');
-
-  if (isValid(process.env.GEMINI_API_KEY)) return process.env.GEMINI_API_KEY!.trim();
-  if (isValid(process.env.VITE_GEMINI_API_KEY)) return process.env.VITE_GEMINI_API_KEY!.trim();
-  if (isValid(clientApiKey)) return clientApiKey!.trim();
-  return MASTER_GEMINI_KEY;
+  // Server key first, then a key the caller sent. Empty string = no key: the
+  // Gemini calls below fail quietly and the route uses its built-in fallback copy.
+  return envGeminiKey() || (isValidGeminiKey(clientApiKey) ? clientApiKey.trim() : '');
 }
 
 // Timeout helper

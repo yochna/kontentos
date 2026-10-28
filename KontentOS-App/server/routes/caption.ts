@@ -2,25 +2,14 @@ import express from 'express';
 import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import * as db from '../db.js';
+import { isValidGeminiKey, envGeminiKey } from '../geminiKey.js';
 
 const router = express.Router();
 
-const MASTER_GEMINI_KEY = 'AQ.Ab8RN6IYaEjUU-ija_S2rsV1M9hhARc8P7TeVDgclx7yQD67pQ';
 
 function getGeminiClient(customKey?: string): GoogleGenAI | null {
-  const isValidKey = (k: any): boolean =>
-    typeof k === 'string' &&
-    k.trim().length > 25 &&
-    !k.includes('TESTINGKEY') &&
-    !k.includes('your_') &&
-    !k.includes('TODO');
-
-  const apiKey = (
-    (isValidKey(customKey) ? customKey!.trim() : null) ||
-    (isValidKey(process.env.GEMINI_API_KEY) ? process.env.GEMINI_API_KEY!.trim() : null) ||
-    (isValidKey(process.env.VITE_GEMINI_API_KEY) ? process.env.VITE_GEMINI_API_KEY!.trim() : null) ||
-    MASTER_GEMINI_KEY
-  );
+  const apiKey = (isValidGeminiKey(customKey) ? customKey.trim() : null) || envGeminiKey();
+  if (!apiKey) return null;
   return new GoogleGenAI({
     apiKey,
     httpOptions: {

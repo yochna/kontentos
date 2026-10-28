@@ -12,9 +12,10 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
-import { createServer as createViteServer } from 'vite';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import rateLimit from 'express-rate-limit';
+import { isValidGeminiKey, envGeminiKey } from './server/geminiKey.js';
 
 // Local backend routes and database
 import * as db from './server/db.js';
@@ -43,21 +44,63 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 4111;
 async function createApp() {
   const app = express();
 
-  // CORS + cross-origin isolation (SharedArrayBuffer for ffmpeg/wasm routes).
+  // Behind Render/Railway there is one reverse proxy; trust it so req.ip is the real client.
+  app.set('trust proxy', 1);
+
+  // CORS allow-list. Same-origin requests (the app talking to its own server) send no
+  // Origin header and are always fine. Anything else must be listed in ALLOWED_ORIGINS
+  // (comma-separated, e.g. "https://kontentos.onrender.com"). In dev, localhost is allowed.
+  const allowedOrigins = new Set(
+    (process.env.ALLOWED_ORIGINS || '')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+  );
+  const isDev = process.env.NODE_ENV !== 'production';
+  const isOriginAllowed = (origin: string) =>
+    allowedOrigins.has(origin) || (isDev && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
+
+  // Cross-origin isolation (SharedArrayBuffer for ffmpeg/wasm routes) + CORS.
   app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
-    res.header('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+    const origin = req.headers.origin;
+    if (origin && isOriginAllowed(origin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Vary', 'Origin');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
+      res.header('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+    }
     res.header('Cross-Origin-Embedder-Policy', 'credentialless');
     res.header('Cross-Origin-Opener-Policy', 'same-origin');
     res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    if (req.method === 'OPTIONS') return res.sendStatus(origin && !isOriginAllowed(origin) ? 403 : 204);
     next();
   });
 
-  app.use(express.json({ limit: '100mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+  // Rate limits. General: 300 requests / 15 min per IP across the API.
+  // AI routes cost real money (Gemini), so they get a much tighter cap.
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 300,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skip: (req) => req.path === '/health',
+    message: { error: 'Too many requests, please slow down and try again shortly.' },
+  });
+  const aiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 40,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'AI request limit reached. Please wait a few minutes and try again.' },
+  });
+  app.use('/api', apiLimiter);
+  app.use(['/api/script', '/api/caption', '/api/transcribe', '/api/static-card', '/api/editor'], aiLimiter);
+
+  // 15 MB is enough for the largest JSON the client sends (the <10 MB direct-upload path is
+  // base64, about 13.4 MB). Bigger files go through the chunked upload route instead.
+  app.use(express.json({ limit: '15mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
   // Gracefully handle malformed JSON in request bodies so the server process never crashes
   app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -497,22 +540,9 @@ async function createApp() {
         });
       }
 
-      const MASTER_GEMINI_KEY = 'AQ.Ab8RN6IYaEjUU-ija_S2rsV1M9hhARc8P7TeVDgclx7yQD67pQ';
-      const isValidKey = (k: any): boolean =>
-        typeof k === 'string' &&
-        k.trim().length > 25 &&
-        !k.includes('TESTINGKEY') &&
-        !k.includes('your_') &&
-        !k.includes('TODO');
-
-      let activeApiKey = MASTER_GEMINI_KEY;
-      if (isValidKey(clientKey)) {
-        activeApiKey = clientKey.trim();
-      } else if (isValidKey(process.env.GEMINI_API_KEY)) {
-        activeApiKey = process.env.GEMINI_API_KEY!.trim();
-      } else if (isValidKey(process.env.VITE_GEMINI_API_KEY)) {
-        activeApiKey = process.env.VITE_GEMINI_API_KEY!.trim();
-      }
+      // Key priority: key sent with this request, then the server's GEMINI_API_KEY.
+      // No built-in fallback: with no key we skip Gemini and use the offline captions below.
+      const activeApiKey: string | null = isValidGeminiKey(clientKey) ? clientKey.trim() : envGeminiKey();
 
       let srt = '';
       let transcript = '';
@@ -552,7 +582,7 @@ async function createApp() {
 
           if (mediaBuffer) {
             let ai = new GoogleGenAI({
-              apiKey: activeApiKey,
+              apiKey: activeApiKey as string,
               httpOptions: { headers: { 'User-Agent': 'kontentos-editorial-studio' } },
             });
 
@@ -651,53 +681,10 @@ Output valid JSON:
               } catch (mErr: any) {
                 const errMsg = mErr?.message || '';
                 const isKeyError = errMsg.includes('API_KEY_INVALID') || errMsg.includes('API key not valid');
-                if (isKeyError && activeApiKey !== MASTER_GEMINI_KEY) {
-                  console.warn('[KontentOS AI CC] Client API key invalid, switching to master Gemini API key...');
-                  activeApiKey = MASTER_GEMINI_KEY;
-                  ai = new GoogleGenAI({
-                    apiKey: MASTER_GEMINI_KEY,
-                    httpOptions: { headers: { 'User-Agent': 'kontentos-editorial-studio' } },
-                  });
-                  // Retry current model with master key
-                  try {
-                    const isDedicatedTranscribe = model.includes('transcribe');
-                    const effectiveMime = model.includes('transcribe') && mimeType.startsWith('video/')
-                      ? (mimeType === 'video/webm' ? 'audio/webm' : 'audio/mp4')
-                      : mimeType;
-                    const contents = isDedicatedTranscribe
-                      ? [{ inlineData: { data: base64Media, mimeType: effectiveMime } }]
-                      : [{ inlineData: { data: base64Media, mimeType: effectiveMime } }, prompt];
-
-                    const retryRes = await ai.models.generateContent({
-                      model,
-                      contents,
-                      config: isDedicatedTranscribe ? undefined : { responseMimeType: 'application/json' },
-                    });
-
-                    let extText = '';
-                    const candidate = retryRes.candidates?.[0];
-                    const parts = candidate?.content?.parts || [];
-                    for (const part of parts) {
-                      if ((part as any).audioTranscription?.text) {
-                        extText += (extText ? ' ' : '') + (part as any).audioTranscription.text;
-                      } else if (part.text) {
-                        extText += (extText ? ' ' : '') + part.text;
-                      }
-                    }
-                    if (extText && extText.trim()) {
-                      transcript = extText.trim();
-                      const built = buildSrtFromTranscript(transcript, video.duration || 10);
-                      srt = built.srt;
-                      segments = built.segments;
-                      usedSource = `gemini_transcribe_${model}`;
-                      break;
-                    }
-                  } catch (reErr: any) {
-                    console.warn(`[KontentOS AI CC] Master key retry on ${model} failed:`, reErr?.message);
-                  }
-                } else {
-                  console.warn(`[KontentOS AI CC] Model ${model} failed, trying next candidate:`, errMsg.slice(0, 100));
-                }
+                console.warn(
+                  `[KontentOS AI CC] Model ${model} failed${isKeyError ? ' (API key rejected)' : ''}, trying next candidate:`,
+                  errMsg.slice(0, 100),
+                );
               }
             }
           }
@@ -860,7 +847,7 @@ Output valid JSON:
 
   // AI & Model Settings
   app.get('/api/settings/ai-status', (_req, res) => {
-    const key = (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').trim();
+    const key = (process.env.GEMINI_API_KEY || '').trim();
     res.json({
       success: true,
       hasGeminiKey: !!key,
@@ -870,6 +857,13 @@ Output valid JSON:
   });
 
   app.post('/api/settings/api-key', (req, res) => {
+    // Anyone who can reach this URL could replace the server's key, so it only works on a
+    // local dev machine. In production set GEMINI_API_KEY in the host's environment settings.
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({
+        error: 'Changing the API key from the app is disabled in production. Set GEMINI_API_KEY in your host environment variables.',
+      });
+    }
     const { apiKey } = req.body || {};
     if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
       return res.status(400).json({ error: 'API key string is required' });
@@ -895,27 +889,48 @@ Output valid JSON:
     });
   });
 
-  // Vite (React + Tailwind) in middleware mode.
-  const vite = await createViteServer({
-    configFile: path.join(appRoot, 'vite.config.ts'),
-    server: {
-      middlewareMode: true,
-      watch: {
-        ignored: [
-          '**/.data/**',
-          '**/uploads/**',
-          '**/server/**',
-          '**/server.ts',
-          '**/.env*',
-          '**/dist/**',
-          /[\\/]\.data[\\/]/,
-          /[\\/]uploads[\\/]/,
-        ],
+  if (process.env.NODE_ENV === 'production') {
+    // Production: serve the prebuilt bundle from dist/ (created by `npm run build`).
+    // Vite is NOT loaded here. FFmpeg.wasm needs the same cross-origin isolation
+    // headers that vite.config.ts sets for the dev server.
+    const distDir = path.join(appRoot, 'dist');
+    if (!fs.existsSync(path.join(distDir, 'index.html'))) {
+      throw new Error(`Production build not found at ${distDir}. Run "npm run build" first.`);
+    }
+    app.use((_req, res, next) => {
+      res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+      res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+      next();
+    });
+    app.use(express.static(distDir, { index: false, maxAge: '1h' }));
+    // SPA fallback for client-side navigation. Never swallow API/media routes.
+    app.get(/^\/(?!api\/|uploads\/|broll\/).*/, (_req, res) => {
+      res.sendFile(path.join(distDir, 'index.html'));
+    });
+  } else {
+    // Development: Vite (React + Tailwind) in middleware mode, loaded lazily.
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      configFile: path.join(appRoot, 'vite.config.ts'),
+      server: {
+        middlewareMode: true,
+        watch: {
+          ignored: [
+            '**/.data/**',
+            '**/uploads/**',
+            '**/server/**',
+            '**/server.ts',
+            '**/.env*',
+            '**/dist/**',
+            /[\\/]\.data[\\/]/,
+            /[\\/]uploads[\\/]/,
+          ],
+        },
       },
-    },
-    appType: 'spa',
-  });
-  app.use(vite.middlewares);
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  }
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n  KontentOS Editorial Studio (Redesign) — standalone`);
