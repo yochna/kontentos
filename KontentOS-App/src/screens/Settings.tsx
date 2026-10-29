@@ -306,7 +306,7 @@ export default function Settings() {
                       Storage Engine
                     </div>
                     <div className="text-[14px] font-bold text-ink mt-1">
-                      {dbStatus?.provider === 'supabase' ? 'Supabase' : 'Local Persistent JSON'}
+                      {dbStatus?.provider === 'mongodb' ? 'MongoDB' : 'Local Persistent JSON'}
                     </div>
                   </div>
                   <div className="rounded-card border border-line p-3.5 bg-surface">
@@ -536,11 +536,44 @@ export default function Settings() {
                   <div className="flex items-center gap-3">
                     <Icon name="database" size={20} className="text-primary" />
                     <div>
-                      <div className="text-[13.5px] font-bold text-ink">Supabase Storage</div>
-                      <div className="text-[12px] text-ink-dim font-mono">••••••••••••4f2a (Connected)</div>
+                      <div className="text-[13.5px] font-bold text-ink">Database</div>
+                      <div className="text-[12px] text-ink-dim font-mono">
+                        {dbStatus?.provider === 'mongodb'
+                          ? 'MongoDB (MONGODB_URI)'
+                          : 'Local JSON file — cleared on redeploy'}
+                      </div>
                     </div>
                   </div>
-                  <StatusPill tone="primary">Connected</StatusPill>
+                  <StatusPill
+                    tone={
+                      dbStatus?.provider === 'mongodb'
+                        ? dbStatus?.connected
+                          ? 'primary'
+                          : 'danger'
+                        : 'neutral'
+                    }
+                  >
+                    {dbStatus?.provider === 'mongodb'
+                      ? dbStatus?.connected
+                        ? 'Connected'
+                        : 'Unreachable'
+                      : 'Not set'}
+                  </StatusPill>
+                </div>
+
+                <div className="flex items-center justify-between p-3.5 rounded-card border border-line bg-surface">
+                  <div className="flex items-center gap-3">
+                    <Icon name="movie_filter" size={20} className="text-primary" />
+                    <div>
+                      <div className="text-[13.5px] font-bold text-ink">Uploaded clips</div>
+                      <div className="text-[12px] text-ink-dim">
+                        Stored in the server&apos;s uploads folder, not in the database.
+                        {dbStatus?.provider === 'mongodb' &&
+                          ' Records survive a redeploy; the files do not, unless the host has a disk.'}
+                      </div>
+                    </div>
+                  </div>
+                  <StatusPill tone="neutral">{videos.length} file(s)</StatusPill>
                 </div>
 
                 <div className="flex items-center justify-between p-3.5 rounded-card border border-line bg-surface">

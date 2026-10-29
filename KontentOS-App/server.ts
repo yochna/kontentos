@@ -270,10 +270,6 @@ async function createApp() {
     'images.pexels.com',
     'videos.pexels.com',
   ]);
-  try {
-    const sb = (process.env.SUPABASE_URL || '').trim();
-    if (sb.startsWith('http')) PROXY_ALLOWED_HOSTS.add(new URL(sb).hostname.toLowerCase());
-  } catch { /* ignore malformed SUPABASE_URL */ }
   for (const h of (process.env.PROXY_ALLOWED_HOSTS || '').split(',')) {
     if (h.trim()) PROXY_ALLOWED_HOSTS.add(h.trim().toLowerCase());
   }
@@ -418,14 +414,21 @@ async function createApp() {
   });
 
   app.get('/api/db/status', async (_req, res) => {
-    const isSupabase = db.isSupabaseConnected();
-    const videos = await db.listVideos();
+    // Resolve the engine before reporting it: on the very first request the lazy connection
+    // may still be opening, and "local JSON" would be a lie about a configured database.
+    await db.initDatabase();
+    const connected = db.isMongoConnected();
+    let videoCount = 0;
+    try {
+      videoCount = (await db.listVideos()).length;
+    } catch { /* a read failure still reports the storage state below */ }
     res.json({
       status: 'ok',
-      provider: isSupabase ? 'supabase' : 'local_persistent_json',
-      connected: true,
-      isolated: true,
-      video_count: videos.length,
+      provider: db.storageProvider(),
+      connected,
+      // The JSON store keeps data only inside this container, so nothing is shared or durable.
+      isolated: !connected,
+      video_count: videoCount,
     });
   });
 
@@ -662,32 +665,6 @@ async function createApp() {
                 else mimeType = 'video/mp4';
                 break;
               }
-            }
-          }
-
-          // Once Supabase Storage is configured, file_url is a public https URL and the clip
-          // never exists on this container's disk. Without reading it back, every transcription
-          // silently became invented speech-cadence subtitles instead of the real words.
-          // Restricted to the app's own Supabase bucket so a crafted file_url cannot make the
-          // server request an arbitrary address.
-          if (!mediaBuffer && /^https:\/\/[a-z0-9.-]+\.supabase\.co\//i.test(video.file_url || '')) {
-            try {
-              const remote = await fetch(video.file_url, { signal: AbortSignal.timeout(90_000) });
-              if (remote.ok) {
-                const buf = Buffer.from(await remote.arrayBuffer());
-                if (buf.length > 0 && buf.length <= 25 * 1024 * 1024) {
-                  mediaBuffer = buf;
-                  const remoteExt = path.extname(new URL(video.file_url).pathname).toLowerCase();
-                  if (remoteExt === '.webm') mimeType = 'video/webm';
-                  else if (remoteExt === '.mov') mimeType = 'video/quicktime';
-                  else if (remoteExt === '.mp3') mimeType = 'audio/mp3';
-                  else if (remoteExt === '.wav') mimeType = 'audio/wav';
-                  else if (remoteExt === '.m4a' || remoteExt === '.aac') mimeType = 'audio/aac';
-                  else mimeType = 'video/mp4';
-                }
-              }
-            } catch (dlErr: any) {
-              console.warn('[KontentOS AI CC] Could not download the clip for transcription:', dlErr?.message);
             }
           }
 
@@ -1044,11 +1021,19 @@ Output valid JSON:
     app.use(vite.middlewares);
   }
 
+  await db.initDatabase();
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n  KontentOS Editorial Studio (Redesign) — standalone`);
     console.log(`  ▸ App + API : http://localhost:${PORT}`);
-    console.log(`  ▸ Data       : ${dataDir}  (isolated from the original app)`);
+    console.log(`  ▸ Data       : ${db.isMongoConnected() ? 'MongoDB' : `${dataDir}  (isolated from the original app)`}`);
     console.log(`  ▸ Uploads    : ${uploadsDir}\n`);
+    if (!db.isMongoConnected() && IS_PROD) {
+      console.log(
+        '  ⚠️  MONGODB_URI is not set: uploads, schedules and history live only in this container and\n' +
+          '      are erased on the next redeploy or when the free plan sleeps the service.\n',
+      );
+    }
     if (!ACCESS_CODE) {
       console.log(
         IS_PROD

@@ -129,6 +129,7 @@ const toneMap: Record<string, string> = {
   tertiary: 'bg-tertiary-soft text-tertiary border-tertiary/30',
   neutral: 'bg-surface-2 text-ink-muted border-line',
   success: 'bg-primary-soft text-success border-success/25',
+  danger: 'bg-danger/10 text-danger border-danger/25',
 };
 
 export function Badge({

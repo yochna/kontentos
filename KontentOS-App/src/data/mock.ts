@@ -337,7 +337,7 @@ export const settingsSections = [
   { id: 'account', title: 'Account & Profile', icon: 'person', desc: 'Name, handle, avatar, connected publisher accounts.' },
   { id: 'ai', title: 'AI Engine', icon: 'smart_toy', desc: 'Default model, temperature, and generation limits.' },
   { id: 'appearance', title: 'Appearance', icon: 'dark_mode', desc: 'Theme, density, and reduced-motion preferences.' },
-  { id: 'keys', title: 'API Keys', icon: 'vpn_key', desc: 'Supabase, Google GenAI, and platform tokens.' },
+  { id: 'keys', title: 'API Keys', icon: 'vpn_key', desc: 'Database, Google GenAI, and platform tokens.' },
   { id: 'exports', title: 'Exports', icon: 'download', desc: 'Default resolution, codec, and watermark options.' },
 ];
 

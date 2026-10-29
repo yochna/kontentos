@@ -86,7 +86,7 @@ export interface ScheduledPost {
 
 export interface DbStatus {
   status: string;
-  provider: 'supabase' | 'local_persistent_json';
+  provider: 'mongodb' | 'local_persistent_json';
   connected: boolean;
   isolated?: boolean;
   video_count: number;

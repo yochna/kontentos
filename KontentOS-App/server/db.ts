@@ -1,50 +1,270 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import mongoose, { Schema, type Connection, type Model } from 'mongoose';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 import type { Video, Subtitle, Caption, PublishingRecord, User, VideoStatus, SocialPlatform, ScheduledPost } from '../src/types.js';
 
-const rawUrl = (process.env.SUPABASE_URL || '').trim();
-const rawKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+// ==========================================
+// MongoDB storage layer
+// ==========================================
+// MONGODB_URI unset => the local JSON store below is the database (development only).
+// MONGODB_URI set    => MongoDB is the only store. A failed write throws instead of
+// silently persisting to the container's ephemeral disk.
 
-function isValidHttpUrl(urlStr: string): boolean {
-  if (!urlStr || urlStr === 'MY_SUPABASE_URL' || urlStr.startsWith('your-')) return false;
-  try {
-    const url = new URL(urlStr);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
+const rawUri = (process.env.MONGODB_URI || '').trim();
+const MONGODB_URI = /^mongodb(\+srv)?:\/\//i.test(rawUri) ? rawUri : '';
+
+if (!MONGODB_URI && process.env.NODE_ENV === 'production') {
+  // Render/Railway containers have an ephemeral filesystem, so the JSON store is deleted
+  // on every redeploy, restart or free-tier sleep.
+  console.warn(
+    '⚠️ Production is using the local JSON store: uploads, schedules and history will be ' +
+      'lost on the next redeploy. Set MONGODB_URI for durable storage.',
+  );
+} else if (!MONGODB_URI) {
+  console.log('ℹ️ MONGODB_URI not provided. Using local database storage engine.');
 }
 
-let supabaseClient: SupabaseClient | null = null;
+const SERVER_SELECTION_TIMEOUT_MS = 8000;
+const RETRY_COOLDOWN_MS = 20000;
 
-if (isValidHttpUrl(rawUrl) && rawKey && rawKey !== 'MY_SUPABASE_KEY') {
+let models: Models | null = null;
+let pendingConnect: Promise<Connection | null> | null = null;
+let lastConnectFailureAt = 0;
+let lastConnectError = '';
+
+// Models are bound to the connection, so they are built once the connection exists.
+interface Models {
+  video: Model<any>;
+  subtitle: Model<any>;
+  caption: Model<any>;
+  publishingHistory: Model<any>;
+  user: Model<any>;
+  scheduledPost: Model<any>;
+}
+
+const docOptions = { versionKey: false, strict: false, toObject: { virtuals: false }, toJSON: { virtuals: false } } as const;
+
+// Timestamps are stored as ISO-8601 "Z" strings, matching the values the API has always
+// returned: the UI parses and sorts them as strings, so no conversion layer is needed.
+const stringId = { type: String, required: true };
+const idIndex = { unique: true };
+
+function buildModels(conn: Connection): Models {
+  const videoSchema = new Schema(
+    {
+      id: stringId,
+      user_id: String,
+      title: String,
+      file_name: String,
+      description: String,
+      file_url: String,
+      thumbnail_url: String,
+      duration: Number,
+      file_size: Number,
+      aspect_ratio: String,
+      status: String,
+      created_at: String,
+      updated_at: String,
+    },
+    docOptions,
+  );
+  videoSchema.index({ id: 1 }, idIndex);
+  videoSchema.index({ user_id: 1, created_at: -1 });
+
+  // Nested transcript cues carry no document of their own.
+  const segmentSchema = new Schema({ id: Number, start: String, end: String, text: String }, { _id: false });
+  const subtitleSchema = new Schema(
+    {
+      id: stringId,
+      video_id: { type: String, required: true },
+      srt_content: String,
+      vtt_content: String,
+      transcript_text: String,
+      language: String,
+      segments: [segmentSchema],
+      created_at: String,
+    },
+    docOptions,
+  );
+  // One subtitle per video: saveSubtitles() upserts on this key, and every reader expects a
+  // single document back.
+  subtitleSchema.index({ video_id: 1 }, idIndex);
+
+  const captionSchema = new Schema(
+    {
+      id: stringId,
+      video_id: { type: String, required: true },
+      platform: { type: String, required: true },
+      caption_text: String,
+      hashtags: [String],
+      approved: Boolean,
+      transcript_hash: String,
+      character_count: Number,
+      created_at: String,
+    },
+    docOptions,
+  );
+  // One caption per video per platform.
+  captionSchema.index({ video_id: 1, platform: 1 }, idIndex);
+
+  const publishingSchema = new Schema(
+    {
+      id: stringId,
+      video_id: String,
+      platform: String,
+      platform_post_id: String,
+      url: String,
+      status: String,
+      error_message: String,
+      published_at: String,
+    },
+    docOptions,
+  );
+  publishingSchema.index({ video_id: 1 });
+  publishingSchema.index({ published_at: -1 });
+
+  const userSchema = new Schema(
+    {
+      id: stringId,
+      email: String,
+      full_name: String,
+      avatar_url: String,
+      instagram_token: String,
+      instagram_user_id: String,
+      instagram_username: String,
+      created_at: String,
+    },
+    docOptions,
+  );
+  userSchema.index({ id: 1 }, idIndex);
+
+  const scheduledSchema = new Schema(
+    {
+      id: stringId,
+      user_id: String,
+      video_id: String,
+      video_title: String,
+      file_url: String,
+      thumbnail_url: String,
+      platform: String,
+      caption_text: String,
+      hashtags: [String],
+      scheduled_at: String,
+      status: String,
+      published_at: String,
+      post_url: String,
+      cross_post_group_id: String,
+      created_at: String,
+      updated_at: String,
+    },
+    docOptions,
+  );
+  scheduledSchema.index({ id: 1 }, idIndex);
+  scheduledSchema.index({ scheduled_at: 1 });
+  scheduledSchema.index({ video_id: 1 });
+
+  return {
+    video: conn.model('Video', videoSchema, 'videos'),
+    subtitle: conn.model('Subtitle', subtitleSchema, 'subtitles'),
+    caption: conn.model('Caption', captionSchema, 'captions'),
+    publishingHistory: conn.model('PublishingRecord', publishingSchema, 'publishing_history'),
+    user: conn.model('User', userSchema, 'users'),
+    scheduledPost: conn.model('ScheduledPost', scheduledSchema, 'scheduled_posts'),
+  };
+}
+
+async function openConnection(): Promise<Connection | null> {
+  const conn = mongoose.createConnection(MONGODB_URI, {
+    serverSelectionTimeoutMS: SERVER_SELECTION_TIMEOUT_MS,
+    connectTimeoutMS: SERVER_SELECTION_TIMEOUT_MS,
+  });
   try {
-    supabaseClient = createClient(rawUrl, rawKey, {
-      auth: { persistSession: false },
-    });
-    console.log('✓ Connected to Supabase');
+    await conn.asPromise();
+    const built = buildModels(conn);
+    try {
+      // syncIndexes is idempotent; awaiting it here means the first request that needs the
+      // unique guarantees is not racing index construction.
+      await Promise.all(Object.values(built).map((m) => m.syncIndexes()));
+    } catch (idxErr: any) {
+      // Duplicate rows from an older engine would reject a unique index. Keep serving reads
+      // and writes rather than reporting the whole database as down.
+      console.warn('⚠️ MongoDB indexes could not be synchronised:', idxErr?.message || idxErr);
+    }
+    models = built;
+    console.log('✓ Connected to MongoDB');
+    return conn;
   } catch (err: any) {
-    console.warn('⚠️ Supabase connection failed, using local storage engine:', err?.message || err);
-    supabaseClient = null;
-  }
-} else {
-  if (process.env.NODE_ENV === 'production') {
-    // Render/Railway containers have an ephemeral filesystem, so the JSON store below is
-    // deleted on every redeploy, restart or free-tier sleep.
-    console.warn(
-      '⚠️ Production is using the local JSON store: uploads, schedules and history will be ' +
-        'lost on the next redeploy. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for durable storage.',
-    );
-  } else {
-    console.log('ℹ️ Supabase credentials not provided. Using local database storage engine.');
+    lastConnectError = err?.message || String(err);
+    lastConnectFailureAt = Date.now();
+    console.error('⚠️ MongoDB connection failed:', lastConnectError);
+    try {
+      await conn.close();
+    } catch { /* the failed handle is not worth masking the connection error */ }
+    return null;
   }
 }
 
-export function isSupabaseConnected(): boolean {
-  return supabaseClient !== null;
+/** Resolves to a usable model set, or null when MONGODB_URI is unset / still unreachable. */
+async function getModels(): Promise<Models | null> {
+  if (!MONGODB_URI) return null;
+  if (models) return models;
+  if (Date.now() - lastConnectFailureAt < RETRY_COOLDOWN_MS) return null;
+  if (!pendingConnect) {
+    pendingConnect = openConnection().finally(() => {
+      pendingConnect = null;
+    });
+  }
+  await pendingConnect;
+  return models;
+}
+
+/**
+ * Every operation starts here. Returns null only when no URI is configured, meaning the JSON
+ * file is the database by design. When MongoDB is configured but unreachable the request fails
+ * loudly instead of writing to storage that the next redeploy deletes.
+ */
+async function mongoModels(): Promise<Models | null> {
+  const m = await getModels();
+  if (m) return m;
+  if (MONGODB_URI) {
+    throw new Error(
+      `MongoDB is configured but unavailable${lastConnectError ? ` (${lastConnectError})` : ''}. Nothing was saved.`,
+    );
+  }
+  return null;
+}
+
+export function isMongoConnected(): boolean {
+  return models !== null;
+}
+
+export function storageProvider(): 'mongodb' | 'local_persistent_json' {
+  // The configured engine, not the live socket: isMongoConnected() carries the health.
+  return MONGODB_URI ? 'mongodb' : 'local_persistent_json';
+}
+
+export function databaseError(): string {
+  return lastConnectError;
+}
+
+/** Attempts the connection at boot so the log says up-front which engine is live. */
+export async function initDatabase(): Promise<void> {
+  if (!MONGODB_URI) return;
+  await getModels();
+}
+
+/** Strips the Mongo ObjectId so returned documents match the TypeScript types exactly. */
+function plain<T>(doc: any): T | null {
+  if (!doc) return null;
+  const obj = typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
+  delete obj._id;
+  return obj as T;
+}
+
+function plainList<T>(docs: any[]): T[] {
+  return docs.map((d) => plain<T>(d) as T);
 }
 
 // ==========================================
@@ -179,24 +399,10 @@ export async function createVideo(data: Partial<Video>): Promise<Video> {
     updated_at: new Date().toISOString(),
   };
 
-  if (supabaseClient) {
-    try {
-      const { data: inserted, error } = await supabaseClient
-        .from('videos')
-        .insert([newVideo])
-        .select()
-        .single();
-      if (!error && inserted) {
-        // Mirror to local store for fast offline read
-        const store = loadLocalStore();
-        store.videos.unshift(inserted as Video);
-        saveLocalStore(store);
-        return inserted as Video;
-      }
-      console.warn('Supabase createVideo returned error, falling back to local store:', error?.message);
-    } catch (err: any) {
-      console.warn('Supabase createVideo exception, falling back to local store:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    const created = await m.video.create(newVideo);
+    return plain<Video>(created)!;
   }
 
   const store = loadLocalStore();
@@ -206,40 +412,18 @@ export async function createVideo(data: Partial<Video>): Promise<Video> {
 }
 
 export async function getVideo(id: string): Promise<Video | null> {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('videos')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-      if (!error && data) {
-        return data as Video;
-      }
-    } catch (err: any) {
-      console.warn('Supabase getVideo exception:', err?.message);
-    }
-  }
+  const m = await mongoModels();
+  if (m) return plain<Video>(await m.video.findOne({ id }).lean());
 
   const store = loadLocalStore();
   return store.videos.find((v) => v.id === id) || null;
 }
 
 export async function listVideos(userId = 'user_default'): Promise<Video[]> {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('videos')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      if (!error && Array.isArray(data)) {
-        return data as Video[];
-      }
-      console.warn('Supabase listVideos returned error, reading local store:', error?.message);
-    } catch (err: any) {
-      console.warn('Supabase listVideos exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    const docs = await m.video.find({ user_id: userId }).sort({ created_at: -1 }).lean();
+    return plainList<Video>(docs);
   }
 
   const store = loadLocalStore();
@@ -257,26 +441,10 @@ export async function updateVideoStatus(
     updated_at: new Date().toISOString(),
   };
 
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('videos')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-      if (!error && data) {
-        const store = loadLocalStore();
-        const idx = store.videos.findIndex((v) => v.id === id);
-        if (idx !== -1) {
-          store.videos[idx] = data as Video;
-          saveLocalStore(store);
-        }
-        return data as Video;
-      }
-    } catch (err: any) {
-      console.warn('Supabase updateVideoStatus exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    const doc = await m.video.findOneAndUpdate({ id }, { $set: updates }, { new: true }).lean();
+    return plain<Video>(doc);
   }
 
   const store = loadLocalStore();
@@ -291,51 +459,47 @@ export async function updateVideoStatus(
   return store.videos[idx];
 }
 
-// Public object URLs look like
-// https://<project>.supabase.co/storage/v1/object/public/videos/<file>, and the bucket name is
-// the same 'videos' constant upload.ts uploads into.
-async function removeStoredVideoFile(client: SupabaseClient, fileUrl: string): Promise<void> {
-  if (!fileUrl.startsWith('https://') || !fileUrl.includes('.supabase.co/')) return;
-  const marker = '/videos/';
-  const at = fileUrl.indexOf(marker);
-  if (at === -1) return;
-  const fileName = decodeURIComponent(fileUrl.slice(at + marker.length));
+// Uploaded clips live in the /uploads directory served by server.ts. Deleting the record but
+// not the file leaves a clip nothing can reference behind, on a disk that is already scarce.
+function removeUploadedVideoFile(fileUrl: string | undefined): void {
+  if (!fileUrl || !fileUrl.startsWith('/uploads/')) return;
+  // basename() neutralises any traversal a stored URL might carry.
+  const fileName = path.basename(decodeURIComponent(fileUrl.slice('/uploads/'.length)));
   if (!fileName) return;
+  const filePath = path.join(process.cwd(), 'uploads', fileName);
   try {
-    await client.storage.from('videos').remove([fileName]);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   } catch (err: any) {
-    console.warn('Supabase deleteVideo could not remove the stored file:', err?.message);
+    console.warn('Could not remove the stored clip for a deleted video:', err?.message);
   }
 }
 
 export async function deleteVideo(id: string): Promise<boolean> {
-  if (supabaseClient) {
-    try {
-      // The database row and its blob are separate objects. Without this call every deleted
-      // video left its file behind in the bucket, and the free plan's 1 GB fills up with clips
-      // that nothing can reference any more.
-      const { data: row } = await supabaseClient
-        .from('videos')
-        .select('file_url')
-        .eq('id', id)
-        .maybeSingle();
-      if (row?.file_url) await removeStoredVideoFile(supabaseClient, row.file_url);
-
-      const { error } = await supabaseClient.from('videos').delete().eq('id', id);
-      if (error) {
-        console.warn('Supabase deleteVideo warning:', error.message);
-      }
-    } catch (err: any) {
-      console.warn('Supabase deleteVideo exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    const video = plain<{ file_url?: string }>(await m.video.findOne({ id }).lean());
+    removeUploadedVideoFile(video?.file_url);
+    await Promise.all([
+      m.subtitle.deleteMany({ video_id: id }),
+      m.caption.deleteMany({ video_id: id }),
+      m.publishingHistory.deleteMany({ video_id: id }),
+      m.scheduledPost.deleteMany({ video_id: id }),
+    ]);
+    const res = await m.video.deleteOne({ id });
+    return res.deletedCount > 0;
   }
 
   const store = loadLocalStore();
+  const existing = store.videos.find((v) => v.id === id);
+  if (!existing) return false;
+  removeUploadedVideoFile(existing.file_url);
+
   const initialLen = store.videos.length;
   store.videos = store.videos.filter((v) => v.id !== id);
   store.subtitles = store.subtitles.filter((s) => s.video_id !== id);
   store.captions = store.captions.filter((c) => c.video_id !== id);
   store.publishing_history = store.publishing_history.filter((p) => p.video_id !== id);
+  store.scheduled_posts = (store.scheduled_posts || []).filter((p) => p.video_id !== id);
   saveLocalStore(store);
   return store.videos.length < initialLen;
 }
@@ -343,38 +507,32 @@ export async function deleteVideo(id: string): Promise<boolean> {
 export async function saveSubtitles(
   sub: Omit<Subtitle, 'id' | 'created_at'>
 ): Promise<Subtitle> {
-  const newSub: Subtitle = {
-    id: `sub_${crypto.randomUUID()}`,
-    video_id: sub.video_id,
+  const fields = {
     srt_content: sub.srt_content,
     vtt_content: sub.vtt_content,
     transcript_text: sub.transcript_text,
     language: sub.language,
     segments: sub.segments,
-    created_at: new Date().toISOString(),
   };
 
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('subtitles')
-        // Conflicts on the video_id unique index, not on id: this row always carries a fresh
-        // sub_ id, so the default primary-key conflict would insert a second row per video and
-        // then getSubtitles()'s maybeSingle() would fail.
-        .upsert([newSub], { onConflict: 'video_id' })
-        .select()
-        .single();
-      if (!error && data) {
-        const store = loadLocalStore();
-        store.subtitles = store.subtitles.filter((s) => s.video_id !== sub.video_id);
-        store.subtitles.unshift(data as Subtitle);
-        saveLocalStore(store);
-        return data as Subtitle;
-      }
-    } catch (err: any) {
-      console.warn('Supabase saveSubtitles exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    // Upsert on video_id, not on a fresh sub_ id: the unique index means one document per
+    // clip, and re-transcribing replaces the cues instead of appending a second set.
+    const doc = await m.subtitle.findOneAndUpdate(
+      { video_id: sub.video_id },
+      { $set: fields, $setOnInsert: { id: `sub_${crypto.randomUUID()}`, created_at: new Date().toISOString() } },
+      { new: true, upsert: true },
+    ).lean();
+    return plain<Subtitle>(doc)!;
   }
+
+  const newSub: Subtitle = {
+    id: `sub_${crypto.randomUUID()}`,
+    video_id: sub.video_id,
+    ...fields,
+    created_at: new Date().toISOString(),
+  } as Subtitle;
 
   const store = loadLocalStore();
   store.subtitles = store.subtitles.filter((s) => s.video_id !== sub.video_id);
@@ -384,20 +542,8 @@ export async function saveSubtitles(
 }
 
 export async function getSubtitles(videoId: string): Promise<Subtitle | null> {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('subtitles')
-        .select('*')
-        .eq('video_id', videoId)
-        .maybeSingle();
-      if (!error && data) {
-        return data as Subtitle;
-      }
-    } catch (err: any) {
-      console.warn('Supabase getSubtitles exception:', err?.message);
-    }
-  }
+  const m = await mongoModels();
+  if (m) return plain<Subtitle>(await m.subtitle.findOne({ video_id: videoId }).lean());
 
   const store = loadLocalStore();
   return store.subtitles.find((s) => s.video_id === videoId) || null;
@@ -406,40 +552,32 @@ export async function getSubtitles(videoId: string): Promise<Subtitle | null> {
 export async function saveCaption(
   caption: Omit<Caption, 'id' | 'created_at'>
 ): Promise<Caption> {
-  const newCap: Caption = {
-    id: `cap_${crypto.randomUUID()}`,
-    video_id: caption.video_id,
-    platform: caption.platform,
+  const fields = {
     caption_text: caption.caption_text,
     hashtags: caption.hashtags,
     approved: caption.approved ?? false,
     transcript_hash: caption.transcript_hash || '',
     character_count: caption.character_count || caption.caption_text.length,
-    created_at: new Date().toISOString(),
   };
 
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('captions')
-        // Same as subtitles: the cap_ id is new every call, so the conflict target has to be the
-        // (video_id, platform) pair that getCaption() reads back as a single row.
-        .upsert([newCap], { onConflict: 'video_id,platform' })
-        .select()
-        .single();
-      if (!error && data) {
-        const store = loadLocalStore();
-        store.captions = store.captions.filter(
-          (c) => !(c.video_id === caption.video_id && c.platform === caption.platform)
-        );
-        store.captions.unshift(data as Caption);
-        saveLocalStore(store);
-        return data as Caption;
-      }
-    } catch (err: any) {
-      console.warn('Supabase saveCaption exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    // Same shape as subtitles: the unique (video_id, platform) index is the conflict target.
+    const doc = await m.caption.findOneAndUpdate(
+      { video_id: caption.video_id, platform: caption.platform },
+      { $set: fields, $setOnInsert: { id: `cap_${crypto.randomUUID()}`, created_at: new Date().toISOString() } },
+      { new: true, upsert: true },
+    ).lean();
+    return plain<Caption>(doc)!;
   }
+
+  const newCap: Caption = {
+    id: `cap_${crypto.randomUUID()}`,
+    video_id: caption.video_id,
+    platform: caption.platform,
+    ...fields,
+    created_at: new Date().toISOString(),
+  } as Caption;
 
   const store = loadLocalStore();
   store.captions = store.captions.filter(
@@ -454,21 +592,8 @@ export async function getCaption(
   videoId: string,
   platform: SocialPlatform = 'instagram'
 ): Promise<Caption | null> {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('captions')
-        .select('*')
-        .eq('video_id', videoId)
-        .eq('platform', platform)
-        .maybeSingle();
-      if (!error && data) {
-        return data as Caption;
-      }
-    } catch (err: any) {
-      console.warn('Supabase getCaption exception:', err?.message);
-    }
-  }
+  const m = await mongoModels();
+  if (m) return plain<Caption>(await m.caption.findOne({ video_id: videoId, platform }).lean());
 
   const store = loadLocalStore();
   return store.captions.find((c) => c.video_id === videoId && c.platform === platform) || null;
@@ -478,26 +603,10 @@ export async function updateCaption(
   id: string,
   updates: Partial<Caption>
 ): Promise<Caption | null> {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('captions')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-      if (!error && data) {
-        const store = loadLocalStore();
-        const idx = store.captions.findIndex((c) => c.id === id);
-        if (idx !== -1) {
-          store.captions[idx] = data as Caption;
-          saveLocalStore(store);
-        }
-        return data as Caption;
-      }
-    } catch (err: any) {
-      console.warn('Supabase updateCaption exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    const doc = await m.caption.findOneAndUpdate({ id }, { $set: updates }, { new: true }).lean();
+    return plain<Caption>(doc);
   }
 
   const store = loadLocalStore();
@@ -526,23 +635,8 @@ export async function recordPublish(
     published_at: new Date().toISOString(),
   };
 
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('publishing_history')
-        .insert([newRec])
-        .select()
-        .single();
-      if (!error && data) {
-        const store = loadLocalStore();
-        store.publishing_history.unshift(data as PublishingRecord);
-        saveLocalStore(store);
-        return data as PublishingRecord;
-      }
-    } catch (err: any) {
-      console.warn('Supabase recordPublish exception:', err?.message);
-    }
-  }
+  const m = await mongoModels();
+  if (m) return plain<PublishingRecord>(await m.publishingHistory.create(newRec))!;
 
   const store = loadLocalStore();
   store.publishing_history.unshift(newRec);
@@ -553,18 +647,10 @@ export async function recordPublish(
 export async function listPublishingHistory(
   userId = 'user_default'
 ): Promise<PublishingRecord[]> {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('publishing_history')
-        .select('*')
-        .order('published_at', { ascending: false });
-      if (!error && Array.isArray(data)) {
-        return data as PublishingRecord[];
-      }
-    } catch (err: any) {
-      console.warn('Supabase listPublishingHistory exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    const docs = await m.publishingHistory.find({}).sort({ published_at: -1 }).lean();
+    return plainList<PublishingRecord>(docs);
   }
 
   const store = loadLocalStore();
@@ -574,18 +660,10 @@ export async function listPublishingHistory(
 }
 
 export async function deletePublishingRecord(id: string): Promise<boolean> {
-  if (supabaseClient) {
-    try {
-      const { error } = await supabaseClient
-        .from('publishing_history')
-        .delete()
-        .eq('id', id);
-      if (error) {
-        console.warn('Supabase deletePublishingRecord warning:', error.message);
-      }
-    } catch (err: any) {
-      console.warn('Supabase deletePublishingRecord exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    const res = await m.publishingHistory.deleteOne({ id });
+    return res.deletedCount > 0;
   }
 
   const store = loadLocalStore();
@@ -596,20 +674,8 @@ export async function deletePublishingRecord(id: string): Promise<boolean> {
 }
 
 export async function getUser(id = 'user_default'): Promise<User | null> {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('users')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-      if (!error && data) {
-        return data as User;
-      }
-    } catch (err: any) {
-      console.warn('Supabase getUser exception:', err?.message);
-    }
-  }
+  const m = await mongoModels();
+  if (m) return plain<User>(await m.user.findOne({ id }).lean());
 
   const store = loadLocalStore();
   return store.users.find((u) => u.id === id) || null;
@@ -629,27 +695,12 @@ export async function saveUser(userData: Partial<User>): Promise<User> {
     created_at: existing?.created_at || new Date().toISOString(),
   };
 
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('users')
-        .upsert([updatedUser])
-        .select()
-        .single();
-      if (!error && data) {
-        const store = loadLocalStore();
-        const idx = store.users.findIndex((u) => u.id === userId);
-        if (idx === -1) {
-          store.users.push(data as User);
-        } else {
-          store.users[idx] = data as User;
-        }
-        saveLocalStore(store);
-        return data as User;
-      }
-    } catch (err: any) {
-      console.warn('Supabase saveUser exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    const doc = await m.user
+      .findOneAndUpdate({ id: userId }, { $set: updatedUser }, { new: true, upsert: true })
+      .lean();
+    return plain<User>(doc)!;
   }
 
   const store = loadLocalStore();
@@ -668,18 +719,10 @@ export async function saveUser(userData: Partial<User>): Promise<User> {
 // ==========================================
 
 export async function listScheduledPosts(): Promise<ScheduledPost[]> {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('scheduled_posts')
-        .select('*')
-        .order('scheduled_at', { ascending: true });
-      if (!error && data) {
-        return data as ScheduledPost[];
-      }
-    } catch (err: any) {
-      console.warn('Supabase listScheduledPosts exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    const docs = await m.scheduledPost.find({}).sort({ scheduled_at: 1 }).lean();
+    return plainList<ScheduledPost>(docs);
   }
 
   const store = loadLocalStore();
@@ -687,20 +730,8 @@ export async function listScheduledPosts(): Promise<ScheduledPost[]> {
 }
 
 export async function getScheduledPost(id: string): Promise<ScheduledPost | null> {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('scheduled_posts')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-      if (!error && data) {
-        return data as ScheduledPost;
-      }
-    } catch (err: any) {
-      console.warn('Supabase getScheduledPost exception:', err?.message);
-    }
-  }
+  const m = await mongoModels();
+  if (m) return plain<ScheduledPost>(await m.scheduledPost.findOne({ id }).lean());
 
   const store = loadLocalStore();
   return (store.scheduled_posts || []).find((p) => p.id === id) || null;
@@ -723,23 +754,8 @@ export async function createScheduledPost(postData: Partial<ScheduledPost>): Pro
     updated_at: new Date().toISOString(),
   };
 
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('scheduled_posts')
-        .insert([newPost])
-        .select()
-        .single();
-      if (!error && data) {
-        const store = loadLocalStore();
-        store.scheduled_posts.push(data as ScheduledPost);
-        saveLocalStore(store);
-        return data as ScheduledPost;
-      }
-    } catch (err: any) {
-      console.warn('Supabase createScheduledPost exception:', err?.message);
-    }
-  }
+  const m = await mongoModels();
+  if (m) return plain<ScheduledPost>(await m.scheduledPost.create(newPost))!;
 
   const store = loadLocalStore();
   store.scheduled_posts.push(newPost);
@@ -748,24 +764,12 @@ export async function createScheduledPost(postData: Partial<ScheduledPost>): Pro
 }
 
 export async function updateScheduledPost(id: string, updates: Partial<ScheduledPost>): Promise<ScheduledPost | null> {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('scheduled_posts')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
-      if (!error && data) {
-        const store = loadLocalStore();
-        const idx = store.scheduled_posts.findIndex((p) => p.id === id);
-        if (idx !== -1) store.scheduled_posts[idx] = data as ScheduledPost;
-        saveLocalStore(store);
-        return data as ScheduledPost;
-      }
-    } catch (err: any) {
-      console.warn('Supabase updateScheduledPost exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    const doc = await m.scheduledPost
+      .findOneAndUpdate({ id }, { $set: { ...updates, updated_at: new Date().toISOString() } }, { new: true })
+      .lean();
+    return plain<ScheduledPost>(doc);
   }
 
   const store = loadLocalStore();
@@ -781,20 +785,15 @@ export async function updateScheduledPost(id: string, updates: Partial<Scheduled
 }
 
 export async function deleteScheduledPost(id: string): Promise<boolean> {
-  if (supabaseClient) {
-    try {
-      const { error } = await supabaseClient
-        .from('scheduled_posts')
-        .delete()
-        .eq('id', id);
-      if (error) console.warn('Supabase deleteScheduledPost error:', error.message);
-    } catch (err: any) {
-      console.warn('Supabase deleteScheduledPost exception:', err?.message);
-    }
+  const m = await mongoModels();
+  if (m) {
+    const res = await m.scheduledPost.deleteOne({ id });
+    return res.deletedCount > 0;
   }
 
   const store = loadLocalStore();
+  const initialLen = (store.scheduled_posts || []).length;
   store.scheduled_posts = (store.scheduled_posts || []).filter((p) => p.id !== id);
   saveLocalStore(store);
-  return true;
+  return store.scheduled_posts.length < initialLen;
 }
