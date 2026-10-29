@@ -281,36 +281,8 @@ export const calendarEvents = [
 
 /* --------------------------------- Analytics --------------------------------- */
 
-export const analyticsKpis = [
-  { icon: 'visibility', label: 'Total Impressions', value: '1.42M', delta: '↑ 24.6%', sub: 'vs previous 30d', foot: 'Reach velocity index: 9.2/10' },
-  { icon: 'hourglass_top', label: 'Total Watch Time', value: '48.6K hrs', delta: '↑ 18.2%', sub: 'vs previous 30d', foot: 'Avg. completion: 68.4%' },
-  { icon: 'bookmark', label: 'Interest Bookmarks / Saves', value: '38,420', delta: '↑ 32.4%', sub: 'Virality Driver', foot: 'Highest retention intent ratio recorded' },
-  { icon: 'ads_click', label: 'Omnichannel Conversions', value: '4,128 clicks', delta: '↑ 12.0%', sub: 'newsletter & studio', foot: '$4.82 estimated intent value/click' },
-];
-
-export const observations = [
-  { icon: 'timer', kicker: 'Format Pacing', title: 'Videos under 35 seconds received 41% more saves across Instagram Reels and YouTube Shorts.', body: 'The retention cliff occurs around 0:38. Quick single-concept micro-lessons generate highest repeat bookmarking.', cta: 'Pre-set 30s target in Studio' },
-  { icon: 'workspace_premium', kicker: 'Topic Authority', title: 'Educational AI workflow breakdowns outperformed lifestyle vlogs by 3.4x in retention velocity.', body: 'Viewers rewind tactical screenshot steps 2.8x more frequently. Frameworks beat generalized thought leadership.', cta: 'Queue 3 similar topics' },
-  { icon: 'schedule', kicker: 'Audience Window', title: 'Your highest retention publishing window was Thursday at 10:15 AM EST (88.4% past hook).', body: 'Mid-morning desktop + mobile dual consumption coincides with desk workers seeking tactical automation boosts.', cta: 'Next slot auto-locked: Thu 10:15 AM' },
-];
-
-export const leaderboard = [
-  { rank: 1, platform: 'Instagram Reel', title: '5 AI tools that actually sav…', date: 'Published May 12', views: '148.2K views', rate: '8.4% save rate', score: 'Hook score 94/100', tag: 'Top 1% viral loop', thumb: 'a' },
-  { rank: 2, platform: 'YT Shorts', title: 'Why small businesses are re…', date: 'Published May 16', views: '112.0K views', rate: '7.1% save rate', score: 'Hook score 91/100', tag: 'High authority', thumb: 'b' },
-  { rank: 3, platform: 'TikTok / Reel', title: 'What nobody tells you about c…', date: 'Published May 24', views: '84.5K views', rate: '6.8% save rate', score: 'Hook score 86/100', tag: 'Deep saves', thumb: 'c' },
-];
-
-export const tagClusters = [
-  { tag: '#FounderLed', pct: 42.6, roi: 'ROI 4.2x' },
-  { tag: '#AIProductivity', pct: 34.1, roi: 'ROI 3.8x' },
-  { tag: '#StudioOps', pct: 23.3, roi: 'ROI 2.9x' },
-];
-
-export const recommendations = [
-  { format: 'Reel Format · 28S Target', reach: 'Projected Reach: High', title: '“The 3 metrics every solo founder should track daily”', body: 'Hooks into audience questions regarding spreadsheet replacements. Built for rapid…', save: 'Estimated save rate: ~8.2%' },
-  { format: 'Carousel / Reel Hybrid', reach: 'Projected Reach: Very High', title: '“Behind the scenes: My full asynchronous production stack”', body: 'High educational authority. Viewers repeatedly ask how your studio timeline works in Notion &…', save: 'High newsletter driver' },
-  { format: 'Fast Short · 22S Cut', reach: 'Projected Reach: Moderate/High', title: '“How to automate 90% of your video editing with AI hooks”', body: 'Capitalizes on your 94/100 hook velocity score from last week’s top performing video.', save: 'Instant hook formula' },
-];
+// Intentionally empty: the Analytics screen computes every figure from live store data
+// (videos, scheduled posts, publish history). Fabricated performance numbers used to live here.
 
 /* --------------------------------- Brand Kit --------------------------------- */
 
