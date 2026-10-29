@@ -208,6 +208,7 @@ router.post('/complete', async (req, res) => {
     // Record in database
     const video = await db.createVideo({
       id: videoId,
+      user_id: req.userId,
       title: title || session.fileName.replace(/\.[^/.]+$/, ''),
       description: description || '',
       file_url: publicUrl,
@@ -262,6 +263,7 @@ router.post('/direct', async (req, res) => {
 
     const video = await db.createVideo({
       id: videoId,
+      user_id: req.userId,
       title: title || fileName.replace(/\.[^/.]+$/, ''),
       file_url: publicUrl,
       file_size: fileStats.size,

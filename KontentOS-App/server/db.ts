@@ -3,7 +3,77 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
+import { promisify } from 'util';
 import type { Video, Subtitle, Caption, PublishingRecord, User, VideoStatus, SocialPlatform, ScheduledPost } from '../src/types.js';
+
+// promisify picks the 3-argument scrypt overload; the options form needs its own signature.
+const scryptAsync = promisify(crypto.scrypt) as unknown as (
+  password: string | Buffer,
+  salt: string | Buffer,
+  keylen: number,
+  options: crypto.ScryptOptions,
+) => Promise<Buffer>;
+
+// ==========================================
+// Accounts: passwords and sessions
+// ==========================================
+// scrypt is Node's own memory-hard KDF, so hashing costs no dependency. Parameters are the
+// OWASP-recommended work factor for an interactive login; 150ms per hash is fast enough for a
+// creator and slow enough to make a leaked password file expensive to brute force.
+const SCRYPT_KEYLEN = 32;
+const SCRYPT_OPTS = { N: 16384, r: 8, p: 1 } as const;
+
+export interface Account extends User {
+  password_hash: string;
+}
+
+export interface SessionRow {
+  id: string;
+  user_id: string;
+  created_at: string;
+  expires_at: string;
+}
+
+/** The shape the API is allowed to hand to a browser: no hash, no tokens. */
+export function publicUser(account: Partial<Account> | null | undefined): User | null {
+  if (!account) return null;
+  const { password_hash: _hash, ...rest } = account as Account;
+  return rest as User;
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.randomBytes(16);
+  const key = (await scryptAsync(password.normalize('NFKC'), salt, SCRYPT_KEYLEN, SCRYPT_OPTS)) as Buffer;
+  return `scrypt$${SCRYPT_OPTS.N}$${SCRYPT_OPTS.r}$${SCRYPT_OPTS.p}$${salt.toString('base64')}$${key.toString('base64')}`;
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const parts = (stored || '').split('$');
+  if (parts.length !== 6 || parts[0] !== 'scrypt') return false;
+  const [, N, r, p, saltB64, keyB64] = parts;
+  const salt = Buffer.from(saltB64, 'base64');
+  const expected = Buffer.from(keyB64, 'base64');
+  try {
+    const key = (await scryptAsync(password.normalize('NFKC'), salt, expected.length, {
+      N: Number(N),
+      r: Number(r),
+      p: Number(p),
+    })) as Buffer;
+    return key.length === expected.length && crypto.timingSafeEqual(key, expected);
+  } catch {
+    return false;
+  }
+}
+
+/** Sessions are stored as the SHA-256 of the browser's token, so a database leak is not a key to every studio. */
+export function hashSessionToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export function newSessionToken(): string {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
 
 // ==========================================
 // MongoDB storage layer
@@ -41,7 +111,9 @@ interface Models {
   caption: Model<any>;
   publishingHistory: Model<any>;
   user: Model<any>;
+  session: Model<any>;
   scheduledPost: Model<any>;
+  savedIdea: Model<any>;
 }
 
 const docOptions = { versionKey: false, strict: false, toObject: { virtuals: false }, toJSON: { virtuals: false } } as const;
@@ -112,6 +184,7 @@ function buildModels(conn: Connection): Models {
   const publishingSchema = new Schema(
     {
       id: stringId,
+      user_id: String,
       video_id: String,
       platform: String,
       platform_post_id: String,
@@ -123,22 +196,42 @@ function buildModels(conn: Connection): Models {
     docOptions,
   );
   publishingSchema.index({ video_id: 1 });
-  publishingSchema.index({ published_at: -1 });
+  publishingSchema.index({ user_id: 1, published_at: -1 });
 
   const userSchema = new Schema(
     {
       id: stringId,
       email: String,
+      password_hash: String,
       full_name: String,
       avatar_url: String,
       instagram_token: String,
       instagram_user_id: String,
       instagram_username: String,
+      youtube_channel_id: String,
+      tiktok_username: String,
+      niche: String,
+      locale: String,
       created_at: String,
     },
     docOptions,
   );
   userSchema.index({ id: 1 }, idIndex);
+  // Emails are looked up case-insensitively at signup and login; the index is what makes a
+  // duplicate registration fail instead of producing two accounts for one person.
+  userSchema.index({ email: 1 }, { ...idIndex, sparse: true });
+
+  const sessionSchema = new Schema(
+    {
+      id: stringId,
+      user_id: { type: String, required: true },
+      created_at: String,
+      expires_at: String,
+    },
+    docOptions,
+  );
+  sessionSchema.index({ id: 1 }, idIndex);
+  sessionSchema.index({ user_id: 1 });
 
   const scheduledSchema = new Schema(
     {
@@ -165,13 +258,29 @@ function buildModels(conn: Connection): Models {
   scheduledSchema.index({ scheduled_at: 1 });
   scheduledSchema.index({ video_id: 1 });
 
+  // An idea is free-form (title, hook, angle, tags…) so only its identity is typed; the body
+  // stays open because strict:false keeps whatever the studio saved.
+  const ideaSchema = new Schema(
+    {
+      id: stringId,
+      user_id: { type: String, required: true },
+      idea: Schema.Types.Mixed,
+      updated_at: String,
+    },
+    docOptions,
+  );
+  ideaSchema.index({ user_id: 1, id: 1 }, idIndex);
+  ideaSchema.index({ user_id: 1, updated_at: -1 });
+
   return {
     video: conn.model('Video', videoSchema, 'videos'),
     subtitle: conn.model('Subtitle', subtitleSchema, 'subtitles'),
     caption: conn.model('Caption', captionSchema, 'captions'),
     publishingHistory: conn.model('PublishingRecord', publishingSchema, 'publishing_history'),
     user: conn.model('User', userSchema, 'users'),
+    session: conn.model('Session', sessionSchema, 'sessions'),
     scheduledPost: conn.model('ScheduledPost', scheduledSchema, 'scheduled_posts'),
+    savedIdea: conn.model('SavedIdea', ideaSchema, 'saved_ideas'),
   };
 }
 
@@ -270,13 +379,22 @@ function plainList<T>(docs: any[]): T[] {
 // ==========================================
 // Robust Local Storage Fallback Engine
 // ==========================================
+interface SavedIdeaRow {
+  id: string;
+  user_id: string;
+  idea: any;
+  updated_at: string;
+}
+
 interface LocalStoreSchema {
-  users: User[];
+  users: Account[];
+  sessions: SessionRow[];
   videos: Video[];
   subtitles: Subtitle[];
   captions: Caption[];
   publishing_history: PublishingRecord[];
   scheduled_posts: ScheduledPost[];
+  saved_ideas: SavedIdeaRow[];
 }
 
 function getDataFilePath(): string {
@@ -309,36 +427,32 @@ function getDbFile(): string {
 
 function loadLocalStore(): LocalStoreSchema {
   const dbFile = getDbFile();
+  const empty: LocalStoreSchema = {
+    users: [],
+    sessions: [],
+    videos: [],
+    subtitles: [],
+    captions: [],
+    publishing_history: [],
+    scheduled_posts: [],
+    saved_ideas: [],
+  };
   if (!fs.existsSync(dbFile)) {
-    const defaultData: LocalStoreSchema = {
-      users: [
-        {
-          id: 'user_default',
-          email: 'creator@kontentos.ai',
-          full_name: 'KontentOS Creator',
-          // No stock portrait: shipping someone's face as the default creator identity is
-          // both a likeness problem and a false claim. The UI falls back to initials.
-          avatar_url: '',
-          created_at: new Date().toISOString(),
-        },
-      ],
-      videos: [],
-      subtitles: [],
-      captions: [],
-      publishing_history: [],
-      scheduled_posts: [],
-    };
+    // No stock creator account any more: whoever opens the studio registers it themselves.
     try {
-      fs.writeFileSync(dbFile, JSON.stringify(defaultData, null, 2), 'utf-8');
+      fs.writeFileSync(dbFile, JSON.stringify(empty, null, 2), 'utf-8');
     } catch (e) {
       console.warn('Could not write initial db file:', e);
     }
-    return defaultData;
+    return empty;
   }
   try {
     const raw = fs.readFileSync(dbFile, 'utf-8');
     const parsed = JSON.parse(raw);
     if (!parsed.scheduled_posts) parsed.scheduled_posts = [];
+    if (!parsed.sessions) parsed.sessions = [];
+    if (!parsed.users) parsed.users = [];
+    if (!parsed.saved_ideas) parsed.saved_ideas = [];
     return parsed;
   } catch (err) {
     // A truncated file (killed mid-write) must not be answered by wiping the database:
@@ -350,14 +464,7 @@ function loadLocalStore(): LocalStoreSchema {
     } catch {
       console.error('Local DB is unreadable and the damaged copy could not be preserved:', err);
     }
-    return {
-      users: [],
-      videos: [],
-      subtitles: [],
-      captions: [],
-      publishing_history: [],
-      scheduled_posts: [],
-    };
+    return empty;
   }
 }
 
@@ -380,13 +487,210 @@ function saveLocalStore(data: LocalStoreSchema) {
 }
 
 // ==========================================
+// Accounts & Sessions
+// ==========================================
+
+/** Data created before accounts existed belongs to this synthetic owner, adopted by the first signup. */
+const LEGACY_USER_ID = 'user_default';
+
+const normEmail = (email: string) => String(email || '').trim().toLowerCase();
+
+export async function countAccounts(): Promise<number> {
+  const m = await mongoModels();
+  if (m) return m.user.countDocuments({});
+  return loadLocalStore().users.length;
+}
+
+export async function getAccountByEmail(email: string): Promise<Account | null> {
+  const needle = normEmail(email);
+  const m = await mongoModels();
+  if (m) return plain<Account>(await m.user.findOne({ email: needle }).lean());
+  return loadLocalStore().users.find((u) => normEmail(u.email) === needle) || null;
+}
+
+export async function getAccountById(id: string): Promise<Account | null> {
+  const m = await mongoModels();
+  if (m) return plain<Account>(await m.user.findOne({ id }).lean());
+  return loadLocalStore().users.find((u) => u.id === id) || null;
+}
+
+export class EmailAlreadyRegistered extends Error {}
+
+export async function createAccount(input: {
+  email: string;
+  full_name: string;
+  password_hash: string;
+}): Promise<Account> {
+  const email = normEmail(input.email);
+  const account: Account = {
+    id: `user_${crypto.randomUUID()}`,
+    email,
+    password_hash: input.password_hash,
+    full_name: input.full_name.trim(),
+    avatar_url: '',
+    created_at: new Date().toISOString(),
+  };
+
+  const m = await mongoModels();
+  if (m) {
+    try {
+      const created = await m.user.create(account);
+      return plain<Account>(created)!;
+    } catch (err: any) {
+      if (err?.code === 11000 || /E11000|duplicate key/i.test(err?.message || '')) {
+        throw new EmailAlreadyRegistered('That email already has an account.');
+      }
+      throw err;
+    }
+  }
+
+  const store = loadLocalStore();
+  if (store.users.some((u) => normEmail(u.email) === email)) {
+    throw new EmailAlreadyRegistered('That email already has an account.');
+  }
+  store.users.push(account);
+  saveLocalStore(store);
+  return account;
+}
+
+/**
+ * The first account to register inherits everything the passcode-era workspace owned, so a
+ * creator upgrading a deployed instance keeps their clips instead of starting from zero.
+ */
+export async function adoptLegacyData(userId: string): Promise<void> {
+  const m = await mongoModels();
+  if (m) {
+    const rows = [
+      [m.video, { user_id: { $in: [LEGACY_USER_ID, null] } }],
+      [m.scheduledPost, { user_id: { $in: [LEGACY_USER_ID, null] } }],
+      [m.publishingHistory, { user_id: { $in: [LEGACY_USER_ID, null] } }],
+      [m.savedIdea, { user_id: { $in: [LEGACY_USER_ID, null] } }],
+    ] as const;
+    await Promise.all(rows.map(([model, filter]) => model.updateMany(filter, { $set: { user_id: userId } })));
+    return;
+  }
+
+  const store = loadLocalStore();
+  const claim = (id?: string) => !id || id === LEGACY_USER_ID;
+  store.videos.forEach((v) => { if (claim(v.user_id)) v.user_id = userId; });
+  (store.scheduled_posts || []).forEach((p) => { if (claim(p.user_id)) p.user_id = userId; });
+  store.publishing_history.forEach((p) => { if (claim(p.user_id)) p.user_id = userId; });
+  (store.saved_ideas || []).forEach((i) => { if (claim(i.user_id)) i.user_id = userId; });
+  saveLocalStore(store);
+}
+
+/** Only these fields are user-editable; email and the hash are not reachable from the profile route. */
+export async function updateUserProfile(
+  userId: string,
+  patch: Partial<User>,
+): Promise<Account | null> {
+  const allowed = [
+    'full_name', 'avatar_url', 'niche', 'locale',
+    'instagram_username', 'instagram_user_id', 'instagram_token',
+    'youtube_channel_id', 'tiktok_username',
+  ] as const;
+  const updates: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (patch[key] !== undefined) updates[key] = patch[key];
+  }
+  if (!Object.keys(updates).length) return getAccountById(userId);
+
+  const m = await mongoModels();
+  if (m) {
+    const doc = await m.user.findOneAndUpdate({ id: userId }, { $set: updates }, { new: true }).lean();
+    return plain<Account>(doc);
+  }
+
+  const store = loadLocalStore();
+  const idx = store.users.findIndex((u) => u.id === userId);
+  if (idx === -1) return null;
+  store.users[idx] = { ...store.users[idx], ...updates };
+  saveLocalStore(store);
+  return store.users[idx];
+}
+
+export async function changePassword(userId: string, password_hash: string): Promise<boolean> {
+  const m = await mongoModels();
+  if (m) {
+    const res = await m.user.updateOne({ id: userId }, { $set: { password_hash } });
+    return (res.modifiedCount || res.matchedCount || 0) > 0;
+  }
+  const store = loadLocalStore();
+  const idx = store.users.findIndex((u) => u.id === userId);
+  if (idx === -1) return false;
+  store.users[idx] = { ...store.users[idx], password_hash };
+  saveLocalStore(store);
+  return true;
+}
+
+export async function createSession(tokenHash: string, userId: string, ttlSeconds: number): Promise<void> {
+  const now = Date.now();
+  const row: SessionRow = {
+    id: tokenHash,
+    user_id: userId,
+    created_at: new Date(now).toISOString(),
+    expires_at: new Date(now + ttlSeconds * 1000).toISOString(),
+  };
+
+  const m = await mongoModels();
+  if (m) {
+    await m.session.findOneAndUpdate({ id: tokenHash }, { $set: row }, { upsert: true });
+    // Housekeeping on the write path keeps a long-lived database from accumulating dead rows.
+    await m.session.deleteMany({ expires_at: { $lt: row.created_at } });
+    return;
+  }
+
+  const store = loadLocalStore();
+  store.sessions = store.sessions.filter((s) => s.id !== tokenHash && s.expires_at > row.created_at);
+  store.sessions.push(row);
+  saveLocalStore(store);
+}
+
+/** Returns the owning user id, or null when the session is unknown or expired. */
+export async function resolveSession(tokenHash: string): Promise<string | null> {
+  if (!tokenHash) return null;
+  const m = await mongoModels();
+  if (m) {
+    const row = plain<SessionRow>(await m.session.findOne({ id: tokenHash }).lean());
+    return row && row.expires_at > new Date().toISOString() ? row.user_id : null;
+  }
+  const store = loadLocalStore();
+  const row = store.sessions.find((s) => s.id === tokenHash);
+  return row && row.expires_at > new Date().toISOString() ? row.user_id : null;
+}
+
+export async function deleteSession(tokenHash: string): Promise<void> {
+  if (!tokenHash) return;
+  const m = await mongoModels();
+  if (m) {
+    await m.session.deleteOne({ id: tokenHash });
+    return;
+  }
+  const store = loadLocalStore();
+  store.sessions = store.sessions.filter((s) => s.id !== tokenHash);
+  saveLocalStore(store);
+}
+
+// ==========================================
 // Database Operations Service
 // ==========================================
 
-export async function createVideo(data: Partial<Video>): Promise<Video> {
+/**
+ * Every content read and write below is scoped to a user id. Passing it explicitly (rather than
+ * reading it from a global) keeps request handling correct under concurrency, and a missing id
+ * fails to compile instead of quietly returning another creator's rows.
+ */
+async function ownsVideo(videoId: string, userId: string): Promise<boolean> {
+  if (!videoId || !userId) return false;
+  const m = await mongoModels();
+  if (m) return !!(await m.video.exists({ id: videoId, user_id: userId }));
+  return loadLocalStore().videos.some((v) => v.id === videoId && v.user_id === userId);
+}
+
+export async function createVideo(data: Partial<Video> & { user_id: string }): Promise<Video> {
   const newVideo: Video = {
     id: data.id || `vid_${crypto.randomUUID()}`,
-    user_id: data.user_id || 'user_default',
+    user_id: data.user_id,
     title: data.title || 'Untitled Video',
     description: data.description || '',
     file_url: data.file_url || '',
@@ -411,15 +715,15 @@ export async function createVideo(data: Partial<Video>): Promise<Video> {
   return newVideo;
 }
 
-export async function getVideo(id: string): Promise<Video | null> {
+export async function getVideo(id: string, userId: string): Promise<Video | null> {
   const m = await mongoModels();
-  if (m) return plain<Video>(await m.video.findOne({ id }).lean());
+  if (m) return plain<Video>(await m.video.findOne({ id, user_id: userId }).lean());
 
   const store = loadLocalStore();
-  return store.videos.find((v) => v.id === id) || null;
+  return store.videos.find((v) => v.id === id && v.user_id === userId) || null;
 }
 
-export async function listVideos(userId = 'user_default'): Promise<Video[]> {
+export async function listVideos(userId: string): Promise<Video[]> {
   const m = await mongoModels();
   if (m) {
     const docs = await m.video.find({ user_id: userId }).sort({ created_at: -1 }).lean();
@@ -427,13 +731,16 @@ export async function listVideos(userId = 'user_default'): Promise<Video[]> {
   }
 
   const store = loadLocalStore();
-  return store.videos.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return store.videos
+    .filter((v) => v.user_id === userId)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
 export async function updateVideoStatus(
   id: string,
   status: VideoStatus,
-  extra: Partial<Video> = {}
+  extra: Partial<Video>,
+  userId: string
 ): Promise<Video | null> {
   const updates = {
     ...extra,
@@ -443,12 +750,12 @@ export async function updateVideoStatus(
 
   const m = await mongoModels();
   if (m) {
-    const doc = await m.video.findOneAndUpdate({ id }, { $set: updates }, { new: true }).lean();
+    const doc = await m.video.findOneAndUpdate({ id, user_id: userId }, { $set: updates }, { new: true }).lean();
     return plain<Video>(doc);
   }
 
   const store = loadLocalStore();
-  const idx = store.videos.findIndex((v) => v.id === id);
+  const idx = store.videos.findIndex((v) => v.id === id && v.user_id === userId);
   if (idx === -1) return null;
 
   store.videos[idx] = {
@@ -474,39 +781,42 @@ function removeUploadedVideoFile(fileUrl: string | undefined): void {
   }
 }
 
-export async function deleteVideo(id: string): Promise<boolean> {
+export async function deleteVideo(id: string, userId: string): Promise<boolean> {
   const m = await mongoModels();
   if (m) {
-    const video = plain<{ file_url?: string }>(await m.video.findOne({ id }).lean());
+    const video = plain<{ file_url?: string }>(await m.video.findOne({ id, user_id: userId }).lean());
+    if (!video) return false;
     removeUploadedVideoFile(video?.file_url);
     await Promise.all([
       m.subtitle.deleteMany({ video_id: id }),
       m.caption.deleteMany({ video_id: id }),
-      m.publishingHistory.deleteMany({ video_id: id }),
-      m.scheduledPost.deleteMany({ video_id: id }),
+      m.publishingHistory.deleteMany({ video_id: id, user_id: userId }),
+      m.scheduledPost.deleteMany({ video_id: id, user_id: userId }),
     ]);
-    const res = await m.video.deleteOne({ id });
+    const res = await m.video.deleteOne({ id, user_id: userId });
     return res.deletedCount > 0;
   }
 
   const store = loadLocalStore();
-  const existing = store.videos.find((v) => v.id === id);
+  const existing = store.videos.find((v) => v.id === id && v.user_id === userId);
   if (!existing) return false;
   removeUploadedVideoFile(existing.file_url);
 
   const initialLen = store.videos.length;
-  store.videos = store.videos.filter((v) => v.id !== id);
+  store.videos = store.videos.filter((v) => !(v.id === id && v.user_id === userId));
   store.subtitles = store.subtitles.filter((s) => s.video_id !== id);
   store.captions = store.captions.filter((c) => c.video_id !== id);
-  store.publishing_history = store.publishing_history.filter((p) => p.video_id !== id);
-  store.scheduled_posts = (store.scheduled_posts || []).filter((p) => p.video_id !== id);
+  store.publishing_history = store.publishing_history.filter((p) => !(p.video_id === id && p.user_id === userId));
+  store.scheduled_posts = (store.scheduled_posts || []).filter((p) => !(p.video_id === id && p.user_id === userId));
   saveLocalStore(store);
   return store.videos.length < initialLen;
 }
 
 export async function saveSubtitles(
-  sub: Omit<Subtitle, 'id' | 'created_at'>
-): Promise<Subtitle> {
+  sub: Omit<Subtitle, 'id' | 'created_at'>,
+  userId: string
+): Promise<Subtitle | null> {
+  if (!(await ownsVideo(sub.video_id, userId))) return null;
   const fields = {
     srt_content: sub.srt_content,
     vtt_content: sub.vtt_content,
@@ -541,7 +851,8 @@ export async function saveSubtitles(
   return newSub;
 }
 
-export async function getSubtitles(videoId: string): Promise<Subtitle | null> {
+export async function getSubtitles(videoId: string, userId: string): Promise<Subtitle | null> {
+  if (!(await ownsVideo(videoId, userId))) return null;
   const m = await mongoModels();
   if (m) return plain<Subtitle>(await m.subtitle.findOne({ video_id: videoId }).lean());
 
@@ -550,8 +861,10 @@ export async function getSubtitles(videoId: string): Promise<Subtitle | null> {
 }
 
 export async function saveCaption(
-  caption: Omit<Caption, 'id' | 'created_at'>
-): Promise<Caption> {
+  caption: Omit<Caption, 'id' | 'created_at'>,
+  userId: string
+): Promise<Caption | null> {
+  if (!(await ownsVideo(caption.video_id, userId))) return null;
   const fields = {
     caption_text: caption.caption_text,
     hashtags: caption.hashtags,
@@ -590,8 +903,10 @@ export async function saveCaption(
 
 export async function getCaption(
   videoId: string,
-  platform: SocialPlatform = 'instagram'
+  platform: SocialPlatform,
+  userId: string
 ): Promise<Caption | null> {
+  if (!(await ownsVideo(videoId, userId))) return null;
   const m = await mongoModels();
   if (m) return plain<Caption>(await m.caption.findOne({ video_id: videoId, platform }).lean());
 
@@ -601,8 +916,12 @@ export async function getCaption(
 
 export async function updateCaption(
   id: string,
-  updates: Partial<Caption>
+  updates: Partial<Caption>,
+  userId: string
 ): Promise<Caption | null> {
+  const existing = await getCaptionById(id);
+  if (!existing || !(await ownsVideo(existing.video_id, userId))) return null;
+
   const m = await mongoModels();
   if (m) {
     const doc = await m.caption.findOneAndUpdate({ id }, { $set: updates }, { new: true }).lean();
@@ -621,11 +940,20 @@ export async function updateCaption(
   return store.captions[idx];
 }
 
+async function getCaptionById(id: string): Promise<Caption | null> {
+  const m = await mongoModels();
+  if (m) return plain<Caption>(await m.caption.findOne({ id }).lean());
+  return loadLocalStore().captions.find((c) => c.id === id) || null;
+}
+
 export async function recordPublish(
-  record: Omit<PublishingRecord, 'id' | 'published_at'>
-): Promise<PublishingRecord> {
+  record: Omit<PublishingRecord, 'id' | 'published_at' | 'user_id'>,
+  userId: string
+): Promise<PublishingRecord | null> {
+  if (!(await ownsVideo(record.video_id, userId))) return null;
   const newRec: PublishingRecord = {
     id: `pub_${crypto.randomUUID()}`,
+    user_id: userId,
     video_id: record.video_id,
     platform: record.platform,
     platform_post_id: record.platform_post_id || '',
@@ -644,104 +972,73 @@ export async function recordPublish(
   return newRec;
 }
 
-export async function listPublishingHistory(
-  userId = 'user_default'
-): Promise<PublishingRecord[]> {
+export async function listPublishingHistory(userId: string): Promise<PublishingRecord[]> {
   const m = await mongoModels();
   if (m) {
-    const docs = await m.publishingHistory.find({}).sort({ published_at: -1 }).lean();
+    const docs = await m.publishingHistory
+      .find({ user_id: userId })
+      .sort({ published_at: -1 })
+      .lean();
     return plainList<PublishingRecord>(docs);
   }
 
   const store = loadLocalStore();
-  return store.publishing_history.sort(
-    (a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
-  );
+  return store.publishing_history
+    .filter((p) => p.user_id === userId)
+    .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
 }
 
-export async function deletePublishingRecord(id: string): Promise<boolean> {
+export async function deletePublishingRecord(id: string, userId: string): Promise<boolean> {
   const m = await mongoModels();
   if (m) {
-    const res = await m.publishingHistory.deleteOne({ id });
+    const res = await m.publishingHistory.deleteOne({ id, user_id: userId });
     return res.deletedCount > 0;
   }
 
   const store = loadLocalStore();
   const initialLen = store.publishing_history.length;
-  store.publishing_history = store.publishing_history.filter((p) => p.id !== id);
+  store.publishing_history = store.publishing_history.filter((p) => !(p.id === id && p.user_id === userId));
   saveLocalStore(store);
   return store.publishing_history.length < initialLen;
 }
 
-export async function getUser(id = 'user_default'): Promise<User | null> {
-  const m = await mongoModels();
-  if (m) return plain<User>(await m.user.findOne({ id }).lean());
-
-  const store = loadLocalStore();
-  return store.users.find((u) => u.id === id) || null;
-}
-
-export async function saveUser(userData: Partial<User>): Promise<User> {
-  const userId = userData.id || 'user_default';
-  const existing = await getUser(userId);
-  const updatedUser: User = {
-    id: userId,
-    email: userData.email || existing?.email || 'creator@kontentos.ai',
-    full_name: userData.full_name || existing?.full_name || 'KontentOS Creator',
-    avatar_url: userData.avatar_url || existing?.avatar_url || '',
-    instagram_token: userData.instagram_token || existing?.instagram_token,
-    instagram_user_id: userData.instagram_user_id || existing?.instagram_user_id,
-    instagram_username: userData.instagram_username || existing?.instagram_username,
-    created_at: existing?.created_at || new Date().toISOString(),
-  };
-
-  const m = await mongoModels();
-  if (m) {
-    const doc = await m.user
-      .findOneAndUpdate({ id: userId }, { $set: updatedUser }, { new: true, upsert: true })
-      .lean();
-    return plain<User>(doc)!;
-  }
-
-  const store = loadLocalStore();
-  const idx = store.users.findIndex((u) => u.id === userId);
-  if (idx === -1) {
-    store.users.push(updatedUser);
-  } else {
-    store.users[idx] = updatedUser;
-  }
-  saveLocalStore(store);
-  return updatedUser;
+export async function getUser(id: string): Promise<User | null> {
+  return publicUser(await getAccountById(id));
 }
 
 // ==========================================
 // Scheduled Posts Operations
 // ==========================================
 
-export async function listScheduledPosts(): Promise<ScheduledPost[]> {
+export async function listScheduledPosts(userId: string): Promise<ScheduledPost[]> {
   const m = await mongoModels();
   if (m) {
-    const docs = await m.scheduledPost.find({}).sort({ scheduled_at: 1 }).lean();
+    const docs = await m.scheduledPost.find({ user_id: userId }).sort({ scheduled_at: 1 }).lean();
     return plainList<ScheduledPost>(docs);
   }
 
   const store = loadLocalStore();
-  return (store.scheduled_posts || []).sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  return (store.scheduled_posts || [])
+    .filter((p) => p.user_id === userId)
+    .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
 }
 
-export async function getScheduledPost(id: string): Promise<ScheduledPost | null> {
+export async function getScheduledPost(id: string, userId: string): Promise<ScheduledPost | null> {
   const m = await mongoModels();
-  if (m) return plain<ScheduledPost>(await m.scheduledPost.findOne({ id }).lean());
+  if (m) return plain<ScheduledPost>(await m.scheduledPost.findOne({ id, user_id: userId }).lean());
 
   const store = loadLocalStore();
-  return (store.scheduled_posts || []).find((p) => p.id === id) || null;
+  return (store.scheduled_posts || []).find((p) => p.id === id && p.user_id === userId) || null;
 }
 
-export async function createScheduledPost(postData: Partial<ScheduledPost>): Promise<ScheduledPost> {
+export async function createScheduledPost(
+  postData: Partial<ScheduledPost> & { user_id: string; video_id: string }
+): Promise<ScheduledPost | null> {
+  if (!(await ownsVideo(postData.video_id, postData.user_id))) return null;
   const newPost: ScheduledPost = {
     id: postData.id || `sched_${crypto.randomUUID()}`,
-    user_id: postData.user_id || 'user_default',
-    video_id: postData.video_id || '',
+    user_id: postData.user_id,
+    video_id: postData.video_id,
     video_title: postData.video_title || 'Untitled Video',
     file_url: postData.file_url || '',
     thumbnail_url: postData.thumbnail_url || '',
@@ -763,17 +1060,21 @@ export async function createScheduledPost(postData: Partial<ScheduledPost>): Pro
   return newPost;
 }
 
-export async function updateScheduledPost(id: string, updates: Partial<ScheduledPost>): Promise<ScheduledPost | null> {
+export async function updateScheduledPost(
+  id: string,
+  updates: Partial<ScheduledPost>,
+  userId: string
+): Promise<ScheduledPost | null> {
   const m = await mongoModels();
   if (m) {
     const doc = await m.scheduledPost
-      .findOneAndUpdate({ id }, { $set: { ...updates, updated_at: new Date().toISOString() } }, { new: true })
+      .findOneAndUpdate({ id, user_id: userId }, { $set: { ...updates, updated_at: new Date().toISOString() } }, { new: true })
       .lean();
     return plain<ScheduledPost>(doc);
   }
 
   const store = loadLocalStore();
-  const idx = store.scheduled_posts.findIndex((p) => p.id === id);
+  const idx = store.scheduled_posts.findIndex((p) => p.id === id && p.user_id === userId);
   if (idx === -1) return null;
   store.scheduled_posts[idx] = {
     ...store.scheduled_posts[idx],
@@ -784,16 +1085,101 @@ export async function updateScheduledPost(id: string, updates: Partial<Scheduled
   return store.scheduled_posts[idx];
 }
 
-export async function deleteScheduledPost(id: string): Promise<boolean> {
+export async function deleteScheduledPost(id: string, userId: string): Promise<boolean> {
   const m = await mongoModels();
   if (m) {
-    const res = await m.scheduledPost.deleteOne({ id });
+    const res = await m.scheduledPost.deleteOne({ id, user_id: userId });
     return res.deletedCount > 0;
   }
 
   const store = loadLocalStore();
   const initialLen = (store.scheduled_posts || []).length;
-  store.scheduled_posts = (store.scheduled_posts || []).filter((p) => p.id !== id);
+  store.scheduled_posts = (store.scheduled_posts || []).filter(
+    (p) => !(p.id === id && p.user_id === userId),
+  );
   saveLocalStore(store);
   return store.scheduled_posts.length < initialLen;
+}
+
+// ==========================================
+// Saved Ideas
+// ==========================================
+
+/** Newest first, matching the order the Ideas screen has always shown. */
+export async function listSavedIdeas(userId: string): Promise<any[]> {
+  const m = await mongoModels();
+  if (m) {
+    const docs = await m.savedIdea.find({ user_id: userId }).sort({ updated_at: -1 }).lean();
+    return plainList<SavedIdeaRow>(docs).map((row) => row.idea);
+  }
+  return loadLocalStore()
+    .saved_ideas.filter((row) => row.user_id === userId)
+    .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
+    .map((row) => row.idea);
+}
+
+export async function saveSavedIdea(userId: string, idea: any): Promise<any[]> {
+  const row: SavedIdeaRow = { id: String(idea.id), user_id: userId, idea, updated_at: new Date().toISOString() };
+  const m = await mongoModels();
+  if (m) {
+    await m.savedIdea.updateOne({ user_id: userId, id: row.id }, { $set: row }, { upsert: true });
+    return listSavedIdeas(userId);
+  }
+  const store = loadLocalStore();
+  const idx = store.saved_ideas.findIndex((i) => i.user_id === userId && i.id === row.id);
+  if (idx === -1) store.saved_ideas.unshift(row);
+  else store.saved_ideas[idx] = row;
+  saveLocalStore(store);
+  return listSavedIdeas(userId);
+}
+
+export async function deleteSavedIdea(userId: string, id: string): Promise<any[]> {
+  const m = await mongoModels();
+  if (m) {
+    await m.savedIdea.deleteOne({ user_id: userId, id });
+    return listSavedIdeas(userId);
+  }
+  const store = loadLocalStore();
+  store.saved_ideas = store.saved_ideas.filter((i) => !(i.user_id === userId && i.id === id));
+  saveLocalStore(store);
+  return listSavedIdeas(userId);
+}
+
+/**
+ * Ideas used to live in one shared .data/saved_ideas.json. Those rows land in the legacy bucket
+ * so the first account to sign up adopts them instead of losing its saved briefs.
+ */
+export async function importLegacySavedIdeas(ideas: any[]): Promise<number> {
+  const m = await mongoModels();
+  let moved = 0;
+
+  if (m) {
+    for (const idea of ideas) {
+      if (!idea?.id) continue;
+      const row: SavedIdeaRow = {
+        id: String(idea.id),
+        user_id: LEGACY_USER_ID,
+        idea,
+        updated_at: new Date().toISOString(),
+      };
+      const res = await m.savedIdea.updateOne(
+        { user_id: LEGACY_USER_ID, id: row.id },
+        { $set: row },
+        { upsert: true },
+      );
+      if (res.upsertedCount > 0) moved++;
+    }
+    return moved;
+  }
+
+  const store = loadLocalStore();
+  for (const idea of ideas) {
+    if (!idea?.id) continue;
+    const id = String(idea.id);
+    if (store.saved_ideas.some((i) => i.user_id === LEGACY_USER_ID && i.id === id)) continue;
+    store.saved_ideas.unshift({ id, user_id: LEGACY_USER_ID, idea, updated_at: new Date().toISOString() });
+    moved++;
+  }
+  if (moved) saveLocalStore(store);
+  return moved;
 }

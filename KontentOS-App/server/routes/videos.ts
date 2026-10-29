@@ -1,14 +1,14 @@
 import express from 'express';
-import fs from 'fs';
-import path from 'path';
 import * as db from '../db.js';
 
 const router = express.Router();
 
+// Every query below is filtered by req.userId, which the auth gate has already verified.
+
 // List all videos
 router.get('/', async (req, res) => {
   try {
-    const videos = await db.listVideos();
+    const videos = await db.listVideos(req.userId);
     res.json({ success: true, data: videos });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to list videos' });
@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
 // Create or register a video asset in library
 router.post('/', async (req, res) => {
   try {
-    const video = await db.createVideo(req.body);
+    const video = await db.createVideo({ ...req.body, user_id: req.userId });
     res.json({ success: true, data: video });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to create video record' });
@@ -28,12 +28,12 @@ router.post('/', async (req, res) => {
 // Get video by ID
 router.get('/:id', async (req, res) => {
   try {
-    const video = await db.getVideo(req.params.id);
+    const video = await db.getVideo(req.params.id, req.userId);
     if (!video) {
       return res.status(404).json({ error: 'Video not found' });
     }
-    const subtitles = await db.getSubtitles(video.id);
-    const caption = await db.getCaption(video.id, 'instagram');
+    const subtitles = await db.getSubtitles(video.id, req.userId);
+    const caption = await db.getCaption(video.id, 'instagram', req.userId);
 
     res.json({
       success: true,
@@ -51,7 +51,7 @@ router.get('/:id', async (req, res) => {
 // Inspect video specs (Instagram Reels compatibility check: 1080x1920, 9:16 aspect ratio)
 router.post('/:id/inspect', async (req, res) => {
   try {
-    const video = await db.getVideo(req.params.id);
+    const video = await db.getVideo(req.params.id, req.userId);
     if (!video) {
       return res.status(404).json({ error: 'Video not found' });
     }
@@ -100,7 +100,7 @@ router.patch('/:id', async (req, res) => {
       description,
       aspect_ratio: aspectRatio,
       duration: duration ? Number(duration) : undefined,
-    });
+    }, req.userId);
     if (!updated) {
       return res.status(404).json({ error: 'Video not found' });
     }
@@ -110,22 +110,10 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-// Delete video and its associated media files
+// Delete video and its associated media files (the stored clip goes with the record).
 router.delete('/:id', async (req, res) => {
   try {
-    const video = await db.getVideo(req.params.id);
-    if (video && video.file_url.startsWith('/uploads/')) {
-      const localFilePath = path.join(process.cwd(), video.file_url);
-      if (fs.existsSync(localFilePath)) {
-        try {
-          fs.unlinkSync(localFilePath);
-        } catch (e) {
-          console.warn('Could not delete local file:', e);
-        }
-      }
-    }
-
-    const deleted = await db.deleteVideo(req.params.id);
+    const deleted = await db.deleteVideo(req.params.id, req.userId);
     res.json({ success: deleted, message: deleted ? 'Video deleted' : 'Video not found' });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to delete video' });

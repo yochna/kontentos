@@ -41,6 +41,12 @@ export default function Settings() {
   const [exportCodec, setExportCodec] = useState('h264');
   const [burnCaptions, setBurnCaptions] = useState(true);
 
+  // Account security
+  const [currentPw, setCurrentPw] = useState('');
+  const [nextPw, setNextPw] = useState('');
+  const [pwNotice, setPwNotice] = useState<string | null>(null);
+  const [pwBusy, setPwBusy] = useState(false);
+
   useEffect(() => {
     setFullName(user?.full_name ?? '');
     setEmail(user?.email ?? '');
@@ -67,19 +73,43 @@ export default function Settings() {
 
   async function handleSaveProfile() {
     setProfileSaved(null);
-    await saveUser({
-      id: user?.id,
+    // Email is the sign-in address and lives only on the account row, so it is not sent here.
+    const ok = await saveUser({
       full_name: fullName,
-      email: email,
       instagram_username: igHandle.replace(/^@/, ''),
       youtube_channel_id: ytHandle,
+      niche,
+      locale,
     });
-    setProfileSaved(true);
+    setProfileSaved(ok);
     setTimeout(() => setProfileSaved(null), 3500);
   }
 
-  function handleSaveAi() {
+  // The server revokes this session when the password changes, so the studio goes back to the
+  // sign-in screen and the creator starts again with the new password.
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwBusy(true);
+    setPwNotice(null);
     try {
+      await api.changePassword(currentPw, nextPw);
+      window.dispatchEvent(new Event('kt:signedOut'));
+    } catch (err: any) {
+      setPwNotice(err?.message || 'Could not change the password.');
+      setPwBusy(false);
+    }
+  }
+
+  async function handleSignOut() {
+    try {
+      await api.signOut();
+    } catch {
+      // Even if the call fails, the browser drops the cookie below.
+    }
+    window.dispatchEvent(new Event('kt:signedOut'));
+  }
+
+  function handleSaveAi() {    try {
       localStorage.setItem(
         'kontentos_ai_settings',
         JSON.stringify({ aiModel, temperature, autoDraft, voiceMatch, transcribeOnIngest }),
@@ -209,9 +239,11 @@ export default function Settings() {
                     </label>
                     <input
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full rounded-btn border border-line bg-surface px-3 py-2 text-[13.5px] text-ink outline-none focus:border-primary"
+                      readOnly
+                      title="Your sign-in address. It cannot be edited from the studio."
+                      className="w-full rounded-btn border border-line bg-surface-2 px-3 py-2 text-[13.5px] text-ink-muted outline-none cursor-default"
                     />
+                    <p className="mt-1 text-[11px] text-ink-dim">Used to sign in · cannot be changed here.</p>
                   </div>
 
                   <div>
@@ -272,6 +304,11 @@ export default function Settings() {
                         <Icon name="check_circle" size={16} /> Profile changes saved to database.
                       </span>
                     )}
+                    {profileSaved === false && (
+                      <span className="text-[12.5px] text-danger font-semibold flex items-center gap-1.5 animate-fade-in">
+                        <Icon name="error_outline" size={16} /> Could not save — nothing changed.
+                      </span>
+                    )}
                   </div>
                   <Button icon="check" onClick={handleSaveProfile}>
                     Save Profile Changes
@@ -285,7 +322,8 @@ export default function Settings() {
                   Database &amp; Engine Status
                 </h3>
                 <p className="text-[12.5px] text-ink-muted mb-4">
-                  This build runs standalone on its own isolated server on port 4111 with zero interference.
+                  One server, one account: everything below describes the storage your workspace
+                  is actually writing to right now.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                   <div className="rounded-card border border-line p-3.5 bg-surface">
@@ -298,7 +336,7 @@ export default function Settings() {
                       }`}
                     >
                       <Icon name={online ? 'cloud_done' : 'cloud_off'} size={17} />
-                      {online ? 'Online (Port 4111)' : 'Offline (Local Fallback)'}
+                      {online ? 'Connected' : 'Server unreachable'}
                     </div>
                   </div>
                   <div className="rounded-card border border-line p-3.5 bg-surface">
@@ -317,6 +355,71 @@ export default function Settings() {
                       {videos.length} Asset(s)
                     </div>
                   </div>
+                </div>
+              </Card>
+
+              {/* Account security: the studio is one creator's workspace, so sign-out is real */}
+              <Card className="p-6 shadow-xs border-line space-y-5">
+                <div>
+                  <h3 className="font-display text-[18px] font-bold text-ink mb-1">
+                    Sign-in &amp; Password
+                  </h3>
+                  <p className="text-[12.5px] text-ink-muted">
+                    Signed in as <span className="font-semibold text-ink">{email || 'your account'}</span>.
+                    Your clips, captions and calendar are visible only to this account.
+                  </p>
+                </div>
+
+                <form onSubmit={handleChangePassword} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      Current password
+                    </label>
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      value={currentPw}
+                      onChange={(e) => setCurrentPw(e.target.value)}
+                      className="w-full rounded-btn border border-line bg-surface px-3 py-2 text-[13.5px] text-ink outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      New password
+                    </label>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={nextPw}
+                      onChange={(e) => setNextPw(e.target.value)}
+                      className="w-full rounded-btn border border-line bg-surface px-3 py-2 text-[13.5px] text-ink outline-none focus:border-primary"
+                    />
+                  </div>
+                  {pwNotice && (
+                    <p className="sm:col-span-2 flex items-center gap-1.5 text-[12.5px] font-semibold text-danger">
+                      <Icon name="error_outline" size={15} /> {pwNotice}
+                    </p>
+                  )}
+                  <div className="sm:col-span-2 flex items-center justify-between gap-3">
+                    <p className="text-[11.5px] text-ink-dim">
+                      Changing it signs you out of this browser. Minimum 8 characters.
+                    </p>
+                    <Button
+                      type="submit"
+                      variant="secondary"
+                      icon="vpn_key"
+                      disabled={!currentPw || nextPw.length < 8 || pwBusy}
+                    >
+                      {pwBusy ? 'Updating…' : 'Change password'}
+                    </Button>
+                  </div>
+                </form>
+
+                <div className="flex items-center justify-between pt-4 border-t border-line">
+                  <p className="text-[11.5px] text-ink-dim">Ends this session on this browser.</p>
+                  <Button variant="secondary" icon="logout" onClick={handleSignOut}>
+                    Sign out
+                  </Button>
                 </div>
               </Card>
             </>

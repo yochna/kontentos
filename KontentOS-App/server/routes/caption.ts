@@ -336,13 +336,13 @@ router.post(['/', '/generate'], async (req, res) => {
     // Determine the deep reel transcript
     let textToAnalyze = (transcriptText || '').trim();
     if (!textToAnalyze && videoId && !videoId.startsWith('temp_') && !videoId.startsWith('title_')) {
-      const subs = await db.getSubtitles(videoId);
+      const subs = await db.getSubtitles(videoId, req.userId);
       textToAnalyze = (subs?.transcript_text || (subs as any)?.transcript || '').trim();
     }
 
     let reelTitle = effectiveTitle;
     if (!reelTitle && videoId && !videoId.startsWith('temp_') && !videoId.startsWith('title_')) {
-      const vid = await db.getVideo(videoId);
+      const vid = await db.getVideo(videoId, req.userId);
       reelTitle = vid?.title || vid?.file_name || 'Creator Video Reel';
     }
     if (!textToAnalyze) {
@@ -354,7 +354,7 @@ router.post(['/', '/generate'], async (req, res) => {
 
     // Check cached caption
     if (!forceRefresh) {
-      const existingCaption = await db.getCaption(videoId, platform as any);
+      const existingCaption = await db.getCaption(videoId, platform as any, req.userId);
       if (existingCaption && existingCaption.transcript_hash === transcriptHash) {
         return res.json({
           success: true,
@@ -412,7 +412,7 @@ router.post(['/', '/generate'], async (req, res) => {
       approved: false,
       transcript_hash: transcriptHash,
       character_count: captionOutput.length,
-    });
+    }, req.userId);
 
     res.json({
       success: true,
@@ -440,13 +440,13 @@ router.post('/generate-all', async (req, res) => {
 
     let textToAnalyze = (transcriptText || '').trim();
     if (!textToAnalyze) {
-      const subs = await db.getSubtitles(videoId);
+      const subs = await db.getSubtitles(videoId, req.userId);
       textToAnalyze = (subs?.transcript_text || (subs as any)?.transcript || '').trim();
     }
 
     let reelTitle = videoTitle;
     if (!reelTitle) {
-      const vid = await db.getVideo(videoId);
+      const vid = await db.getVideo(videoId, req.userId);
       reelTitle = vid?.title || vid?.file_name || 'Creator Video Reel';
       if (!textToAnalyze) {
         textToAnalyze = vid?.title || 'Key insights from video reel';
@@ -455,13 +455,14 @@ router.post('/generate-all', async (req, res) => {
 
     const platforms: string[] = ['instagram', 'youtube', 'tiktok', 'linkedin', 'x', 'threads', 'facebook'];
     const ai = getGeminiClient();
+    const userId = req.userId;
 
     // Generate for all platforms concurrently with rich reel-grounded prompts
     const generationPromises = platforms.map(async (p) => {
       const transcriptHash = crypto.createHash('md5').update(textToAnalyze + tone + p + (reelTitle || '')).digest('hex');
 
       if (!forceRefresh) {
-        const existing = await db.getCaption(videoId, p as any);
+        const existing = await db.getCaption(videoId, p as any, userId);
         if (existing && existing.transcript_hash === transcriptHash) {
           return { platform: p, data: existing };
         }
@@ -502,7 +503,7 @@ router.post('/generate-all', async (req, res) => {
         approved: false,
         transcript_hash: transcriptHash,
         character_count: caption.length,
-      });
+      }, userId);
 
       return { platform: p, data: saved };
     });
@@ -555,7 +556,7 @@ router.patch('/:id', async (req, res) => {
       updates.approved = Boolean(approved);
     }
 
-    const updated = await db.updateCaption(req.params.id, updates);
+    const updated = await db.updateCaption(req.params.id, updates, req.userId);
     if (!updated) {
       return res.status(404).json({ error: 'Caption not found' });
     }

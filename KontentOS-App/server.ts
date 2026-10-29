@@ -12,11 +12,11 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
-import { createHmac, timingSafeEqual } from 'crypto';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import rateLimit from 'express-rate-limit';
 import { isValidGeminiKey, envGeminiKey } from './server/geminiKey.js';
+import { attachSession, createAuthRouter, requireUser } from './server/auth.js';
 
 // Local backend routes and database
 import * as db from './server/db.js';
@@ -41,40 +41,7 @@ const uploadsDir = path.join(appRoot, 'uploads');
 for (const dir of [dataDir, uploadsDir]) if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4111;
-
-// Owner passcode gate. The studio has one tenant per deployment and no accounts, so every
-// route — including 33 anonymous writes and 3 deletes — was world-writable. ACCESS_CODE is
-// set in the host's environment and never reaches the browser.
-const ACCESS_CODE = (process.env.ACCESS_CODE || '').trim();
 const IS_PROD = process.env.NODE_ENV === 'production';
-const SESSION_COOKIE = 'kt_access';
-const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
-// The cookie holds a keyed hash of the code, not the code. Changing ACCESS_CODE in the host
-// environment logs every session out, because the expected value changes with it.
-const SESSION_VALUE = ACCESS_CODE
-  ? createHmac('sha256', 'kontentos-access-session').update(ACCESS_CODE).digest('hex')
-  : '';
-
-function readCookie(header: string | undefined, name: string): string | null {
-  if (!header) return null;
-  for (const part of header.split(';')) {
-    const eq = part.indexOf('=');
-    if (eq === -1) continue;
-    if (part.slice(0, eq).trim() === name) return decodeURIComponent(part.slice(eq + 1).trim());
-  }
-  return null;
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
-}
-
-function hasValidSession(req: express.Request): boolean {
-  const value = readCookie(req.headers.cookie, SESSION_COOKIE);
-  return !!SESSION_VALUE && !!value && safeEqual(value, SESSION_VALUE);
-}
 
 async function createApp() {
   const app = express();
@@ -145,58 +112,23 @@ async function createApp() {
     next(err);
   });
 
-  // Access gate. Everything under /api needs the session cookie except the health check
-  // (Render polls it) and the access routes themselves.
+  // Session cookie is read on every request; only /api/auth and /api/health work without it.
+  app.use(attachSession);
+
+  app.use('/api/auth', createAuthRouter());
+
+  // Everything else under /api belongs to a signed-in creator, and req.userId scopes every
+  // query below to their own rows.
   app.use('/api', (req, res, next) => {
-    if (req.path === '/health' || req.path.startsWith('/access/')) return next();
-    if (!ACCESS_CODE) {
-      // Nothing configured. Reads stay open so the studio still loads and can explain itself,
-      // but an unconfigured production server is never anonymously writable.
-      if (IS_PROD && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-        return res.status(503).json({
-          error: 'Saving is locked: set ACCESS_CODE in the host environment to use this studio.',
-        });
-      }
-      return next();
-    }
-    if (hasValidSession(req)) return next();
-    return res.status(401).json({ error: 'This studio is locked.', accessRequired: true });
-  });
-
-  app.get('/api/access/status', (req, res) => {
-    res.json({
-      success: true,
-      accessRequired: !!ACCESS_CODE,
-      unlocked: !ACCESS_CODE || hasValidSession(req),
-    });
-  });
-
-  const unlockLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 10,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-    message: { error: 'Too many unlock attempts. Wait a few minutes and try again.' },
-  });
-
-  app.post('/api/access/unlock', unlockLimiter, (req, res) => {
-    if (!ACCESS_CODE) {
-      return res.status(503).json({ error: 'No access code is configured on this server.' });
-    }
-    const code = String((req.body as { code?: unknown })?.code ?? '').trim();
-    if (!safeEqual(code, ACCESS_CODE)) {
-      return res.status(401).json({ error: 'Wrong access code.' });
-    }
-    res.setHeader(
-      'Set-Cookie',
-      `${SESSION_COOKIE}=${SESSION_VALUE}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_MAX_AGE}${IS_PROD ? '; Secure' : ''}`,
-    );
-    res.json({ success: true });
+    if (req.path === '/health' || req.path.startsWith('/auth/')) return next();
+    return requireUser(req, res, next);
   });
 
   // Serve media uploaded by THIS app instance with explicit CORP and Accept-Ranges.
+  // Signed-in only: a clip's URL used to be enough to read anyone's footage.
   app.use(
     '/uploads',
+    requireUser,
     (req, res, next) => {
       res.header('Cross-Origin-Resource-Policy', 'cross-origin');
       res.header('Access-Control-Allow-Origin', '*');
@@ -408,19 +340,19 @@ async function createApp() {
       app: 'KontentOS — Editorial Studio (Redesign)',
       standalone: true,
       port: PORT,
-      accessRequired: !!ACCESS_CODE,
+      authRequired: true,
       timestamp: new Date().toISOString(),
     });
   });
 
-  app.get('/api/db/status', async (_req, res) => {
+  app.get('/api/db/status', async (req, res) => {
     // Resolve the engine before reporting it: on the very first request the lazy connection
     // may still be opening, and "local JSON" would be a lie about a configured database.
     await db.initDatabase();
     const connected = db.isMongoConnected();
     let videoCount = 0;
     try {
-      videoCount = (await db.listVideos()).length;
+      videoCount = (await db.listVideos(req.userId)).length;
     } catch { /* a read failure still reports the storage state below */ }
     res.json({
       status: 'ok',
@@ -607,9 +539,9 @@ async function createApp() {
       const { videoId, forceRefresh = false, targetLanguage = 'English', apiKey: clientKey } = req.body || {};
       if (!videoId) return res.status(400).json({ error: 'Missing videoId' });
 
-      let video = await db.getVideo(videoId);
+      let video = await db.getVideo(videoId, req.userId);
       if (!video) {
-        const all = await db.listVideos();
+        const all = await db.listVideos(req.userId);
         video =
           all.find((v: any) => v.id === videoId || v.title === videoId || (v.file_url && v.file_url.includes(videoId))) ||
           (all.length > 0 ? all[0] : null);
@@ -617,7 +549,9 @@ async function createApp() {
       if (!video) return res.status(404).json({ error: 'Video not found' });
 
       // Cached subtitles check
-      const existing = (await db.getSubtitles(video.id)) || (videoId !== video.id ? await db.getSubtitles(videoId) : null);
+      const existing =
+        (await db.getSubtitles(video.id, req.userId)) ||
+        (videoId !== video.id ? await db.getSubtitles(videoId, req.userId) : null);
       if (existing && !forceRefresh && (existing.language === targetLanguage || (!existing.language && targetLanguage === 'English'))) {
         const segments = existing.segments || parseSrtToSegments(existing.srt_content || '');
         return res.json({
@@ -813,7 +747,7 @@ Output valid JSON:
           vtt_content: vtt,
           transcript_text: transcript,
           segments,
-        });
+        }, req.userId);
       }
 
       res.json({
@@ -842,11 +776,11 @@ Output valid JSON:
   app.get('/api/transcribe/:videoId', async (req, res) => {
     try {
       const { videoId } = req.params;
-      let existing = await db.getSubtitles(videoId);
+      let existing = await db.getSubtitles(videoId, req.userId);
       if (!existing) {
-        const all = await db.listVideos();
+        const all = await db.listVideos(req.userId);
         const v = all.find((item: any) => item.id === videoId || item.title === videoId);
-        if (v) existing = await db.getSubtitles(v.id);
+        if (v) existing = await db.getSubtitles(v.id, req.userId);
       }
       if (!existing) return res.status(404).json({ error: 'No captions found for video' });
       const segments = existing.segments || parseSrtToSegments(existing.srt_content || '');
@@ -865,47 +799,30 @@ Output valid JSON:
   app.use('/api/static-card', staticCardAiRouter);
 
   // Ideas & Spark Engine API (persistent saved ideas + AI/procedural generation)
-  const savedIdeasFile = path.join(dataDir, 'saved_ideas.json');
-  function readSavedIdeas(): any[] {
+  app.get('/api/script/saved-ideas', async (req, res) => {
     try {
-      if (fs.existsSync(savedIdeasFile)) {
-        const raw = fs.readFileSync(savedIdeasFile, 'utf-8');
-        return JSON.parse(raw);
-      }
-    } catch { /* ignore fallback */ }
-    return [];
-  }
-  function writeSavedIdeas(ideas: any[]) {
-    try {
-      fs.writeFileSync(savedIdeasFile, JSON.stringify(ideas, null, 2), 'utf-8');
-    } catch (e) {
-      console.error('Failed to write saved ideas to .data/saved_ideas.json:', e);
+      res.json({ success: true, data: await db.listSavedIdeas(req.userId) });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Could not load saved ideas' });
     }
-  }
-
-  app.get('/api/script/saved-ideas', (_req, res) => {
-    res.json({ success: true, data: readSavedIdeas() });
   });
 
-  app.post('/api/script/saved-ideas', (req, res) => {
+  app.post('/api/script/saved-ideas', async (req, res) => {
     const idea = req.body;
     if (!idea || !idea.id) return res.status(400).json({ error: 'Missing idea data' });
-    const current = readSavedIdeas();
-    const idx = current.findIndex((i: any) => i.id === idea.id);
-    if (idx >= 0) {
-      current[idx] = idea;
-    } else {
-      current.unshift(idea);
+    try {
+      res.json({ success: true, data: await db.saveSavedIdea(req.userId, idea) });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Could not save this idea' });
     }
-    writeSavedIdeas(current);
-    res.json({ success: true, data: current });
   });
 
-  app.delete('/api/script/saved-ideas/:id', (req, res) => {
-    const { id } = req.params;
-    const current = readSavedIdeas().filter((i: any) => i.id !== id);
-    writeSavedIdeas(current);
-    res.json({ success: true, data: current });
+  app.delete('/api/script/saved-ideas/:id', async (req, res) => {
+    try {
+      res.json({ success: true, data: await db.deleteSavedIdea(req.userId, req.params.id) });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Could not delete this idea' });
+    }
   });
 
   app.post('/api/script/ideas', async (req, res) => {
@@ -924,13 +841,14 @@ Output valid JSON:
   app.use('/api/script', scriptRouter);
   app.use('/api/editor', editorRouter);
 
-  // User profile.
-  app.get('/api/user', async (_req, res) => {
-    const user = await db.getUser();
+  // User profile — the signed-in creator, never another account.
+  app.get('/api/user', async (req, res) => {
+    const user = await db.getUser(req.userId);
     res.json({ success: true, data: user });
   });
   app.post('/api/user', async (req, res) => {
-    const updated = await db.saveUser(req.body);
+    // Email and the password hash are changed through /api/auth, not here.
+    const updated = await db.updateUserProfile(req.userId, req.body || {});
     res.json({ success: true, data: updated });
   });
 
@@ -1023,6 +941,24 @@ Output valid JSON:
 
   await db.initDatabase();
 
+  // Ideas saved by the old shared file move into the legacy bucket, which the first account
+  // to sign up adopts along with the rest of the passcode-era workspace.
+  const legacyIdeasFile = path.join(dataDir, 'saved_ideas.json');
+  try {
+    if (fs.existsSync(legacyIdeasFile)) {
+      const parsed = JSON.parse(fs.readFileSync(legacyIdeasFile, 'utf-8'));
+      if (Array.isArray(parsed) && parsed.length) {
+        const moved = await db.importLegacySavedIdeas(parsed);
+        fs.renameSync(legacyIdeasFile, `${legacyIdeasFile}.migrated`);
+        console.log(`  ▸ Imported ${moved} saved idea(s) from .data/saved_ideas.json`);
+      } else {
+        fs.renameSync(legacyIdeasFile, `${legacyIdeasFile}.migrated`);
+      }
+    }
+  } catch (err) {
+    console.error('Could not import the legacy saved-ideas file:', err);
+  }
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n  KontentOS Editorial Studio (Redesign) — standalone`);
     console.log(`  ▸ App + API : http://localhost:${PORT}`);
@@ -1032,13 +968,6 @@ Output valid JSON:
       console.log(
         '  ⚠️  MONGODB_URI is not set: uploads, schedules and history live only in this container and\n' +
           '      are erased on the next redeploy or when the free plan sleeps the service.\n',
-      );
-    }
-    if (!ACCESS_CODE) {
-      console.log(
-        IS_PROD
-          ? '  ⚠️  ACCESS_CODE is not set: the studio is readable but nobody can save. Set it in the host environment.\n'
-          : '  ℹ️  ACCESS_CODE is not set: writes are open because this is a dev server.\n',
       );
     }
   });

@@ -17,6 +17,10 @@ export interface User {
   instagram_token?: string;
   instagram_user_id?: string;
   instagram_username?: string;
+  youtube_channel_id?: string;
+  tiktok_username?: string;
+  niche?: string;
+  locale?: string;
   created_at: string;
 }
 
@@ -61,6 +65,7 @@ export interface Caption {
 
 export interface PublishingRecord {
   id: string;
+  user_id: string;
   video_id: string;
   platform: SocialPlatform;
   platform_post_id?: string;

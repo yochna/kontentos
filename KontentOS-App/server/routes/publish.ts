@@ -21,10 +21,11 @@ router.post(['/reels', '/instagram', '/save'], async (req, res) => {
       return res.status(400).json({ error: 'Missing videoId' });
     }
 
-    let video = await db.getVideo(videoId);
+    let video = await db.getVideo(videoId, req.userId);
     if (!video) {
       video = await db.createVideo({
         id: videoId,
+        user_id: req.userId,
         title: 'Uploaded Creator Footage',
         file_name: 'footage.mp4',
         file_url: '/uploads/footage.mp4',
@@ -58,12 +59,12 @@ router.post(['/reels', '/instagram', '/save'], async (req, res) => {
       platform: 'instagram',
       platform_post_id: postId,
       status: 'saved',
-    });
+    }, req.userId);
 
     // Mark caption as approved
-    const caption = await db.getCaption(videoId, 'instagram');
+    const caption = await db.getCaption(videoId, 'instagram', req.userId);
     if (caption) {
-      await db.updateCaption(caption.id, { approved: true });
+      await db.updateCaption(caption.id, { approved: true }, req.userId);
     }
 
     res.json({
@@ -80,12 +81,12 @@ router.post(['/reels', '/instagram', '/save'], async (req, res) => {
 // Get Publishing History
 router.get('/history', async (req, res) => {
   try {
-    const history = await db.listPublishingHistory();
+    const history = await db.listPublishingHistory(req.userId);
     // Join with video info
     const enriched = await Promise.all(
       history.map(async (item) => {
-        const video = await db.getVideo(item.video_id);
-        const caption = await db.getCaption(item.video_id, item.platform);
+        const video = await db.getVideo(item.video_id, req.userId);
+        const caption = await db.getCaption(item.video_id, item.platform, req.userId);
         return {
           ...item,
           video_title: video?.title || 'Reel Post',
@@ -103,7 +104,7 @@ router.get('/history', async (req, res) => {
 // Delete a publishing history record
 router.delete('/history/:id', async (req, res) => {
   try {
-    const deleted = await db.deletePublishingRecord(req.params.id);
+    const deleted = await db.deletePublishingRecord(req.params.id, req.userId);
     res.json({ success: deleted, message: deleted ? 'Record deleted' : 'Record not found' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -117,12 +118,13 @@ router.delete('/history/:id', async (req, res) => {
 // GET /api/publish/schedule - Get all scheduled posts
 router.get('/schedule', async (req, res) => {
   try {
-    const posts = await db.listScheduledPosts();
+    const posts = await db.listScheduledPosts(req.userId);
     // Enrich with video titles/thumbnails if missing
+    const userId = req.userId;
     const enriched = await Promise.all(
       posts.map(async (p) => {
         if (!p.video_title && p.video_id) {
-          const video = await db.getVideo(p.video_id);
+          const video = await db.getVideo(p.video_id, userId);
           if (video) {
             p.video_title = video.title;
             p.thumbnail_url = video.thumbnail_url || p.thumbnail_url;
@@ -160,7 +162,7 @@ router.post('/schedule', async (req, res) => {
       return res.status(400).json({ error: 'Missing videoId' });
     }
 
-    const video = await db.getVideo(videoId);
+    const video = await db.getVideo(videoId, req.userId);
 
     // If single ID update
     if (id) {
@@ -174,7 +176,7 @@ router.post('/schedule', async (req, res) => {
         hashtags: Array.isArray(hashtags) ? hashtags : [],
         scheduled_at: scheduledAt || new Date(Date.now() + 86400000).toISOString(),
       };
-      const updated = await db.updateScheduledPost(id, postData);
+      const updated = await db.updateScheduledPost(id, postData, req.userId);
       if (updated) {
         return res.json({ success: true, data: updated, message: 'Scheduled post updated successfully!' });
       }
@@ -190,6 +192,7 @@ router.post('/schedule', async (req, res) => {
     const staggerMs = Math.max(0, Number(staggerMinutes) || 0) * 60 * 1000;
 
     const createdPosts = [];
+    const userId = req.userId;
     for (let i = 0; i < targetPlatforms.length; i++) {
       const targetPlat = targetPlatforms[i];
       const custom = platformCustomizations[targetPlat] || {};
@@ -201,6 +204,7 @@ router.post('/schedule', async (req, res) => {
 
       const newPostData = {
         id: (targetPlatforms.length === 1 && req.body.id) ? req.body.id : undefined,
+        user_id: userId,
         video_id: videoId,
         video_title: videoTitle || video?.title || 'Creator Reel',
         file_url: fileUrl || req.body.file_url || video?.file_url || '',
@@ -235,7 +239,7 @@ router.post('/schedule', async (req, res) => {
 // POST /api/publish/schedule/:id/crosspost - Cross-post an existing post to additional platforms
 router.post('/schedule/:id/crosspost', async (req, res) => {
   try {
-    const existing = await db.getScheduledPost(req.params.id);
+    const existing = await db.getScheduledPost(req.params.id, req.userId);
     if (!existing) {
       return res.status(404).json({ error: 'Source post not found' });
     }
@@ -249,12 +253,13 @@ router.post('/schedule/:id/crosspost', async (req, res) => {
     
     // Update existing post with crossPostGroupId if it doesn't have one
     if (!existing.cross_post_group_id) {
-      await db.updateScheduledPost(existing.id, { cross_post_group_id: crossPostGroupId });
+      await db.updateScheduledPost(existing.id, { cross_post_group_id: crossPostGroupId }, req.userId);
     }
 
     const baseTime = new Date(existing.scheduled_at).getTime();
     const staggerMs = Math.max(0, Number(staggerMinutes) || 0) * 60 * 1000;
     const createdPosts = [];
+    const userId = req.userId;
 
     for (let i = 0; i < targetPlatforms.length; i++) {
       const plat = targetPlatforms[i];
@@ -264,6 +269,7 @@ router.post('/schedule/:id/crosspost', async (req, res) => {
       const platTime = new Date(baseTime + ((i + 1) * staggerMs)).toISOString();
 
       const newPost = await db.createScheduledPost({
+        user_id: userId,
         video_id: existing.video_id,
         video_title: existing.video_title,
         file_url: existing.file_url,
@@ -302,7 +308,7 @@ router.patch('/schedule/:id', async (req, res) => {
     if (scheduledAt !== undefined) updates.scheduled_at = scheduledAt;
     if (status !== undefined) updates.status = status;
 
-    const updated = await db.updateScheduledPost(req.params.id, updates);
+    const updated = await db.updateScheduledPost(req.params.id, updates, req.userId);
     if (!updated) {
       return res.status(404).json({ error: 'Scheduled post not found' });
     }
@@ -325,7 +331,7 @@ router.put('/schedule/:id', async (req, res) => {
     };
     if (status) updates.status = status;
 
-    const updated = await db.updateScheduledPost(req.params.id, updates);
+    const updated = await db.updateScheduledPost(req.params.id, updates, req.userId);
     if (!updated) {
       return res.status(404).json({ error: 'Scheduled post not found' });
     }
@@ -343,7 +349,7 @@ router.post('/schedule/:id/publish-now', async (req, res) => {
     const updated = await db.updateScheduledPost(req.params.id, {
       status: 'published',
       published_at: new Date().toISOString(),
-    });
+    }, req.userId);
 
     if (!updated) {
       return res.status(404).json({ error: 'Scheduled post not found' });
@@ -356,7 +362,7 @@ router.post('/schedule/:id/publish-now', async (req, res) => {
       platform_post_id: updated.platform_post_id,
       url: updated.post_url,
       status: 'published',
-    });
+    }, req.userId);
 
     res.json({ success: true, data: updated, message: 'Marked as published in KontentOS.' });
   } catch (err: any) {
@@ -367,7 +373,7 @@ router.post('/schedule/:id/publish-now', async (req, res) => {
 // DELETE /api/publish/schedule/:id - Delete / cancel scheduled post
 router.delete('/schedule/:id', async (req, res) => {
   try {
-    const deleted = await db.deleteScheduledPost(req.params.id);
+    const deleted = await db.deleteScheduledPost(req.params.id, req.userId);
     res.json({ success: deleted, message: deleted ? 'Scheduled post cancelled' : 'Not found' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

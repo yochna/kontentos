@@ -15,10 +15,8 @@ services:
         value: 4111
       - key: GEMINI_API_KEY
         sync: false
-      # Passcode that unlocks the studio. Without it a production deployment serves the app
-      # read-only: every write to /api is refused so anonymous visitors cannot delete anything.
-      - key: ACCESS_CODE
-        sync: false
+      # No shared passcode any more: creators register their own email account, so there is no
+      # secret to provision here. The first account to sign up inherits the old workspace.
       # server.ts rejects any cross-origin caller not listed here (comma-separated).
       # Same-origin requests from the app itself need no entry.
       - key: ALLOWED_ORIGINS

@@ -107,7 +107,7 @@ interface StoreValue {
   ) => Promise<{ ok: boolean; message?: string }>;
   deleteScheduled: (id: string) => Promise<void>;
   publishNow: (id: string) => Promise<{ ok: boolean; message?: string }>;
-  saveUser: (profile: Partial<User>) => Promise<void>;
+  saveUser: (profile: Partial<User>) => Promise<boolean>;
 
   /** Closed-loop pipeline state & inter-screen handoffs */
   activeDraft: ActiveDraft | null;
@@ -149,14 +149,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [scheduled, setScheduled] = useState<ScheduledPost[]>([]);
   const [history, setHistory] = useState<PublishingRecord[]>([]);
   const [dbStatus, setDbStatus] = useState<DbStatus | null>(null);
-  const [savedIdeas, setSavedIdeas] = useState<Idea[]>(() => {
-    try {
-      const raw = localStorage.getItem('kontentos_saved_ideas');
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Saved ideas come from the account's own rows in the database. They used to be mirrored in
+  // localStorage, which would have shown one creator's briefs to the next person on the browser.
+  const [savedIdeas, setSavedIdeas] = useState<Idea[]>([]);
   const [project, setProjectState] = useState<TimelineProject | null>(() => {
     try {
       const saved = localStorage.getItem('kontentos_working_project');
@@ -273,7 +268,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         api.getScheduled().catch(() => []),
         api.getHistory().catch(() => []),
         api.dbStatus().catch(() => null),
-        api.getSavedIdeas().catch(() => []),
+        api.getSavedIdeas().catch(() => null),
       ]);
       setUser(u);
       setVideos(v);
@@ -284,12 +279,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // the only one that reports absence (null), so it is what actually detects downtime.
       const serverReached = d !== null;
       setOnline(serverReached);
-      if (serverReached && si) {
-        setSavedIdeas(si);
-        try {
-          localStorage.setItem('kontentos_saved_ideas', JSON.stringify(si));
-        } catch { /* ignore */ }
-      }
+      // null means the request failed; an empty list is a real answer and replaces what is shown.
+      if (si) setSavedIdeas(si);
     } catch {
       setOnline(false);
     } finally {
@@ -414,12 +405,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const saveUser = useCallback(async (profile: Partial<User>) => {
+  const saveUser = useCallback(async (profile: Partial<User>): Promise<boolean> => {
     try {
       const updated = await api.saveUser(profile);
-      if (updated) setUser(updated);
+      if (updated) {
+        setUser(updated);
+        return true;
+      }
+      return false;
     } catch (err) {
       console.error('Save user failed:', err);
+      return false;
     }
   }, []);
 
@@ -638,26 +634,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const saveIdea = useCallback(async (idea: Idea) => {
+    // Optimistic so the button answers immediately, then settle on what the account's rows say.
     setSavedIdeas((prev) => {
       const idx = prev.findIndex((i) => i.id === idea.id);
-      const next = idx >= 0 ? prev.map((i) => (i.id === idea.id ? idea : i)) : [idea, ...prev];
-      try {
-        localStorage.setItem('kontentos_saved_ideas', JSON.stringify(next));
-      } catch { /* ignore */ }
-      return next;
+      return idx >= 0 ? prev.map((i) => (i.id === idea.id ? idea : i)) : [idea, ...prev];
     });
-    api.saveIdea(idea).catch(() => {});
+    try {
+      setSavedIdeas(await api.saveIdea(idea));
+    } catch (err) {
+      console.error('Could not persist this idea:', err);
+    }
   }, []);
 
   const removeSavedIdea = useCallback(async (id: string) => {
-    setSavedIdeas((prev) => {
-      const next = prev.filter((i) => i.id !== id);
-      try {
-        localStorage.setItem('kontentos_saved_ideas', JSON.stringify(next));
-      } catch { /* ignore */ }
-      return next;
-    });
-    api.deleteSavedIdea(id).catch(() => {});
+    setSavedIdeas((prev) => prev.filter((i) => i.id !== id));
+    try {
+      setSavedIdeas(await api.deleteSavedIdea(id));
+    } catch (err) {
+      console.error('Could not delete this idea:', err);
+    }
   }, []);
 
   const isSavedIdea = useCallback(

@@ -319,13 +319,13 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Missing videoId' });
     }
 
-    const video = await db.getVideo(videoId);
+    const video = await db.getVideo(videoId, req.userId);
     if (!video) {
       return res.status(404).json({ error: 'Video record not found' });
     }
 
     // Check existing subtitles unless forceRefresh or language switch requested
-    const existingSubtitles = await db.getSubtitles(videoId);
+    const existingSubtitles = await db.getSubtitles(videoId, req.userId);
     if (existingSubtitles && !forceRefresh && (existingSubtitles.language === targetLanguage || (!existingSubtitles.language && targetLanguage === 'English'))) {
       const segments = existingSubtitles.segments || parseSrtToSegments(existingSubtitles.srt_content);
       return res.json({
@@ -481,7 +481,7 @@ Output valid JSON:
       transcript_text: transcript,
       language: targetLanguage,
       segments,
-    });
+    }, req.userId);
 
     res.json({
       success: true,
@@ -511,7 +511,7 @@ router.post('/translate', async (req, res) => {
     let baseTranscript = inputTranscript || '';
 
     if (!baseSrt && videoId) {
-      const existing = await db.getSubtitles(videoId);
+      const existing = await db.getSubtitles(videoId, req.userId);
       if (existing) {
         baseSrt = existing.srt_content;
         baseTranscript = existing.transcript_text;
@@ -599,7 +599,7 @@ Return JSON strictly matching this schema:
         transcript_text: translatedTranscript,
         language: targetLanguage,
         segments,
-      });
+      }, req.userId);
     }
 
     res.json({
@@ -673,7 +673,7 @@ router.post('/live', async (req, res) => {
       transcript_text: transcriptText,
       language,
       segments,
-    });
+    }, req.userId);
 
     res.json({
       success: true,
@@ -693,7 +693,7 @@ router.post('/live', async (req, res) => {
 // Direct export endpoints for .srt and .vtt files
 router.get('/:videoId/download/srt', async (req, res) => {
   try {
-    const subtitles = await db.getSubtitles(req.params.videoId);
+    const subtitles = await db.getSubtitles(req.params.videoId, req.userId);
     if (!subtitles) {
       return res.status(404).send('Subtitles not found');
     }
@@ -707,7 +707,7 @@ router.get('/:videoId/download/srt', async (req, res) => {
 
 router.get('/:videoId/download/vtt', async (req, res) => {
   try {
-    const subtitles = await db.getSubtitles(req.params.videoId);
+    const subtitles = await db.getSubtitles(req.params.videoId, req.userId);
     if (!subtitles) {
       return res.status(404).send('Subtitles not found');
     }

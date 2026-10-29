@@ -41,6 +41,9 @@ export interface TitleCopy {
 
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
+  // A 401 means the session cookie is gone or expired, wherever in the app it surfaces: the
+  // shell listens for this so a stale tab returns to the sign-in screen instead of spinning.
+  if (res.status === 401) window.dispatchEvent(new Event('kt:signedOut'));
   if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`);
   return data as T;
 }
@@ -54,21 +57,52 @@ export const api = {
     return json<DbStatus>(await fetch('/api/db/status'));
   },
 
-  async accessStatus(): Promise<{ accessRequired: boolean; unlocked: boolean }> {
-    const d = await json<{ accessRequired: boolean; unlocked: boolean }>(
-      await fetch('/api/access/status'),
-    );
-    return { accessRequired: d.accessRequired, unlocked: d.unlocked };
+  // ---- Account ----
+  /** The signed-in creator, or null when nobody is signed in. Never throws for a plain 401. */
+  async authMe(): Promise<User | null> {
+    try {
+      const d = await json<{ data: User | null }>(await fetch('/api/auth/me'));
+      return d.data ?? null;
+    } catch {
+      return null;
+    }
   },
 
-  // The server answers with the message to show ("Wrong access code.", "Too many unlock
-  // attempts…"), so json() throwing is the failure path here.
-  async unlockAccess(code: string): Promise<void> {
-    await json<{ success: boolean }>(
-      await fetch('/api/access/unlock', {
+  async signUp(input: { email: string; full_name: string; password: string }): Promise<User> {
+    const d = await json<{ data: User }>(
+      await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify(input),
+      }),
+    );
+    return d.data;
+  },
+
+  async signIn(email: string, password: string): Promise<User> {
+    const d = await json<{ data: User }>(
+      await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      }),
+    );
+    return d.data;
+  },
+
+  async signOut(): Promise<void> {
+    await json<{ success: boolean }>(
+      await fetch('/api/auth/logout', { method: 'POST' }),
+    );
+  },
+
+  // The server revokes this session on success, so the caller must sign in again afterwards.
+  async changePassword(current: string, next: string): Promise<void> {
+    await json<{ success: boolean }>(
+      await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current, next }),
       }),
     );
   },
@@ -588,68 +622,29 @@ Respond ONLY with pure JSON matching this exact structure:
     return generateProceduralIdeas(opts?.topic, opts?.niche);
   },
 
+  // Saved ideas belong to the signed-in account and are stored server-side, so there is no
+  // browser cache to fall back to — reading one would show the previous creator's briefs.
   async getSavedIdeas(): Promise<import('@/data/mock').Idea[]> {
-    try {
-      const res = await fetch('/api/script/saved-ideas');
-      if (res.ok) {
-        const d = await res.json();
-        if (Array.isArray(d.data)) return d.data;
-      }
-    } catch {
-      // fallback to localStorage
-    }
-    try {
-      const local = localStorage.getItem('kontentos_saved_ideas');
-      if (local) return JSON.parse(local);
-    } catch { /* ignore */ }
-    return [];
+    const d = await json<{ data: import('@/data/mock').Idea[] }>(await fetch('/api/script/saved-ideas'));
+    return Array.isArray(d.data) ? d.data : [];
   },
 
   async saveIdea(idea: import('@/data/mock').Idea): Promise<import('@/data/mock').Idea[]> {
-    try {
-      const res = await fetch('/api/script/saved-ideas', {
+    const d = await json<{ data: import('@/data/mock').Idea[] }>(
+      await fetch('/api/script/saved-ideas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(idea),
-      });
-      if (res.ok) {
-        const d = await res.json();
-        if (Array.isArray(d.data)) {
-          localStorage.setItem('kontentos_saved_ideas', JSON.stringify(d.data));
-          return d.data;
-        }
-      }
-    } catch {
-      // fallback
-    }
-    const existing = await this.getSavedIdeas();
-    const idx = existing.findIndex((i) => i.id === idea.id);
-    const updated = idx >= 0 ? existing.map((i) => (i.id === idea.id ? idea : i)) : [idea, ...existing];
-    try {
-      localStorage.setItem('kontentos_saved_ideas', JSON.stringify(updated));
-    } catch { /* ignore */ }
-    return updated;
+      }),
+    );
+    return Array.isArray(d.data) ? d.data : [];
   },
 
   async deleteSavedIdea(id: string): Promise<import('@/data/mock').Idea[]> {
-    try {
-      const res = await fetch(`/api/script/saved-ideas/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        const d = await res.json();
-        if (Array.isArray(d.data)) {
-          localStorage.setItem('kontentos_saved_ideas', JSON.stringify(d.data));
-          return d.data;
-        }
-      }
-    } catch {
-      // fallback
-    }
-    const existing = await this.getSavedIdeas();
-    const updated = existing.filter((i) => i.id !== id);
-    try {
-      localStorage.setItem('kontentos_saved_ideas', JSON.stringify(updated));
-    } catch { /* ignore */ }
-    return updated;
+    const d = await json<{ data: import('@/data/mock').Idea[] }>(
+      await fetch(`/api/script/saved-ideas/${id}`, { method: 'DELETE' }),
+    );
+    return Array.isArray(d.data) ? d.data : [];
   },
 };
 

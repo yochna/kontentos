@@ -2,12 +2,13 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Topbar } from '@/components/Topbar';
 import { Splash } from '@/components/Splash';
-import { AccessLock } from '@/components/AccessLock';
+import { AuthScreen } from '@/components/AuthScreen';
 import { Icon } from '@/lib/icons';
 import { api } from '@/lib/api';
 import { useTheme } from '@/lib/theme';
 import { StoreProvider } from '@/lib/store';
 import type { ScreenId } from '@/lib/nav';
+import type { User } from '@/lib/types';
 
 import CommandCenter from '@/screens/CommandCenter';
 import Ideas from '@/screens/Ideas';
@@ -52,22 +53,21 @@ export default function App() {
   const [screen, setScreen] = useState<ScreenId>('home');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
-  const [access, setAccess] = useState<'checking' | 'locked' | 'open'>('checking');
+  const [account, setAccount] = useState<User | null | 'checking'>('checking');
 
-  // The store mounts API calls immediately, so the lock has to be resolved before it exists.
+  // The store starts fetching as soon as it mounts, so the session has to be settled first:
+  // an anonymous visitor must see the sign-in form, not a wall of failed requests.
   useEffect(() => {
     let cancelled = false;
-    api
-      .accessStatus()
-      .then((s) => {
-        if (!cancelled) setAccess(s.unlocked ? 'open' : 'locked');
-      })
-      // An unreachable server is the app's own offline state, not a reason to show a lock screen.
-      .catch(() => {
-        if (!cancelled) setAccess('open');
-      });
+    api.authMe().then((user) => {
+      if (!cancelled) setAccount(user);
+    });
+    // api.ts raises this when any call comes back 401, i.e. the session ended in this tab.
+    const onSignedOut = () => setAccount(null);
+    window.addEventListener('kt:signedOut', onSignedOut);
     return () => {
       cancelled = true;
+      window.removeEventListener('kt:signedOut', onSignedOut);
     };
   }, []);
 
@@ -85,8 +85,7 @@ export default function App() {
     return () => window.removeEventListener('kt:navigate', onNavigate);
   }, []);
 
-  if (access === 'locked') return <AccessLock onUnlock={() => setAccess('open')} />;
-  if (access === 'checking') {
+  if (account === 'checking') {
     return (
       <div className="flex min-h-screen items-center justify-center gap-2 bg-app font-body text-[13px] text-ink-dim">
         <Icon name="hourglass_top" size={16} className="animate-pulse text-primary" />
@@ -95,10 +94,16 @@ export default function App() {
     );
   }
 
+  if (account === null) {
+    return <AuthScreen onSignedIn={setAccount} />;
+  }
+
+  // Keyed by the account: signing in as someone else in the same tab rebuilds the store from
+  // scratch instead of briefly showing the previous creator's clips.
   const Screen = SCREENS[screen];
 
   return (
-    <StoreProvider>
+    <StoreProvider key={account.id}>
       {showSplash && <Splash onDone={() => setShowSplash(false)} />}
       <div className="flex min-h-screen bg-app text-ink font-body">
         <Sidebar

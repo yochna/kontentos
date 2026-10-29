@@ -56,6 +56,7 @@ export interface Caption {
 
 export interface PublishingRecord {
   id: string;
+  user_id?: string;
   video_id: string;
   platform: SocialPlatform;
   platform_post_id?: string;
