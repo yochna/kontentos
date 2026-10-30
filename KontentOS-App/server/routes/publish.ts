@@ -21,18 +21,12 @@ router.post(['/reels', '/instagram', '/save'], async (req, res) => {
       return res.status(400).json({ error: 'Missing videoId' });
     }
 
-    let video = await db.getVideo(videoId, req.userId);
+    // The clip has to already exist in this creator's workspace. Inventing a placeholder
+    // row here filled the library with a phantom 15MB "Uploaded Creator Footage" that no
+    // upload ever produced, and skewed every count built on it.
+    const video = await db.getVideo(videoId, req.userId);
     if (!video) {
-      video = await db.createVideo({
-        id: videoId,
-        user_id: req.userId,
-        title: 'Uploaded Creator Footage',
-        file_name: 'footage.mp4',
-        file_url: '/uploads/footage.mp4',
-        status: 'ready',
-        file_size: 1024 * 1024 * 15,
-        duration: 30,
-      });
+      return res.status(404).json({ error: 'That clip is not in your workspace. Upload it first.' });
     }
 
     // Format final caption with hashtags
@@ -50,14 +44,11 @@ router.post(['/reels', '/instagram', '/save'], async (req, res) => {
     }
 
     // KontentOS records the post but does not upload to Instagram (no API integration yet),
-    // so there is no real permalink to store. Fabricating instagram.com/... links sends
-    // creators to a URL that does not exist.
-    const postId = `reel_${crypto.randomUUID().slice(0, 10)}`;
-
+    // so there is no real permalink and no real platform post id to store. Fabricating either
+    // sends creators to a URL that does not exist or implies a post Instagram never saw.
     const record = await db.recordPublish({
       video_id: videoId,
       platform: 'instagram',
-      platform_post_id: postId,
       status: 'saved',
     }, req.userId);
 
@@ -70,7 +61,7 @@ router.post(['/reels', '/instagram', '/save'], async (req, res) => {
     res.json({
       success: true,
       data: record,
-      message: 'Reel and caption saved to library successfully!',
+      message: 'Saved to your library as a ready-to-post draft. KontentOS does not upload to Instagram yet.',
     });
   } catch (err: any) {
     console.error('Error in /api/publish/reels:', err);

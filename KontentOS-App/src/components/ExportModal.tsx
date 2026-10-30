@@ -714,7 +714,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                     <button
                       type="button"
                       onClick={handleDirectDownloadSource}
-                      className="underline font-semibold hover:text-danger-strong"
+                      className="underline font-semibold rounded px-0.5 transition-colors hover:bg-danger/15"
                     >
                       Click here to download source master directly →
                     </button>

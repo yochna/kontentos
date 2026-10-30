@@ -493,7 +493,7 @@ export const BackgroundPicker: React.FC<Props> = ({
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-2 z-10 pointer-events-none">
                   <span className="text-xs font-semibold leading-tight text-white drop-shadow-sm">{preset.name}</span>
-                  <span className={`text-[10px] leading-tight ${isSelected ? 'text-primary-light font-medium' : 'text-white/70'}`}>
+                  <span className={`text-[10px] leading-tight ${isSelected ? 'text-white font-medium' : 'text-white/70'}`}>
                     {preset.subtitle}
                   </span>
                 </div>

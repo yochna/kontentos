@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    paths: ['KontentOS-App/**', '.github/workflows/ci.yml']
+  pull_request:
+    paths: ['KontentOS-App/**', '.github/workflows/ci.yml']
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: KontentOS-App
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: KontentOS-App/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # Client + server types, the tenant-isolation and auth suites, then the production bundle.
+      # No MONGODB_URI is set here on purpose: the tests assert they land on the JSON store.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build

@@ -220,7 +220,7 @@ export const SlideRegenerateModal: React.FC<Props> = ({
 
           {/* Error Message */}
           {errorMsg && (
-            <div className="p-2.5 rounded-btn bg-danger-soft text-danger text-xs flex items-center gap-2">
+            <div className="p-2.5 rounded-btn bg-danger/10 text-danger text-xs flex items-center gap-2">
               <Icon name="error" size={14} />
               <span>{errorMsg}</span>
             </div>

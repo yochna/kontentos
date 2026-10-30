@@ -398,7 +398,11 @@ interface LocalStoreSchema {
 }
 
 function getDataFilePath(): string {
-  const primaryDir = path.join(process.cwd(), '.data');
+  // Tests point the JSON store at a throwaway directory; the deployed app leaves this unset
+  // and keeps writing under the working directory (or the OS temp fallback when it is read-only).
+  const primaryDir = process.env.KONTENTOS_DATA_DIR
+    ? path.resolve(process.env.KONTENTOS_DATA_DIR)
+    : path.join(process.cwd(), '.data');
   try {
     if (!fs.existsSync(primaryDir)) {
       fs.mkdirSync(primaryDir, { recursive: true });
