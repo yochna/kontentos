@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Badge, Button, Card, Chip, Eyebrow, PageShell, Thumb } from '@/components/ui';
+import { Badge, Button, Card, Chip, Eyebrow, PageShell, Thumb, useDismiss } from '@/components/ui';
 import { unsplashPhoto } from '@/lib/images';
 import { ideas as initialMockIdeas, type Idea } from '@/data/mock';
 import { useStore } from '@/lib/store';
@@ -125,13 +125,13 @@ export default function Ideas() {
         />
         <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="max-w-2xl">
-            <Eyebrow icon="auto_awesome">Spark Engine Â· Angle Synthesizer</Eyebrow>
+            <Eyebrow icon="auto_awesome">Spark Engine · Angle Synthesizer</Eyebrow>
             <h1 className="font-display text-[30px] sm:text-[34px] leading-tight text-ink mt-1">
               What should you create next?
             </h1>
             <p className="text-ink-muted mt-2 text-[14.5px] leading-relaxed">
               KontentOS scans publisher waves, high-signal creator hooks, and your own archives to surface angles with
-              guaranteed retention models â€” then writes the full production blueprint.
+              guaranteed retention models — then writes the full production blueprint.
             </p>
 
             {/* Keyword / Topic input */}
@@ -192,7 +192,7 @@ export default function Ideas() {
             </Button>
             <div className="text-[12px] text-ink-dim px-2 text-center lg:text-left flex items-center justify-center lg:justify-start gap-1">
               <Icon name="verified" size={14} className="text-primary" />
-              <span>AI Angle Scoring Â· Offline Resilient</span>
+              <span>AI Angle Scoring · Offline Resilient</span>
             </div>
           </div>
         </div>
@@ -364,6 +364,7 @@ function BlueprintDrawer({
   onStartProduction: () => void;
   onClose: () => void;
 }) {
+  useDismiss(onClose);
   const b = idea.blueprint;
 
   return (
@@ -383,7 +384,7 @@ function BlueprintDrawer({
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label="Close blueprint"
             className="grid place-items-center w-9 h-9 rounded-btn text-ink-muted hover:bg-surface-2 kt-focus"
           >
             <Icon name="close" size={20} />
@@ -485,6 +486,7 @@ function TranscriptPickerModal({
   onSelect: (title: string) => void;
   onClose: () => void;
 }) {
+  useDismiss(onClose);
   return (
     <>
       <div className="fixed inset-0 z-40 bg-[var(--scrim)]" onClick={onClose} />
@@ -497,7 +499,11 @@ function TranscriptPickerModal({
               </span>
               <h3 className="font-semibold text-base text-ink">Select Video Transcript</h3>
             </div>
-            <button onClick={onClose} className="text-ink-muted hover:text-ink">
+            <button
+              onClick={onClose}
+              aria-label="Close transcript picker"
+              className="kt-focus text-ink-muted hover:text-ink"
+            >
               <Icon name="close" size={18} />
             </button>
           </div>

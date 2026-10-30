@@ -77,7 +77,7 @@ export default function CommandCenter() {
         icon: 'schedule_send',
         title: 'Broadcast Distribution',
         headline: hasScheduled ? `${scheduled.length} post(s) queued` : 'Schedule multi-channel',
-        meta: hasScheduled ? 'Optimal slot reserved' : 'Cross-post ready',
+        meta: hasScheduled ? 'Waiting on dispatch time' : 'Cross-post ready',
         screenId: 'publish-schedule' as ScreenId,
         done: hasScheduled,
       },

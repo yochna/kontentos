@@ -48,7 +48,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (user: User) => void })
     <div className="flex min-h-screen items-center justify-center bg-app px-5 font-body text-ink">
       <div className="w-full max-w-[400px] rounded-card border border-line bg-surface p-6 shadow-xs">
         <div className="mb-5 flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-btn bg-primary text-white">
+          <span className="flex h-9 w-9 items-center justify-center rounded-btn bg-primary text-on-primary">
             <Icon name="movie_filter" size={18} />
           </span>
           <div>

@@ -132,7 +132,7 @@ export const CarouselSlideStepper: React.FC<Props> = ({
                     e.stopPropagation();
                     onDeleteSlide(s.id);
                   }}
-                  className="absolute -top-1.5 -right-1 w-4 h-4 rounded-full bg-danger text-white flex items-center justify-center text-[10px] font-bold shadow-md hover:scale-110 transition-transform cursor-pointer"
+                  className="absolute -top-1.5 -right-1 w-4 h-4 rounded-full bg-danger text-on-primary flex items-center justify-center text-[10px] font-bold shadow-md hover:scale-110 transition-transform cursor-pointer"
                   title="Remove this slide"
                 >
                   ×

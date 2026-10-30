@@ -298,18 +298,18 @@ export default function BrandKit() {
             </div>
           </div>
 
-          <div className="grid grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
             {data.palette.map((c, idx) => (
               <div key={idx} className="text-center group relative">
                 <div
-                  className="h-16 rounded-card border border-line shadow-xs cursor-pointer overflow-hidden transition-transform group-hover:scale-105"
+                  className="h-16 rounded-card border border-line shadow-xs cursor-pointer overflow-hidden transition-transform group-hover:scale-105 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--ring)]"
                   style={{ background: c }}
-                  title="Click to edit hex"
                 >
                   <input
                     type="color"
                     value={c}
                     onChange={(e) => handleColorChange(idx, e.target.value)}
+                    aria-label={`Palette color ${idx + 1}: ${c}`}
                     className="opacity-0 w-full h-full cursor-pointer"
                   />
                 </div>

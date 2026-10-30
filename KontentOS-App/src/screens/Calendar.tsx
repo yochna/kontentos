@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, PageHeader, PageShell, StatusPill } from '@/components/ui';
+import { Button, Card, PageHeader, PageShell, StatusPill, useDismiss } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { navigate } from '@/lib/nav';
 import type { ScheduledPost, SocialPlatform } from '@/lib/types';
@@ -76,6 +76,8 @@ export default function Calendar() {
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
   const [activePostModal, setActivePostModal] = useState<ScheduledPost | null>(null);
+  const closePostModal = activePostModal ? () => setActivePostModal(null) : undefined;
+  useDismiss(closePostModal);
 
   // Direct In-Calendar Quick Event Creation Modal
   const [isQuickModalOpen, setIsQuickModalOpen] = useState(false);
@@ -182,6 +184,7 @@ export default function Calendar() {
               <button
                 type="button"
                 onClick={prevMonth}
+                aria-label="Previous month"
                 className="p-2 hover:bg-surface-2 text-ink-muted hover:text-ink transition-colors rounded-l-btn kt-focus"
                 title="Previous Month"
               >
@@ -193,6 +196,7 @@ export default function Calendar() {
               <button
                 type="button"
                 onClick={nextMonth}
+                aria-label="Next month"
                 className="p-2 hover:bg-surface-2 text-ink-muted hover:text-ink transition-colors rounded-r-btn kt-focus"
                 title="Next Month"
               >
@@ -252,7 +256,7 @@ export default function Calendar() {
 
         <div className="flex items-center gap-4 text-[12.5px] text-ink-muted">
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
             <strong className="text-ink font-semibold">{upcomingQueue.length}</strong> upcoming
           </span>
           <span className="text-line-strong">|</span>
@@ -268,7 +272,7 @@ export default function Calendar() {
         {/* Calendar Grid */}
         <Card className="p-3 sm:p-5 shadow-sm overflow-hidden">
           <div className="overflow-x-auto scrollbar-none -mx-1 px-1">
-            <div className="min-w-[720px]">
+            <div className="min-w-[540px] sm:min-w-[720px]">
           {/* Day Headers (Mon - Sun) */}
           <div className="grid grid-cols-7 gap-2 mb-2">
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName) => (
@@ -276,7 +280,8 @@ export default function Calendar() {
                 key={dayName}
                 className="text-center text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim py-1"
               >
-                {dayName}
+                <span className="hidden sm:inline">{dayName}</span>
+                <span className="sm:hidden">{dayName[0]}</span>
               </div>
             ))}
           </div>
@@ -287,7 +292,7 @@ export default function Calendar() {
             {Array.from({ length: leadDays }).map((_, i) => (
               <div
                 key={`lead-${i}`}
-                className="min-h-[105px] rounded-card bg-surface-2/30 border border-dashed border-line/50 opacity-40"
+                className="min-h-[86px] sm:min-h-[105px] rounded-card bg-surface-2/30 border border-dashed border-line/50 opacity-40"
               />
             ))}
 
@@ -304,7 +309,15 @@ export default function Calendar() {
                 <div
                   key={d}
                   onClick={() => setSelectedDay(d)}
-                  className={`group relative min-h-[110px] rounded-card border p-2 text-left transition-all duration-150 cursor-pointer flex flex-col justify-between ${
+                  tabIndex={0}
+                  aria-label={`${MONTH_NAMES[month]} ${d}: ${evs.length === 0 ? 'no scheduled drops' : `${evs.length} scheduled drop${evs.length > 1 ? 's' : ''}`}`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedDay(d);
+                    }
+                  }}
+                  className={`group relative kt-focus min-h-[92px] sm:min-h-[110px] rounded-card border p-2 text-left transition-all duration-150 cursor-pointer flex flex-col justify-between ${
                     isSelected
                       ? 'border-primary ring-2 ring-primary/20 bg-primary-soft/40 shadow-xs'
                       : 'border-line hover:border-line-strong bg-surface hover:bg-surface-2/40'
@@ -328,7 +341,8 @@ export default function Calendar() {
                         e.stopPropagation();
                         handleQuickScheduleForDay(d);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-surface text-ink-dim hover:text-primary transition-opacity"
+                      aria-label={`Schedule a post for ${MONTH_NAMES[month]} ${d}`}
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 kt-focus p-1 rounded hover:bg-surface text-ink-dim hover:text-primary transition-opacity"
                       title="Schedule for this date"
                     >
                       <Icon name="add" size={14} />
@@ -347,7 +361,15 @@ export default function Calendar() {
                             e.stopPropagation();
                             setActivePostModal(ev);
                           }}
-                          className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium border leading-tight truncate transition-transform hover:scale-[1.02] ${cfg.bg} ${cfg.color} ${cfg.border}`}
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setActivePostModal(ev);
+                            }
+                          }}
+                          className={`kt-focus flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium border leading-tight truncate transition-transform hover:scale-[1.02] ${cfg.bg} ${cfg.color} ${cfg.border}`}
                           title={`${new Date(ev.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${ev.video_title}`}
                         >
                           <Icon name={cfg.icon} size={12} className="shrink-0" />
@@ -368,7 +390,12 @@ export default function Calendar() {
                   <div className="flex items-center justify-between text-[10px] text-ink-dim pt-1 border-t border-line/30">
                     <span>{evs.length > 0 ? `${evs.length} drops` : '—'}</span>
                     {evs.some((e) => e.status === 'published') && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Has published content" />
+                      <span
+                        role="img"
+                        aria-label="Has published content"
+                        className="w-1.5 h-1.5 rounded-full bg-success"
+                        title="Has published content"
+                      />
                     )}
                   </div>
                 </div>

@@ -167,7 +167,7 @@ export default function RawReel() {
       />
 
       <PageHeader
-        eyebrow="Raw â†’ Reel Studio"
+        eyebrow="Raw → Reel Studio"
         icon="smart_display"
         title="One click. Pick a look. Ship the reel."
         description="Automated dead-air trimming, kinetic subtitle typography, and punch zooms from your raw smartphone takes."
@@ -354,7 +354,7 @@ export default function RawReel() {
                           <span className="text-[14px] font-semibold text-ink">{p.name}</span>
                           {active && (
                             <span className="w-4 h-4 rounded-full bg-primary text-on-primary grid place-items-center text-[10px]">
-                              âœ“
+                              ✓
                             </span>
                           )}
                         </div>
@@ -402,8 +402,8 @@ export default function RawReel() {
                 <span className="text-[13px] text-ink-muted flex items-center gap-2 bg-surface-2/60 px-3 py-1.5 rounded-btn border border-line">
                   <Icon name="check_circle" size={17} className="text-tertiary shrink-0" />
                   <span>
-                    <strong>{result.stats?.cutsCount || 0} cuts</strong> Â·{' '}
-                    <strong>{result.stats?.captionsCount || 0} captions</strong> Â·{' '}
+                    <strong>{result.stats?.cutsCount || 0} cuts</strong> ·{' '}
+                    <strong>{result.stats?.captionsCount || 0} captions</strong> ·{' '}
                     <strong>{fmtTime(result.stats?.silenceRemovedSec || 0)} dead-air purged</strong>
                   </span>
                 </span>
@@ -572,7 +572,7 @@ export default function RawReel() {
 function StepLabel({ n, title }: { n: number; title: string }) {
   return (
     <div className="flex items-center gap-2 mb-2">
-      <span className="grid place-items-center w-6 h-6 rounded-full bg-ink text-white text-[12px] font-bold tabular-nums shrink-0">
+      <span className="grid place-items-center w-6 h-6 rounded-full bg-ink text-app text-[12px] font-bold tabular-nums shrink-0">
         {n}
       </span>
       <h2 className="font-semibold text-ink text-[15px]">{title}</h2>

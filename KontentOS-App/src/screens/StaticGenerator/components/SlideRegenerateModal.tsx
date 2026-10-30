@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button } from '@/components/ui';
+import { Button, useDismiss } from '@/components/ui';
 import { api } from '@/lib/api';
 
 interface SlideContent {
@@ -43,6 +43,7 @@ export const SlideRegenerateModal: React.FC<Props> = ({
   topic = '',
   onApplyRegeneration,
 }) => {
+  useDismiss(isOpen ? onClose : undefined);
   const [instruction, setInstruction] = useState('Make more concise');
   const [customText, setCustomText] = useState('');
   const [isLoading, setIsLoading] = useState(false);

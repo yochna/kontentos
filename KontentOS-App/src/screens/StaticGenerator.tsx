@@ -835,8 +835,9 @@ export default function StaticGenerator() {
                 <button
                   type="button"
                   onClick={handlePrevSection}
+                  aria-label="Previous tool"
                   title="Previous tool"
-                  className="p-1.5 rounded-lg hover:bg-surface-2 text-ink-muted hover:text-ink border border-line text-xs transition-colors cursor-pointer flex items-center justify-center"
+                  className="p-1.5 rounded-lg hover:bg-surface-2 text-ink-muted hover:text-ink border border-line text-xs transition-colors cursor-pointer flex items-center justify-center kt-focus"
                 >
                   <Icon name="chevron_left" size={16} />
                 </button>
@@ -846,8 +847,9 @@ export default function StaticGenerator() {
                 <button
                   type="button"
                   onClick={handleNextSection}
+                  aria-label="Next tool"
                   title="Next tool"
-                  className="p-1.5 rounded-lg hover:bg-surface-2 text-ink-muted hover:text-ink border border-line text-xs transition-colors cursor-pointer flex items-center justify-center"
+                  className="p-1.5 rounded-lg hover:bg-surface-2 text-ink-muted hover:text-ink border border-line text-xs transition-colors cursor-pointer flex items-center justify-center kt-focus"
                 >
                   <Icon name="chevron_right" size={16} />
                 </button>

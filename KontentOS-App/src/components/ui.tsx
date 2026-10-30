@@ -1,6 +1,46 @@
+import { useEffect, useRef } from 'react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Icon } from '@/lib/icons';
 import { thumbGradient } from '@/data/mock';
+
+/* ------------------------------- useDismiss ------------------------------- */
+
+// Stacked modals must not fight over the body style, so the lock is refcounted.
+let scrollLocks = 0;
+let savedBodyOverflow = '';
+
+/**
+ * Closes a modal on Escape and freezes background scrolling while it is open.
+ * Call it unconditionally at the top of every modal/drawer component.
+ */
+export function useDismiss(onClose: (() => void) | undefined) {
+  // The callback is usually an inline arrow, so keep it in a ref: depending on it directly would
+  // tear down and rebuild the listener on every render.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  useEffect(() => {
+    if (!onClose) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeRef.current?.();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    if (scrollLocks === 0) {
+      savedBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    }
+    scrollLocks++;
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      scrollLocks = Math.max(0, scrollLocks - 1);
+      if (scrollLocks === 0) document.body.style.overflow = savedBodyOverflow;
+    };
+    // Mounted once per dialog; presence of onClose is the only thing that gates it.
+  }, [!!onClose]);
+}
 
 /* ---------------------------------- Button ---------------------------------- */
 
@@ -78,12 +118,26 @@ export function Card({
   hover?: boolean;
   onClick?: () => void;
 }) {
+  const interactive = !!onClick;
   return (
     <div
       onClick={onClick}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
       className={`bg-surface border border-line rounded-card shadow-[var(--shadow-1)] ${
-        hover ? 'transition-all hover:shadow-[var(--shadow-2)] hover:border-line-strong' : ''
-      } ${className}`}
+        interactive ? 'cursor-pointer kt-focus ' : ''
+      }${hover ? 'transition-all hover:shadow-[var(--shadow-2)] hover:border-line-strong ' : ''}${className}`}
     >
       {children}
     </div>

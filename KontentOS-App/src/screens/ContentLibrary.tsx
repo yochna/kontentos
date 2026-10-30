@@ -1,6 +1,6 @@
 ﻿import { useMemo, useRef, useState, useEffect } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/components/ui';
+import { Button, Card, PageHeader, PageShell, StatusPill, Badge, useDismiss } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { ingestFeatures } from '@/data/mock';
 import { getPreset } from '@/lib/timeline';
@@ -100,8 +100,8 @@ export default function ContentLibrary() {
         title="Content Library & Media Vault"
         description={
           online
-            ? 'Your high-signal raw footage and assembled compositions â€” searchable, indexed, and ready.'
-            : 'Backend offline â€” showing cached assets.'
+            ? 'Your high-signal raw footage and assembled compositions — searchable, indexed, and ready.'
+            : 'Backend offline — showing cached assets.'
         }
         actions={
           <>
@@ -356,7 +356,7 @@ export default function ContentLibrary() {
                 <Icon name="cloud_upload" size={24} />
               </span>
               <span className="text-[14px] font-semibold text-ink">Drop footage here to ingest</span>
-              <span className="text-xs text-ink-dim mt-1">MP4, MOV, WEBM, WAV Â· Up to 8 GB</span>
+              <span className="text-xs text-ink-dim mt-1">MP4, MOV, WEBM, WAV · Up to 8 GB</span>
               <span className="mt-3 text-xs font-semibold text-primary inline-flex items-center gap-1">
                 <Icon name="add" size={14} /> Browse local files
               </span>
@@ -424,6 +424,7 @@ function VideoDetailModal({
   onOpenSmartEditor: () => void;
   onDelete: () => void;
 }) {
+  useDismiss(onClose);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(video.title);
   const [subtitles, setSubtitles] = useState<any>(null);
@@ -541,7 +542,11 @@ function VideoDetailModal({
                 <div className="text-xs text-ink-dim font-mono">ID: {video.id}</div>
               </div>
             </div>
-            <button onClick={onClose} className="text-ink-muted hover:text-ink">
+            <button
+              onClick={onClose}
+              aria-label="Close video details"
+              className="kt-focus text-ink-muted hover:text-ink"
+            >
               <Icon name="close" size={18} />
             </button>
           </div>

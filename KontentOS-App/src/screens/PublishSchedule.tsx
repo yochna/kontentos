@@ -21,11 +21,12 @@ const PLATFORM_MAP: Record<string, SocialPlatform> = {
   fb: 'facebook',
 };
 
+// Fixed offsets from "now" — labels describe the clock time only, not any audience claim.
 const PEAK_SLOTS = [
-  { label: 'Tomorrow 09:15 AM', desc: 'Morning Peak (IG & LI)', offsetHours: 9.25, offsetDays: 1 },
-  { label: 'Tomorrow 01:30 PM', desc: 'Lunch Break (YT & TT)', offsetHours: 13.5, offsetDays: 1 },
-  { label: 'Tomorrow 06:45 PM', desc: 'Evening Commute (Viral)', offsetHours: 18.75, offsetDays: 1 },
-  { label: 'Saturday 11:00 AM', desc: 'Weekend Prime', offsetHours: 11, offsetDays: 2 },
+  { label: 'Tomorrow 09:15 AM', desc: 'Morning', offsetHours: 9.25, offsetDays: 1 },
+  { label: 'Tomorrow 01:30 PM', desc: 'Midday', offsetHours: 13.5, offsetDays: 1 },
+  { label: 'Tomorrow 06:45 PM', desc: 'Evening', offsetHours: 18.75, offsetDays: 1 },
+  { label: 'Saturday 11:00 AM', desc: 'Weekend', offsetHours: 11, offsetDays: 2 },
 ];
 
 function getFormattedSlotDate(offsetDays: number, offsetHours: number): string {
@@ -272,7 +273,7 @@ export default function PublishSchedule() {
             hashtags: data.data.facebook?.hashtags || copyBundle.facebook.hashtags,
           },
         });
-        setFlash({ tone: 'ok', msg: 'âœ“ Gemini AI generated fresh platform-tailored copy for all channels!' });
+        setFlash({ tone: 'ok', msg: '✓ Gemini AI generated fresh platform-tailored copy for all channels!' });
       } else {
         throw new Error(data?.error || 'AI copy generation failed');
       }
@@ -411,7 +412,7 @@ export default function PublishSchedule() {
               Export Bundle
             </Button>
             <Button icon="send" onClick={handleScheduleDispatch} disabled={busy || !selectedVideo}>
-              {busy ? 'Schedulingâ€¦' : 'Schedule Dispatch'}
+              {busy ? 'Scheduling…' : 'Schedule Dispatch'}
             </Button>
           </>
         }
@@ -472,7 +473,7 @@ export default function PublishSchedule() {
               </h2>
               {selectedVideo && (
                 <span className="text-xs text-ink-dim font-mono">
-                  Duration: {Math.round(selectedVideo.duration || 0)}s Â· 9:16
+                  Duration: {Math.round(selectedVideo.duration || 0)}s · 9:16
                 </span>
               )}
             </div>
@@ -738,7 +739,7 @@ export default function PublishSchedule() {
             <div className="w-full flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Icon name="phone_iphone" size={18} className="text-primary" />
-                <h2 className="font-semibold text-ink text-sm">
+                <h2 className="font-semibold text-ink text-[15px]">
                   {previewPlatform.charAt(0).toUpperCase() + previewPlatform.slice(1)} Feed Simulator
                 </h2>
               </div>
@@ -778,11 +779,11 @@ export default function PublishSchedule() {
                     <div className="absolute right-2.5 bottom-14 z-20 flex flex-col items-center gap-3.5 text-center text-white drop-shadow">
                       <div className="flex flex-col items-center">
                         <Icon name="favorite" size={20} className="text-white" />
-                        <span className="text-[9px] font-bold mt-0.5">2.4k</span>
+                        <span className="text-[9px] font-bold mt-0.5">Like</span>
                       </div>
                       <div className="flex flex-col items-center">
                         <Icon name="chat_bubble" size={20} className="text-white" />
-                        <span className="text-[9px] font-bold mt-0.5">148</span>
+                        <span className="text-[9px] font-bold mt-0.5">Comment</span>
                       </div>
                       <div className="flex flex-col items-center">
                         <Icon name="send" size={20} className="text-white" />
@@ -797,7 +798,7 @@ export default function PublishSchedule() {
                     {/* Bottom Author & Caption Bar */}
                     <div className="absolute left-3 right-12 bottom-3 z-20 text-left text-white drop-shadow-md">
                       <div className="flex items-center gap-1.5 mb-1">
-                        <span className="w-5 h-5 rounded-full bg-primary text-[10px] font-bold grid place-items-center">
+                        <span className="w-5 h-5 rounded-full bg-primary text-on-primary text-[10px] font-bold grid place-items-center">
                           {profile.initials}
                         </span>
                         <span className="text-[11px] font-bold">{profile.handle}</span>
@@ -809,7 +810,7 @@ export default function PublishSchedule() {
                       </p>
                       <div className="flex items-center gap-1 text-[9px] text-white/70 mt-1">
                         <Icon name="music_note" size={10} />
-                        <span className="truncate">Original audio Â· {profile.handle}</span>
+                        <span className="truncate">Original audio · {profile.handle}</span>
                       </div>
                     </div>
                   </>
@@ -859,12 +860,12 @@ export default function PublishSchedule() {
           <Card className="p-5 space-y-3.5">
             <div className="flex items-center gap-2">
               <Icon name="schedule" size={18} className="text-tertiary" />
-              <h2 className="font-semibold text-ink text-sm">Peak Engagement Scheduling</h2>
+              <h2 className="font-semibold text-ink text-[15px]">Quick schedule slots</h2>
             </div>
 
             {/* 1-Click Peak Slot Badges */}
             <div className="space-y-1.5">
-              <label className="kt-eyebrow block">Recommended AI Peak Slots</label>
+              <label className="kt-eyebrow block">Preset times from now</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {PEAK_SLOTS.map((ps) => (
                   <button

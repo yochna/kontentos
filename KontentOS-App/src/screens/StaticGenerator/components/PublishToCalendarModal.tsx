@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, Badge, StatusPill } from '@/components/ui';
+import { Button, Card, Eyebrow, Badge, StatusPill, useDismiss } from '@/components/ui';
 import { StaticCardState } from '../../../types/staticCard';
 import { useStore } from '@/lib/store';
 import { navigate } from '@/lib/nav';
@@ -30,6 +30,7 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
   state,
   canvasRef,
 }) => {
+  useDismiss(isOpen ? onClose : undefined);
   const { schedulePost } = useStore();
   const [isPublishing, setIsPublishing] = useState(false);
   const [successInfo, setSuccessInfo] = useState<{

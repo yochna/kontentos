@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, StatusPill } from '@/components/ui';
+import { Button, Card, Eyebrow, StatusPill, useDismiss } from '@/components/ui';
 import type { TargetAspectRatio, TimelineProject, VideoClip, TextClip } from '@/lib/timeline';
 import {
   activeBrollClipAt,
@@ -26,6 +26,7 @@ interface ExportModalProps {
 }
 
 export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublish }: ExportModalProps) {
+  useDismiss(onClose);
   const [resolution, setResolution] = useState<TargetAspectRatio>(
     project.projectMetadata.targetAspectRatio || '9:16'
   );

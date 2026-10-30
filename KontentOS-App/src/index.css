@@ -1,5 +1,10 @@
 @import 'tailwindcss';
 
+/* The theme is switched with a data-theme attribute, not prefers-color-scheme, so Tailwind's
+   built-in media-query dark variant would never fire. Bind it to the attribute instead, or every
+   dark: utility in the app is dead code. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 /* ==========================================================================
    KontentOS — Editorial Studio design tokens
    Light (Paper Editorial) is the DEFAULT. Dark (Evergreen) is opt-in.
@@ -40,6 +45,8 @@
   --shadow-1: 0 1px 3px rgba(30, 37, 34, 0.05), 0 4px 12px rgba(30, 37, 34, 0.03);
   --shadow-2: 0 8px 24px rgba(30, 37, 34, 0.08), 0 2px 6px rgba(30, 37, 34, 0.04);
   --scrim: rgba(30, 37, 34, 0.28);
+  --splash-glow: rgba(40, 92, 77, 0.12);
+  --splash-shine: rgba(255, 255, 255, 0.65);
 }
 
 [data-theme='dark'] {
@@ -74,6 +81,8 @@
   --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25);
   --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.5);
   --scrim: rgba(0, 0, 0, 0.6);
+  --splash-glow: rgba(127, 176, 154, 0.18);
+  --splash-shine: rgba(255, 255, 255, 0.22);
 }
 
 @theme inline {
@@ -252,7 +261,7 @@ input[type='range'] {
   z-index: 100;
   display: grid;
   place-items: center;
-  background: #ffffff;
+  background: var(--surface);
   overflow: hidden;
   animation: ktSplashOut 620ms ease-in forwards;
   animation-play-state: paused;
@@ -269,7 +278,7 @@ input[type='range'] {
   width: 120vmin;
   height: 120vmin;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 50%, rgba(40, 92, 77, 0.12), transparent 60%);
+  background: radial-gradient(circle at 50% 50%, var(--splash-glow), transparent 60%);
   filter: blur(6px);
   opacity: 0;
   animation: ktGlow 3.6s ease-in-out forwards;
@@ -288,12 +297,12 @@ input[type='range'] {
   font-weight: 600;
   font-size: clamp(44px, 9vw, 92px);
   line-height: 1;
-  color: #1e2522;
+  color: var(--ink);
   letter-spacing: 0.24em;
   opacity: 0;
   animation: ktGrow 1500ms cubic-bezier(0.16, 1, 0.3, 1) 250ms forwards;
 }
-.kt-splash-mark b { font-weight: 700; color: #285c4d; }
+.kt-splash-mark b { font-weight: 700; color: var(--primary); }
 @keyframes ktGrow {
   0% { opacity: 0; transform: scale(0.55); letter-spacing: 0.5em; filter: blur(10px); }
   55% { opacity: 1; filter: blur(0); }
@@ -315,7 +324,7 @@ input[type='range'] {
   left: -60%;
   width: 45%;
   height: 100%;
-  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  background: linear-gradient(105deg, transparent, var(--splash-shine), transparent);
   transform: skewX(-18deg);
   opacity: 0;
   animation: ktShine 1200ms ease-in-out 1400ms;
@@ -332,7 +341,7 @@ input[type='range'] {
   font-size: clamp(13px, 2.4vw, 18px);
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: #5b6560;
+  color: var(--ink-muted);
   min-height: 1.4em;
 }
 .kt-splash-tag .ltr {
@@ -354,7 +363,7 @@ input[type='range'] {
   width: 46px;
   height: 46px;
   margin: -23px 0 0 -23px;
-  color: #c98a58;
+  color: var(--tertiary);
   opacity: 0;
   pointer-events: none;
   transform-origin: center;
@@ -375,8 +384,8 @@ input[type='range'] {
   height: 8px;
   margin: -4px 0 0 -4px;
   border-radius: 50%;
-  background: #d9a06a;
-  box-shadow: 0 0 10px 3px rgba(217, 160, 106, 0.7);
+  background: var(--tertiary);
+  box-shadow: 0 0 10px 3px var(--tertiary-soft);
   opacity: 0;
   pointer-events: none;
   animation: ktSpark 1600ms ease-out 1700ms forwards;
@@ -393,16 +402,16 @@ input[type='range'] {
   bottom: 20px;
   font-size: 12px;
   letter-spacing: 0.04em;
-  color: #98a29c;
+  color: var(--ink-dim);
   background: transparent;
-  border: 1px solid #e6e2d6;
+  border: 1px solid var(--line);
   border-radius: 9999px;
   padding: 6px 14px;
   cursor: pointer;
   opacity: 0;
   animation: ktFadeIn 500ms ease 1200ms forwards;
 }
-.kt-splash-skip:hover { color: #285c4d; border-color: #285c4d; }
+.kt-splash-skip:hover { color: var(--primary); border-color: var(--primary); }
 @keyframes ktFadeIn { to { opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {

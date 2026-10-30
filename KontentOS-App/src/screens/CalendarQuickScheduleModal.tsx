@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, Badge } from '@/components/ui';
+import { Button, Card, Eyebrow, Badge, useDismiss } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import type { SocialPlatform } from '@/lib/types';
 
@@ -27,6 +27,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
   defaultDate,
   onEventCreated,
 }) => {
+  useDismiss(isOpen ? onClose : undefined);
   const { schedulePost } = useStore();
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
@@ -148,7 +149,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
       aria-labelledby="calendar-modal-title"
     >
       <div
-        className="w-full max-w-lg bg-surface border border-line rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]"
+        className="w-full max-w-lg bg-surface border border-line rounded-card shadow-[var(--shadow-2)] overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
