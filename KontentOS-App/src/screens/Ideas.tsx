@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Badge, Button, Card, Chip, Eyebrow, PageShell, Thumb, useDismiss } from '@/components/ui';
+import { AnimatedNumber, Badge, Button, Card, Chip, Eyebrow, PageShell, Progress, Reveal, Thumb, useDismiss } from '@/components/ui';
 import { unsplashPhoto } from '@/lib/images';
 import { ideas as initialMockIdeas, type Idea } from '@/data/mock';
 import { useStore } from '@/lib/store';
@@ -154,12 +154,13 @@ export default function Ideas() {
                 />
               </div>
               <Button
-                icon={generating ? 'hourglass_top' : 'auto_fix_high'}
+                icon="auto_fix_high"
+                iconSpin={generating}
                 onClick={() => handleGenerate()}
                 disabled={generating}
                 className="shrink-0"
               >
-                {generating ? 'Synthesizing...' : 'Generate ideas'}
+                {generating ? 'Synthesizing…' : 'Generate ideas'}
               </Button>
             </div>
 
@@ -234,15 +235,16 @@ export default function Ideas() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {displayedIdeas.map((idea) => {
+          {displayedIdeas.map((idea, i) => {
             const saved = isSavedIdea(idea.id);
             return (
+              <Reveal key={idea.id} delay={i * 55} className="h-full">
               <div
-                key={idea.id}
                 className="relative group text-left kt-focus flex flex-col rounded-card"
               >
                 <Card
                   hover
+                  sheen
                   onClick={() => setOpen(idea)}
                   className="h-full flex flex-col overflow-hidden cursor-pointer"
                 >
@@ -265,20 +267,14 @@ export default function Ideas() {
                     <p className="text-[12.5px] text-ink-muted leading-snug line-clamp-2">{idea.excerpt}</p>
                     <div className="mt-auto pt-3 flex items-center justify-between border-t border-line/60">
                       <div className="flex items-center gap-2">
-                        <div className="w-16 h-1.5 rounded-full bg-surface-3 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${idea.blueprint.hookScore}%`,
-                              backgroundColor:
-                                idea.blueprint.hookScore >= 90
-                                  ? 'var(--tertiary, #285C4D)'
-                                  : 'var(--primary, #3E4A3D)',
-                            }}
+                        <div className="w-16">
+                          <Progress
+                            value={idea.blueprint.hookScore}
+                            barClassName={idea.blueprint.hookScore >= 90 ? 'bg-tertiary' : 'bg-primary'}
                           />
                         </div>
                         <span className="text-[11px] font-medium text-ink-dim">
-                          Hook {idea.blueprint.hookScore}
+                          <AnimatedNumber text={`Hook ${idea.blueprint.hookScore}`} />
                         </span>
                       </div>
                       <span className="text-[12px] font-semibold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
@@ -310,6 +306,7 @@ export default function Ideas() {
                   <Icon name="bookmark" size={15} fill={saved ? 1 : 0} />
                 </button>
               </div>
+                </Reveal>
             );
           })}
         </div>
@@ -369,9 +366,8 @@ function BlueprintDrawer({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-[var(--scrim)]" onClick={onClose} />
-      <aside className="fixed right-0 top-0 z-50 h-screen w-full max-w-[460px] bg-surface border-l border-line shadow-[var(--shadow-2)] flex flex-col animate-[slidein_.25s_ease]">
-        <style>{`@keyframes slidein{from{transform:translateX(24px);opacity:.6}to{transform:translateX(0);opacity:1}}`}</style>
+      <div className="kt-scrim fixed inset-0 z-40 bg-[var(--scrim)]" onClick={onClose} />
+      <aside className="kt-drawer fixed right-0 top-0 z-50 h-screen w-full max-w-[460px] bg-surface border-l border-line shadow-[var(--shadow-2)] flex flex-col">
         <div className="h-16 px-5 flex items-center justify-between border-b border-line shrink-0">
           <div className="flex items-center gap-2">
             <span className="grid place-items-center w-8 h-8 rounded-btn bg-primary-soft text-primary">
@@ -438,7 +434,7 @@ function BlueprintDrawer({
 
           <section>
             <div className="kt-eyebrow mb-2">Beat-by-beat outline</div>
-            <div className="space-y-3">
+            <div className="kt-stagger space-y-3">
               {b.beats.map((beat, i) => (
                 <div key={i} className="flex gap-3 bg-surface-2/40 p-3 rounded-card border border-line/60">
                   <span className="grid place-items-center shrink-0 w-7 h-7 rounded-full bg-primary text-on-primary text-[12px] font-bold">
@@ -489,9 +485,9 @@ function TranscriptPickerModal({
   useDismiss(onClose);
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-[var(--scrim)]" onClick={onClose} />
+      <div className="kt-scrim fixed inset-0 z-40 bg-[var(--scrim)]" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md p-6 animate-[slidein_.2s_ease]">
+        <Card className="w-full max-w-md p-6 kt-dialog">
           <div className="flex items-center justify-between pb-3 border-b border-line mb-4">
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-btn bg-primary-soft text-primary grid place-items-center">

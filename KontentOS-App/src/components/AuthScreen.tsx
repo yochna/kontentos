@@ -45,10 +45,13 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (user: User) => void })
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-app px-5 font-body text-ink">
-      <div className="w-full max-w-[400px] rounded-card border border-line bg-surface p-6 shadow-xs">
-        <div className="mb-5 flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-btn bg-primary text-on-primary">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app px-5 font-body text-ink">
+      {/* Ambient light behind the card so the first screen the creator sees is never flat. */}
+      <span aria-hidden className="kt-aurora" />
+
+      <div className="kt-dialog kt-stagger relative w-full max-w-[400px] rounded-card border border-line bg-surface p-6 shadow-xs">
+        <div className="group mb-5 flex items-center gap-2.5">
+          <span className="kt-grow flex h-9 w-9 items-center justify-center rounded-btn bg-primary text-on-primary">
             <Icon name="movie_filter" size={18} />
           </span>
           <div>
@@ -63,7 +66,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (user: User) => void })
               key={m}
               type="button"
               onClick={() => switchMode(m)}
-              className={`rounded-btn px-3 py-1.5 text-[12.5px] font-semibold transition-colors ${
+              className={`rounded-btn px-3 py-1.5 text-[12.5px] font-semibold transition-all duration-200 ease-out ${
                 mode === m ? 'bg-surface text-ink shadow-xs' : 'text-ink-dim hover:text-ink'
               }`}
             >
@@ -72,7 +75,8 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (user: User) => void })
           ))}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        {/* key={mode} remounts the field group, so switching tabs replays the entrance. */}
+        <form key={mode} onSubmit={handleSubmit} className="kt-stagger--fade space-y-3">
           <Field
             id="account-email"
             label="Email"
@@ -101,12 +105,18 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (user: User) => void })
             onChange={setPassword}
           />
           {error && (
-            <p className="flex items-start gap-1.5 text-[12.5px] font-semibold text-danger">
+            <p key={error} className="kt-shake flex items-start gap-1.5 text-[12.5px] font-semibold text-danger">
               <Icon name="error_outline" size={15} className="mt-px shrink-0" />
               {error}
             </p>
           )}
-          <Button type="submit" icon={isSignup ? 'person_add' : 'login'} disabled={!canSubmit} className="w-full justify-center">
+          <Button
+            type="submit"
+            icon={isSignup ? 'person_add' : 'login'}
+            iconSpin={busy}
+            disabled={!canSubmit}
+            className="w-full justify-center"
+          >
             {busy ? 'Please wait…' : isSignup ? 'Create my studio' : 'Sign in'}
           </Button>
         </form>
@@ -150,7 +160,7 @@ function Field({
         autoFocus={autoFocus}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-btn border border-line bg-surface-2/40 px-3 py-2.5 text-[14px] text-ink outline-none focus:border-primary"
+        className="w-full rounded-btn border border-line bg-surface-2/40 px-3 py-2.5 text-[14px] text-ink outline-none transition-all duration-200 ease-out focus:border-primary focus:bg-surface focus:ring-2 focus:ring-primary/25"
       />
     </div>
   );

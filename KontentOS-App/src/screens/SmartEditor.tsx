@@ -1159,7 +1159,7 @@ export default function SmartEditor() {
                   </Button>
                   <Button
                     variant="ghost"
-                    icon={generatingCaptions ? 'hourglass_top' : 'auto_awesome'}
+                    icon="auto_awesome" iconSpin={generatingCaptions}
                     onClick={handleGenerateCaptions}
                     disabled={generatingCaptions}
                     title="Extract speech from audio and generate synchronized captions"
@@ -1677,7 +1677,7 @@ export default function SmartEditor() {
                 {/* Main Action Button */}
                 <Button
                   className="w-full"
-                  icon={generatingCaptions ? 'hourglass_top' : 'auto_awesome'}
+                  icon="auto_awesome" iconSpin={generatingCaptions}
                   onClick={handleGenerateCaptions}
                   disabled={generatingCaptions}
                 >
@@ -3506,9 +3506,9 @@ function ShortcutsModal({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-[var(--scrim)]" onClick={onClose} />
+      <div className="kt-scrim fixed inset-0 z-50 bg-[var(--scrim)]" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md p-6 animate-[slidein_.2s_ease]">
+        <Card className="w-full max-w-md p-6 kt-dialog">
           <div className="flex items-center justify-between pb-3 border-b border-line mb-4">
             <div className="flex items-center gap-2">
               <Icon name="keyboard" size={20} className="text-primary" />
@@ -3668,7 +3668,7 @@ function GeminiKeyModal({
               <Button variant="ghost" onClick={onClose} type="button">
                 Cancel
               </Button>
-              <Button icon={saving ? 'hourglass_top' : 'bolt'} disabled={saving} type="submit">
+              <Button icon="bolt" iconSpin={saving} disabled={saving} type="submit">
                 {saving ? 'Connecting...' : 'Save Key'}
               </Button>
             </div>

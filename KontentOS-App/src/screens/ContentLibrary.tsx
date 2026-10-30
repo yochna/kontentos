@@ -1,6 +1,7 @@
 ﻿import { useMemo, useRef, useState, useEffect } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, PageHeader, PageShell, StatusPill, Badge, useDismiss } from '@/components/ui';
+import { AnimatedNumber, Button, Card, PageHeader, PageShell, Progress, Reveal, StatusPill, Badge, useDismiss } from '@/components/ui';
+import { useNavPayload } from '@/lib/nav';
 import { useStore } from '@/lib/store';
 import { ingestFeatures } from '@/data/mock';
 import { getPreset } from '@/lib/timeline';
@@ -44,6 +45,11 @@ export default function ContentLibrary() {
   const [error, setError] = useState<string | null>(null);
   const [inspectVideo, setInspectVideo] = useState<Video | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  // Deep link from the topbar search: land on the clip the creator typed for.
+  const navSearch = useNavPayload<{ searchQuery?: string }>('content-library')?.searchQuery;
+  useEffect(() => {
+    if (navSearch) setSearchQuery(navSearch);
+  }, [navSearch]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const used = useMemo(() => videos.reduce((sum, v) => sum + (v.file_size || 0), 0), [videos]);
@@ -114,7 +120,8 @@ export default function ContentLibrary() {
               onChange={(e) => handleFiles(e.target.files)}
             />
             <Button
-              icon={busy ? 'hourglass_top' : 'cloud_upload'}
+              icon="cloud_upload"
+              iconSpin={busy}
               disabled={busy}
               onClick={() => fileRef.current?.click()}
             >
@@ -169,7 +176,7 @@ export default function ContentLibrary() {
 
       {/* Upload Progress Status Banner */}
       {busy && (
-        <div className="mb-6 p-4 rounded-card bg-surface-2 border border-line flex items-center justify-between gap-4 animate-[slidein_.2s_ease]">
+        <div className="mb-6 p-4 rounded-card bg-surface-2 border border-line flex items-center justify-between gap-4 kt-dialog">
           <div className="flex items-center gap-3 min-w-0">
             <span className="kt-spin text-primary shrink-0">
               <Icon name="autorenew" size={20} />
@@ -178,11 +185,13 @@ export default function ContentLibrary() {
               <div className="text-sm font-semibold text-ink truncate">
                 Uploading {currentFile || 'media asset'}...
               </div>
-              <div className="text-xs text-ink-dim font-mono">{progress}% completed</div>
+              <div className="text-xs text-ink-dim font-mono">
+                <AnimatedNumber text={`${progress}% completed`} duration={300} />
+              </div>
             </div>
           </div>
-          <div className="w-32 h-2 rounded-full bg-surface-3 overflow-hidden shrink-0">
-            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress}%` }} />
+          <div className="w-32 shrink-0">
+            <Progress value={progress} live />
           </div>
         </div>
       )}
@@ -248,14 +257,15 @@ export default function ContentLibrary() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {filteredVideos.map((v) => {
+              {filteredVideos.map((v, i) => {
                 const dur = fmtDuration(v.duration);
                 return (
+                  <Reveal key={v.id} delay={i * 60} className="h-full">
                   <Card
-                    key={v.id}
                     hover
+                    sheen
                     onClick={() => setInspectVideo(v)}
-                    className="overflow-hidden flex flex-col sm:flex-row cursor-pointer group"
+                    className="h-full overflow-hidden flex flex-col sm:flex-row cursor-pointer group"
                   >
                     {/* Thumbnail / Video Viewport */}
                     <div className="sm:w-[135px] aspect-[9/16] sm:aspect-auto relative bg-black shrink-0 overflow-hidden">
@@ -293,7 +303,9 @@ export default function ContentLibrary() {
                     <div className="p-4 flex flex-col justify-between gap-2 min-w-0 flex-1">
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <StatusPill tone={STATUS_TONE[v.status] || 'neutral'}>{v.status}</StatusPill>
+                          <StatusPill tone={STATUS_TONE[v.status] || 'neutral'} pulse={v.status === 'processing' || v.status === 'uploading'}>
+                        {v.status}
+                      </StatusPill>
                           <div className="flex items-center gap-1">
                             <button
                               onClick={(e) => {
@@ -334,6 +346,7 @@ export default function ContentLibrary() {
                       </div>
                     </div>
                   </Card>
+                  </Reveal>
                 );
               })}
             </div>
@@ -503,9 +516,9 @@ function VideoDetailModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-[var(--scrim)]" onClick={onClose} />
+      <div className="kt-scrim fixed inset-0 z-50 bg-[var(--scrim)]" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl p-6 shadow-[var(--shadow-2)] animate-[slidein_.2s_ease] max-h-[90vh] flex flex-col">
+        <Card className="w-full max-w-2xl p-6 shadow-[var(--shadow-2)] kt-dialog max-h-[90vh] flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-line shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -635,11 +648,11 @@ function VideoDetailModal({
                   </select>
                   <Button
                     size="sm"
-                    icon={loadingSubs ? 'hourglass_top' : 'auto_awesome'}
+                    icon="auto_awesome" iconSpin={loadingSubs}
                     onClick={handleTranscribe}
                     disabled={loadingSubs}
                   >
-                    {loadingSubs ? 'Transcribing...' : subtitles ? 'Re-transcribe' : 'Generate Live Captions'}
+                    {loadingSubs ? 'Transcribing…' : subtitles ? 'Re-transcribe' : 'Generate Live Captions'}
                   </Button>
                 </div>
               </div>

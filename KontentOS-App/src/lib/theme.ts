@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type Theme = 'light' | 'dark';
 
@@ -11,11 +11,22 @@ function getInitialTheme(): Theme {
   return saved === 'dark' ? 'dark' : 'light';
 }
 
+type ViewTransitionDocument = Document & {
+  startViewTransition?: (callback: () => void) => unknown;
+};
+
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const mounted = useRef(false);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
+    const apply = () => document.documentElement.setAttribute('data-theme', theme);
+    const doc = document as ViewTransitionDocument;
+    // Every colour token changes at once, which reads as a hard cut. A view transition
+    // cross-fades that paint instead. Not on first mount — that would fade the whole app in.
+    if (mounted.current && doc.startViewTransition) doc.startViewTransition(apply);
+    else apply();
+    mounted.current = true;
     try {
       window.localStorage.setItem(STORAGE_KEY, theme);
     } catch {

@@ -422,7 +422,7 @@ export default function PublishSchedule() {
       {/* Flash Alert Message */}
       {flash && (
         <div
-          className={`mb-5 flex items-center justify-between rounded-card border px-4 py-3 text-[13.5px] animate-[slidein_.2s_ease] ${
+          className={`mb-5 flex items-center justify-between rounded-card border px-4 py-3 text-[13.5px] kt-dialog ${
             flash.tone === 'ok'
               ? 'border-primary/40 bg-primary-soft text-ink'
               : 'border-danger/40 bg-danger/10 text-ink'
@@ -596,7 +596,7 @@ export default function PublishSchedule() {
               <Button
                 size="sm"
                 variant="secondary"
-                icon={generatingCopy ? 'hourglass_top' : 'auto_awesome'}
+                icon="auto_awesome" iconSpin={generatingCopy}
                 onClick={handleRegenerateCopy}
                 disabled={generatingCopy || !selectedVideo}
               >
@@ -866,7 +866,7 @@ export default function PublishSchedule() {
             {/* 1-Click Peak Slot Badges */}
             <div className="space-y-1.5">
               <label className="kt-eyebrow block">Preset times from now</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              <div className="kt-stagger--fade grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {PEAK_SLOTS.map((ps) => (
                   <button
                     key={ps.label}

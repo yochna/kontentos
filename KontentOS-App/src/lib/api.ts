@@ -39,12 +39,28 @@ export interface TitleCopy {
   ai_generated: boolean;
 }
 
+/** Shown only when a response carries no server-written message — a proxy error page,
+ *  an offline dev backend. Every route in server/ writes its own human-readable `error`. */
+const STATUS_MESSAGES: Record<number, string> = {
+  400: 'The studio could not accept that. Check the fields and try again.',
+  401: 'Your session has ended. Please sign in again.',
+  404: 'The studio could not find that item.',
+  409: 'That already exists in your workspace.',
+  429: 'Too many attempts — wait a moment before trying again.',
+  500: 'The studio hit a server error. Try again in a moment.',
+  502: 'The studio could not reach its services. Try again in a moment.',
+  503: 'Storage is unavailable right now. Try again in a moment.',
+};
+
 async function json<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
   // A 401 means the session cookie is gone or expired, wherever in the app it surfaces: the
   // shell listens for this so a stale tab returns to the sign-in screen instead of spinning.
   if (res.status === 401) window.dispatchEvent(new Event('kt:signedOut'));
-  if (!res.ok) throw new Error((data as { error?: string }).error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    const server = (data as { error?: string }).error;
+    throw new Error(server || STATUS_MESSAGES[res.status] || `The studio could not complete that (${res.status}).`);
+  }
   return data as T;
 }
 

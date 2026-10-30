@@ -47,6 +47,11 @@
   --scrim: rgba(30, 37, 34, 0.28);
   --splash-glow: rgba(40, 92, 77, 0.12);
   --splash-shine: rgba(255, 255, 255, 0.65);
+  --kt-shimmer: rgba(255, 255, 255, 0.78);
+  --kt-sheen: rgba(255, 255, 255, 0.62);
+  --kt-glow: rgba(40, 92, 77, 0.10);
+  --kt-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --kt-ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
 }
 
 [data-theme='dark'] {
@@ -83,6 +88,9 @@
   --scrim: rgba(0, 0, 0, 0.6);
   --splash-glow: rgba(127, 176, 154, 0.18);
   --splash-shine: rgba(255, 255, 255, 0.22);
+  --kt-shimmer: rgba(255, 255, 255, 0.08);
+  --kt-sheen: rgba(255, 255, 255, 0.16);
+  --kt-glow: rgba(127, 176, 154, 0.16);
 }
 
 @theme inline {
@@ -414,16 +422,6 @@ input[type='range'] {
 .kt-splash-skip:hover { color: var(--primary); border-color: var(--primary); }
 @keyframes ktFadeIn { to { opacity: 1; } }
 
-@media (prefers-reduced-motion: reduce) {
-  .kt-splash { animation: none; }
-  .kt-splash-mark, .kt-splash-tag .ltr, .kt-splash-wand, .kt-splash-skip, .kt-splash-shine::after, .kt-splash::before {
-    animation-duration: 1ms !important;
-    animation-delay: 0ms !important;
-    opacity: 1;
-  }
-  .kt-splash-wand, .kt-splash-spark, .kt-splash-shine::after { display: none; }
-}
-
 /* Curated Typography Bundle Font Utilities */
 .font-playfair { font-family: 'Playfair Display', Georgia, serif; }
 .font-jakarta { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }
@@ -477,7 +475,267 @@ input[type='range'] {
   display: none;
 }
 
+/* ==========================================================================
+   Motion layer
+   Entrances animate opacity/transform only, so they stay on the compositor;
+   every colour comes from a token so the dark theme needs no overrides.
+   The stagger offset arrives as --kt-d (see Reveal in ui.tsx).
+
+   All of it lives in @layer components on purpose: Tailwind utilities then
+   still win at the call site, so a revealed element can also carry
+   hover:-translate-… without the reveal style swallowing it.
+   ========================================================================== */
+
+@layer components {
+  /* --- scroll/mount reveal ------------------------------------------------- */
+  /* Transition-based, not a keyframe with fill-mode both: a finished animation
+     keeps owning `transform` and would silently disable hover lifts. */
+  .kt-reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 520ms var(--kt-ease-out) var(--kt-d, 0ms),
+      transform 520ms var(--kt-ease-out) var(--kt-d, 0ms);
+  }
+  .kt-reveal--scale { transform: scale(0.95); }
+  .kt-reveal--fade { transform: none; }
+  .kt-reveal--left { transform: translateX(-14px); }
+  .kt-reveal.is-in { opacity: 1; transform: none; }
+
+  /* --- screen switch ------------------------------------------------------- */
+  @keyframes ktScreenIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  .kt-screen-enter { animation: ktScreenIn 380ms var(--kt-ease-out) both; }
+
+  /* --- header cascade (runs on mount, so it replays on every navigation) --- */
+  @keyframes ktHeroIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
+  }
+  .kt-hero-in { animation: ktHeroIn 620ms var(--kt-ease-out) var(--kt-d, 0ms) both; }
+
+  /* --- modal / drawer entrances -------------------------------------------- */
+  @keyframes ktDialogIn {
+    from { opacity: 0; transform: translateY(18px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes ktScrimIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes ktDrawerIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  .kt-dialog { animation: ktDialogIn 300ms var(--kt-ease-out) both; }
+  .kt-scrim { animation: ktScrimIn 200ms ease-out both; }
+  .kt-drawer { animation: ktDrawerIn 340ms var(--kt-ease-out) both; }
+
+  /* --- loading shimmer ----------------------------------------------------- */
+  @keyframes ktShimmer {
+    from { transform: translateX(-110%); }
+    to { transform: translateX(110%); }
+  }
+  .kt-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-2);
+  }
+  .kt-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, var(--kt-shimmer), transparent);
+    transform: translateX(-110%);
+    animation: ktShimmer 1400ms ease-in-out infinite;
+  }
+
+  /* --- specular sweep across an interactive card --------------------------- */
+  @keyframes ktSheen {
+    0% { transform: translateX(-130%) skewX(-14deg); opacity: 0; }
+    22% { opacity: 0.9; }
+    100% { transform: translateX(240%) skewX(-14deg); opacity: 0; }
+  }
+  .kt-sheen { position: relative; overflow: hidden; }
+  .kt-sheen::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 42%;
+    background: linear-gradient(105deg, transparent, var(--kt-sheen), transparent);
+    transform: translateX(-130%) skewX(-14deg);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .kt-sheen:hover::after { animation: ktSheen 900ms ease-out; }
+
+  /* --- live indicator pulse ------------------------------------------------ */
+  @keyframes ktPing {
+    0% { transform: scale(1); opacity: 0.55; }
+    70%, 100% { transform: scale(2.8); opacity: 0; }
+  }
+  .kt-live { position: relative; }
+  .kt-live::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-color: inherit;
+    animation: ktPing 1900ms cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  /* --- in-flight progress bar ---------------------------------------------- */
+  @keyframes ktStripes {
+    to { background-position: 22px 0; }
+  }
+  .kt-bar {
+    position: relative;
+    overflow: hidden;
+    transition: width 640ms var(--kt-ease-out);
+  }
+  .kt-bar--live::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.26) 25%,
+      transparent 25%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.26) 50%,
+      rgba(255, 255, 255, 0.26) 75%,
+      transparent 75%
+    );
+    background-size: 22px 22px;
+    animation: ktStripes 900ms linear infinite;
+  }
+
+  /* --- slow drifting ambient light behind a hero --------------------------- */
+  @keyframes ktDrift {
+    0% { transform: translate3d(-3%, -2%, 0) scale(1); }
+    50% { transform: translate3d(5%, 3%, 0) scale(1.1); }
+    100% { transform: translate3d(-3%, -2%, 0) scale(1); }
+  }
+  .kt-aurora {
+    position: absolute;
+    inset: -35% -12%;
+    pointer-events: none;
+    background:
+      radial-gradient(38% 46% at 24% 32%, var(--primary-soft), transparent 70%),
+      radial-gradient(34% 42% at 76% 66%, var(--tertiary-soft), transparent 70%);
+    animation: ktDrift 16s ease-in-out infinite;
+  }
+
+  /* --- pointer-following spotlight + tilt on a card ------------------------ */
+  .kt-spot {
+    position: relative;
+    transform: perspective(900px) rotateX(var(--ry, 0deg)) rotateY(var(--rx, 0deg));
+    transition:
+      transform 260ms var(--kt-ease-out),
+      translate 200ms var(--kt-ease-out),
+      scale 200ms ease-out,
+      box-shadow 200ms ease-out,
+      border-color 200ms ease-out;
+  }
+  .kt-spot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 240ms ease-out;
+    background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), var(--kt-glow), transparent 62%);
+  }
+  .kt-spot:hover::before { opacity: 1; }
+
+  /* --- travelling highlight on the workflow rail --------------------------- */
+  @keyframes ktRail {
+    0% { transform: translateX(-30%); opacity: 0; }
+    15% { opacity: 0.9; }
+    85% { opacity: 0.9; }
+    100% { transform: translateX(115%); opacity: 0; }
+  }
+  .kt-rail { position: relative; overflow: hidden; }
+  .kt-rail::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    animation: ktRail 6s linear infinite;
+  }
+
+  /* --- icon swap when the theme flips ------------------------------------- */
+  @keyframes ktIconSwap {
+    from { opacity: 0; transform: rotate(-70deg) scale(0.7); }
+    to { opacity: 1; transform: none; }
+  }
+  .kt-icon-swap { animation: ktIconSwap 320ms var(--kt-ease-spring) both; }
+
+  /* --- declarative list stagger --------------------------------------------
+     Fill-mode 'backwards' is deliberate: once the animation ends it stops owning
+     transform, so hover lifts and scales on these children keep working. */
+  @keyframes ktStaggerIn {
+    from { opacity: 0; transform: translateY(9px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes ktStaggerFade {
+    from { opacity: 0; transform: scale(0.985); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .kt-stagger > *,
+  .kt-stagger--fade > * { animation: ktStaggerIn 460ms var(--kt-ease-out) backwards; }
+  .kt-stagger--fade > * { animation-name: ktStaggerFade; animation-duration: 380ms; }
+  :is(.kt-stagger, .kt-stagger--fade) > *:nth-child(2) { animation-delay: 50ms; }
+  :is(.kt-stagger, .kt-stagger--fade) > *:nth-child(3) { animation-delay: 100ms; }
+  :is(.kt-stagger, .kt-stagger--fade) > *:nth-child(4) { animation-delay: 150ms; }
+  :is(.kt-stagger, .kt-stagger--fade) > *:nth-child(5) { animation-delay: 200ms; }
+  :is(.kt-stagger, .kt-stagger--fade) > *:nth-child(6) { animation-delay: 250ms; }
+  :is(.kt-stagger, .kt-stagger--fade) > *:nth-child(7) { animation-delay: 300ms; }
+  :is(.kt-stagger, .kt-stagger--fade) > *:nth-child(8) { animation-delay: 350ms; }
+  :is(.kt-stagger, .kt-stagger--fade) > *:nth-child(n + 9) { animation-delay: 400ms; }
+
+  /* --- form rejection shake --------------------------------------------------
+     Declared after the stagger rules on purpose: an error line inside a staggered
+     form must play the shake, not the fade its siblings get. */
+  @keyframes ktShake {
+    0%, 100% { transform: translateX(0); }
+    18% { transform: translateX(-5px); }
+    38% { transform: translateX(4px); }
+    58% { transform: translateX(-3px); }
+    78% { transform: translateX(2px); }
+  }
+  .kt-shake { animation: ktShake 380ms var(--kt-ease-out) both; }
+
+  /* --- hover nudges -------------------------------------------------------- */
+  .kt-nudge { transition: transform 220ms var(--kt-ease-out); }
+  .group:hover .kt-nudge { transform: translateX(3px); }
+  .kt-grow { transition: transform 260ms var(--kt-ease-spring); }
+  .group:hover .kt-grow { transform: scale(1.12); }
+}
+
+/* Theme switching repaints every token at once; a view transition cross-fades
+   that swap instead of snapping. Browsers without the API run the update directly. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .kt-splash { animation: none; }
+  .kt-splash-mark, .kt-splash-tag .ltr, .kt-splash-wand, .kt-splash-skip, .kt-splash-shine::after, .kt-splash::before {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    opacity: 1;
+  }
+  .kt-splash-wand, .kt-splash-spark, .kt-splash-shine::after { display: none; }
+
   .animate-fade-in,
   .animate-scale-in,
   .animate-scale-up,
@@ -485,4 +743,40 @@ input[type='range'] {
     animation-duration: 1ms !important;
     animation-delay: 0ms !important;
   }
+
+  .kt-screen-enter,
+  .kt-hero-in,
+  .kt-dialog,
+  .kt-scrim,
+  .kt-drawer,
+  .kt-sheen::after,
+  .kt-skeleton::after,
+  .kt-live::before,
+  .kt-bar--live::after,
+  .kt-rail::after,
+  .kt-icon-swap,
+  .kt-spin,
+  .kt-shake,
+  .kt-aurora,
+  .kt-stagger > *,
+  .kt-stagger--fade > * {
+    animation: none !important;
+  }
+  /* A reveal whose motion is switched off must still show its content, immediately. */
+  .kt-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .kt-sheen::after,
+  .kt-live::before,
+  .kt-rail::after,
+  .kt-spot::before { display: none; }
+  .kt-spot { transform: none; transition: none; }
+  .kt-nudge,
+  .kt-grow,
+  .kt-bar { transition: none; }
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation: none; }
 }
+

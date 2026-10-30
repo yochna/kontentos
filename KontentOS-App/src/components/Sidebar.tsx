@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Icon } from '@/lib/icons';
 import { NAV_GROUPS, UTILITY_ITEMS, type ScreenId } from '@/lib/nav';
 import { useDisplayProfile } from '@/lib/store';
@@ -57,12 +58,18 @@ export function Sidebar({
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto scrollbar-none px-3 py-4 space-y-6">
-          {NAV_GROUPS.map((group) => (
+          {NAV_GROUPS.map((group, gi) => (
             <div key={group.title}>
               <div className="px-3 pb-2 kt-eyebrow">{group.title}</div>
               <div className="space-y-0.5">
-                {group.items.map((item) => (
-                  <NavButton key={item.id} item={item} active={active === item.id} onClick={() => go(item.id)} />
+                {group.items.map((item, ii) => (
+                  <NavButton
+                    key={item.id}
+                    item={item}
+                    active={active === item.id}
+                    delay={120 + (gi * 5 + ii) * 45}
+                    onClick={() => go(item.id)}
+                  />
                 ))}
               </div>
             </div>
@@ -71,8 +78,14 @@ export function Sidebar({
 
         {/* Utilities */}
         <div className="px-3 py-3 border-t border-line space-y-0.5">
-          {UTILITY_ITEMS.map((item) => (
-            <NavButton key={item.id} item={item} active={active === item.id} onClick={() => go(item.id)} />
+          {UTILITY_ITEMS.map((item, ii) => (
+            <NavButton
+              key={item.id}
+              item={item}
+              active={active === item.id}
+              delay={120 + (2 * 5 + ii) * 45}
+              onClick={() => go(item.id)}
+            />
           ))}
         </div>
 
@@ -97,10 +110,12 @@ export function Sidebar({
 function NavButton({
   item,
   active,
+  delay = 0,
   onClick,
 }: {
   item: { id: ScreenId; label: string; icon: string };
   active: boolean;
+  delay?: number;
   onClick: () => void;
 }) {
   return (
@@ -109,14 +124,26 @@ function NavButton({
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       title={item.label}
-      className={`group relative flex items-center gap-3 w-full rounded-btn px-3 py-2 text-sm font-medium transition-all kt-focus ${
+      style={{ '--kt-d': `${delay}ms` } as CSSProperties}
+      className={`group kt-hero-in relative flex items-center gap-3 w-full rounded-btn px-3 py-2 text-sm font-medium transition-colors duration-200 kt-focus ${
         active
           ? 'bg-primary-soft text-primary shadow-[inset_0_0_0_1px_var(--line-strong)]'
           : 'text-ink-muted hover:bg-surface-2 hover:text-ink'
       }`}
     >
-      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-primary" />}
-      <Icon name={item.icon} size={19} fill={active ? 1 : 0} />
+      {/* Always mounted: the rail slides open instead of popping in when the screen changes. */}
+      <span
+        aria-hidden
+        className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-primary transition-all duration-200 ease-out ${
+          active ? 'scale-y-100 opacity-100' : 'scale-y-0 opacity-0'
+        }`}
+      />
+      <Icon
+        name={item.icon}
+        size={19}
+        fill={active ? 1 : 0}
+        className="transition-transform duration-200 ease-out group-hover:translate-x-[2px]"
+      />
       <span className="truncate">{item.label}</span>
     </button>
   );

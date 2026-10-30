@@ -247,7 +247,7 @@ export default function BrandKit() {
             </button>
           </div>
 
-          <div className="space-y-2.5 max-h-[290px] overflow-y-auto pr-1">
+          <div className="kt-stagger space-y-2.5 max-h-[290px] overflow-y-auto pr-1">
             {data.hooks.map((h, i) => (
               <div
                 key={i}
@@ -298,7 +298,7 @@ export default function BrandKit() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          <div className="kt-stagger--fade grid grid-cols-2 sm:grid-cols-5 gap-2.5">
             {data.palette.map((c, idx) => (
               <div key={idx} className="text-center group relative">
                 <div

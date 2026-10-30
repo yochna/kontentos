@@ -252,7 +252,7 @@ export default function RawReel() {
                 </p>
               </div>
             ) : (
-              <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 pt-1">
+              <div className="kt-stagger--fade flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 pt-1">
                 {ready.map((v) => {
                   const isSelected = videoId === v.id;
                   return (
@@ -529,7 +529,7 @@ export default function RawReel() {
 
           {/* Publishing Copy & Closed-Loop Handoff Actions */}
           {result && (
-            <Card className="p-5 animate-[slidein_.25s_ease]">
+            <Card className="p-5 kt-dialog">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-ink text-sm">Generated Copy & Hashtags</h3>
                 <span className="text-[11px] text-ink-dim font-medium">

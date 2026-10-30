@@ -4,6 +4,7 @@ import { Topbar } from '@/components/Topbar';
 import { Splash } from '@/components/Splash';
 import { AuthScreen } from '@/components/AuthScreen';
 import { Icon } from '@/lib/icons';
+import { Skeleton } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useTheme } from '@/lib/theme';
 import { StoreProvider } from '@/lib/store';
@@ -40,10 +41,31 @@ const SCREENS: Record<ScreenId, React.ComponentType> = {
 };
 
 function ScreenSkeleton() {
+  // Shaped like the screens it stands in for — header, stat row, card grid — so the swap
+  // to the real screen reads as the page filling in rather than as a hard cut.
   return (
-    <div className="flex items-center gap-2 px-6 py-16 text-[13px] text-ink-muted">
-      <Icon name="hourglass_top" size={16} className="text-primary animate-pulse" />
-      Loading screen…
+    <div className="mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-2.5">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-8 w-[min(420px,70vw)]" />
+          <Skeleton className="h-4 w-[min(300px,60vw)]" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-36" />
+          <Skeleton className="h-10 w-28" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-[104px] rounded-card" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-[150px] rounded-card" />
+        ))}
+      </div>
     </div>
   );
 }
@@ -121,7 +143,11 @@ export default function App() {
           />
           <main className="flex-1 min-w-0">
             <Suspense fallback={<ScreenSkeleton />}>
-              <Screen />
+              {/* Keyed by screen: each navigation remounts the wrapper, so the entrance plays
+                  once the real screen is on screen (not behind the lazy-loading fallback). */}
+              <div key={screen} className="kt-screen-enter">
+                <Screen />
+              </div>
             </Suspense>
           </main>
         </div>

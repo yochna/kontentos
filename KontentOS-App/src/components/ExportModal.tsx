@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, StatusPill, useDismiss } from '@/components/ui';
+import { Button, Card, Eyebrow, Progress, StatusPill, useDismiss } from '@/components/ui';
 import type { TargetAspectRatio, TimelineProject, VideoClip, TextClip } from '@/lib/timeline';
 import {
   activeBrollClipAt,
@@ -663,9 +663,9 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-[var(--scrim)] backdrop-blur-sm" onClick={!rendering ? onClose : undefined} />
+      <div className="kt-scrim fixed inset-0 z-50 bg-[var(--scrim)] backdrop-blur-sm" onClick={!rendering ? onClose : undefined} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-xl p-6 shadow-[var(--shadow-2)] animate-[slidein_.2s_ease] max-h-[90vh] flex flex-col">
+        <Card className="w-full max-w-xl p-6 shadow-[var(--shadow-2)] kt-dialog max-h-[90vh] flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-line shrink-0">
             <div className="flex items-center gap-2.5">
@@ -797,12 +797,13 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                       </span>
                     </div>
 
-                    <div className="h-2 rounded-full bg-surface-3 overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all duration-150"
-                        style={{ width: `${Math.max(4, progress * 100)}%` }}
-                      />
-                    </div>
+                    {/* Striped while rendering, and re-timed to 150ms so the bar never trails the real encode. */}
+                    <Progress
+                      value={Math.max(4, progress * 100)}
+                      live
+                      trackClassName="h-2 bg-surface-3"
+                      barClassName="bg-primary duration-150!"
+                    />
 
                     {/* Live Preview Monitor */}
                     <div className="flex items-center justify-between pt-1">
@@ -900,7 +901,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                   Cancel
                 </Button>
                 <Button
-                  icon={rendering ? 'hourglass_top' : 'bolt'}
+                  icon="bolt" iconSpin={rendering}
                   onClick={handleStartExport}
                   disabled={rendering}
                 >

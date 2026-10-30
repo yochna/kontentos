@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, PageHeader, PageShell, StatusPill, Thumb } from '@/components/ui';
+import { AnimatedNumber, Button, Card, PageHeader, PageShell, Progress, Reveal, StatusPill, Thumb } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { navigate, type ScreenId } from '@/lib/nav';
 import type { ScheduledPost, SocialPlatform } from '@/lib/types';
@@ -423,8 +423,9 @@ export default function Analytics() {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {kpis.map((k) => (
-              <Card key={k.label} className="p-5 flex flex-col justify-between shadow-xs hover:border-line-strong transition-all">
+            {kpis.map((k, i) => (
+              <Reveal key={k.label} delay={i * 70} className="h-full">
+              <Card sheen spot className="p-5 h-full flex flex-col justify-between shadow-xs hover:border-line-strong hover:-translate-y-[3px] transition-all duration-200 ease-out">
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="grid place-items-center w-10 h-10 rounded-btn bg-primary-soft text-primary">
@@ -435,13 +436,14 @@ export default function Analytics() {
                     </span>
                   </div>
                   <div className="mt-4 font-display text-[28px] font-bold text-ink leading-tight tabular-nums">
-                    {k.value}
+                    <AnimatedNumber text={k.value} />
                   </div>
                   <div className="text-[13px] font-semibold text-ink-muted mt-1">{k.label}</div>
                   <div className="text-[12px] text-ink-muted mt-1">{k.sub}</div>
                 </div>
                 <div className="text-[11px] text-ink-dim mt-4 pt-2.5 border-t border-line/60">{k.foot}</div>
               </Card>
+              </Reveal>
             ))}
           </div>
 
@@ -503,8 +505,9 @@ export default function Analytics() {
                 </div>
 
                 <div className="space-y-3.5">
-                  {insights.map((o) => (
-                    <Card key={o.title} className="p-5 border-line shadow-xs hover:border-line-strong transition-all">
+                  {insights.map((o, i) => (
+                    <Reveal key={o.title} delay={i * 70}>
+                    <Card sheen className="p-5 border-line shadow-xs hover:border-line-strong hover:-translate-y-[2px] transition-all duration-200 ease-out">
                       <div className="flex items-start gap-4">
                         <span className="grid place-items-center w-11 h-11 rounded-btn bg-secondary-soft text-secondary shrink-0 mt-0.5">
                           <Icon name={o.icon} size={22} />
@@ -527,6 +530,7 @@ export default function Analytics() {
                         </div>
                       </div>
                     </Card>
+                    </Reveal>
                   ))}
                 </div>
               </section>
@@ -681,9 +685,11 @@ export default function Analytics() {
                               {n}×
                             </span>
                           </div>
-                          <div className="h-2 rounded-full bg-surface-2 overflow-hidden border border-line/40">
-                            <div className="h-full rounded-full bg-tertiary transition-all duration-500" style={{ width: `${(n / max) * 100}%` }} />
-                          </div>
+                          <Progress
+                            value={(n / max) * 100}
+                            trackClassName="h-2 bg-surface-2 border border-line/40"
+                            barClassName="bg-tertiary"
+                          />
                         </div>
                       );
                     })}

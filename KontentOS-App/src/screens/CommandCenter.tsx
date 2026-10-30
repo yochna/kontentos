@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, PageHeader, PageShell, Progress, StatusPill, Thumb } from '@/components/ui';
+import { Button, Card, CountUp, Eyebrow, PageHeader, PageShell, Progress, Reveal, StatusPill } from '@/components/ui';
 import { quickActions } from '@/data/mock';
 import { useDisplayProfile, useStore } from '@/lib/store';
 import { DRAFT_STEP_SCREEN, SCREEN_TITLES, type ScreenId } from '@/lib/nav';
@@ -135,125 +135,150 @@ export default function CommandCenter() {
       {/* Stats strip — real workspace counts, not projected platform metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Clips in library', value: String(videos.length), sub: 'Uploaded to KontentOS' },
-          { label: 'Scheduled posts', value: String(scheduled.length), sub: 'Queued in Calendar' },
-          { label: 'Saved ideas', value: String(savedIdeas.length), sub: 'On the Idea Canvas' },
-        ].map((s) => (
-          <Card key={s.label} className="p-5">
-            <div className="text-[12px] text-ink-dim">{s.label}</div>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="font-display text-[30px] text-ink leading-none">{s.value}</span>
-            </div>
-            <div className="text-[12px] text-ink-muted mt-2">{online ? s.sub : 'Unavailable — server not reachable'}</div>
-          </Card>
+          { label: 'Clips in library', value: videos.length, sub: 'Uploaded to KontentOS' },
+          { label: 'Scheduled posts', value: scheduled.length, sub: 'Queued in Calendar' },
+          { label: 'Saved ideas', value: savedIdeas.length, sub: 'On the Idea Canvas' },
+        ].map((s, i) => (
+          <Reveal key={s.label} delay={i * 90} className="h-full">
+            <Card className="p-5 h-full">
+              <div className="text-[12px] text-ink-dim">{s.label}</div>
+              <div className="flex items-baseline gap-2 mt-1">
+                <CountUp
+                  to={s.value}
+                  className={online ? 'font-display text-[30px] text-ink leading-none' : 'font-display text-[30px] text-ink-dim leading-none'}
+                />
+              </div>
+              <div className="text-[12px] text-ink-muted mt-2">{online ? s.sub : 'Unavailable — server not reachable'}</div>
+            </Card>
+          </Reveal>
         ))}
       </div>
 
       {/* Pipeline */}
       <section>
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <h2 className="font-display text-[24px] text-ink">This week's production pipeline</h2>
-            <p className="text-[13px] text-ink-muted mt-0.5">Click any phase to jump directly into the active creative step.</p>
+        <Reveal variant="fade">
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <h2 className="font-display text-[24px] text-ink">This week's production pipeline</h2>
+              <p className="text-[13px] text-ink-muted mt-0.5">Click any phase to jump directly into the active creative step.</p>
+            </div>
+            <span className="text-[13px] text-ink-dim">Continuous workflow</span>
           </div>
-          <span className="text-[13px] text-ink-dim">Continuous workflow</span>
-        </div>
+        </Reveal>
+        {/* Travelling light along the workflow spine — the four phases below are one continuous run. */}
+        <div aria-hidden className="kt-rail h-[2px] rounded-full bg-line mb-5" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {dynamicPipeline.map((p) => (
-            <button
-              key={p.phase}
-              onClick={() => navigate(p.screenId)}
-              className="text-left kt-focus group"
-            >
-              <Card hover className="p-5 h-full flex flex-col gap-3 group-hover:border-primary/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <Eyebrow>{p.phase}</Eyebrow>
-                  <span className={`grid place-items-center w-8 h-8 rounded-btn transition-colors ${
-                    p.done ? 'bg-primary text-on-primary' : 'bg-primary-soft text-primary group-hover:bg-primary group-hover:text-on-primary'
-                  }`}>
-                    <Icon name={p.done ? 'check' : p.icon} size={17} />
-                  </span>
-                </div>
-                <div>
-                  <div className="text-[12px] text-ink-dim">{p.title}</div>
-                  <div className="font-semibold text-ink leading-snug mt-0.5 line-clamp-1 group-hover:text-primary transition-colors">
-                    {p.headline}
+          {dynamicPipeline.map((p, i) => (
+            <Reveal key={p.phase} delay={i * 80} className="h-full">
+              <button
+                onClick={() => navigate(p.screenId)}
+                className="w-full h-full text-left kt-focus group"
+              >
+                <Card hover sheen spot className="p-5 h-full flex flex-col gap-3 group-hover:border-primary/50">
+                  <div className="flex items-center justify-between">
+                    <Eyebrow>{p.phase}</Eyebrow>
+                    <span className={`kt-grow grid place-items-center w-8 h-8 rounded-btn transition-all duration-200 ${
+                      p.done ? 'bg-primary text-on-primary' : 'bg-primary-soft text-primary group-hover:bg-primary group-hover:text-on-primary'
+                    }`}>
+                      <Icon name={p.done ? 'check' : p.icon} size={17} />
+                    </span>
                   </div>
-                </div>
-                <div className="text-[12px] text-ink-muted mt-auto flex items-center gap-1.5">
-                  <Icon name={p.done ? 'task_alt' : 'bolt'} size={14} className={p.done ? 'text-success' : 'text-ink-dim'} />
-                  {p.meta}
-                </div>
-              </Card>
-            </button>
+                  <div>
+                    <div className="text-[12px] text-ink-dim">{p.title}</div>
+                    <div className="font-semibold text-ink leading-snug mt-0.5 line-clamp-1 group-hover:text-primary transition-colors">
+                      {p.headline}
+                    </div>
+                  </div>
+                  <div className="text-[12px] text-ink-muted mt-auto flex items-center gap-1.5">
+                    <Icon name={p.done ? 'task_alt' : 'bolt'} size={14} className={p.done ? 'text-success' : 'text-ink-dim'} />
+                    {p.meta}
+                  </div>
+                </Card>
+              </button>
+            </Reveal>
           ))}
         </div>
       </section>
 
       {/* Quick actions */}
       <section>
-        <h2 className="font-display text-[24px] text-ink mb-4">Start something</h2>
+        <Reveal variant="fade">
+          <h2 className="font-display text-[24px] text-ink mb-4">Start something</h2>
+        </Reveal>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {quickActions.map((a) => (
-            <button
-              key={a.id}
-              onClick={() => navigate(a.id as ScreenId)}
-              className="text-left kt-focus group"
-            >
-              <Card hover className="p-5 h-full flex flex-col gap-3 group-hover:border-primary/50 transition-colors">
-                <span className="grid place-items-center w-11 h-11 rounded-card bg-primary-soft text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors">
-                  <Icon name={a.icon} size={22} />
-                </span>
-                <div>
-                  <div className="font-display text-[19px] text-ink group-hover:text-primary transition-colors">{a.title}</div>
-                  <p className="text-[13px] text-ink-muted mt-1 leading-snug">{a.body}</p>
-                </div>
-                <div className="mt-auto pt-1 flex flex-wrap gap-1.5">
-                  <span className="text-[11px] font-semibold text-primary bg-primary-soft rounded-full px-2 py-0.5">{a.tag}</span>
-                  {a.tag2 && <span className="text-[11px] text-ink-dim border border-line rounded-full px-2 py-0.5">{a.tag2}</span>}
-                </div>
-              </Card>
-            </button>
+          {quickActions.map((a, i) => (
+            <Reveal key={a.id} delay={i * 80} className="h-full">
+              <button
+                onClick={() => navigate(a.id as ScreenId)}
+                className="w-full h-full text-left kt-focus group"
+              >
+                <Card hover sheen spot className="p-5 h-full flex flex-col gap-3 group-hover:border-primary/50">
+                  <span className="kt-grow grid place-items-center w-11 h-11 rounded-card bg-primary-soft text-primary group-hover:bg-primary group-hover:text-on-primary transition-all duration-200">
+                    <Icon name={a.icon} size={22} />
+                  </span>
+                  <div>
+                    <div className="font-display text-[19px] text-ink group-hover:text-primary transition-colors">{a.title}</div>
+                    <p className="text-[13px] text-ink-muted mt-1 leading-snug">{a.body}</p>
+                  </div>
+                  <div className="mt-auto pt-1 flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-[11px] font-semibold text-primary bg-primary-soft rounded-full px-2 py-0.5">{a.tag}</span>
+                      {a.tag2 && <span className="text-[11px] text-ink-dim border border-line rounded-full px-2 py-0.5">{a.tag2}</span>}
+                    </div>
+                    <Icon
+                      name="arrow_forward"
+                      size={16}
+                      className="kt-nudge shrink-0 text-ink-dim opacity-0 group-hover:opacity-100 group-hover:text-primary transition-all duration-200"
+                    />
+                  </div>
+                </Card>
+              </button>
+            </Reveal>
           ))}
         </div>
       </section>
 
       {/* Continue creating */}
       <section>
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <h2 className="font-display text-[24px] text-ink">Continue creating</h2>
-            <p className="text-[13px] text-ink-muted mt-0.5">Resume in-flight drafts and recently uploaded raw footage.</p>
+        <Reveal variant="fade">
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <h2 className="font-display text-[24px] text-ink">Continue creating</h2>
+              <p className="text-[13px] text-ink-muted mt-0.5">Resume in-flight drafts and recently uploaded raw footage.</p>
+            </div>
+            <Button variant="ghost" size="sm" icon="arrow_forward" onClick={() => navigate('content-library')}>
+              View library
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" icon="arrow_forward" onClick={() => navigate('content-library')}>
-            View library
-          </Button>
-        </div>
+        </Reveal>
 
         {/* Active Draft Hero Card (if in progress) */}
         {activeDraft && (
-          <Card className="p-5 mb-4 border-primary/40 bg-primary-soft/30 overflow-hidden relative">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="space-y-1 max-w-xl">
-                <div className="flex items-center gap-2">
-                  <StatusPill tone="primary">Active Pipeline Draft</StatusPill>
-                  <span className="text-[11px] text-ink-dim">Updated {new Date(activeDraft.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          <Reveal delay={60} variant="scale">
+            <Card sheen className="p-5 mb-4 border-primary/40 bg-primary-soft/30 overflow-hidden relative">
+              <span className="kt-aurora" aria-hidden />
+              <div className="relative flex flex-wrap items-center justify-between gap-4">
+                <div className="space-y-1 max-w-xl">
+                  <div className="flex items-center gap-2">
+                    <StatusPill tone="primary" pulse>Active Pipeline Draft</StatusPill>
+                    <span className="text-[11px] text-ink-dim">Updated {new Date(activeDraft.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <h3 className="font-display text-[20px] text-ink">{activeDraft.title}</h3>
+                  {activeDraft.idea?.hook && (
+                    <p className="text-[13px] text-ink-muted italic">“{activeDraft.idea.hook}”</p>
+                  )}
                 </div>
-                <h3 className="font-display text-[20px] text-ink">{activeDraft.title}</h3>
-                {activeDraft.idea?.hook && (
-                  <p className="text-[13px] text-ink-muted italic">“{activeDraft.idea.hook}”</p>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    icon="play_arrow"
+                    onClick={() => navigate(DRAFT_STEP_SCREEN[activeDraft.step])}
+                  >
+                    Resume in {SCREEN_TITLES[DRAFT_STEP_SCREEN[activeDraft.step]]}
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  icon="play_arrow"
-                  onClick={() => navigate(DRAFT_STEP_SCREEN[activeDraft.step])}
-                >
-                  Resume in {SCREEN_TITLES[DRAFT_STEP_SCREEN[activeDraft.step]]}
-                </Button>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </Reveal>
         )}
 
         {online && recentVideos.length === 0 && !activeDraft ? (
@@ -265,48 +290,54 @@ export default function CommandCenter() {
           </Card>
         ) : recentVideos.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {recentVideos.map((v) => {
+            {recentVideos.map((v, i) => {
               const st = STATUS_TONE[v.status];
+              const inFlight = v.status === 'uploading' || v.status === 'processing';
               return (
-                <button
-                  key={v.id}
-                  onClick={() => navigate('raw-reel', { videoId: v.id })}
-                  className="text-left kt-focus group"
-                >
-                  <Card hover className="overflow-hidden flex flex-col h-full group-hover:border-primary/50 transition-colors">
-                    <div className="relative aspect-[16/9] bg-surface-2">
-                      {v.thumbnail_url ? (
-                        <img src={v.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                      ) : (
-                        <video
-                          src={v.file_url}
-                          crossOrigin="anonymous"
-                          muted
-                          playsInline
-                          preload="metadata"
-                          className="absolute inset-0 w-full h-full object-cover block"
-                        />
-                      )}
-                      <span className="absolute top-2 left-2"><StatusPill tone={st.tone}>{st.label}</StatusPill></span>
-                      <span className="absolute bottom-2 right-2 text-[11px] font-semibold text-white/95 bg-black/35 backdrop-blur rounded-full px-2 py-0.5">
-                        {fmtDuration(v.duration)}
-                      </span>
-                    </div>
-                    <div className="p-4 flex flex-col gap-2 flex-1">
-                      <div className="text-[11px] uppercase tracking-wider text-ink-dim">Raw Clip</div>
-                      <div className="font-semibold text-ink leading-snug line-clamp-1 group-hover:text-primary transition-colors">
-                        {v.title}
+                <Reveal key={v.id} delay={i * 90} className="h-full">
+                  <button
+                    onClick={() => navigate('raw-reel', { videoId: v.id })}
+                    className="w-full h-full text-left kt-focus group"
+                  >
+                    <Card hover className="overflow-hidden flex flex-col h-full group-hover:border-primary/50">
+                      <div className="relative aspect-[16/9] bg-surface-2 overflow-hidden">
+                        {v.thumbnail_url ? (
+                          <img
+                            src={v.thumbnail_url}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
+                          />
+                        ) : (
+                          <video
+                            src={v.file_url}
+                            crossOrigin="anonymous"
+                            muted
+                            playsInline
+                            preload="metadata"
+                            className="absolute inset-0 w-full h-full object-cover block transition-transform duration-500 ease-out group-hover:scale-[1.05]"
+                          />
+                        )}
+                        <span className="absolute top-2 left-2"><StatusPill tone={st.tone} pulse={inFlight}>{st.label}</StatusPill></span>
+                        <span className="absolute bottom-2 right-2 text-[11px] font-semibold text-white/95 bg-black/35 backdrop-blur rounded-full px-2 py-0.5">
+                          {fmtDuration(v.duration)}
+                        </span>
                       </div>
-                      <div className="mt-auto pt-2 space-y-1.5">
-                        <Progress value={st.pct} />
-                        <div className="flex justify-between text-[11px] text-ink-dim">
-                          <span>{new Date(v.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                          <span className="font-semibold text-primary group-hover:underline">Start Reel →</span>
+                      <div className="p-4 flex flex-col gap-2 flex-1">
+                        <div className="text-[11px] uppercase tracking-wider text-ink-dim">Raw Clip</div>
+                        <div className="font-semibold text-ink leading-snug line-clamp-1 group-hover:text-primary transition-colors">
+                          {v.title}
+                        </div>
+                        <div className="mt-auto pt-2 space-y-1.5">
+                          <Progress value={st.pct} live={inFlight} />
+                          <div className="flex justify-between text-[11px] text-ink-dim">
+                            <span>{new Date(v.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                            <span className="font-semibold text-primary group-hover:underline">Start Reel →</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Card>
-                </button>
+                    </Card>
+                  </button>
+                </Reveal>
               );
             })}
           </div>
@@ -326,43 +357,49 @@ export default function CommandCenter() {
 
       {/* Week strip */}
       <section>
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <h2 className="font-display text-[24px] text-ink">Publishing week</h2>
-            <p className="text-[13px] text-ink-muted mt-0.5">Click any scheduled day to view queue, or an open slot to schedule a dispatch.</p>
+        <Reveal variant="fade">
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <h2 className="font-display text-[24px] text-ink">Publishing week</h2>
+              <p className="text-[13px] text-ink-muted mt-0.5">Click any scheduled day to view queue, or an open slot to schedule a dispatch.</p>
+            </div>
+            <Button variant="ghost" size="sm" icon="calendar_today" onClick={() => navigate('calendar')}>
+              Open calendar
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" icon="calendar_today" onClick={() => navigate('calendar')}>
-            Open calendar
-          </Button>
-        </div>
+        </Reveal>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-          {week.map((d) => (
-            <button
-              key={`${d.day}-${d.date}`}
-              onClick={() => navigate(d.state === 'Open' ? 'publish-schedule' : 'calendar')}
-              className="text-left kt-focus group"
-            >
-              <Card
-                hover
-                className={`p-3 h-full group-hover:border-primary/50 transition-colors ${
-                  d.today ? 'ring-2 ring-primary border-transparent' : ''
-                }`}
+          {week.map((d, i) => (
+            <Reveal key={`${d.day}-${d.date}`} delay={i * 60} variant="left" className="h-full">
+              <button
+                onClick={() => navigate(d.state === 'Open' ? 'publish-schedule' : 'calendar')}
+                className="w-full h-full text-left kt-focus group"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-semibold text-ink-muted">{d.day}</span>
-                  <span className={`text-[12px] font-semibold ${d.today ? 'text-primary' : 'text-ink-dim'}`}>{d.date}</span>
-                </div>
-                <div className="mt-2 min-h-[46px]">
-                  <div className="text-[12.5px] font-semibold text-ink truncate group-hover:text-primary transition-colors">{d.label}</div>
-                  <div className="text-[11px] text-ink-dim truncate">{d.time || d.note}</div>
-                </div>
-                <div className="mt-1">
-                  <StatusPill tone={d.state === 'Published' ? 'primary' : d.state === 'Scheduled' ? 'tertiary' : d.state === 'Open' ? 'neutral' : 'secondary'}>
-                    {d.state}
-                  </StatusPill>
-                </div>
-              </Card>
-            </button>
+                <Card
+                  hover
+                  className={`p-3 h-full group-hover:border-primary/50 ${
+                    d.today ? 'ring-2 ring-primary border-transparent' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] font-semibold text-ink-muted">{d.day}</span>
+                    <span className={`text-[12px] font-semibold ${d.today ? 'text-primary' : 'text-ink-dim'}`}>{d.date}</span>
+                  </div>
+                  <div className="mt-2 min-h-[46px]">
+                    <div className="text-[12.5px] font-semibold text-ink truncate group-hover:text-primary transition-colors">{d.label}</div>
+                    <div className="text-[11px] text-ink-dim truncate">{d.time || d.note}</div>
+                  </div>
+                  <div className="mt-1">
+                    <StatusPill
+                      tone={d.state === 'Published' ? 'primary' : d.state === 'Scheduled' ? 'tertiary' : d.state === 'Open' ? 'neutral' : 'secondary'}
+                      pulse={d.state === 'Scheduled'}
+                    >
+                      {d.state}
+                    </StatusPill>
+                  </div>
+                </Card>
+              </button>
+            </Reveal>
           ))}
         </div>
       </section>

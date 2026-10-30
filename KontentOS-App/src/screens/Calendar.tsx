@@ -287,7 +287,7 @@ export default function Calendar() {
           </div>
 
           {/* Days Grid */}
-          <div className="grid grid-cols-7 gap-2">
+          <div className="kt-stagger--fade grid grid-cols-7 gap-2">
             {/* Blank lead days */}
             {Array.from({ length: leadDays }).map((_, i) => (
               <div
