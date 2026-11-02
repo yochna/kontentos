@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import * as db from '../db.js';
 import { isValidGeminiKey, envGeminiKey } from '../geminiKey.js';
+import { engineTimeout, readEngineJson } from '../engine.js';
 
 const router = express.Router();
 
@@ -20,16 +21,6 @@ function getGeminiClient(customKey?: string): GoogleGenAI | null {
   });
 }
 
-// Timeout wrapper helper to prevent hanging requests
-function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(errorMsg)), ms)
-    ),
-  ]);
-}
-
 // The Room station's creativity slider, carried to the model. Anything unusable becomes the default.
 function clampTemperature(value: unknown, fallback = 0.7): number {
   const n = typeof value === 'number' ? value : Number(value);
@@ -41,15 +32,14 @@ function clampTemperature(value: unknown, fallback = 0.7): number {
 // takes over two minutes when Google is shedding load, so one attempt gets 15s before the next
 // candidate runs — long enough to catch a slow answer, short enough that the ship station's
 // spinner never stalls the creator.
-const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
-const MODEL_ATTEMPT_TIMEOUT_MS = 15000;
-
+export const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+export const MODEL_ATTEMPT_TIMEOUT_MS = 15000;
 /**
  * The Room station's "primary model" dropdown sends one of these as the first candidate. Anything
  * else — a stale value in localStorage, a hand-crafted request — is dropped so the cascade starts
  * from the engine that is known to answer.
  */
-const ENGINE_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+export const ENGINE_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
 export function preferredModelFrom(value: unknown): string | undefined {
   const model = typeof value === 'string' ? value.trim() : '';
@@ -84,7 +74,7 @@ async function generateGeminiContentWithRetry(
   let lastError: any = null;
   for (const model of uniqueModels) {
     try {
-      const response = await withTimeout(
+      const response = await engineTimeout(
         ai.models.generateContent({
           model,
           contents: params.contents,
@@ -768,8 +758,7 @@ Return ONLY JSON with keys:
           config: { responseMimeType: 'application/json', temperature: 0.75 },
         });
         if (response && response.text) {
-          const raw = response.text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-          const parsed = JSON.parse(raw);
+          const parsed = readEngineJson(response.text);
           if (parsed && parsed.headline && (parsed.supportingText || parsed.description)) {
             return res.json({
               success: true,

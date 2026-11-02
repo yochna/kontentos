@@ -827,9 +827,9 @@ Output valid JSON:
 
   app.post('/api/script/ideas', async (req, res) => {
     try {
-      const { topic, niche } = req.body || {};
+      const { topic, niche, tone, context, temperature, model } = req.body || {};
       const { generateIdeas } = await import('./server/ideasEngine.js');
-      const generated = await generateIdeas(topic, niche);
+      const generated = await generateIdeas(topic, niche, { tone, context, temperature, model });
       res.json({ success: true, data: generated });
     } catch (err: any) {
       console.error('Error generating ideas:', err);

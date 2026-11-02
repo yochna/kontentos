@@ -6,6 +6,8 @@ import { ideas as initialMockIdeas, type Idea } from '@/data/mock';
 import { useStore } from '@/lib/store';
 import { useNavPayload } from '@/lib/nav';
 import { api } from '@/lib/api';
+import { copyVoice, voiceTone } from '@/lib/brandKit';
+import { copyModel, readAiPrefs } from '@/lib/prefs';
 
 const QUICK_TOPICS = [
   'AI Workflows',
@@ -30,7 +32,13 @@ export default function Ideas() {
     const q = topicToUse !== undefined ? topicToUse : searchTopic;
     setGenerating(true);
     try {
-      const generated = await api.generateIdeas({ topic: q });
+      const generated = await api.generateIdeas({
+        topic: q,
+        tone: voiceTone(),
+        context: copyVoice(),
+        temperature: readAiPrefs().temperature,
+        model: copyModel(),
+      });
       if (generated && generated.length > 0) {
         setIdeasList(generated);
         if (filter === 'saved') setFilter('all');
@@ -130,8 +138,9 @@ export default function Ideas() {
               What should you create next?
             </h1>
             <p className="mt-1.5 text-ink-muted text-[13px] leading-relaxed">
-              Give it a topic and KontentOS writes the angles, hooks and three-beat scripts. Real transcript when a clip
-              is loaded, local procedural templates when it is not. Nothing here is scored against live audience data.
+              Give it a topic and KontentOS writes the angles, hooks and three-beat scripts — in the
+              voice from your Kit, on the engine you picked in the Room. Without a configured key it
+              falls back to local templates. Nothing here is scored against live audience data.
             </p>
 
             {/* Keyword / Topic input */}

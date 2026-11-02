@@ -1,5 +1,7 @@
 import express from 'express';
 import { GoogleGenAI } from '@google/genai';
+import { DEFAULT_MODEL, ENGINE_MODELS, MODEL_ATTEMPT_TIMEOUT_MS, preferredModelFrom } from './caption.js';
+import { engineTimeout, readEngineJson } from '../engine.js';
 
 const router = express.Router();
 
@@ -16,37 +18,26 @@ function getGeminiClient(): GoogleGenAI | null {
   });
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(errorMsg)), ms)
-    ),
-  ]);
-}
-
 async function generateGeminiContentWithRetry(
   ai: GoogleGenAI,
   params: { contents: any; config?: any; preferredModel?: string }
 ): Promise<any> {
-  const modelsToTry = [
-    params.preferredModel || 'gemini-3.8-flash',
-    'gemini-3.8-flash',
-    'gemini-3.1-flash-lite',
-  ];
-  // Deduplicate candidate list preserving order
-  const uniqueModels = Array.from(new Set(modelsToTry));
+  // One cascade for the whole server, so a script, a seed and a caption cannot disagree about
+  // which engine is trustworthy.
+  const uniqueModels = Array.from(
+    new Set([preferredModelFrom(params.preferredModel) ?? DEFAULT_MODEL, ...ENGINE_MODELS])
+  );
 
   let lastError: any = null;
   for (const model of uniqueModels) {
     try {
-      const response = await withTimeout(
+      const response = await engineTimeout(
         ai.models.generateContent({
           model,
           contents: params.contents,
           config: params.config,
         }),
-        9000,
+        MODEL_ATTEMPT_TIMEOUT_MS,
         `Timeout with model ${model}`
       );
       if (response && response.text) {
@@ -219,8 +210,8 @@ Return STRICTLY JSON conforming to this schema without markdown fences:
 
         const rawText = response.text?.trim();
         if (rawText) {
-          const parsed = JSON.parse(rawText);
-          if (parsed.script && parsed.multiFormat) {
+          const parsed = readEngineJson<any>(rawText);
+          if (parsed?.script && parsed?.multiFormat) {
             return res.json({
               success: true,
               data: parsed,
@@ -338,8 +329,8 @@ Return ONLY a single JSON object (not an array) matching this schema:
 
         const rawText = response.text?.trim();
         if (rawText) {
-          const parsed = JSON.parse(rawText);
-          const item = Array.isArray(parsed) ? parsed[0] : (parsed.card || parsed.data || parsed);
+          const parsed = readEngineJson<any>(rawText);
+          const item = Array.isArray(parsed) ? parsed[0] : (parsed?.card || parsed?.data || parsed);
           if (item && (item.headline || item.title) && (item.supportingText || item.body || item.text)) {
             return res.json({
               success: true,

@@ -600,16 +600,31 @@ Respond ONLY with pure JSON matching this exact structure:
   },
 
   // ---- Ideas & Spark Engine ----
-  async generateIdeas(opts?: { topic?: string; niche?: string }): Promise<import('@/data/mock').Idea[]> {
+  async generateIdeas(opts?: {
+    topic?: string;
+    niche?: string;
+    tone?: string;
+    context?: string;
+    temperature?: number;
+    model?: string;
+  }): Promise<import('@/data/mock').Idea[]> {
     try {
       const res = await fetch('/api/script/ideas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: opts?.topic, niche: opts?.niche }),
+        body: JSON.stringify({
+          topic: opts?.topic,
+          niche: opts?.niche,
+          tone: opts?.tone,
+          context: opts?.context || '',
+          temperature: opts?.temperature,
+          model: opts?.model,
+        }),
       });
       if (res.ok) {
         const d = await res.json();
-        if (d.data && Array.isArray(d.data) && d.data.length > 0) return d.data;
+        // The server returns finished cards, artwork ids included.
+        if (Array.isArray(d.data) && d.data.length > 0) return d.data;
       }
     } catch {
       // Fallback handled below

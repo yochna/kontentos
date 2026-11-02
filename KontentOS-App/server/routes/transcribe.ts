@@ -4,6 +4,7 @@ import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import * as db from '../db.js';
 import { isValidGeminiKey, envGeminiKey } from '../geminiKey.js';
+import { readEngineJson } from '../engine.js';
 
 const router = express.Router();
 
@@ -563,7 +564,7 @@ Return JSON strictly matching this schema:
         });
 
         const text = (typeof response.text === 'function' ? response.text() : response.text) || '{}';
-        const parsed = JSON.parse(text);
+        const parsed = readEngineJson<any>(text) || {};
         translatedSrt = parsed.srt || '';
         translatedTranscript = parsed.transcript || '';
         segments = parsed.segments || [];

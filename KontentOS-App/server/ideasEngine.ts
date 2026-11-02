@@ -1,4 +1,11 @@
 import { GoogleGenAI } from '@google/genai';
+import { engineTimeout, readEngineJson } from './engine.js';
+import {
+  DEFAULT_MODEL,
+  ENGINE_MODELS,
+  MODEL_ATTEMPT_TIMEOUT_MS,
+  preferredModelFrom,
+} from './routes/caption.js';
 
 export interface IdeaBlueprint {
   focus: string;
@@ -45,14 +52,23 @@ function getGeminiClient(): GoogleGenAI | null {
   });
 }
 
-export async function generateIdeas(topic?: string, niche = 'Studio & SaaS'): Promise<GeneratedIdea[]> {
+export async function generateIdeas(
+  topic?: string,
+  niche = 'Studio & SaaS',
+  opts: { tone?: string; context?: string; temperature?: number; model?: string } = {}
+): Promise<GeneratedIdea[]> {
   const query = (topic || '').trim();
   const ai = getGeminiClient();
+  const brandVoice = String(opts.context || '').trim();
+  const tone = String(opts.tone || '').trim() || 'Viral & Punchy';
+  const temperature = Number.isFinite(Number(opts.temperature))
+    ? Math.min(1, Math.max(0, Number(opts.temperature)))
+    : 0.7;
 
   if (ai && query) {
     try {
       const prompt = `You are an elite short-form video creator, scriptwriter, and viral content strategist.
-Given the topic "${query}" and niche "${niche}", generate 6 unique, scroll-stopping content ideas and detailed blueprints.
+Given the topic "${query}", niche "${niche}" and tone "${tone}", generate 6 unique, scroll-stopping content ideas and detailed blueprints.
 
 Categories to cover across the 6 ideas:
 1. Trending Sprint (categoryTone: "tertiary")
@@ -77,53 +93,66 @@ For each idea, return:
   - hookScore: number between 80 and 97
   - beats: array of 3 timed beats with { label: "Beat 1: The Trap", time: "0:00 - 0:04", body: "visual + spoken action" }
 
-Return STRICTLY a JSON array of 6 idea objects with NO markdown formatting, NO backticks.`;
+Return STRICTLY a JSON array of 6 idea objects with NO markdown formatting, NO backticks.` +
+        (brandVoice
+          ? `\n\nWrite as this specific creator, not as a generic strategist:\n${brandVoice}`
+          : '');
 
-      const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
-      let text = '';
+      // Same cascade the copy engines use, so a seed, a script and a caption cannot disagree about
+      // which engine is trustworthy — and each attempt is bounded.
+      const modelsToTry = Array.from(
+        new Set([preferredModelFrom(opts.model) ?? DEFAULT_MODEL, ...ENGINE_MODELS])
+      );
       for (const model of modelsToTry) {
+        let text = '';
         try {
-          const res = await ai.models.generateContent({
-            model,
-            contents: prompt,
-            config: {
-              responseMimeType: 'application/json',
-            },
-          });
+          const res = await engineTimeout(
+            ai.models.generateContent({
+              model,
+              contents: prompt,
+              config: {
+                responseMimeType: 'application/json',
+                temperature,
+              },
+            }),
+            MODEL_ATTEMPT_TIMEOUT_MS,
+            `Timeout with model ${model}`
+          );
           text = res.text?.trim() || '';
-          if (text) break;
         } catch (mErr: any) {
-          console.warn(`[ideasEngine] ${model} unavailable, trying fallback:`, mErr?.message);
+          console.warn(`[ideasEngine] ${model} unavailable, trying next engine:`, mErr?.message);
+          continue;
         }
-      }
-      if (text) {
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((item, idx) => ({
-            id: `idea-${Date.now()}-${idx}`,
-            category: item.category || 'High Potential',
-            categoryTone: item.categoryTone || 'primary',
-            title: item.title || `${query} Breakdown`,
-            excerpt: item.excerpt || 'A tactical short-form breakdown.',
-            format: item.format || 'Reel · 30 sec',
-            metric: item.metric || `Hook: ${item.blueprint?.hookScore || 90}%`,
-            thumb: String.fromCharCode(97 + (idx % 6)), // 'a' through 'f'
-            imageId: CURATED_IMAGES[idx % CURATED_IMAGES.length].id,
-            imageAlt: CURATED_IMAGES[idx % CURATED_IMAGES.length].alt,
-            blueprint: {
-              focus: item.blueprint?.focus || 'Strategic Angle',
-              why: item.blueprint?.why || 'Direct pain point paired with actionable tactical advice.',
-              formats: item.blueprint?.formats || ['Reel (30s)', 'Carousel', 'LinkedIn Post'],
-              hook: item.blueprint?.hook || `“Stop making this mistake with ${query}.”`,
-              hookScore: item.blueprint?.hookScore || Math.floor(84 + Math.random() * 12),
-              beats: item.blueprint?.beats || [
-                { label: 'Beat 1: Pattern Interrupt', time: '0:00 - 0:03', body: 'Sudden camera punch-in calling out the common mistake.' },
-                { label: 'Beat 2: The Core Fix', time: '0:03 - 0:22', body: '3 actionable steps demonstrating the right method.' },
-                { label: 'Beat 3: Call to Action', time: '0:22 - 0:30', body: 'On-screen comment trigger for template download.' },
-              ],
-            },
-          }));
+        const answer = readEngineJson<any>(text);
+        const parsed = Array.isArray(answer) && answer.length > 0 ? answer : null;
+        if (!parsed) {
+          console.warn(`[ideasEngine] ${model} returned an unusable answer, trying next engine.`);
+          continue;
         }
+        return parsed.map((item, idx) => ({
+          id: `idea-${Date.now()}-${idx}`,
+          category: item.category || 'High Potential',
+          categoryTone: item.categoryTone || 'primary',
+          title: item.title || `${query} Breakdown`,
+          excerpt: item.excerpt || 'A tactical short-form breakdown.',
+          format: item.format || 'Reel · 30 sec',
+          metric: item.metric || `Hook: ${item.blueprint?.hookScore || 90}%`,
+          thumb: String.fromCharCode(97 + (idx % 6)), // 'a' through 'f'
+          imageId: CURATED_IMAGES[idx % CURATED_IMAGES.length].id,
+          imageAlt: CURATED_IMAGES[idx % CURATED_IMAGES.length].alt,
+          blueprint: {
+            focus: item.blueprint?.focus || 'Strategic Angle',
+            why: item.blueprint?.why || 'Direct pain point paired with actionable tactical advice.',
+            formats: item.blueprint?.formats || ['Reel (30s)', 'Carousel', 'LinkedIn Post'],
+            hook: item.blueprint?.hook || `“Stop making this mistake with ${query}.”`,
+            hookScore: item.blueprint?.hookScore || Math.floor(84 + Math.random() * 12),
+            beats: item.blueprint?.beats || [
+              { label: 'Beat 1: Pattern Interrupt', time: '0:00 - 0:03', body: 'Sudden camera punch-in calling out the common mistake.' },
+              { label: 'Beat 2: The Core Fix', time: '0:03 - 0:22', body: '3 actionable steps demonstrating the right method.' },
+              { label: 'Beat 3: Call to Action', time: '0:22 - 0:30', body: 'On-screen comment trigger for template download.' },
+            ],
+          },
+        }));
       }
     } catch (err) {
       console.warn('Gemini ideas generation notice: using procedural fallback generator', err);
