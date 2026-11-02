@@ -156,8 +156,16 @@ export const api = {
     );
   },
 
-  /** Upload a video (direct base64 for <10MB, chunked otherwise) with exact duration probing. */
-  async uploadVideo(file: File, onProgress: (pct: number) => void = () => {}): Promise<Video> {
+  /**
+   * Upload a video (direct base64 for <10MB, chunked otherwise) with exact duration probing.
+   * `relinkId` re-attaches the bytes to a record that already exists — the path back from a clip
+   * whose file died on a redeploy while its row, captions and queue position survived.
+   */
+  async uploadVideo(
+    file: File,
+    onProgress: (pct: number) => void = () => {},
+    relinkId?: string
+  ): Promise<Video> {
     const CHUNK = 5 * 1024 * 1024;
     const title = file.name.replace(/\.[^/.]+$/, '');
     const probedDuration = await probeVideoDuration(file);
@@ -176,6 +184,7 @@ export const api = {
             mimeType: file.type || 'video/mp4',
             title,
             duration: probedDuration > 0 ? probedDuration : undefined,
+            videoId: relinkId,
           }),
         }),
       );
@@ -191,7 +200,13 @@ export const api = {
       await fetch('/api/upload/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: file.name, totalChunks, totalSize: file.size, mimeType: file.type || 'video/mp4' }),
+        body: JSON.stringify({
+          fileName: file.name,
+          totalChunks,
+          totalSize: file.size,
+          mimeType: file.type || 'video/mp4',
+          videoId: relinkId,
+        }),
       }),
     );
     for (let i = 0; i < totalChunks; i++) {

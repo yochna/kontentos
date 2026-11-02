@@ -399,7 +399,9 @@ export default function ContentLibrary() {
       {/* Video Detail & Speech Inspector Modal */}
       {inspectVideo && (
         <VideoDetailModal
-          video={inspectVideo}
+          // Read from `videos`, not the snapshot taken when the modal opened: a re-linked clip
+          // updates its row and the player should come back without closing the inspector.
+          video={videos.find((v) => v.id === inspectVideo.id) ?? inspectVideo}
           onClose={() => setInspectVideo(null)}
           onUpdateTitle={async (newTitle) => {
             await updateVideo(inspectVideo.id, { title: newTitle });
@@ -441,6 +443,7 @@ function VideoDetailModal({
   onDelete: () => void;
 }) {
   useDismiss(onClose);
+  const { relinkMedia } = useStore();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(video.title);
   const [subtitles, setSubtitles] = useState<any>(null);
@@ -573,7 +576,7 @@ function VideoDetailModal({
             {/* Embedded Video Player with Live CC Overlay */}
             <div className="aspect-video rounded-card bg-black overflow-hidden relative shadow-inner group">
               {media.offline ? (
-                <OfflinePlate />
+                <OfflinePlate onRelink={async (file) => !!(await relinkMedia(video.id, file))} />
               ) : (
                 <video
                   ref={videoElRef}

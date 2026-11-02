@@ -8,7 +8,10 @@ import { buildRepurposeJob, type TranscriptSegment } from '../repurposeEngine.js
 const router = express.Router();
 
 /** The ids the Studio may retarget a short to, mapped to the spelling we store. */
-const PLATFORM_IDS = new Map(PLATFORMS.map((p) => [p.id, p.id]));
+/** Client-supplied platform ids arrive as strings; only ones the shared table knows are stored. */
+const PLATFORM_IDS = new Map<string, (typeof PLATFORMS)[number]['id']>(
+  PLATFORMS.map((p) => [p.id, p.id])
+);
 
 /**
  * Only starting a job costs engine calls, so only that route carries the tight cap. Reads and

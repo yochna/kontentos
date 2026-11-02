@@ -51,6 +51,7 @@ export default function RawReel() {
     handoffReelToEditor,
     handoffEditorToPublish,
     uploadVideo,
+    relinkMedia,
     transcripts,
   } = useStore();
 
@@ -515,7 +516,7 @@ export default function RawReel() {
                 ) : video ? (
                   <div className="absolute inset-0 w-full h-full bg-black flex flex-col items-center justify-center text-center p-4">
                     {media.offline ? (
-                      <OfflinePlate />
+                      <OfflinePlate onRelink={async (file) => !!(await relinkMedia(video.id, file))} />
                     ) : (
                       <video
                         src={video.file_url}

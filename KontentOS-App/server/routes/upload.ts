@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import * as db from '../db.js';
+import type { Video } from '../../src/types.js';
 
 const router = express.Router();
 
@@ -25,6 +26,8 @@ interface UploadSession {
   receivedChunks: Set<number>;
   totalSize: number;
   createdAt: number;
+  /** Set when this upload re-attaches media to a record that already exists. See relinkTarget. */
+  videoId?: string;
 }
 
 const activeSessions = new Map<string, UploadSession>();
@@ -62,10 +65,29 @@ function sweepExpiredSessions() {
 }
 setInterval(sweepExpiredSessions, 30 * 60 * 1000).unref();
 
+/**
+ * Render's free disk is wiped on every redeploy while the Mongo row survives, so a creator can end up
+ * holding a cut with captions, a queue position and Studio shorts attached to a file that is gone.
+ * Re-uploading it has to land on that same row — minting a new id would orphan all of that work. An
+ * upload with no `videoId` is the ordinary new-clip path and returns null.
+ */
+async function findRelinkRow(
+  videoId: unknown,
+  userId: string
+): Promise<{ video: Video } | { error: string; status: number } | null> {
+  if (videoId === undefined || videoId === null || videoId === '') return null;
+  // The id is reused as the stored filename, so it only ever goes through in our own shape.
+  if (typeof videoId !== 'string' || !/^vid_[A-Za-z0-9_-]{6,}$/.test(videoId)) {
+    return { error: 'That is not a clip id KontentOS issued.', status: 400 };
+  }
+  const video = await db.getVideo(videoId, userId);
+  return video ? { video } : { error: 'No clip with that id is on your account.', status: 404 };
+}
+
 // Initialize a chunked upload session
 router.post('/init', async (req, res) => {
   try {
-    const { fileName, totalChunks, totalSize } = req.body;
+    const { fileName, totalChunks, totalSize, videoId } = req.body;
     if (!fileName || !totalChunks) {
       return res.status(400).json({ error: 'Missing fileName or totalChunks' });
     }
@@ -82,6 +104,12 @@ router.post('/init', async (req, res) => {
       return res.status(413).json({ error: 'File too large (max 2 GB)' });
     }
 
+    // Reject a bad re-link here rather than after the creator has sent every chunk.
+    const relink = await findRelinkRow(videoId, req.userId);
+    if (relink && 'error' in relink) {
+      return res.status(relink.status).json({ error: relink.error });
+    }
+
     const uploadId = `upl_${crypto.randomUUID()}`;
     const sessionDir = path.join(CHUNKS_DIR, uploadId);
     fs.mkdirSync(sessionDir, { recursive: true });
@@ -93,6 +121,7 @@ router.post('/init', async (req, res) => {
       receivedChunks: new Set<number>(),
       totalSize: parseInt(totalSize, 10) || 0,
       createdAt: Date.now(),
+      videoId: relink?.video.id,
     });
 
     res.json({
@@ -174,9 +203,19 @@ router.post('/complete', async (req, res) => {
       });
     }
 
+    // The row could have been deleted between /init and now; confirm it is still this creator's
+    // before overwriting anything, and treat it as a fresh clip if it has gone.
+    const relink = session.videoId ? await findRelinkRow(session.videoId, req.userId) : null;
+    if (relink && 'error' in relink) {
+      fs.rmSync(path.join(CHUNKS_DIR, uploadId), { recursive: true, force: true });
+      activeSessions.delete(uploadId);
+      return res.status(relink.status).json({ error: relink.error });
+    }
+    const existing = relink?.video;
+
     const sessionDir = path.join(CHUNKS_DIR, uploadId);
     const fileExt = safeExtension(session.fileName) || '.mp4';
-    const videoId = `vid_${crypto.randomUUID()}`;
+    const videoId = existing?.id || `vid_${crypto.randomUUID()}`;
     const finalFileName = `${videoId}${fileExt}`;
     const finalFilePath = path.join(UPLOADS_DIR, finalFileName);
 
@@ -205,23 +244,44 @@ router.post('/complete', async (req, res) => {
     // durable when MONGODB_URI is set. See the storage note in /api/db/status.
     const publicUrl = `/uploads/${finalFileName}`;
 
-    // Record in database
-    const video = await db.createVideo({
-      id: videoId,
-      user_id: req.userId,
-      title: title || session.fileName.replace(/\.[^/.]+$/, ''),
-      description: description || '',
-      file_url: publicUrl,
-      file_size: fileStats.size,
-      duration: duration ? Number(duration) : 0,
-      aspect_ratio: aspectRatio || '9:16',
-      status: 'ready',
-    });
+    let video: Video;
+    if (existing) {
+      // The replacement is on disk, so the file the row used to point at is now dead weight.
+      if (existing.file_url && existing.file_url !== publicUrl) {
+        db.removeUploadedVideoFile(existing.file_url);
+      }
+      const updated = await db.updateVideoStatus(
+        videoId,
+        'ready',
+        {
+          file_url: publicUrl,
+          file_size: fileStats.size,
+          duration: duration ? Number(duration) : existing.duration,
+        },
+        req.userId
+      );
+      if (!updated) {
+        return res.status(404).json({ error: 'No clip with that id is on your account.' });
+      }
+      video = updated;
+    } else {
+      video = await db.createVideo({
+        id: videoId,
+        user_id: req.userId,
+        title: title || session.fileName.replace(/\.[^/.]+$/, ''),
+        description: description || '',
+        file_url: publicUrl,
+        file_size: fileStats.size,
+        duration: duration ? Number(duration) : 0,
+        aspect_ratio: aspectRatio || '9:16',
+        status: 'ready',
+      });
+    }
 
     res.json({
       success: true,
       video,
-      message: 'Video successfully assembled and ready',
+      message: existing ? 'Clip re-attached to the record you already had' : 'Video successfully assembled and ready',
     });
   } catch (err: any) {
     console.error('Error in /api/upload/complete:', err);
@@ -232,7 +292,7 @@ router.post('/complete', async (req, res) => {
 // Single Direct Upload route (for smaller drag-and-drops / previews)
 router.post('/direct', async (req, res) => {
   try {
-    const { fileName, fileData, title, aspectRatio, duration } = req.body;
+    const { fileName, fileData, title, aspectRatio, duration, videoId } = req.body;
     if (!fileData || !fileName) {
       return res.status(400).json({ error: 'Missing fileData or fileName' });
     }
@@ -247,8 +307,14 @@ router.post('/direct', async (req, res) => {
       return res.status(400).json({ error: 'fileData must be a base64 string' });
     }
 
-    const videoId = `vid_${crypto.randomUUID()}`;
-    const finalFileName = `${videoId}${fileExt}`;
+    const relink = await findRelinkRow(videoId, req.userId);
+    if (relink && 'error' in relink) {
+      return res.status(relink.status).json({ error: relink.error });
+    }
+    const existing = relink?.video;
+
+    const videoIdFinal = existing?.id || `vid_${crypto.randomUUID()}`;
+    const finalFileName = `${videoIdFinal}${fileExt}`;
     const finalFilePath = path.join(UPLOADS_DIR, finalFileName);
 
     const cleanBase64 = fileData.includes(',') ? fileData.split(',')[1] : fileData;
@@ -261,21 +327,42 @@ router.post('/direct', async (req, res) => {
     const fileStats = fs.statSync(finalFilePath);
     const publicUrl = `/uploads/${finalFileName}`;
 
-    const video = await db.createVideo({
-      id: videoId,
-      user_id: req.userId,
-      title: title || fileName.replace(/\.[^/.]+$/, ''),
-      file_url: publicUrl,
-      file_size: fileStats.size,
-      duration: duration ? Number(duration) : 0,
-      aspect_ratio: aspectRatio || '9:16',
-      status: 'ready',
-    });
+    let video: Video;
+    if (existing) {
+      if (existing.file_url && existing.file_url !== publicUrl) {
+        db.removeUploadedVideoFile(existing.file_url);
+      }
+      const updated = await db.updateVideoStatus(
+        videoIdFinal,
+        'ready',
+        {
+          file_url: publicUrl,
+          file_size: fileStats.size,
+          duration: duration ? Number(duration) : existing.duration,
+        },
+        req.userId
+      );
+      if (!updated) {
+        return res.status(404).json({ error: 'No clip with that id is on your account.' });
+      }
+      video = updated;
+    } else {
+      video = await db.createVideo({
+        id: videoIdFinal,
+        user_id: req.userId,
+        title: title || fileName.replace(/\.[^/.]+$/, ''),
+        file_url: publicUrl,
+        file_size: fileStats.size,
+        duration: duration ? Number(duration) : 0,
+        aspect_ratio: aspectRatio || '9:16',
+        status: 'ready',
+      });
+    }
 
     res.json({
       success: true,
       video,
-      message: 'Video uploaded directly',
+      message: existing ? 'Clip re-attached to the record you already had' : 'Video uploaded directly',
     });
   } catch (err: any) {
     console.error('Error in /api/upload/direct:', err);

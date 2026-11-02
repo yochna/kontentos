@@ -772,7 +772,7 @@ export async function updateVideoStatus(
 
 // Uploaded clips live in the /uploads directory served by server.ts. Deleting the record but
 // not the file leaves a clip nothing can reference behind, on a disk that is already scarce.
-function removeUploadedVideoFile(fileUrl: string | undefined): void {
+export function removeUploadedVideoFile(fileUrl: string | undefined): void {
   if (!fileUrl || !fileUrl.startsWith('/uploads/')) return;
   // basename() neutralises any traversal a stored URL might carry.
   const fileName = path.basename(decodeURIComponent(fileUrl.slice('/uploads/'.length)));

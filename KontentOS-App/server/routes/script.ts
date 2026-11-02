@@ -52,8 +52,17 @@ async function generateGeminiContentWithRetry(
   throw lastError || new Error('All model candidates exhausted');
 }
 
-function getFallbackScript(topic: string, format: string, tone: string, niche: string) {
-  const cleanTopic = (topic || '3 Creator Systems To Scale Content In 2026').trim();
+/**
+ * The offline script. The timings and the shape are the reusable part; the words are not ours to
+ * invent. An earlier version of this function wrote "90% of creators miss this", "5 hours editing"
+ * and "publish 5x faster" out of a topic alone — invented numbers a creator would then read to camera
+ * as if they had measured something. Every bracket here is a line only they can fill.
+ */
+export function getFallbackScript(topic: string, format: string, tone: string, niche: string) {
+  const cleanTopic = (topic || 'This cut').trim();
+  const blank = (hint: string) => `[${hint}]`;
+  const note =
+    'KontentOS scaffold — no engine answered, so this is structure, not copy. Fill every bracket from what you actually think or did, then delete this line.';
 
   return {
     title: cleanTopic,
@@ -62,68 +71,71 @@ function getFallbackScript(topic: string, format: string, tone: string, niche: s
     script: {
       hook: {
         time: '0:00 - 0:03',
-        visualCue: 'Sudden camera push-in, expressive face, neon-highlighted kinetic subtitle banner.',
-        overlayText: 'STOP SCROLLING! 🚨 90% of Creators Miss This',
-        spokenText: `Listen closely: if you are creating video content in 2026, you need to understand "${cleanTopic}".`
+        visualCue: blank('the first frame — where you are and what the camera is doing'),
+        overlayText: blank('the on-screen line for the first four seconds'),
+        spokenText: blank('what you say in the first four seconds about ' + cleanTopic),
       },
       beats: [
         {
           time: '0:03 - 0:11',
-          heading: 'Beat 1: The Frustrating Reality',
-          visualCue: 'Rapid B-roll montage / timeline screen recording showing editing fatigue.',
-          spokenText: 'Most creators spend 5 hours editing a 30-second reel. Manual subtitle styling and re-framing are killing your creative output.'
+          heading: 'Beat 1 — the situation',
+          visualCue: blank('what is on screen'),
+          spokenText: blank('the problem as you have actually met it'),
         },
         {
           time: '0:11 - 0:20',
-          heading: 'Beat 2: The 1-Click Multiplier',
-          visualCue: 'Point to floating UI graphic demonstrating automated video synthesis and burned-in captions.',
-          spokenText: 'Instead, capture raw 1-take videos on your smartphone. Let AI handle kinetic captions, silence trimming, and aspect ratio conversion.'
+          heading: 'Beat 2 — the turn',
+          visualCue: blank('what is on screen'),
+          spokenText: blank('the one thing you do differently, and why'),
         },
         {
           time: '0:20 - 0:26',
-          heading: 'Beat 3: Omnichannel Distribution',
-          visualCue: 'Animated social platform icons (Reels, TikTok, Shorts, LinkedIn) appearing in sequence.',
-          spokenText: 'One single raw video can power your Instagram Reels, YouTube Shorts, LinkedIn carousel, and X thread simultaneously.'
-        }
+          heading: 'Beat 3 — the proof',
+          visualCue: blank('what is on screen'),
+          spokenText: blank('the number, the clip or the outcome that backs it up'),
+        },
       ],
       cta: {
         time: '0:26 - 0:30',
-        visualCue: 'Engaging forward lean with animated hand pointing downwards to comment section.',
-        spokenText: `Drop a comment below with "SYSTEM" and I will send you the exact template we use to publish 5x faster!`,
-        commentBait: 'Comment "SYSTEM" for the free video workflow breakdown! 👇'
-      }
+        visualCue: blank('the last frame'),
+        spokenText: blank('what the viewer does next'),
+        commentBait: blank('a question you would really answer in the comments'),
+      },
     },
     multiFormat: {
       instagram: {
-        caption: `📌 Stop burning 5 hours on every reel in 2026!\n\nHere is how to tackle "${cleanTopic}" without burning out:\n\n1️⃣ Record raw 1-take thoughts when creative flow peaks\n2️⃣ Automate kinetic captions, pacing cuts & color pop\n3️⃣ Repurpose the core insight into carousels & threads\n\n👇 Save this reel for your next creation sprint! What is your biggest content bottleneck right now?`,
-        hashtags: ['contentcreator', 'reelsgrowth', 'videomarketing', 'creatoreconomy', 'kontentos']
+        caption: `${cleanTopic}\n\n${blank('the hook')}\n\n${blank('what you actually said')}\n\n${blank(
+          'what the viewer should do next'
+        )}\n\n${note}`,
+        hashtags: [],
       },
       youtube: {
-        title: `${cleanTopic.slice(0, 52)} 🚨 (Viral Creator Breakdown)`,
-        description: `Stop overcomplicating your video production workflow. In this Short, we break down "${cleanTopic}" step-by-step.\n\n📌 In This Short:\n0:00 - The Core Trap\n0:10 - The 1-Click Workflow\n0:20 - Omnichannel Distribution\n\n💬 Subscribe for daily creator tools and drop your thoughts in the comments below!`,
-        tags: ['Shorts', 'YouTubeShorts', 'CreatorTips', 'VideoMarketing', 'CreatorEconomy']
+        title: cleanTopic.slice(0, 100),
+        description: `${cleanTopic}\n\n${blank('what the short covers, in one sentence')}\n\n${note}`,
+        tags: [],
       },
       linkedin: {
-        postText: `The creator economy in 2026 is won on distribution speed, not manual editing fatigue.\n\nHere is the operational breakdown on "${cleanTopic}":\n\n• High-leverage creators do not spend half their day manually placing captions.\n• They record unpolished high-signal thoughts, leverage automated workflows, and syndicate.\n• One idea becomes a video, a 5-slide carousel, and a tactical text breakdown.\n\nAre you prioritizing manual production or streamlined distribution this quarter?`,
+        postText: `${cleanTopic}\n\n${blank('the claim you are making')}\n\n${blank(
+          'what happened, in your own words'
+        )}\n\n${blank('what you would do differently now')}\n\n${note}`,
         slideOutline: [
-          `Slide 1: Master Class - ${cleanTopic}`,
-          'Slide 2: The Bottleneck - Manual Editing Fatigue',
-          'Slide 3: The Framework - Raw Input + Automated AI',
-          'Slide 4: The Leverage - Multi-Platform Distribution',
-          'Slide 5: Save & Share with your creator team'
-        ]
+          `Slide 1 — the claim: ${cleanTopic}`,
+          'Slide 2 — what happened',
+          'Slide 3 — the number or scene that proves it',
+          'Slide 4 — what you changed after it',
+          'Slide 5 — the one thing the reader should do',
+        ],
       },
       twitterThread: [
-        `1/ Everything you need to know about "${cleanTopic}" in 2026 (save this thread) 🧵👇`,
-        '2/ Point 1: 90% of creators give up because post-production friction drains their creative battery.',
-        '3/ Point 2: The solution isn’t working harder—it’s turning raw 1-minute smartphone recordings into polished assets with AI.',
-        '4/ Point 3: Syndicate each idea everywhere: Reels for discovery, Shorts for subscriber momentum, and LinkedIn for high-ticket deals.',
-        '5/ Want our full viral hook library? Retweet tweet #1 and check out @KontentOS for the complete creator toolkit! ⚡'
+        // Truncated on purpose: a first tweet over 280 characters is refused by X.
+        `${cleanTopic.slice(0, 90)}\n\n${blank('the hook, in your own words')}`.slice(0, 280),
+        `2/ ${blank('the proof — one number or one scene')}`,
+        `3/ ${blank('the turn — what to do next')}`,
       ],
       threads: {
-        text: `Unpopular truth about "${cleanTopic}" ☕\n\nYou do not need a 4K studio camera or 10 hours in Premiere. You need raw conviction and a frictionless publishing pipeline.\n\nHow much time do you spend editing per week? 👇`
-      }
-    }
+        text: `${cleanTopic}\n\n${blank('what you think about it')}\n\n${note}`,
+      },
+    },
   };
 }
 
@@ -233,7 +245,7 @@ Return STRICTLY JSON conforming to this schema without markdown fences:
       data: fallbackData,
       fallback: true,
       source: 'local_generator',
-      message: 'Generated complete script and multi-format distribution suite',
+      message: 'No engine answered — here is the structure, with every line still yours to write.',
     });
   } catch (err: any) {
     console.error('Error in /api/script/generate:', err);

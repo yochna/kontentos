@@ -87,6 +87,11 @@ interface StoreValue {
   redo: () => void;
   refresh: () => Promise<void>;
   uploadVideo: (file: File, onProgress: (pct: number) => void) => Promise<Video | null>;
+  relinkMedia: (
+    videoId: string,
+    file: File,
+    onProgress?: (pct: number) => void
+  ) => Promise<Video | null>;
   updateVideo: (id: string, updates: Record<string, unknown>) => Promise<void>;
   deleteVideo: (id: string) => Promise<void>;
   schedulePost: (payload: {
@@ -333,6 +338,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   }, [transcribeOnIntake]);
+
+  /**
+   * On Render's free disk the record outlives the file. Re-attaching the bytes to the same id brings
+   * back the cues, the captions, the queue row and any Studio shorts pointing at it, instead of the
+   * creator starting a second copy of a take they already cut.
+   */
+  const relinkMedia = useCallback<StoreValue['relinkMedia']>(async (videoId, file, onProgress) => {
+    try {
+      const video = await api.uploadVideo(file, onProgress ?? (() => {}), videoId);
+      setVideos((prev) => prev.map((v) => (v.id === video.id ? { ...v, ...video, media_available: true } : v)));
+      return video;
+    } catch (err) {
+      console.error('Re-link failed:', err);
+      return null;
+    }
+  }, []);
 
   const updateVideo = useCallback(async (id: string, updates: Record<string, unknown>) => {
     try {
@@ -791,6 +812,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       redo,
       refresh,
       uploadVideo,
+      relinkMedia,
       updateVideo,
       deleteVideo,
       schedulePost,
@@ -833,6 +855,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setProject,
       refresh,
       uploadVideo,
+      relinkMedia,
       updateVideo,
       deleteVideo,
       schedulePost,
