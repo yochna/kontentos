@@ -63,7 +63,7 @@ export const PHASES: Phase[] = [
   {
     id: 'read',
     label: 'Read',
-    note: 'What the audience actually did with it.',
+    note: 'What your own workspace has actually done.',
     stations: [{ id: 'analytics', label: 'Pulse', icon: 'equalizer', hint: 'Your own numbers, counted honestly.' }],
   },
 ];
@@ -144,9 +144,14 @@ export function useSelectedCutId(): string | null {
 
 export type LedgerState = 'done' | 'now' | 'next';
 
+/** The stage names, in order — the rail filters and the ledger share this so they can't drift. */
+export const LEDGER_STAGES = ['Intake', 'Cut', 'Queued', 'Shipped'] as const;
+
+export type LedgerStage = (typeof LEDGER_STAGES)[number];
+
 export interface LedgerStep {
   phase: PhaseId;
-  label: string;
+  label: LedgerStage;
   state: LedgerState;
   detail: string;
   station: StationId;
@@ -214,7 +219,43 @@ export function ledgerProgress(steps: LedgerStep[]): number {
   return steps.length ? done / steps.length : 0;
 }
 
+/** Where a cut currently sits: its first step that isn't provably done. */
+export function ledgerStage(steps: LedgerStep[]): LedgerStage | null {
+  const open = steps.find((s) => s.state !== 'done');
+  return (open ?? steps[steps.length - 1])?.label ?? null;
+}
+
 export function formatDuration(sec?: number): string {
   if (!sec || sec <= 0) return '--:--.-';
   return fmtTime(sec);
+}
+
+// ---------------------------------------------------------------------------
+// Last station, per account
+// ---------------------------------------------------------------------------
+
+const STATION_KEY = 'kontentos_bench_station';
+
+const stationKey = (account: string) => `${STATION_KEY}:${account}`;
+
+/**
+ * A creator who closes the laptop mid-cut expects the bench to be on the same station when they
+ * come back. Keyed by account so a second creator signing in here doesn't inherit the first one's
+ * last open engine, and validated against the registry so a retired station id can't blank the stage.
+ */
+export function lastStation(account: string, known: readonly StationId[]): StationId | null {
+  try {
+    const saved = window.localStorage.getItem(stationKey(account));
+    return saved && known.includes(saved as StationId) ? (saved as StationId) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberStation(account: string, id: StationId): void {
+  try {
+    window.localStorage.setItem(stationKey(account), id);
+  } catch {
+    /* private mode: the bench just always opens on the desk */
+  }
 }

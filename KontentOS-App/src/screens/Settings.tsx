@@ -5,6 +5,7 @@ import { settingsSections } from '@/data/mock';
 import { useTheme } from '@/lib/theme';
 import { useStore, useDisplayProfile } from '@/lib/store';
 import { api } from '@/lib/api';
+import { MODEL_CHOICES, readAiSettings, saveAiSettings } from '@/lib/prefs';
 
 export default function Settings() {
   const [section, setSection] = useState('account');
@@ -21,12 +22,13 @@ export default function Settings() {
   const [locale, setLocale] = useState('English (US)');
   const [profileSaved, setProfileSaved] = useState<boolean | null>(null);
 
-  // AI settings
-  const [aiModel, setAiModel] = useState('gemini-2.5-flash');
-  const [temperature, setTemperature] = useState(0.7);
-  const [autoDraft, setAutoDraft] = useState(true);
-  const [voiceMatch, setVoiceMatch] = useState(true);
-  const [transcribeOnIngest, setTranscribeOnIngest] = useState(true);
+  // AI settings — hydrated from what the engines actually read, so a reload shows the saved truth.
+  const [savedAi] = useState(readAiSettings);
+  const [aiModel, setAiModel] = useState(savedAi.aiModel);
+  const [temperature, setTemperature] = useState(savedAi.temperature);
+  const [autoDraft, setAutoDraft] = useState(savedAi.autoDraft);
+  const [voiceMatch, setVoiceMatch] = useState(savedAi.voiceMatch);
+  const [transcribeOnIngest, setTranscribeOnIngest] = useState(savedAi.transcribeOnIngest);
   const [aiSaved, setAiSaved] = useState<boolean | null>(null);
 
   // API Keys state
@@ -109,14 +111,10 @@ export default function Settings() {
     window.dispatchEvent(new Event('kt:signedOut'));
   }
 
-  function handleSaveAi() {    try {
-      localStorage.setItem(
-        'kontentos_ai_settings',
-        JSON.stringify({ aiModel, temperature, autoDraft, voiceMatch, transcribeOnIngest }),
-      );
-      setAiSaved(true);
-      setTimeout(() => setAiSaved(null), 3000);
-    } catch {}
+  function handleSaveAi() {
+    saveAiSettings({ aiModel, temperature, autoDraft, voiceMatch, transcribeOnIngest });
+    setAiSaved(true);
+    setTimeout(() => setAiSaved(null), 3000);
   }
 
   async function handleSaveApiKey() {
@@ -159,10 +157,10 @@ export default function Settings() {
   return (
     <PageShell className="animate-fade-in">
       <PageHeader
-        eyebrow="Workspace Configuration"
+        eyebrow="Room"
         icon="settings"
-        title="Settings & Integration Vault"
-        description="Manage creator profile, connected channels, AI neural temperature, and workspace security."
+        title="Account & the room"
+        description="Creator profile, your YouTube handle, generation temperature and this session."
         className="mb-6"
       />
 
@@ -430,27 +428,34 @@ export default function Settings() {
             <Card className="p-6 shadow-xs border-line space-y-6">
               <div>
                 <h2 className="font-display text-[22px] font-bold text-ink">
-                  AI Neural Engine Configuration
+                  Generation engine
                 </h2>
                 <p className="text-[12.5px] text-ink-muted">
-                  Control the LLM generation model, temperature randomness, and automated transcription behaviors.
+                  How inventive the copywriter is allowed to be, which voice it writes in, and which automations are on.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
-                    Primary Intelligence Model
+                  <label htmlFor="ai-primary-model" className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                    Primary model
                   </label>
                   <select
+                    id="ai-primary-model"
                     value={aiModel}
                     onChange={(e) => setAiModel(e.target.value)}
                     className="w-full rounded-btn border border-line bg-surface px-3 py-2 text-[13.5px] text-ink outline-none focus:border-primary"
                   >
-                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Ultra Fast &amp; Tactical)</option>
-                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Nuance &amp; Multi-modal)</option>
-                    <option value="gemini-2.0-flash-thinking">Gemini 2.0 Flash Thinking</option>
+                    {MODEL_CHOICES.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-[11.5px] text-ink-dim mt-1">
+                    Sent to the copy engines as their first choice; if it is unavailable the server
+                    runs the next engine in the list.
+                  </p>
                 </div>
 
                 <div>
@@ -479,22 +484,28 @@ export default function Settings() {
               </div>
 
               <div className="space-y-4 pt-2 border-t border-line">
-                <h3 className="font-semibold text-[14px] text-ink">Automated Workflows</h3>
+                <div>
+                  <h3 className="font-semibold text-[14px] text-ink">Automation preferences</h3>
+                  <p className="text-[12px] text-ink-dim mt-0.5">
+                    The voice, the engine and the creativity slider are live. The other two are
+                    saved but no engine reads them yet.
+                  </p>
+                </div>
                 <ToggleRow
                   label="Auto-draft script blueprints"
-                  desc="Instantly generates 3-beat script timings and visual hooks for every spark idea."
+                  desc="Draft 3-beat script timings and visual hooks for every spark idea. Not wired yet."
                   checked={autoDraft}
                   onChange={setAutoDraft}
                 />
                 <ToggleRow
                   label="Voice-match platform copywriting"
-                  desc="Rewrites Instagram, YouTube, and LinkedIn captions to strictly match your Brand Kit voice."
+                  desc="Write Instagram, YouTube and LinkedIn captions against your Brand Kit voice."
                   checked={voiceMatch}
                   onChange={setVoiceMatch}
                 />
                 <ToggleRow
-                  label="Auto-transcribe on ingestion"
-                  desc="Runs local Whisper / speech engine as soon as raw video is dropped into the vault."
+                  label="Transcribe on intake"
+                  desc="Run speech-to-text as soon as raw video lands on the bench. Not wired yet."
                   checked={transcribeOnIngest}
                   onChange={setTranscribeOnIngest}
                 />

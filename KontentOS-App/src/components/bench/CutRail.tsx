@@ -1,6 +1,15 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { buildLedger, formatDuration, ledgerProgress, type StationId } from '@/lib/bench';
+import {
+  buildLedger,
+  formatDuration,
+  ledgerProgress,
+  ledgerStage,
+  LEDGER_STAGES,
+  type LedgerStage,
+  type LedgerStep,
+  type StationId,
+} from '@/lib/bench';
 import type { PublishingRecord, ScheduledPost, Video } from '@/lib/types';
 import type { TimelineProject } from '@/lib/timeline';
 
@@ -16,6 +25,8 @@ interface RailProps {
   station: StationId;
   onOpenVault: () => void;
 }
+
+type Filter = 'all' | LedgerStage;
 
 /**
  * The rail is the bench's real navigation: the creator's own cuts, in the order they arrived,
@@ -35,26 +46,39 @@ export function CutRail({
 }: RailProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
+  const [filter, setFilter] = useState<Filter>('all');
 
   const cuts = useMemo(
     () =>
       videos.map((v) => {
         const steps = buildLedger(v, { scheduled, history, project });
-        return { video: v, steps, fill: ledgerProgress(steps) };
+        return { video: v, steps, fill: ledgerProgress(steps), stage: ledgerStage(steps) };
       }),
     [videos, scheduled, history, project]
   );
 
+  const counts = useMemo(() => {
+    const map = new Map<LedgerStage, number>();
+    for (const c of cuts) if (c.stage) map.set(c.stage, (map.get(c.stage) ?? 0) + 1);
+    return map;
+  }, [cuts]);
+
+  const visible = filter === 'all' ? cuts : cuts.filter((c) => c.stage === filter);
   const selected = cuts.find((c) => c.video.id === selectedId);
 
   const step = (delta: number) => {
-    if (!cuts.length) return;
-    const at = cuts.findIndex((c) => c.video.id === selectedId);
-    const next = at === -1 ? (delta > 0 ? 0 : cuts.length - 1) : Math.min(cuts.length - 1, Math.max(0, at + delta));
-    onSelect(cuts[next].video.id);
+    if (!visible.length) return;
+    const at = visible.findIndex((c) => c.video.id === selectedId);
+    const next =
+      at === -1
+        ? delta > 0
+          ? 0
+          : visible.length - 1
+        : Math.min(visible.length - 1, Math.max(0, at + delta));
+    onSelect(visible[next].video.id);
     // Keep the newly lit cut inside the strip rather than scrolling off its end.
     requestAnimationFrame(() => {
-      stripRef.current?.querySelector(`[data-cut="${cuts[next].video.id}"]`)?.scrollIntoView({
+      stripRef.current?.querySelector(`[data-cut="${visible[next].video.id}"]`)?.scrollIntoView({
         block: 'nearest',
         inline: 'center',
         behavior: 'smooth',
@@ -65,13 +89,30 @@ export function CutRail({
   return (
     <div className="shrink-0 border-b border-line bg-surface/80">
       <div className="flex items-center gap-3 px-3 pt-2">
-        <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-ink-dim">On the bench</span>
-        <span className="h-px flex-1 bg-line" />
+        <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-ink-dim">
+          On the bench
+        </span>
+        <div
+          role="group"
+          aria-label="Filter the bench by ledger stage"
+          className="kt-chipstrip flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
+        >
+          <Chip label="all" count={cuts.length} active={filter === 'all'} onClick={() => setFilter('all')} />
+          {LEDGER_STAGES.map((stage) => (
+            <Chip
+              key={stage}
+              label={stage}
+              count={counts.get(stage) ?? 0}
+              active={filter === stage}
+              onClick={() => setFilter(stage)}
+            />
+          ))}
+        </div>
         {selected && (
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className="rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink kt-focus"
+            className="shrink-0 rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink kt-focus"
           >
             clear
           </button>
@@ -80,10 +121,9 @@ export function CutRail({
 
       <div
         ref={stripRef}
-        role="listbox"
+        role="toolbar"
         aria-label="Cuts on the bench"
         aria-orientation="horizontal"
-        tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'ArrowRight') {
             e.preventDefault();
@@ -98,7 +138,7 @@ export function CutRail({
           if (!el || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
           el.scrollLeft += e.deltaY;
         }}
-        className="kt-railstrip flex items-stretch gap-2 overflow-x-auto px-3 pb-3 pt-2 kt-focus"
+        className="kt-railstrip flex items-stretch gap-2 overflow-x-auto px-3 pb-3 pt-2"
       >
         <button
           type="button"
@@ -108,8 +148,14 @@ export function CutRail({
           aria-label="Intake raw footage"
         >
           <span className="flex flex-col items-center gap-1 py-6">
-            <Icon name={intakeBusy ? 'hourglass_top' : 'file_upload'} size={18} className={intakeBusy ? 'kt-spin' : 'kt-grow'} />
-            <span className="font-mono text-[9px] uppercase tracking-[0.1em]">{intakeBusy ? 'loading' : 'intake'}</span>
+            <Icon
+              name={intakeBusy ? 'hourglass_top' : 'file_upload'}
+              size={18}
+              className={intakeBusy ? 'kt-spin' : 'kt-grow'}
+            />
+            <span className="font-mono text-[9px] uppercase tracking-[0.1em]">
+              {intakeBusy ? 'loading' : 'intake'}
+            </span>
           </span>
         </button>
         <input
@@ -124,24 +170,20 @@ export function CutRail({
           }}
         />
 
-        {cuts.length === 0 && (
-          <p className="flex items-center py-6 pl-2 text-[12px] text-ink-dim">
-            Nothing on the bench yet — intake raw footage to start a cut.
-          </p>
-        )}
-
-        {cuts.map(({ video, steps, fill }) => (
+        {visible.map(({ video, steps, fill, stage }, i) => (
           <CutTile
             key={video.id}
             video={video}
             steps={steps}
+            stage={stage}
             fill={fill}
+            index={i}
             selected={video.id === selectedId}
             onSelect={onSelect}
           />
         ))}
 
-        {cuts.length > 0 && (
+        {visible.length > 0 && (
           <button
             type="button"
             onClick={onOpenVault}
@@ -155,20 +197,64 @@ export function CutRail({
           </button>
         )}
       </div>
+
+      {cuts.length === 0 ? (
+        <p className="px-3 pb-3 text-[12px] text-ink-dim">
+          Nothing on the bench yet — intake raw footage, or drop a file anywhere on the bench, to start a cut.
+        </p>
+      ) : (
+        visible.length === 0 && (
+          <p className="px-3 pb-3 text-[12px] text-ink-dim">
+            No cut sits at “{filter}” yet — those four lights only turn on when a row proves the step.
+          </p>
+        )
+      )}
     </div>
+  );
+}
+
+function Chip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`kt-focus shrink-0 rounded-[4px] border px-1.5 py-[3px] font-mono text-[9.5px] uppercase tracking-[0.1em] transition-colors ${
+        active
+          ? 'border-primary bg-primary-soft text-primary'
+          : 'border-line text-ink-dim hover:border-line-strong hover:text-ink-muted'
+      }`}
+    >
+      {label}
+      <span className={`ml-1 ${active ? 'text-primary' : 'text-ink-dim/70'}`}>{count}</span>
+    </button>
   );
 }
 
 function CutTile({
   video,
   steps,
+  stage,
   fill,
+  index,
   selected,
   onSelect,
 }: {
   video: Video;
-  steps: ReturnType<typeof buildLedger>;
+  steps: LedgerStep[];
+  stage: LedgerStage | null;
   fill: number;
+  index: number;
   selected: boolean;
   onSelect: (id: string | null) => void;
 }) {
@@ -177,16 +263,20 @@ function CutTile({
       type="button"
       data-cut={video.id}
       data-selected={selected}
-      role="option"
-      aria-selected={selected}
+      aria-pressed={selected}
       onClick={() => onSelect(selected ? null : video.id)}
-      style={{ ['--kt-fill' as string]: fill.toFixed(2) }}
+      style={{ ['--kt-fill' as string]: fill.toFixed(2), ['--kt-i' as string]: String(index) }}
       title={`${video.title} — ${steps.map((s) => `${s.label}: ${s.detail}`).join(' · ')}`}
       className={`kt-cut-tile group w-[92px] shrink-0 overflow-hidden rounded-[6px] border bg-surface-2/50 p-1.5 text-left kt-focus ${
         selected ? 'border-primary' : 'border-line'
       }`}
     >
-      <div className="relative aspect-[9/16] overflow-hidden rounded-[4px] bg-surface-3">
+      {/* Safelight: fires when this tile becomes the lit cut, then stops owning the surface. */}
+      <span aria-hidden className="kt-safelight pointer-events-none absolute inset-0 overflow-hidden" />
+
+      {/* Contact print, not a preview: the strip has to leave the stage room to breathe, so the
+          frame is cropped to the middle of the reel instead of showing all of it. */}
+      <div className="relative aspect-[3/4] overflow-hidden rounded-[4px] bg-surface-3">
         {video.thumbnail_url ? (
           <img
             src={video.thumbnail_url}
@@ -216,6 +306,12 @@ function CutTile({
           />
         ))}
       </div>
+
+      {stage && (
+        <span className="mt-1 block truncate font-mono text-[8.5px] uppercase tracking-[0.1em] text-ink-dim">
+          {stage}
+        </span>
+      )}
     </button>
   );
 }

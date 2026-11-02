@@ -30,7 +30,6 @@ export default function BrandKit() {
   const [isEditingVoice, setIsEditingVoice] = useState(false);
   const [newHookText, setNewHookText] = useState('');
   const [isAddingHook, setIsAddingHook] = useState(false);
-  const [trainingActive, setTrainingActive] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Form states for voice
@@ -103,14 +102,6 @@ export default function BrandKit() {
     localStorage.setItem('kontentos_brand_kit', JSON.stringify(next));
   };
 
-  const handleRetrain = () => {
-    setTrainingActive(true);
-    setTimeout(() => {
-      setTrainingActive(false);
-      showToast('Brand Kit successfully re-calibrated against your latest 24 published reels.');
-    }, 2200);
-  };
-
   return (
     <PageShell className="animate-fade-in">
       {/* Toast */}
@@ -122,20 +113,10 @@ export default function BrandKit() {
       )}
 
       <PageHeader
-        eyebrow="Voice & Identity Studio"
+        eyebrow="Kit"
         icon="palette"
-        title="Brand Kit & Style Codex"
-        description="The stylistic DNA KontentOS writes, captions, scores, and formats every draft against."
-        actions={
-          <Button
-            variant="secondary"
-            icon={trainingActive ? 'sync' : 'auto_fix_high'}
-            disabled={trainingActive}
-            onClick={handleRetrain}
-          >
-            {trainingActive ? 'Analyzing Archive...' : 'Re-train on my archive'}
-          </Button>
-        }
+        title="Fonts, colours & voice"
+        description="Your palette, fonts and voice, kept on this device. The voice writes into every caption the Ship station generates; palette and fonts still drive only their own pickers."
         className="mb-6"
       />
 

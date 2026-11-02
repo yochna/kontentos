@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { buildLedger, formatDuration, ledgerProgress, PHASES, STATION_BY_ID, UTILITY_STATIONS } from './bench';
-import { SCREEN_TITLES } from './nav';
+import {
+  buildLedger,
+  DRAFT_STEP_STATION,
+  formatDuration,
+  lastStation,
+  LEDGER_STAGES,
+  ledgerProgress,
+  ledgerStage,
+  PHASES,
+  rememberStation,
+  STATION_BY_ID,
+  UTILITY_STATIONS,
+  type StationId,
+} from './bench';
 import type { PublishingRecord, ScheduledPost, Video } from './types';
 import type { TimelineProject } from './timeline';
 
@@ -92,15 +104,36 @@ describe('cut ledger', () => {
 });
 
 describe('bench station map', () => {
+  const ALL_SCREENS = [
+    'home',
+    'ideas',
+    'raw-reel',
+    'smart-editor',
+    'static-generator',
+    'publish-schedule',
+    'content-library',
+    'calendar',
+    'analytics',
+    'brand-kit',
+    'settings',
+  ] as const;
+
   it('gives every screen a station key, so no navigate() lands on an empty spine', () => {
-    for (const id of Object.keys(SCREEN_TITLES)) {
+    for (const id of ALL_SCREENS) {
       expect(STATION_BY_ID[id], `station for ${id}`).toBeTruthy();
     }
+    expect(Object.keys(STATION_BY_ID)).toHaveLength(ALL_SCREENS.length);
   });
 
   it('lists each station once across the phases and the utility rail', () => {
     const ids = [...PHASES.flatMap((p) => p.stations), ...UTILITY_STATIONS].map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('routes every workflow step to a station that exists', () => {
+    for (const id of Object.values(DRAFT_STEP_STATION)) {
+      expect(STATION_BY_ID[id]).toBeTruthy();
+    }
   });
 });
 
@@ -109,5 +142,43 @@ describe('timecodes', () => {
     expect(formatDuration(undefined)).toBe('--:--.-');
     expect(formatDuration(0)).toBe('--:--.-');
     expect(formatDuration(49.62)).toBe('00:49.6');
+  });
+});
+
+describe('rail filtering', () => {
+  it('reports the first step the ledger cannot prove as done', () => {
+    expect(ledgerStage(buildLedger(video(), empty))).toBe('Cut');
+    expect(ledgerStage(buildLedger(video(), { ...empty, project: projectWith(CUT_ID) }))).toBe('Queued');
+    expect(
+      ledgerStage(
+        buildLedger(video(), { scheduled: [scheduledPost()], history: [shipped()], project: projectWith(CUT_ID) })
+      )
+    ).toBe('Shipped');
+  });
+
+  it('uses only stage names the filter chips know, so a chip can never be dead', () => {
+    for (const steps of [
+      buildLedger(video(), empty),
+      buildLedger(video(), { ...empty, project: projectWith(CUT_ID) }),
+      buildLedger(video(), { scheduled: [scheduledPost()], history: [shipped()], project: projectWith(CUT_ID) }),
+    ]) {
+      for (const step of steps) expect(LEDGER_STAGES).toContain(step.label);
+      expect(LEDGER_STAGES).toContain(ledgerStage(steps));
+    }
+  });
+
+  it('names a stage for every cut the rail can draw', () => {
+    expect(ledgerStage(buildLedger(video(), empty))).not.toBeNull();
+    expect(ledgerStage([])).toBeNull();
+  });
+});
+
+describe('station memory', () => {
+  const KNOWN = ['home', 'raw-reel'] as StationId[];
+
+  it('reads and writes without a window instead of throwing', () => {
+    // Node has no localStorage: the bench must still open on the desk, not crash the app.
+    expect(lastStation('u1', KNOWN)).toBeNull();
+    expect(() => rememberStation('u1', 'raw-reel')).not.toThrow();
   });
 });

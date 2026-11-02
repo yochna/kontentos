@@ -14,31 +14,6 @@ export type ScreenId =
   | 'brand-kit'
   | 'settings';
 
-export const SCREEN_TITLES: Record<ScreenId, string> = {
-  home: 'Command Center',
-  ideas: 'Idea Canvas',
-  'raw-reel': 'Raw → Reel Studio',
-  'smart-editor': 'Smart Editor',
-  'static-generator': 'Static Post Studio',
-  'publish-schedule': 'Publish & Schedule',
-  'content-library': 'Content Library',
-  calendar: 'Calendar',
-  analytics: 'Analytics',
-  'brand-kit': 'Brand Kit',
-  settings: 'Settings',
-};
-
-/**
- * ActiveDraft.step uses workflow-step ids ('idea', 'publish') that are not ScreenIds, so
- * casting them to ScreenId resolved to an undefined screen and Resume silently did nothing.
- */
-export const DRAFT_STEP_SCREEN: Record<'idea' | 'raw-reel' | 'smart-editor' | 'publish', ScreenId> = {
-  idea: 'ideas',
-  'raw-reel': 'raw-reel',
-  'smart-editor': 'smart-editor',
-  publish: 'publish-schedule',
-};
-
 let lastNav: { id: ScreenId; payload: any } | null = null;
 const navSubscribers = new Set<() => void>();
 

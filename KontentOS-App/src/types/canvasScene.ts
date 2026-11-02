@@ -1,6 +1,6 @@
 /**
  * Canvas Scene Graph & Transform Type Definitions
- * Supporting KontentOS Static Post Studio's In-App Advanced Visual Editor.
+ * Supporting the KontentOS Card studio's in-app advanced visual editor.
  *
  * Implements non-destructive coordinate overrides and layer transforms
  * on top of responsive semantic card templates.

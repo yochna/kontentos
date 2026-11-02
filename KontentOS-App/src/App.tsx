@@ -47,7 +47,7 @@ export default function App() {
   return (
     <StoreProvider key={account.id}>
       {showSplash && <Splash onDone={() => setShowSplash(false)} />}
-      <Bench theme={theme} onToggleTheme={toggle} />
+      <Bench account={account.id} theme={theme} onToggleTheme={toggle} />
     </StoreProvider>
   );
 }

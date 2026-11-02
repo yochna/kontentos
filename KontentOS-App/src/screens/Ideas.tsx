@@ -118,20 +118,20 @@ export default function Ideas() {
   return (
     <PageShell>
       {/* Spark engine banner */}
-      <Card className="p-6 sm:p-7 mb-6 overflow-hidden relative">
+      <Card className="p-5 sm:p-6 mb-6 overflow-hidden relative">
         <div
           className="absolute -right-10 -top-10 w-64 h-64 rounded-full opacity-[0.14]"
           style={{ background: 'radial-gradient(circle,var(--primary),transparent 70%)' }}
         />
-        <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="max-w-2xl">
-            <Eyebrow icon="auto_awesome">Spark Engine · Angle Synthesizer</Eyebrow>
-            <h1 className="font-display text-[30px] sm:text-[34px] leading-tight text-ink mt-1">
+            <Eyebrow icon="auto_awesome">In · Seeds</Eyebrow>
+            <h1 className="mt-1 font-display text-[21px] font-bold leading-tight text-ink sm:text-[24px]">
               What should you create next?
             </h1>
-            <p className="text-ink-muted mt-2 text-[14.5px] leading-relaxed">
-              KontentOS scans publisher waves, high-signal creator hooks, and your own archives to surface angles with
-              guaranteed retention models — then writes the full production blueprint.
+            <p className="mt-1.5 text-ink-muted text-[13px] leading-relaxed">
+              Give it a topic and KontentOS writes the angles, hooks and three-beat scripts. Real transcript when a clip
+              is loaded, local procedural templates when it is not. Nothing here is scored against live audience data.
             </p>
 
             {/* Keyword / Topic input */}

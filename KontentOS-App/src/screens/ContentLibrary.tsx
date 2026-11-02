@@ -101,12 +101,12 @@ export default function ContentLibrary() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Media Vault"
+        eyebrow="Out · Vault"
         icon="grid_view"
-        title="Content Library & Media Vault"
+        title="Everything you have made"
         description={
           online
-            ? 'Your high-signal raw footage and assembled compositions — searchable, indexed, and ready.'
+            ? 'Every take you have intaked and every cut you have saved, in one searchable grid.'
             : 'Backend offline — showing cached assets.'
         }
         actions={
@@ -714,10 +714,10 @@ function VideoDetailModal({
             </Button>
             <div className="flex items-center gap-2">
               <Button variant="secondary" icon="content_cut" onClick={onOpenSmartEditor}>
-                Smart Editor
+                Cut on the bench
               </Button>
               <Button icon="play_circle" onClick={onOpenRawStudio}>
-                Open in Raw Studio
+                Open in Intake
               </Button>
             </div>
           </div>

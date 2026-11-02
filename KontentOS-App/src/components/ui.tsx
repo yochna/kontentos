@@ -461,7 +461,7 @@ export function PageShell({
 }) {
   return (
     <div
-      className={`mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 ${pageWidths[width]} ${className}`}
+      className={`mx-auto w-full px-4 py-5 sm:px-6 sm:py-6 lg:px-8 ${pageWidths[width]} ${className}`}
     >
       {children}
     </div>
@@ -470,6 +470,10 @@ export function PageShell({
 
 const heroDelay = (ms: number) => ({ '--kt-d': `${ms}ms` }) as CSSProperties;
 
+/**
+ * Bench scale: the spine and the inspector already name the station, so a station header that
+ * opens with a 34px hero repeats the chrome and pushes the actual work below the fold.
+ */
 export function PageHeader({
   eyebrow,
   icon,
@@ -487,29 +491,29 @@ export function PageHeader({
 }) {
   return (
     <div
-      className={`flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between ${className}`}
+      className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${className}`}
     >
-      <div className="min-w-0 max-w-3xl">
+      <div className="min-w-0 max-w-2xl">
         <div className="kt-hero-in" style={heroDelay(0)}>
           <Eyebrow icon={icon}>{eyebrow}</Eyebrow>
         </div>
         <h1
-          className="font-display text-[30px] sm:text-[34px] leading-[1.12] tracking-tight text-ink mt-1 text-balance break-words kt-hero-in"
-          style={heroDelay(70)}
+          className="mt-1 break-words font-display text-[21px] font-bold leading-[1.15] tracking-tight text-balance text-ink sm:text-[24px] kt-hero-in"
+          style={heroDelay(60)}
         >
           {title}
         </h1>
         {description && (
           <p
-            className="text-sm sm:text-[15px] leading-relaxed text-ink-muted mt-2 max-w-2xl kt-hero-in"
-            style={heroDelay(140)}
+            className="mt-1.5 max-w-xl text-[13px] leading-relaxed text-ink-muted kt-hero-in"
+            style={heroDelay(120)}
           >
             {description}
           </p>
         )}
       </div>
       {actions && (
-        <div className="flex flex-wrap items-center gap-2 shrink-0 kt-hero-in" style={heroDelay(190)}>
+        <div className="flex flex-wrap items-center gap-2 shrink-0 sm:justify-end kt-hero-in" style={heroDelay(160)}>
           {actions}
         </div>
       )}

@@ -30,30 +30,67 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Prom
   ]);
 }
 
+// The Room station's creativity slider, carried to the model. Anything unusable becomes the default.
+function clampTemperature(value: unknown, fallback = 0.7): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : fallback;
+}
+
+// Probed against the live API: 3.8-flash and flash-latest answer 503 under load, 2.5-flash is
+// retired (404), and 3.1-flash-lite is the candidate that actually returns. It also occasionally
+// takes over two minutes when Google is shedding load, so one attempt gets 15s before the next
+// candidate runs — long enough to catch a slow answer, short enough that the ship station's
+// spinner never stalls the creator.
+const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+const MODEL_ATTEMPT_TIMEOUT_MS = 15000;
+
+/**
+ * The Room station's "primary model" dropdown sends one of these as the first candidate. Anything
+ * else — a stale value in localStorage, a hand-crafted request — is dropped so the cascade starts
+ * from the engine that is known to answer.
+ */
+const ENGINE_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+
+export function preferredModelFrom(value: unknown): string | undefined {
+  const model = typeof value === 'string' ? value.trim() : '';
+  return ENGINE_MODELS.includes(model) ? model : undefined;
+}
+
+/**
+ * The model sometimes answers the prompt instead of writing the post — "the transcript provided is
+ * empty, please supply dialogue" — and that complaint used to be saved and shown as the caption.
+ * Real captions never name the pipeline, so anything carrying meta-language about the transcript or
+ * the prompt is rejected and the caller falls back to the deterministic copy.
+ */
+export function isUsableCaption(text: unknown): text is string {
+  const s = typeof text === 'string' ? text.trim() : '';
+  if (s.length < 40) return false;
+  const metaAboutTheJob =
+    /transcript|spoken dialogue|script content|this prompt|provided (above|below)|as an ai|language model|please (provide|supply|share|paste)|i (do not|don't) have (the|enough)|unable to (write|generate|create|produce)|no (input|context) (was )?given/i;
+  return !metaAboutTheJob.test(s);
+}
+
 // Fast & Resilient Gemini caller with strict timeout & model candidates
 async function generateGeminiContentWithRetry(
   ai: GoogleGenAI,
   params: { contents: any; config?: any; preferredModel?: string }
 ): Promise<any> {
   const modelsToTry = [
-    params.preferredModel || 'gemini-3.8-flash',
-    'gemini-3.8-flash',
-    'gemini-3.1-flash-lite',
-    'gemini-flash-latest',
+    params.preferredModel || DEFAULT_MODEL,
+    ...ENGINE_MODELS,
   ];
   const uniqueModels = Array.from(new Set(modelsToTry));
 
   let lastError: any = null;
   for (const model of uniqueModels) {
     try {
-      // Allow up to 10 seconds per model attempt
       const response = await withTimeout(
         ai.models.generateContent({
           model,
           contents: params.contents,
           config: params.config,
         }),
-        10000,
+        MODEL_ATTEMPT_TIMEOUT_MS,
         `Timeout with model ${model}`
       );
       if (response && response.text) {
@@ -329,7 +366,7 @@ Format: Hook, reel summary, call to action, and 4-5 hashtags.`;
 // Generate Platform-Specific Copy and Hashtags Grounded in Reel Context
 router.post(['/', '/generate'], async (req, res) => {
   try {
-    const { videoId, transcriptText, tone = 'Viral & Punchy', platform = 'instagram', forceRefresh = false, videoTitle, title } = req.body;
+    const { videoId, transcriptText, tone = 'Viral & Punchy', platform = 'instagram', forceRefresh = false, videoTitle, title, model } = req.body;
     const effectiveTitle = videoTitle || title || 'Creator Video Reel';
     const effectiveVideoId = videoId || `title_${Date.now()}`;
 
@@ -350,7 +387,11 @@ router.post(['/', '/generate'], async (req, res) => {
     }
 
     // Hash transcript to implement zero-cost caching
-    const transcriptHash = crypto.createHash('md5').update(textToAnalyze + tone + platform + (reelTitle || '')).digest('hex');
+    const requestedModel = preferredModelFrom(model) ?? DEFAULT_MODEL;
+    const transcriptHash = crypto
+      .createHash('md5')
+      .update(textToAnalyze + tone + platform + (reelTitle || '') + requestedModel)
+      .digest('hex');
 
     // Check cached caption
     if (!forceRefresh) {
@@ -374,7 +415,7 @@ router.post(['/', '/generate'], async (req, res) => {
     if (ai) {
       try {
         const response = await generateGeminiContentWithRetry(ai, {
-          preferredModel: 'gemini-3.1-flash-lite',
+          preferredModel: requestedModel,
           contents: fullPrompt,
           config: {
             responseMimeType: 'application/json',
@@ -382,7 +423,7 @@ router.post(['/', '/generate'], async (req, res) => {
         });
 
         const parsed = JSON.parse(response.text || '{}');
-        captionOutput = parsed.caption || '';
+        captionOutput = isUsableCaption(parsed.caption) ? parsed.caption.trim() : '';
         hashtagsOutput = Array.isArray(parsed.hashtags)
           ? parsed.hashtags.map((tag: string) => String(tag).replace(/^#/, ''))
           : [];
@@ -433,7 +474,9 @@ router.post(['/', '/generate'], async (req, res) => {
 // Generate copy for all supported platforms simultaneously in parallel
 router.post('/generate-all', async (req, res) => {
   try {
-    const { videoId, transcriptText, tone = 'Viral & Punchy', forceRefresh = false, videoTitle } = req.body;
+    const { videoId, transcriptText, tone = 'Viral & Punchy', forceRefresh = false, videoTitle, brandVoice = '', temperature, model } = req.body;
+    const modelTemperature = clampTemperature(temperature);
+    const requestedModel = preferredModelFrom(model) ?? DEFAULT_MODEL;
     if (!videoId) {
       return res.status(400).json({ error: 'Missing videoId' });
     }
@@ -448,9 +491,11 @@ router.post('/generate-all', async (req, res) => {
     if (!reelTitle) {
       const vid = await db.getVideo(videoId, req.userId);
       reelTitle = vid?.title || vid?.file_name || 'Creator Video Reel';
-      if (!textToAnalyze) {
-        textToAnalyze = vid?.title || 'Key insights from video reel';
-      }
+    }
+    // An untranscribed reel still has a title to write from. Sending the model an empty transcript
+    // makes it answer the prompt instead of the post.
+    if (!textToAnalyze) {
+      textToAnalyze = `Topic only — the creator has not transcribed this reel yet: ${reelTitle}`;
     }
 
     const platforms: string[] = ['instagram', 'youtube', 'tiktok', 'linkedin', 'x', 'threads', 'facebook'];
@@ -459,7 +504,12 @@ router.post('/generate-all', async (req, res) => {
 
     // Generate for all platforms concurrently with rich reel-grounded prompts
     const generationPromises = platforms.map(async (p) => {
-      const transcriptHash = crypto.createHash('md5').update(textToAnalyze + tone + p + (reelTitle || '')).digest('hex');
+      // The engine is part of the cache key so switching it in the Room produces new copy
+      // instead of handing back what the previous engine wrote.
+      const transcriptHash = crypto
+        .createHash('md5')
+        .update(textToAnalyze + tone + p + (reelTitle || '') + brandVoice + requestedModel)
+        .digest('hex');
 
       if (!forceRefresh) {
         const existing = await db.getCaption(videoId, p as any, userId);
@@ -472,15 +522,19 @@ router.post('/generate-all', async (req, res) => {
       let hashtags: string[] = [];
 
       if (ai) {
-        const prompt = buildPlatformReelPrompt(p, textToAnalyze, tone, reelTitle);
+        const prompt =
+          buildPlatformReelPrompt(p, textToAnalyze, tone, reelTitle) +
+          (String(brandVoice).trim()
+            ? `\n\n5. CREATOR VOICE — write as this specific creator, not as a generic strategist:\n${String(brandVoice).trim()}\n`
+            : '');
         try {
           const resp = await generateGeminiContentWithRetry(ai, {
-            preferredModel: 'gemini-3.1-flash-lite',
+            preferredModel: requestedModel,
             contents: prompt,
-            config: { responseMimeType: 'application/json' },
+            config: { responseMimeType: 'application/json', temperature: modelTemperature },
           });
           const parsed = JSON.parse(resp.text || '{}');
-          caption = parsed.caption || '';
+          caption = isUsableCaption(parsed.caption) ? parsed.caption.trim() : '';
           hashtags = Array.isArray(parsed.hashtags)
             ? parsed.hashtags.map((t: string) => String(t).replace(/^#/, ''))
             : [];
@@ -582,7 +636,11 @@ router.post('/generate-from-title', async (req, res) => {
       mode = 'all',
       context = '',
       forceRefresh = false,
+      temperature,
+      model,
     } = req.body;
+
+    const modelTemperature = clampTemperature(temperature);
 
     const effectiveTitle = (title || videoTitle || '').trim();
     if (!effectiveTitle) {
@@ -596,29 +654,31 @@ router.post('/generate-from-title', async (req, res) => {
       try {
         const prompt = buildTitleCopyPrompt(effectiveTitle, platform, tone, context);
         const response = await generateGeminiContentWithRetry(ai, {
-          preferredModel: 'gemini-3.8-flash',
+          preferredModel: preferredModelFrom(model),
           contents: prompt,
           config: {
             responseMimeType: 'application/json',
+            temperature: modelTemperature,
           },
         });
 
         if (response && response.text) {
           const parsed = JSON.parse(response.text.trim());
-          if (parsed && (parsed.caption || parsed.hooks || parsed.hashtags)) {
+          const caption = isUsableCaption(parsed?.caption) ? parsed.caption.trim() : '';
+          if (parsed && (caption || parsed.hooks || parsed.hashtags)) {
             resultData = {
               title: effectiveTitle,
               platform,
               tone,
-              caption: parsed.caption || '',
-              caption_text: parsed.caption || '',
+              caption,
+              caption_text: caption,
               hooks: Array.isArray(parsed.hooks) ? parsed.hooks : [],
               hashtags: Array.isArray(parsed.hashtags)
                 ? parsed.hashtags.map((tag: string) => String(tag).replace(/^#/, '').trim())
                 : [],
               callToAction: parsed.callToAction || '',
               suggestedTitle: parsed.suggestedTitle || '',
-              ai_generated: true,
+              ai_generated: Boolean(caption),
             };
           }
         }
@@ -703,7 +763,7 @@ Return ONLY JSON with keys:
     if (ai) {
       try {
         const response = await generateGeminiContentWithRetry(ai, {
-          preferredModel: 'gemini-3.8-flash',
+          preferredModel: DEFAULT_MODEL,
           contents: systemPrompt,
           config: { responseMimeType: 'application/json', temperature: 0.75 },
         });

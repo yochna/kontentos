@@ -1,7 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import type { DragEvent as ReactDragEvent } from 'react';
 import { Icon } from '@/lib/icons';
 import { navigate, type ScreenId } from '@/lib/nav';
-import { selectCut, useSelectedCutId } from '@/lib/bench';
+import { lastStation, rememberStation, selectCut, useSelectedCutId } from '@/lib/bench';
 import { useStore } from '@/lib/store';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui';
@@ -42,15 +43,32 @@ const STATIONS: Record<ScreenId, React.ComponentType> = {
 /** Stations where the cut rail earns its height; the rest read a single number or a profile. */
 const RAIL_OFF: ScreenId[] = ['analytics', 'brand-kit', 'settings'];
 
-export function Bench({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => void }) {
+const STATION_IDS = Object.keys(STATIONS) as ScreenId[];
+
+/** Engines that open on a specific clip when the rail hands them one. */
+const CLIP_STATIONS: ScreenId[] = ['raw-reel'];
+
+const isFileDrag = (e: ReactDragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+
+export function Bench({
+  account,
+  theme,
+  onToggleTheme,
+}: {
+  account: string;
+  theme: Theme;
+  onToggleTheme: () => void;
+}) {
   const store = useStore();
   const selectedId = useSelectedCutId();
-  const [station, setStation] = useState<ScreenId>('home');
+  const [station, setStation] = useState<ScreenId>(() => lastStation(account, STATION_IDS) ?? 'home');
   const [deck, setDeck] = useState(false);
   const [jobs, setJobs] = useState<BenchJob[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [dropping, setDropping] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const intakeRef = useRef<HTMLInputElement>(null);
+  const dragDepth = useRef(0);
 
   const litCut = store.videos.find((v) => v.id === selectedId) ?? null;
 
@@ -83,15 +101,27 @@ export function Bench({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: (
   }, [station]);
 
   useEffect(() => {
+    rememberStation(account, station);
+  }, [account, station]);
+
+  useEffect(() => {
     if (!notice) return;
     const t = window.setTimeout(() => setNotice(null), 5200);
     return () => window.clearTimeout(t);
   }, [notice]);
 
-  const goTo = useCallback((id: ScreenId, payload?: unknown) => {
-    setStation(id);
-    if (payload !== undefined) navigate(id, payload);
-  }, []);
+  /**
+   * Hopping to a clip-shaped station hands it the lit cut, so the rail stays the one place a
+   * creator says which cut is being worked on.
+   */
+  const goTo = useCallback(
+    (id: ScreenId, payload?: unknown) => {
+      setStation(id);
+      const forward = payload ?? (CLIP_STATIONS.includes(id) && selectedId ? { videoId: selectedId } : undefined);
+      if (forward !== undefined) navigate(id, forward);
+    },
+    [selectedId]
+  );
 
   const intake = useCallback(
     async (file: File) => {
@@ -111,6 +141,20 @@ export function Bench({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: (
     [store, goTo]
   );
 
+  const dropFiles = useCallback(
+    (files: File[]) => {
+      const clips = files.filter((f) => f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(f.name));
+      if (!clips.length) {
+        setNotice('That is not footage — the bench only takes video files.');
+        return;
+      }
+      // Five at once is already a shoot day; more than that would flood the upload queue.
+      clips.slice(0, 5).forEach(intake);
+      if (clips.length > 5) setNotice(`Intaking the first 5 of ${clips.length} files.`);
+    },
+    [intake]
+  );
+
   const signOut = useCallback(async () => {
     try {
       await api.signOut();
@@ -124,7 +168,32 @@ export function Bench({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: (
   const railVisible = !RAIL_OFF.includes(station);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-app font-body text-ink">
+    <div
+      className="flex h-screen overflow-hidden bg-app font-body text-ink"
+      onDragEnter={(e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        dragDepth.current += 1;
+        setDropping(true);
+      }}
+      onDragOver={(e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      }}
+      onDragLeave={(e) => {
+        if (!isFileDrag(e)) return;
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setDropping(false);
+      }}
+      onDrop={(e) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        dragDepth.current = 0;
+        setDropping(false);
+        dropFiles(Array.from(e.dataTransfer.files));
+      }}
+    >
       <Spine station={station} onStation={goTo} />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -157,9 +226,11 @@ export function Bench({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: (
             </div>
 
             {notice && (
-              <div className="kt-shake absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-[6px] border border-danger/40 bg-surface px-3 py-2 shadow-[var(--shadow-2)]">
-                <Icon name="error" size={15} className="shrink-0 text-danger" />
-                <span className="text-[12px] text-ink">{notice}</span>
+              <div className="pointer-events-none absolute bottom-3 left-1/2 z-30 -translate-x-1/2">
+                <div className="kt-shake pointer-events-auto flex items-center gap-2 rounded-[6px] border border-danger/40 bg-surface px-3 py-2 shadow-[var(--shadow-2)]">
+                  <Icon name="error" size={15} className="shrink-0 text-danger" />
+                  <span className="text-[12px] text-ink">{notice}</span>
+                </div>
               </div>
             )}
           </main>
@@ -211,16 +282,32 @@ export function Bench({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: (
           e.target.value = '';
         }}
       />
+
+      {dropping && (
+        <div
+          aria-hidden
+          className="kt-drop pointer-events-none fixed inset-0 z-[70] grid place-items-center bg-[var(--scrim)] p-6"
+        >
+          <div className="kt-drop-card flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-primary/70 bg-surface px-10 py-8 text-center shadow-[var(--shadow-2)]">
+            <Icon name="file_upload" size={26} className="text-primary" />
+            <p className="font-display text-[18px] font-bold text-ink">Drop the footage on the bench</p>
+            <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-ink-dim">
+              Video files only · each one becomes a new cut
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function StageSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="space-y-2.5">
+    <div className="mx-auto w-full max-w-[1280px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="space-y-2">
         <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-8 w-[min(380px,65vw)]" />
+        <Skeleton className="h-6 w-[min(320px,60vw)]" />
+        <Skeleton className="h-3.5 w-[min(240px,50vw)]" />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[0, 1, 2, 3, 4, 5].map((i) => (

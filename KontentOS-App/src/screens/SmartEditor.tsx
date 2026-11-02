@@ -2427,7 +2427,7 @@ function Header({
 }) {
   return (
     <PageHeader
-      eyebrow="Smart Editor · 60fps Multi-Track"
+      eyebrow="Cut · Bench · Multi-track"
       icon="content_cut"
       title={hasProject && title ? title : 'Cut & caption on the timeline'}
       className="mb-6"

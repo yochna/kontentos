@@ -3,7 +3,8 @@ import { Icon } from '@/lib/icons';
 import { Button, Card, CountUp, Eyebrow, PageHeader, PageShell, Progress, Reveal, StatusPill } from '@/components/ui';
 import { quickActions } from '@/data/mock';
 import { useDisplayProfile, useStore } from '@/lib/store';
-import { DRAFT_STEP_SCREEN, SCREEN_TITLES, type ScreenId } from '@/lib/nav';
+import { DRAFT_STEP_STATION, STATION_BY_ID } from '@/lib/bench';
+import { type ScreenId } from '@/lib/nav';
 import type { Video } from '@/lib/types';
 
 const STATUS_TONE: Record<Video['status'], { label: string; tone: string; pct: number }> = {
@@ -42,47 +43,47 @@ export default function CommandCenter() {
 
     return [
       {
-        phase: 'Phase 01',
+        phase: 'In · Seeds',
         icon: 'auto_awesome',
-        title: 'Capture & Curate',
+        title: 'Find the angle',
         headline: activeDraft?.idea
           ? activeDraft.idea.title
           : savedIdeas.length > 0
-            ? `${savedIdeas.length} saved archetype(s)`
-            : 'Brainstorm & angle discovery',
-        meta: activeDraft?.idea ? '1 blueprint active' : savedIdeas.length > 0 ? 'Ready for production' : 'Explore hook angles',
+            ? `${savedIdeas.length} idea${savedIdeas.length === 1 ? '' : 's'} saved`
+            : 'Nothing saved yet',
+        meta: activeDraft?.idea ? '1 blueprint active' : savedIdeas.length > 0 ? 'Ready to shoot' : 'Open Seeds and generate',
         screenId: 'ideas' as ScreenId,
         done: hasIdeas,
       },
       {
-        phase: 'Phase 02',
+        phase: 'In · Intake',
         icon: 'smart_display',
-        title: 'Assemble Footage',
-        headline: hasVideos ? `${videos.length} clip(s) in vault` : 'Ingest raw clips',
-        meta: hasVideos ? 'Ready for auto-cut' : 'A-roll + B-roll sync',
+        title: 'Bring the take in',
+        headline: hasVideos ? `${videos.length} clip${videos.length === 1 ? '' : 's'} on the bench` : 'No footage yet',
+        meta: hasVideos ? 'Ready to cut' : 'Drop a video anywhere on the bench',
         screenId: 'raw-reel' as ScreenId,
         done: hasVideos,
       },
       {
-        phase: 'Phase 03',
+        phase: 'Cut · Bench',
         icon: 'content_cut',
-        title: 'Cut & Caption',
-        headline: activeDraft?.project ? 'Timeline project active' : 'Fine-tune kinetic cuts',
-        meta: activeDraft?.project ? `${activeDraft.project.tracks.length} tracks assembled` : 'Auto-zoom & captions',
+        title: 'Cut & caption',
+        headline: activeDraft?.project ? 'Timeline project active' : 'No timeline saved yet',
+        meta: activeDraft?.project ? `${activeDraft.project.tracks.length} tracks assembled` : 'Trims, captions, punch zooms',
         screenId: 'smart-editor' as ScreenId,
         done: hasProject,
       },
       {
-        phase: 'Phase 04',
+        phase: 'Out · Ship',
         icon: 'schedule_send',
-        title: 'Queue & Ship',
-        headline: hasScheduled ? `${scheduled.length} post(s) queued` : 'Set its date',
+        title: 'Queue it',
+        headline: hasScheduled ? `${scheduled.length} post${scheduled.length === 1 ? '' : 's'} queued` : 'Nothing queued',
         meta: hasScheduled ? 'Waiting on its date' : 'KontentOS holds the plan; you post it',
         screenId: 'publish-schedule' as ScreenId,
         done: hasScheduled,
       },
     ];
-  }, [activeDraft, videos.length, scheduled.length]);
+  }, [activeDraft, videos.length, scheduled.length, savedIdeas.length]);
 
   const week = useMemo(() => {
     const byDay = new Map<string, typeof scheduled>();
@@ -135,9 +136,9 @@ export default function CommandCenter() {
       {/* Stats strip — real workspace counts, not projected platform metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Clips in library', value: videos.length, sub: 'Uploaded to KontentOS' },
-          { label: 'Scheduled posts', value: scheduled.length, sub: 'Queued in Calendar' },
-          { label: 'Saved ideas', value: savedIdeas.length, sub: 'On the Idea Canvas' },
+          { label: 'Clips in library', value: videos.length, sub: 'Intaked to the vault' },
+          { label: 'Scheduled posts', value: scheduled.length, sub: 'Queued in Plan' },
+          { label: 'Saved ideas', value: savedIdeas.length, sub: 'Kept in Seeds' },
         ].map((s, i) => (
           <Reveal key={s.label} delay={i * 90} className="h-full">
             <Card className="p-5 h-full">
@@ -159,10 +160,10 @@ export default function CommandCenter() {
         <Reveal variant="fade">
           <div className="flex items-end justify-between mb-4">
             <div>
-              <h2 className="font-display text-[24px] text-ink">This week's production pipeline</h2>
-              <p className="text-[13px] text-ink-muted mt-0.5">Click any phase to jump directly into the active creative step.</p>
+              <h2 className="font-display text-[24px] text-ink">Where the cut stands</h2>
+              <p className="text-[13px] text-ink-muted mt-0.5">The four stations in order. Any card opens that station with your live data.</p>
             </div>
-            <span className="text-[13px] text-ink-dim">Continuous workflow</span>
+            <span className="text-[13px] text-ink-dim">In → Cut → Out</span>
           </div>
         </Reveal>
         {/* Travelling light along the workflow spine — the four phases below are one continuous run. */}
@@ -223,7 +224,6 @@ export default function CommandCenter() {
                   <div className="mt-auto pt-1 flex items-center justify-between gap-2">
                     <div className="flex flex-wrap gap-1.5">
                       <span className="text-[11px] font-semibold text-primary bg-primary-soft rounded-full px-2 py-0.5">{a.tag}</span>
-                      {a.tag2 && <span className="text-[11px] text-ink-dim border border-line rounded-full px-2 py-0.5">{a.tag2}</span>}
                     </div>
                     <Icon
                       name="arrow_forward"
@@ -244,10 +244,10 @@ export default function CommandCenter() {
           <div className="flex items-end justify-between mb-4">
             <div>
               <h2 className="font-display text-[24px] text-ink">Continue creating</h2>
-              <p className="text-[13px] text-ink-muted mt-0.5">Resume in-flight drafts and recently uploaded raw footage.</p>
+              <p className="text-[13px] text-ink-muted mt-0.5">Resume a cut in flight, or open a take you recently intaked.</p>
             </div>
             <Button variant="ghost" size="sm" icon="arrow_forward" onClick={() => navigate('content-library')}>
-              View library
+              Open Vault
             </Button>
           </div>
         </Reveal>
@@ -271,9 +271,9 @@ export default function CommandCenter() {
                 <div className="flex items-center gap-2">
                   <Button
                     icon="play_arrow"
-                    onClick={() => navigate(DRAFT_STEP_SCREEN[activeDraft.step])}
+                    onClick={() => navigate(DRAFT_STEP_STATION[activeDraft.step])}
                   >
-                    Resume in {SCREEN_TITLES[DRAFT_STEP_SCREEN[activeDraft.step]]}
+                    Resume in {STATION_BY_ID[DRAFT_STEP_STATION[activeDraft.step]].label}
                   </Button>
                 </div>
               </div>
@@ -285,7 +285,7 @@ export default function CommandCenter() {
           <Card className="p-8 text-center">
             <Icon name="upload" size={26} className="text-ink-dim mx-auto mb-2" />
             <div className="font-semibold text-ink">Nothing in progress yet</div>
-            <p className="text-[13px] text-ink-muted mt-1">Upload a clip in the Content Library to start your pipeline.</p>
+            <p className="text-[13px] text-ink-muted mt-1">Intake a clip on the bench to start your first cut.</p>
             <Button size="sm" icon="add" className="mt-4" onClick={() => navigate('content-library')}>Upload clip</Button>
           </Card>
         ) : recentVideos.length > 0 ? (

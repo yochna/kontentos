@@ -5,21 +5,13 @@
 /* ------------------------------- Command Center ------------------------------- */
 
 export const quickActions = [
-  { id: 'ideas', icon: 'lightbulb', title: 'Seed an angle', body: 'Decide what the cut is about before you shoot it.', tag: '#FounderLed', tag2: '+12 tags' },
-  { id: 'raw-reel', icon: 'play_circle', title: 'Intake & reel', body: 'Turn raw footage into a first vertical cut.', tag: 'Auto-stitch ready' },
-  { id: 'smart-editor', icon: 'tune', title: 'Cut it', body: 'Trim, zoom and caption on a frame-accurate timeline.', tag: 'Precision timeline · 60fps' },
-  { id: 'publish-schedule', icon: 'send', title: 'Queue it', body: 'Write the caption once, set the date you will post.', tag: 'Export bundle ready' },
+  { id: 'ideas', icon: 'lightbulb', title: 'Seed an angle', body: 'Decide what the cut is about before you shoot it.', tag: 'In · Seeds' },
+  { id: 'raw-reel', icon: 'play_circle', title: 'Intake a take', body: 'Drop the footage, read the transcript, cut the first vertical pass.', tag: 'In · Intake' },
+  { id: 'smart-editor', icon: 'tune', title: 'Cut it', body: 'Trim, zoom and caption on a frame-accurate timeline.', tag: 'Cut · Bench' },
+  { id: 'publish-schedule', icon: 'send', title: 'Queue it', body: 'Write the caption once, set the date you will post.', tag: 'Out · Ship' },
 ];
 
 /* ---------------------------------- Ideas ---------------------------------- */
-
-export const ideaFilters = [
-  { id: 'all', label: 'All Ideas', count: 24 },
-  { id: 'trending', label: 'Trending Wave', icon: 'local_fire_department' },
-  { id: 'niche', label: 'Your Niche (Studio & SaaS)', icon: 'target' },
-  { id: 'saved', label: 'Saved Archetypes', count: 12, icon: 'bookmark' },
-  { id: 'historical', label: 'From Historical Transcripts', icon: 'history' },
-];
 
 export interface Idea {
   id: string;

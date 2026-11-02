@@ -753,9 +753,17 @@ input[type='range'] {
   }
 
   /* --- cut tile -------------------------------------------------------------
-     --kt-fill is how far the ledger says this cut has travelled (0..1). */
+     --kt-fill is how far the ledger says this cut has travelled (0..1).
+     --kt-i staggers the strip on arrival, so the bench loads left to right
+     instead of twenty tiles popping in at once. */
+  @keyframes ktTileIn {
+    from { opacity: 0; transform: translateY(9px); }
+    to { opacity: 1; transform: none; }
+  }
   .kt-cut-tile {
     position: relative;
+    animation: ktTileIn 280ms var(--kt-ease-out) backwards;
+    animation-delay: calc(var(--kt-i, 0) * 32ms);
     transition:
       transform 220ms var(--kt-ease-out),
       border-color 200ms ease-out,
@@ -782,6 +790,25 @@ input[type='range'] {
     height: 2px;
     background: var(--primary);
   }
+  /* A sweep of amber across the tile the moment it becomes the lit cut, then it stops
+     holding the surface so hover and the fill bar keep working. */
+  .kt-safelight {
+    opacity: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      var(--primary-soft) 48%,
+      rgba(255, 255, 255, 0.09) 56%,
+      transparent 82%
+    );
+  }
+  .kt-cut-tile[data-selected='true'] .kt-safelight {
+    animation: ktSafelight 640ms var(--kt-ease-out) backwards;
+  }
+  @keyframes ktSafelight {
+    from { opacity: 0.95; transform: translateX(-105%); }
+    to { opacity: 0; transform: translateX(105%); }
+  }
 
   /* --- cut rail ----------------------------------------------------------- */
   .kt-railstrip {
@@ -791,6 +818,8 @@ input[type='range'] {
   }
   .kt-railstrip::-webkit-scrollbar { display: none; }
   .kt-railstrip > * { scroll-snap-align: start; }
+  .kt-chipstrip { scrollbar-width: none; }
+  .kt-chipstrip::-webkit-scrollbar { display: none; }
 
   /* --- spine key ---------------------------------------------------------- */
   .kt-key { position: relative; transition: color 180ms ease-out, background-color 180ms ease-out; }
@@ -814,6 +843,17 @@ input[type='range'] {
     50% { opacity: 1; }
   }
   .kt-led--now { animation: ktLed 1.7s ease-in-out infinite; }
+
+  /* --- drop zone ------------------------------------------------------------
+     Footage can be intaked from anywhere on the bench, so the whole room lights
+     a rim the moment a file is carried over it. */
+  @keyframes ktDropIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes ktDropCard {
+    from { opacity: 0; transform: translateY(10px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+  .kt-drop { animation: ktDropIn 160ms ease-out backwards; }
+  .kt-drop-card { animation: ktDropCard 280ms var(--kt-ease-spring) backwards; }
 }
 
 /* Theme switching repaints every token at once; a view transition cross-fades
@@ -847,6 +887,10 @@ input[type='range'] {
   .kt-dialog,
   .kt-scrim,
   .kt-drawer,
+  .kt-cut-tile,
+  .kt-cut-tile[data-selected='true'] .kt-safelight,
+  .kt-drop,
+  .kt-drop-card,
   .kt-sheen::after,
   .kt-skeleton::after,
   .kt-live::before,
@@ -869,7 +913,8 @@ input[type='range'] {
   .kt-sheen::after,
   .kt-live::before,
   .kt-rail::after,
-  .kt-spot::before { display: none; }
+  .kt-spot::before,
+  .kt-safelight { display: none; }
   .kt-spot { transform: none; transition: none; }
   .kt-nudge,
   .kt-grow,

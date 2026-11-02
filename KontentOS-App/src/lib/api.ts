@@ -4,7 +4,6 @@
 import type {
   User,
   Video,
-  Caption,
   ScheduledPost,
   PublishingRecord,
   SocialPlatform,
@@ -226,29 +225,6 @@ export const api = {
   },
 
   // ---- Captions / copy generation ----
-  async generateCaptionFromTitle(opts: {
-    title: string;
-    platform?: SocialPlatform;
-    tone?: string;
-    mode?: string;
-    context?: string;
-  }): Promise<Caption> {
-    const d = await json<{ data: Caption }>(
-      await fetch('/api/caption/generate-from-title', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: opts.title,
-          platform: opts.platform || 'instagram',
-          tone: opts.tone || 'Viral & Punchy',
-          mode: opts.mode || 'all',
-          context: opts.context || '',
-        }),
-      }),
-    );
-    return d.data;
-  },
-
   /**
    * Title-grounded copy (caption + hooks + hashtags). Works offline via the
    * backend's deterministic fallback; becomes AI-powered when a key is set.
@@ -258,6 +234,8 @@ export const api = {
     platform?: SocialPlatform;
     tone?: string;
     context?: string;
+    temperature?: number;
+    model?: string;
   }): Promise<TitleCopy> {
     const d = await json<{ data: TitleCopy }>(
       await fetch('/api/caption/generate-from-title', {
@@ -269,6 +247,8 @@ export const api = {
           tone: opts.tone || 'Viral & Punchy',
           mode: 'all',
           context: opts.context || '',
+          temperature: opts.temperature,
+          model: opts.model,
         }),
       }),
     );

@@ -249,7 +249,7 @@ export default function Analytics() {
         kicker: 'Publishing cadence',
         title: 'No posts marked published through KontentOS yet.',
         body: 'The publish history stays empty until you send a scheduled post from the app. Anything you posted manually will not appear here.',
-        cta: { label: 'Go to Publish & Schedule', screen: 'publish-schedule' },
+        cta: { label: 'Open Ship', screen: 'publish-schedule' },
       });
     }
 
@@ -271,7 +271,7 @@ export default function Analytics() {
           .slice(0, 3)
           .map((v) => `“${v.title}”`)
           .join(', ')}${range.unscheduledClips.length > 3 ? '…' : ''}.`,
-        cta: { label: 'Open Content Library', screen: 'content-library' },
+        cta: { label: 'Open the vault', screen: 'content-library' },
       });
     }
 
@@ -282,7 +282,7 @@ export default function Analytics() {
         kicker: 'Ready to publish',
         title: `${emptyCaptions.length} scheduled post${emptyCaptions.length === 1 ? '' : 's'} still have no caption.`,
         body: 'A post can be queued with an empty caption. Filling these in before the slot is the cheapest improvement available right now.',
-        cta: { label: 'Fix in Publish & Schedule', screen: 'publish-schedule' },
+        cta: { label: 'Fix in Ship', screen: 'publish-schedule' },
       });
     }
 
@@ -370,9 +370,9 @@ export default function Analytics() {
       )}
 
       <PageHeader
-        eyebrow="Creator Intelligence"
+        eyebrow="Read · Pulse"
         icon="equalizer"
-        title="Activity & Output Analytics"
+        title="What your own workspace recorded"
         description="Everything on this page is counted from your own workspace — uploads, captions, schedules and publish records. No platform metrics are connected yet."
         actions={
           <>

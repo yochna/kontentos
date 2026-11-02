@@ -144,7 +144,7 @@ export function CommandDeck({
           <kbd className="shrink-0 rounded-[3px] border border-line-strong px-1.5 py-0.5 font-mono text-[10px] text-ink-dim">esc</kbd>
         </div>
 
-        <div className="max-h-[46vh] overflow-y-auto p-1.5">
+        <div className="max-h-[46vh] overflow-y-auto p-1.5" role="group" aria-label="Deck results">
           {rows.length === 0 && (
             <p className="px-3 py-6 text-center text-[12.5px] text-ink-dim">
               Nothing named “{query}” in this workspace.
@@ -154,6 +154,7 @@ export function CommandDeck({
             <button
               key={c.key}
               type="button"
+              aria-current={i === active ? 'true' : undefined}
               onMouseEnter={() => setActive(i)}
               onClick={() => pick(c)}
               className={`kt-focus flex w-full items-center gap-2.5 rounded-[5px] px-2.5 py-2 text-left transition-colors ${
@@ -171,6 +172,27 @@ export function CommandDeck({
             </button>
           ))}
         </div>
+
+        {/* Legend: the deck is the bench's only keyboard-first surface, so say what the keys do
+            instead of leaving them to be discovered. */}
+        <footer className="flex items-center gap-3 border-t border-line px-3.5 py-2">
+          {[
+            ['↑↓', 'move'],
+            ['⏎', 'open'],
+            ['esc', 'close'],
+            ['⌘K', 'toggle'],
+          ].map(([k, what]) => (
+            <span key={k} className="flex items-center gap-1.5">
+              <kbd className="rounded-[3px] border border-line-strong px-1 py-px font-mono text-[9.5px] text-ink-muted">
+                {k}
+              </kbd>
+              <span className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-ink-dim">{what}</span>
+            </span>
+          ))}
+          <span className="ml-auto font-mono text-[9.5px] uppercase tracking-[0.12em] text-ink-dim">
+            {rows.length} {rows.length === 1 ? 'row' : 'rows'}
+          </span>
+        </footer>
       </div>
     </div>
   );

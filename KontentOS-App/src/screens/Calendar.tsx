@@ -174,9 +174,9 @@ export default function Calendar() {
   return (
     <PageShell className="animate-fade-in">
       <PageHeader
-        eyebrow="Ship calendar"
+        eyebrow="Out · Plan"
         icon="calendar_today"
-        title="Release Calendar"
+        title="Release calendar"
         description="The dates you committed to. KontentOS keeps the plan and the caption; posting is still you."
         actions={
           <>

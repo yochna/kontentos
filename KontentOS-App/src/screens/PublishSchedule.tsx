@@ -4,6 +4,8 @@ import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/compon
 import { channels as initialChannels, recommendedTags } from '@/data/mock';
 import { useStore, useDisplayProfile } from '@/lib/store';
 import { useNavPayload } from '@/lib/nav';
+import { copyVoice, voiceTone } from '@/lib/brandKit';
+import { copyModel, readAiPrefs } from '@/lib/prefs';
 import type { SocialPlatform } from '@/lib/types';
 import {
   generateMultiPlatformCopy,
@@ -160,7 +162,10 @@ export default function PublishSchedule() {
           body: JSON.stringify({
             videoId: selectedVideo.id,
             videoTitle: selectedVideo.title,
-            tone: 'Viral & Punchy',
+            tone: voiceTone(),
+            brandVoice: copyVoice(),
+            temperature: readAiPrefs().temperature,
+            model: copyModel(),
             forceRefresh: false,
           }),
         });
@@ -235,7 +240,10 @@ export default function PublishSchedule() {
         body: JSON.stringify({
           videoId: selectedVideo.id,
           videoTitle: selectedVideo.title,
-          tone: 'Viral & Punchy',
+          tone: voiceTone(),
+          brandVoice: copyVoice(),
+          temperature: readAiPrefs().temperature,
+          model: copyModel(),
           forceRefresh: true,
         }),
       });
@@ -402,10 +410,10 @@ export default function PublishSchedule() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Omnichannel Publisher"
+        eyebrow="Out · Ship"
         icon="schedule_send"
-        title="Publish & Multi-Channel Composer"
-        description="Simultaneously package, preview, and syndicate your video across all creator channels."
+        title="Write the caption, set the date"
+        description="KontentOS packages the caption per platform and holds the queue. Posting is still you — no channel is connected yet."
         actions={
           <>
             <Button variant="secondary" icon="download" onClick={handleExportManualBundle}>

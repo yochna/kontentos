@@ -6,6 +6,7 @@ import { PRESETS, fmtTime, totalDuration, type EditPreset } from '@/lib/timeline
 import type { AutoEditOutcome } from '@/lib/store';
 import { useStore } from '@/lib/store';
 import { useNavPayload } from '@/lib/nav';
+import { selectCut, useSelectedCutId } from '@/lib/bench';
 
 const STEPS = [
   { icon: 'graphic_eq', label: 'Analyzing audio waveform & speech cadences' },
@@ -89,6 +90,20 @@ export default function RawReel() {
     if (target && videos.some((v) => v.id === target)) setVideoId(target);
   }, [navPayload, videos]);
 
+  // The rail owns which cut is lit. Only react to the id actually changing — re-applying a
+  // stored selection on every refresh would undo a pick the creator just made in here.
+  const litCutId = useSelectedCutId();
+  const followed = useRef<string | null>(null);
+  useEffect(() => {
+    if (!litCutId || litCutId === followed.current) return;
+    followed.current = litCutId;
+    if (videos.some((v) => v.id === litCutId)) {
+      setVideoId(litCutId);
+      setResult(null);
+      setPlayheadSec(0);
+    }
+  }, [litCutId, videos]);
+
   const video = videos.find((v) => v.id === videoId);
   const preset = (PRESETS.find((p) => p.id === presetId) || PRESETS[0]) as EditPreset;
 
@@ -103,6 +118,7 @@ export default function RawReel() {
       if (uploaded) {
         setVideoId(uploaded.id);
         setResult(null);
+        selectCut(uploaded.id);
       }
     } catch (err) {
       console.error('File upload failed in RawReel:', err);
@@ -167,10 +183,10 @@ export default function RawReel() {
       />
 
       <PageHeader
-        eyebrow="Raw → Reel Studio"
+        eyebrow="In · Intake"
         icon="smart_display"
-        title="One click. Pick a look. Ship the reel."
-        description="Automated dead-air trimming, kinetic subtitle typography, and punch zooms from your raw smartphone takes."
+        title="Bring the raw take onto the bench"
+        description="Everything starts here — the take, its transcript, and the first cut. Dead-air trims, kinetic captions and punch zooms fire when you press them."
         actions={
           result && (result.offline || result.source === 'gemini') ? (
             <>
@@ -262,6 +278,7 @@ export default function RawReel() {
                         setVideoId(v.id);
                         setResult(null);
                         setPlayheadSec(0);
+                        selectCut(v.id);
                       }}
                       className={`shrink-0 w-[160px] text-left rounded-card border overflow-hidden transition-all kt-focus group relative ${
                         isSelected

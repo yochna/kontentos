@@ -4,6 +4,8 @@ import type { AutoEditStats } from './api';
 import type { User, Video, ScheduledPost, PublishingRecord, DbStatus, SocialPlatform, ActiveDraft } from './types';
 import type { Idea } from '@/data/mock';
 import { navigate, type ScreenId } from './nav';
+import { copyVoice } from './brandKit';
+import { copyModel, readAiPrefs } from './prefs';
 import {
   applyCaptionsToProject,
   applyPresetLook,
@@ -462,7 +464,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!realWords || realWords.length === 0) {
       // Pull title-grounded copy (offline / no speech fallback).
       try {
-        const copy = await api.copyFromTitle({ title: video.title, tone: preset.tone });
+        const copy = await api.copyFromTitle({
+          title: video.title,
+          tone: preset.tone,
+          context: copyVoice(),
+          temperature: readAiPrefs().temperature,
+          model: copyModel(),
+        });
         caption = copy.caption || '';
         hashtags = copy.hashtags || [];
         spoken = [copy.hooks?.[0], copy.caption].filter(Boolean).join(' ').replace(/#[\w]+/g, '').trim() || video.title;

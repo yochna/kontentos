@@ -647,15 +647,15 @@ export default function StaticGenerator() {
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto font-body">
-      {/* Editorial Screen Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-line pb-6">
+      {/* Bench-scale station header */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-line pb-5">
         <div>
-          <Eyebrow>VISUAL ARCHETYPES & STATIC CREATOR STUDIO</Eyebrow>
-          <h1 className="text-3xl font-display font-medium text-ink mt-1">
-            Static Post Studio
+          <Eyebrow>Cut · Card</Eyebrow>
+          <h1 className="mt-1 font-display text-[21px] font-bold leading-tight text-ink sm:text-[24px]">
+            Card studio
           </h1>
-          <p className="text-sm text-ink-muted mt-1 max-w-2xl">
-            Transform raw insights into high-converting visual graphics with Gemini AI, custom typography, and 1-click 300 DPI exports.
+          <p className="text-[13px] text-ink-muted mt-1.5 max-w-2xl">
+            Turn one insight into a static slide post: layout, type and caption, exported as an image you can post.
           </p>
         </div>
 
