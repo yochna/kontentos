@@ -401,37 +401,38 @@ Respond ONLY with pure JSON matching this exact structure:
       console.warn('[api.generateStaticCarouselDeck] Error:', deckErr);
     }
 
-    // High-signal fallback deck if offline or network error
-    const seed = opts.prompt.replace(/^(how to|why|the|a|an)\s+/i, '').trim() || 'Content Systems';
+    // No engine answer, so no words are put in the creator's mouth. The deck's shape — claim, three
+    // moves, close — is the reusable part; every bracket is a line they fill from their own thinking.
+    const seed = opts.prompt.replace(/^(how to|why|the|a|an)\s+/i, '').trim() || 'this topic';
     return {
       slides: [
         {
           id: 1,
-          headline: `Most creators fail at [${seed}] because they lack an engine.`,
-          supportingText: 'Here is the high-leverage 3-part framework the top 0.1% use to turn 1 insight into compound growth.',
+          headline: `[the claim you are making about ${seed}]`,
+          supportingText: '[why you are making it — one sentence, in your own words]',
         },
         {
           id: 2,
-          headline: 'Phase 1: Decouple [Ideation from Production].',
-          supportingText: 'Never edit in the moment you brainstorm. Capture raw uncensored thoughts first into a scratchpad repository.',
+          headline: 'Move 1: [what you actually do first]',
+          supportingText: '[what goes wrong when you skip it]',
         },
         {
           id: 3,
-          headline: 'Phase 2: Use [Visual Archetypes & Targeted Glows].',
-          supportingText: 'Text cards outperform static photos 3:1 on LinkedIn because they force high-contrast readability in dark feeds.',
+          headline: 'Move 2: [the second thing you do]',
+          supportingText: '[the number, the scene or the outcome that backs it]',
         },
         {
           id: 4,
-          headline: 'Phase 3: Turn one hook into [Multiple Distribution Channels].',
-          supportingText: 'Export to LinkedIn PDF, Instagram 4:5 carousels, and Twitter cards with identical narrative pacing.',
+          headline: 'Move 3: [the third thing you do]',
+          supportingText: '[what changed for you after you started doing it]',
         },
         {
           id: 5,
-          headline: 'Save this deck and [Deploy It This Week].',
-          supportingText: 'Consistency is not about motivation—it is about systems that make publishing feel frictionless.',
+          headline: `[what the reader should do next about ${seed}]`,
+          supportingText: 'KontentOS scaffold — no engine answered, so these lines are yours. Fill every bracket before exporting.',
         },
       ],
-      socialCaption: `The complete blueprint for ${seed}.\n\nSave this carousel for your next production sprint.\n\n#ContentStrategy #CreatorEconomy #KontentOS`,
+      socialCaption: `${seed}\n\n[the hook]\n\n[what the deck covers]\n\nKontentOS scaffold — nothing here was written for you by a model. Fill the brackets, then delete this line.`,
     };
   },
 
@@ -651,8 +652,8 @@ Respond ONLY with pure JSON matching this exact structure:
     } catch {
       // Fallback handled below
     }
-    const { generateProceduralIdeas } = await import('./ideasEngine');
-    return generateProceduralIdeas(opts?.topic, opts?.niche);
+    const { generateScaffoldIdeas } = await import('./ideasEngine');
+    return generateScaffoldIdeas(opts?.topic, opts?.niche);
   },
 
   // Saved ideas belong to the signed-in account and are stored server-side, so there is no

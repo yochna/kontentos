@@ -679,7 +679,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         project: proj,
         publishing: {
           caption: initialCaption,
-          hashtags: copy?.hashtags || ['reels', 'shorts', 'viral', 'creator'],
+          hashtags: copy?.hashtags || [],
           platforms: ['instagram', 'youtube', 'tiktok'],
         },
         step: 'publish',

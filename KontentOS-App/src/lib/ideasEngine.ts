@@ -1,5 +1,9 @@
 import type { Idea } from '@/data/mock';
 
+// What the Ideas station offers when no model answered: structures worth filling, not copy. No hook
+// is written for the creator, no audience number is claimed, and nothing here has been scored — the
+// brackets are the deliverable.
+
 const CURATED_IMAGES = [
   { id: 'eGGFZ5X2LnA', alt: 'Macro of an AI processor chip on a circuit board' },
   { id: 'Wpnoqo2plFA', alt: 'Close-up of a spreadsheet full of figures on a screen' },
@@ -9,154 +13,154 @@ const CURATED_IMAGES = [
   { id: '1tCQcTjLoRQ', alt: 'Vintage handwritten journal with an old photograph and pressed flowers' },
 ];
 
-export function generateProceduralIdeas(topic?: string, niche = 'Studio & SaaS'): Idea[] {
-  const t = (topic || '').trim() || 'AI Workflows & Creator Systems';
-  const cleanTopic = t.charAt(0).toUpperCase() + t.slice(1);
+const SCAFFOLD = 'Scaffold · fill the brackets';
 
-  return [
+export function generateScaffoldIdeas(topic?: string, niche?: string): Idea[] {
+  const t = (topic || '').trim() || (niche || '').trim() || 'your topic';
+  const cleanTopic = t.charAt(0).toUpperCase() + t.slice(1);
+  const lower = t.toLowerCase();
+  const stamp = Date.now();
+
+  const cards: Omit<Idea, 'id'>[] = [
     {
-      id: `proc-1-${Date.now()}`,
       category: 'Trending Sprint',
       categoryTone: 'tertiary',
-      title: `5 ${cleanTopic} tools that actually save small businesses time`,
-      excerpt: `Exposing zero-productivity gimmickry and presenting 5 grounded workflows for ${cleanTopic.toLowerCase()}.`,
+      title: `[number] ${cleanTopic} tools you actually use — and what each one replaced`,
+      excerpt: `Name the ${lower} tools you personally reach for, then say the chore each one took off your plate.`,
       format: 'Reel · 30 sec',
-      metric: 'Hook: 94%',
+      metric: SCAFFOLD,
       thumb: 'a',
       imageId: CURATED_IMAGES[0].id,
       imageAlt: CURATED_IMAGES[0].alt,
       blueprint: {
         focus: 'Trending Focus',
-        why: `Strong pain point + practical outcome for ${niche}. Directly cuts through generic industry hype with tangible proof.`,
+        why: 'A list is only worth reading when it is limited to what the writer actually uses. The shape holds; which items belong in it is yours to decide.',
         formats: ['Reel (30s)', 'Carousel', 'LinkedIn Post', 'YouTube Short'],
-        hook: `“You’re probably wasting 3 hours every week on ${cleanTopic.toLowerCase()}. Here is what we do instead:”`,
-        hookScore: 94,
+        hook: `“[${lower} chore you still did by hand, in one plain sentence]”`,
+        hookScore: 0,
         beats: [
-          { label: 'Beat 1: The Trap', time: '0:00 - 0:05', body: 'Fast cut of messy manual spreadsheets with a glowing red timer overlay.' },
-          { label: 'Beat 2: The 3-Step Fix', time: '0:05 - 0:23', body: 'Rapid screen recording showing 1-click automated synthesis.' },
-          { label: 'Beat 3: Key Takeaway', time: '0:23 - 0:30', body: 'Founder runbook graphic on-screen with prompt to save the reel.' },
+          { label: 'Beat 1: The chore', time: '0:00 - 0:05', body: '[show the manual version of the task, unedited]' },
+          { label: 'Beat 2: The switch', time: '0:05 - 0:23', body: '[one screen recording per tool — what you click, what comes out]' },
+          { label: 'Beat 3: The trade-off', time: '0:23 - 0:30', body: '[what the tool still gets wrong — the line that makes the rest believable]' },
         ],
       },
     },
     {
-      id: `proc-2-${Date.now()}`,
       category: 'High Potential',
       categoryTone: 'primary',
-      title: `Why creators are abandoning traditional ${cleanTopic} setups`,
-      excerpt: `A sharp comparison of legacy manual friction versus automated one-take video publishing pipelines.`,
+      title: `Why you moved off your old ${lower} setup`,
+      excerpt: 'A before-and-after built on one decision you made and the cost that forced it.',
       format: 'Carousel · 8 slides',
-      metric: 'Viral Resonance',
+      metric: SCAFFOLD,
       thumb: 'b',
       imageId: CURATED_IMAGES[1].id,
       imageAlt: CURATED_IMAGES[1].alt,
       blueprint: {
         focus: 'Authority Builder',
-        why: 'Contrarian framing that reframes standard practices as costly liabilities — drives maximum bookmarks and shares.',
+        why: 'Contrarian frames only hold up when the writer can produce their own receipts. If you cannot, this is not your card yet.',
         formats: ['Carousel', 'LinkedIn Post', 'Thread', 'Reel'],
-        hook: `“Your current ${cleanTopic.toLowerCase()} setup isn’t saving you money. It’s quietly costing you 11 hours a week.”`,
-        hookScore: 91,
+        hook: `“[the thing you used to defend about your ${lower} setup, and the day you stopped]”`,
+        hookScore: 0,
         beats: [
-          { label: 'Slide 1: The Fallacy', time: '0:00 - 0:04', body: 'Visualizing standard creator burnout with bold kinetic text.' },
-          { label: 'Slides 2–5: The Real Cost', time: '0:04 - 0:22', body: 'Breakdown of time lost to manual captioning and editing.' },
-          { label: 'Slide 6: The Modern Solution', time: '0:22 - 0:30', body: 'One-click pipeline architecture with save CTA.' },
+          { label: 'Slide 1: The claim you dropped', time: '—', body: '[state it in your own words, without building a strawman]' },
+          { label: 'Slides 2–5: The cost', time: '—', body: '[one cost per slide — only ones you measured or felt]' },
+          { label: 'Slide 6: What replaced it', time: '—', body: '[the setup now, including what it still costs you]' },
         ],
       },
     },
     {
-      id: `proc-3-${Date.now()}`,
       category: 'Your Niche',
       categoryTone: 'secondary',
-      title: `What nobody tells you about ${cleanTopic} in 2026`,
-      excerpt: `The uncomfortable reality: when everyone uses identical templates, bespoke voice and raw conviction win.`,
+      title: `What nobody says out loud about ${lower}`,
+      excerpt: 'One true observation about your corner of the work that the generic advice skips.',
       format: 'Reel / Short · 45 sec',
-      metric: 'Direct Dialogue',
+      metric: SCAFFOLD,
       thumb: 'c',
       imageId: CURATED_IMAGES[2].id,
       imageAlt: CURATED_IMAGES[2].alt,
       blueprint: {
         focus: 'Contrarian',
-        why: 'Pattern-interrupt honesty differentiates your brand from generic cookie-cutter creators.',
+        why: 'Plain-spoken honesty separates a practitioner from a template, but only when the observation is specific to what you have seen.',
         formats: ['Reel (45s)', 'Talking Head', 'Short'],
-        hook: `“Everyone’s approach to ${cleanTopic.toLowerCase()} is identical right now. Let me prove it in 20 seconds.”`,
-        hookScore: 93,
+        hook: `“[the sentence a peer would wince at because it is true about ${lower}]”`,
+        hookScore: 0,
         beats: [
-          { label: 'Beat 1: Pattern Reveal', time: '0:00 - 0:08', body: 'Side-by-side comparison of 4 generic industry posts.' },
-          { label: 'Beat 2: The Antidote', time: '0:08 - 0:32', body: 'Why raw 1-take direct-to-camera arguments build 10x higher trust.' },
-          { label: 'Beat 3: Community Prompt', time: '0:32 - 0:45', body: 'Ask the viewer: what does your production stack look like?' },
+          { label: 'Beat 1: The pattern', time: '0:00 - 0:08', body: `[the advice everyone in ${lower} repeats — quoted exactly]` },
+          { label: 'Beat 2: Your version', time: '0:08 - 0:32', body: '[what you do instead, and the one time it did not work]' },
+          { label: 'Beat 3: Ask the room', time: '0:32 - 0:45', body: '[a question only someone doing this work could answer]' },
         ],
       },
     },
     {
-      id: `proc-4-${Date.now()}`,
       category: 'Transparent Studio',
       categoryTone: 'neutral',
-      title: `Behind the scenes: our real ${cleanTopic} production runbook`,
-      excerpt: `A documentary-style walk through asynchronous handoffs, asset ingestion, and publication.`,
+      title: `Your real ${lower} production runbook, start to finish`,
+      excerpt: 'Document one actual pass of your workflow — capture, assembly, publication — without polishing it.',
       format: 'Longform Reel · 50 sec',
-      metric: 'Authority Builder',
+      metric: SCAFFOLD,
       thumb: 'd',
       imageId: CURATED_IMAGES[3].id,
       imageAlt: CURATED_IMAGES[3].alt,
       blueprint: {
         focus: 'BTS / Documentary',
-        why: 'Operational transparency is the highest-retention format for sophisticated operators and founders.',
+        why: 'Process footage is the clearest proof that the advice came from doing the work rather than reading about it.',
         formats: ['Reel (50s)', 'Thread', 'Carousel'],
-        hook: `“Zero live meetings. One automated pipeline. Here is the exact system that powers our ${cleanTopic.toLowerCase()}:”`,
-        hookScore: 86,
+        hook: `“[the first honest line about how your ${lower} work actually starts]”`,
+        hookScore: 0,
         beats: [
-          { label: 'Part 1: Capture', time: '0:00 - 0:12', body: 'Record raw video unpolished on phone in under 60 seconds.' },
-          { label: 'Part 2: Assembly', time: '0:12 - 0:36', body: 'AI purges dead-air silences and punches dynamic zoom keyframes.' },
-          { label: 'Part 3: Broadcast', time: '0:36 - 0:50', body: 'Single render syndicated to Reels, Shorts, and LinkedIn.' },
+          { label: 'Part 1: Capture', time: '0:00 - 0:12', body: '[the raw take as it happens, retakes included]' },
+          { label: 'Part 2: Assembly', time: '0:12 - 0:36', body: '[the edits you make by hand and the ones you hand to a tool]' },
+          { label: 'Part 3: Broadcast', time: '0:36 - 0:50', body: '[where it goes, when, and who copies it out]' },
         ],
       },
     },
     {
-      id: `proc-5-${Date.now()}`,
       category: 'Metric Runbook',
       categoryTone: 'primary',
-      title: `The 3 metrics that actually matter for ${cleanTopic}`,
-      excerpt: `Cutting through vanity analytics: audience retention quotient, bookmark velocity, and conversion rate.`,
+      title: `The [number] numbers you actually watch for ${lower}`,
+      excerpt: 'Show the dashboard you read and say which two numbers you stopped caring about.',
       format: 'Reel · 40 sec',
-      metric: 'Evergreen',
+      metric: SCAFFOLD,
       thumb: 'e',
       imageId: CURATED_IMAGES[4].id,
       imageAlt: CURATED_IMAGES[4].alt,
       blueprint: {
         focus: 'Educational',
-        why: 'Evergreen diagnostic utility content that compounds saves and positions you as an industry benchmark.',
+        why: 'Measurement opinions are only useful when tied to a real account. Use your own numbers, or show the blank dashboard and say why.',
         formats: ['Reel (40s)', 'Short', 'Carousel'],
-        hook: `“Stop obsessing over view counts for ${cleanTopic.toLowerCase()}. Track these three numbers instead:”`,
-        hookScore: 89,
+        hook: `“[the metric you used to chase and what you watch now instead]”`,
+        hookScore: 0,
         beats: [
-          { label: 'Beat 1: Reframe', time: '0:00 - 0:06', body: 'Cross out follower vanity numbers on screen with a bold red slash.' },
-          { label: 'Beat 2: The Core 3', time: '0:06 - 0:32', body: 'Break down retention curves, bookmark ratios, and comments.' },
-          { label: 'Beat 3: Template Drop', time: '0:32 - 0:40', body: 'Comment "METRICS" to get our free diagnostic spreadsheet.' },
+          { label: 'Beat 1: The one you dropped', time: '0:00 - 0:06', body: '[name it and the week you stopped reporting it]' },
+          { label: 'Beat 2: The ones you kept', time: '0:06 - 0:32', body: '[each number, where it comes from, what you changed because of it]' },
+          { label: 'Beat 3: The caveat', time: '0:32 - 0:40', body: '[what these numbers still do not tell you]' },
         ],
       },
     },
     {
-      id: `proc-6-${Date.now()}`,
       category: 'Evergreen',
       categoryTone: 'neutral',
-      title: `The timeless lesson about ${cleanTopic} that still wins today`,
-      excerpt: `Resurfacing foundational principles that outlive algorithm shifts and short-lived growth hacks.`,
+      title: `The ${lower} lesson that outlasted the trend cycle`,
+      excerpt: 'One principle you learned the hard way, told through the specific time you learned it.',
       format: 'Talking Head · 35 sec',
-      metric: 'Timeless Wisdom',
+      metric: SCAFFOLD,
       thumb: 'f',
       imageId: CURATED_IMAGES[5].id,
       imageAlt: CURATED_IMAGES[5].alt,
       blueprint: {
         focus: 'Philosophical / Evergreen',
-        why: 'Timeless fundamental insight inspires deep creator loyalty and high comment discourse.',
+        why: 'Reflection holds attention when it is anchored to a scene the teller was actually in; generalities read as filler.',
         formats: ['Reel (35s)', 'Short', 'Post'],
-        hook: `“I first learned this principle about ${cleanTopic.toLowerCase()} years ago, and it is even more true today:”`,
-        hookScore: 84,
+        hook: `“[the moment ${lower} taught you this — when, where, what you had just done]”`,
+        hookScore: 0,
         beats: [
-          { label: 'Beat 1: The Quote', time: '0:00 - 0:07', body: 'Direct eye contact opening quote that challenges standard haste.' },
-          { label: 'Beat 2: The Proof', time: '0:07 - 0:26', body: 'How focusing on depth outperforms shallow volume every single time.' },
-          { label: 'Beat 3: Bridge', time: '0:26 - 0:35', body: 'Invite viewers to share their biggest creator milestone.' },
+          { label: 'Beat 1: The scene', time: '0:00 - 0:07', body: '[set the one event before framing it]' },
+          { label: 'Beat 2: The turn', time: '0:07 - 0:26', body: '[what you changed afterward and what it cost]' },
+          { label: 'Beat 3: The hand-off', time: '0:26 - 0:35', body: '[the question you would ask someone standing where you were]' },
         ],
       },
     },
   ];
+
+  return cards.map((c, i) => ({ ...c, id: `scaffold-${i + 1}-${stamp}` }));
 }

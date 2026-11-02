@@ -41,31 +41,33 @@ import { useStore, useDisplayProfile } from '@/lib/store';
 import { navigate } from '@/lib/nav';
 import { getSafeImageUrl } from '@/lib/images';
 
+// What a deck looks like before anyone writes it: the five-move shape, with every line still blank.
+// Pre-filling finished sentences here would put words nobody chose onto an exported image.
 const DEFAULT_CAROUSEL_SLIDES: CarouselSlide[] = [
   {
     id: 1,
-    headline: 'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.',
-    supportingText: 'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.',
+    headline: '[the claim this deck makes]',
+    supportingText: '[why you are making it — one sentence, in your own words]',
   },
   {
     id: 2,
-    headline: 'Step 1: Capture the [Core Epiphany] without formatting.',
-    supportingText: 'Never write a post directly inside Twitter or LinkedIn. Open a blank scratchpad and write your raw uncensored insight first.',
+    headline: '[first move]',
+    supportingText: '[what to do, and what it took off your plate]',
   },
   {
     id: 3,
-    headline: 'Step 2: Split your insight into [Hook, Framework, and Takeaway].',
-    supportingText: 'A high-converting slide deck always follows a 3-act structure. Give them the paradox, the proof, then the actionable playbook.',
+    headline: '[second move]',
+    supportingText: '[the part most people get wrong, if you have actually seen it]',
   },
   {
     id: 4,
-    headline: 'Step 3: Render as visual archetype cards with [High-Contrast Design].',
-    supportingText: 'Visual text stops thumb scrolling 4.2x faster than plain text. Use clean typography with targeted accent glows.',
+    headline: '[third move]',
+    supportingText: '[what changed for you after doing it]',
   },
   {
     id: 5,
-    headline: 'The Playbook: [Execute This Framework Today].',
-    supportingText: 'Consistency is not about motivation—it is about having systems that make posting feel effortless. Bookmark this framework for your next sprint.',
+    headline: '[what the reader should do next]',
+    supportingText: 'KontentOS scaffold — fill every bracket before exporting.',
   },
 ];
 
@@ -211,9 +213,9 @@ export default function StaticGenerator() {
     aspectRatio: '1:1',
     cardMode: 'dark',
     fontStyle: 'grotesk',
-    headline: 'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.',
-    supportingText: 'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.',
-    socialCaption: 'Consistency is not about working harder—it is about removing friction from creation.\n\nSave this framework for your next production sprint.\n\n#ContentCreation #CreatorEconomy #Productivity #KontentOS',
+    headline: '[the claim this deck makes]',
+    supportingText: '[why you are making it — one sentence, in your own words]',
+    socialCaption: '',
     creator: {
       name: profile.real ? profile.name : '',
       handle: profile.real ? profile.handle : '',
@@ -614,7 +616,11 @@ export default function StaticGenerator() {
       title: state.headline.slice(0, 60),
       publishing: {
         caption: `${state.headline}\n\n${state.supportingText}\n\n${state.socialCaption || ''}`,
-        hashtags: ['ContentStrategy', 'CreatorEconomy', 'KontentOS'],
+        // The deck's own caption is the only source of tags here. A fixed set of generic ones would
+        // ship words into the creator's post that neither they nor the engine chose.
+        hashtags: Array.from(new Set((state.socialCaption || '').match(/#[A-Za-z0-9_\u0590-\u05ff]+/g) || [])).map((t) =>
+          t.replace(/^#/, '')
+        ),
         platforms: ['instagram', 'linkedin', 'x'],
       },
       step: 'publish',

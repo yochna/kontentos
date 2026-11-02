@@ -2,7 +2,8 @@
 import { Icon } from '@/lib/icons';
 import { AnimatedNumber, Badge, Button, Card, Chip, Eyebrow, PageShell, Progress, Reveal, Thumb, useDismiss } from '@/components/ui';
 import { unsplashPhoto } from '@/lib/images';
-import { ideas as initialMockIdeas, type Idea } from '@/data/mock';
+import { type Idea } from '@/data/mock';
+import { generateScaffoldIdeas } from '@/lib/ideasEngine';
 import { useStore } from '@/lib/store';
 import { useNavPayload } from '@/lib/nav';
 import { api } from '@/lib/api';
@@ -20,7 +21,9 @@ const QUICK_TOPICS = [
 export default function Ideas() {
   const { savedIdeas, saveIdea, removeSavedIdea, isSavedIdea, startProductionFromIdea, videos } = useStore();
 
-  const [ideasList, setIdeasList] = useState<Idea[]>(initialMockIdeas);
+  // Opening the station shows six empty structures rather than someone's finished ideas: nothing here
+  // is invented copy, and nothing is scored, because no model has read it yet.
+  const [ideasList, setIdeasList] = useState<Idea[]>(() => generateScaffoldIdeas());
   const [filter, setFilter] = useState('all');
   const [open, setOpen] = useState<Idea | null>(null);
   const [searchTopic, setSearchTopic] = useState('');
@@ -276,15 +279,21 @@ export default function Ideas() {
                     <p className="text-[12.5px] text-ink-muted leading-snug line-clamp-2">{idea.excerpt}</p>
                     <div className="mt-auto pt-3 flex items-center justify-between border-t border-line/60">
                       <div className="flex items-center gap-2">
-                        <div className="w-16">
-                          <Progress
-                            value={idea.blueprint.hookScore}
-                            barClassName={idea.blueprint.hookScore >= 90 ? 'bg-tertiary' : 'bg-primary'}
-                          />
-                        </div>
-                        <span className="text-[11px] font-medium text-ink-dim">
-                          <AnimatedNumber text={`Hook ${idea.blueprint.hookScore}`} />
-                        </span>
+                        {idea.blueprint.hookScore > 0 ? (
+                          <>
+                            <div className="w-16">
+                              <Progress
+                                value={idea.blueprint.hookScore}
+                                barClassName={idea.blueprint.hookScore >= 90 ? 'bg-tertiary' : 'bg-primary'}
+                              />
+                            </div>
+                            <span className="text-[11px] font-medium text-ink-dim">
+                              <AnimatedNumber text={`Est. ${idea.blueprint.hookScore}`} />
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-[11px] font-medium text-ink-dim">Hook not scored</span>
+                        )}
                       </div>
                       <span className="text-[12px] font-semibold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                         Blueprint <Icon name="chevron_right" size={16} />
@@ -433,7 +442,7 @@ function BlueprintDrawer({
             <div className="flex items-center justify-between mb-2">
               <div className="kt-eyebrow">Opening hook formula</div>
               <span className="text-[12px] font-bold text-tertiary bg-tertiary/10 px-2 py-0.5 rounded-full">
-                Hook score {b.hookScore}/100
+                {b.hookScore > 0 ? `Engine estimate ${b.hookScore}/100` : 'Nothing has read this line yet'}
               </span>
             </div>
             <div className="rounded-card bg-primary-soft border border-primary/25 p-4 shadow-sm">

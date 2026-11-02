@@ -102,7 +102,7 @@ export const CopyEditor: React.FC<Props> = ({
           rows={3}
           value={headline}
           onChange={(e) => onHeadlineChange(e.target.value)}
-          placeholder="Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas."
+          placeholder="[the claim this deck makes]"
           className="w-full bg-surface border border-line rounded-btn p-3 text-xs font-medium text-ink placeholder-ink-dim focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 resize-none transition-all leading-relaxed shadow-[var(--shadow-1)]"
         />
         <div className="flex items-center justify-between text-[11px] text-ink-muted pt-0.5">
@@ -141,7 +141,7 @@ export const CopyEditor: React.FC<Props> = ({
           rows={3}
           value={supportingText}
           onChange={(e) => onSupportingTextChange(e.target.value)}
-          placeholder="Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes."
+          placeholder="[why you are making it — one sentence, in your own words]"
           className="w-full bg-surface border border-line rounded-btn p-3 text-xs font-medium text-ink placeholder-ink-dim focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 resize-none transition-all leading-relaxed shadow-[var(--shadow-1)]"
         />
       </div>

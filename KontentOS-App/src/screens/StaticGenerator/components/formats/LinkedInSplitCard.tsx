@@ -39,10 +39,10 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state, onUpdateText }) => {
   const safeAvatar = getSafeImageUrl(state.creator.avatarUrl);
   const headline =
     state.headline ||
-    'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.';
+    '[the claim this deck makes]';
   const supporting =
     state.supportingText ||
-    'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.';
+    '[why you are making it — one sentence, in your own words]';
 
   return (
     <div

@@ -445,26 +445,28 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
   },
 ];
 
+// Example angles to start from. They ask the engine to use numbers the creator supplies, instead of
+// seeding a statistic the app cannot back up.
 export const AI_EXAMPLE_PROMPTS = [
   {
     icon: 'auto_awesome',
     label: 'Consistency Trap',
-    prompt: 'Why consistency beats high-budget production for creators in 2026, breaking down why simple high-signal ideas outperform heavy editing.',
+    prompt: 'Why consistency beats high-budget production in [your niche] — using the work you actually shipped this month.',
   },
   {
     icon: 'bolt',
     label: 'Repurposing',
-    prompt: 'A 3-step high-leverage framework to turn 1 raw voice note into 6 social assets across LinkedIn, IG, and Twitter in under 5 minutes.',
+    prompt: 'The steps you take to turn one raw voice note into posts across LinkedIn, IG and X — name each step and what it costs you.',
   },
   {
     icon: 'verified',
     label: 'Trust vs Virality',
-    prompt: 'Why optimizing for trust and authority creates 10x more high-ticket revenue than vanity viral views that never convert.',
+    prompt: 'A time a vanity number looked good but the work did not convert, and what you watch instead now.',
   },
   {
     icon: 'psychology',
     label: 'Creator Leverage',
-    prompt: 'How modern solo-operators use AI workflows to produce the output of a 5-person production studio without burning out.',
+    prompt: 'What your solo setup actually produces in a week, with the tooling you use and the parts you refuse to automate.',
   },
 ];
 

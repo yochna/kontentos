@@ -53,6 +53,77 @@ function copyForPlatform(p: SocialPlatform, b: PlatformCopyBundle): { text: stri
   }
 }
 
+// KontentOS no longer writes hashtags on the creator's behalf, so the composer has to let them be
+// typed. Chips with a remove button and one field that accepts space- or comma-separated tags.
+function HashtagEditor({
+  platform,
+  tags,
+  onChange,
+}: {
+  platform: SocialPlatform;
+  tags: string[];
+  onChange: (tags: string[]) => void;
+}) {
+  const [draft, setDraft] = useState('');
+  const spec = platformSpec(platform);
+
+  const commit = (raw: string) => {
+    const added = raw
+      .split(/[\s,]+/)
+      .map((t) => t.replace(/^#+/, '').trim())
+      .filter(Boolean);
+    if (added.length === 0) return;
+    onChange(Array.from(new Set([...tags, ...added])));
+    setDraft('');
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {tags.length === 0 && (
+          <span className="text-[11.5px] text-ink-dim">No tags yet — this app will not pick them for you.</span>
+        )}
+        {tags.map((t) => (
+          <span
+            key={t}
+            className="text-[11.5px] font-medium text-primary bg-primary-soft border border-primary/20 rounded-full px-2.5 py-0.5 flex items-center gap-1"
+          >
+            #{t}
+            <button
+              type="button"
+              onClick={() => onChange(tags.filter((x) => x !== t))}
+              aria-label={`Remove #${t}`}
+              className="kt-focus text-primary/70 hover:text-primary"
+            >
+              <Icon name="close" size={12} />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+              e.preventDefault();
+              commit(draft);
+            }
+            if (e.key === 'Backspace' && draft === '' && tags.length > 0) onChange(tags.slice(0, -1));
+          }}
+          onBlur={() => commit(draft)}
+          placeholder="add your own, space-separated"
+          aria-label={`Hashtags for ${spec.label}`}
+          className="flex-1 min-w-0 rounded-btn border border-line bg-surface-2 px-3 py-1.5 text-[12.5px] text-ink outline-none placeholder:text-ink-dim focus:border-primary"
+        />
+        <span className={`text-[11px] font-mono ${tags.length > spec.hashtags.max ? 'text-danger' : 'text-ink-dim'}`}>
+          {tags.length}/{spec.hashtags.max}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // Fixed offsets from "now" — labels describe the clock time only, not any audience claim.
 const PEAK_SLOTS = [
   { label: 'Tomorrow 09:15 AM', desc: 'Morning', offsetHours: 9.25, offsetDays: 1 },
@@ -205,33 +276,33 @@ export default function PublishSchedule() {
           setCopyBundle({
             instagram: {
               caption: data.data.instagram?.caption_text || data.data.instagram?.caption || '',
-              hashtags: data.data.instagram?.hashtags || ['reels', 'creator'],
+              hashtags: data.data.instagram?.hashtags || copyBundle.instagram.hashtags,
             },
             youtube: {
               title: data.data.youtube?.suggestedTitle || selectedVideo.title,
               description: data.data.youtube?.caption_text || data.data.youtube?.caption || '',
-              tags: data.data.youtube?.hashtags || ['shorts', 'creator'],
+              tags: data.data.youtube?.hashtags || copyBundle.youtube.tags,
             },
             tiktok: {
               caption: data.data.tiktok?.caption_text || data.data.tiktok?.caption || '',
-              hashtags: data.data.tiktok?.hashtags || ['tiktoktips', 'creator'],
+              hashtags: data.data.tiktok?.hashtags || copyBundle.tiktok.hashtags,
             },
             linkedin: {
               postText: data.data.linkedin?.caption_text || data.data.linkedin?.caption || '',
               slideOutline: copyBundle.linkedin.slideOutline,
-              hashtags: data.data.linkedin?.hashtags || ['ContentStrategy', 'Productivity'],
+              hashtags: data.data.linkedin?.hashtags || copyBundle.linkedin.hashtags,
             },
             x: {
               thread: [data.data.x?.caption_text || data.data.x?.caption || ''],
-              hashtags: data.data.x?.hashtags || ['CreatorEconomy', 'Video'],
+              hashtags: data.data.x?.hashtags || copyBundle.x.hashtags,
             },
             threads: {
               postText: data.data.threads?.caption_text || data.data.threads?.caption || '',
-              hashtags: data.data.threads?.hashtags || ['threads', 'creator'],
+              hashtags: data.data.threads?.hashtags || copyBundle.threads.hashtags,
             },
             facebook: {
               postText: data.data.facebook?.caption_text || data.data.facebook?.caption || '',
-              hashtags: data.data.facebook?.hashtags || ['creators', 'video'],
+              hashtags: data.data.facebook?.hashtags || copyBundle.facebook.hashtags,
             },
           });
         }
@@ -743,16 +814,13 @@ export default function PublishSchedule() {
                   }
                   className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-sans leading-relaxed"
                 />
-                <div className="flex flex-wrap gap-1.5">
-                  {copyBundle.instagram.hashtags.map((t) => (
-                    <span
-                      key={t}
-                      className="text-[11.5px] font-medium text-primary bg-primary-soft border border-primary/20 rounded-full px-2.5 py-0.5"
-                    >
-                      #{t}
-                    </span>
-                  ))}
-                </div>
+                <HashtagEditor
+                  platform="instagram"
+                  tags={copyBundle.instagram.hashtags}
+                  onChange={(hashtags) =>
+                    setCopyBundle((prev) => ({ ...prev, instagram: { ...prev.instagram, hashtags } }))
+                  }
+                />
               </div>
             )}
 
@@ -786,6 +854,11 @@ export default function PublishSchedule() {
                     className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13px] text-ink outline-none focus:border-primary font-mono text-xs"
                   />
                 </div>
+                <HashtagEditor
+                  platform="youtube"
+                  tags={copyBundle.youtube.tags}
+                  onChange={(tags) => setCopyBundle((prev) => ({ ...prev, youtube: { ...prev.youtube, tags } }))}
+                />
               </div>
             )}
 
@@ -801,6 +874,13 @@ export default function PublishSchedule() {
                     }))
                   }
                   className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13.5px] text-ink outline-none focus:border-primary font-sans leading-relaxed"
+                />
+                <HashtagEditor
+                  platform="tiktok"
+                  tags={copyBundle.tiktok.hashtags}
+                  onChange={(hashtags) =>
+                    setCopyBundle((prev) => ({ ...prev, tiktok: { ...prev.tiktok, hashtags } }))
+                  }
                 />
               </div>
             )}
@@ -818,6 +898,13 @@ export default function PublishSchedule() {
                   }
                   className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13.5px] text-ink outline-none focus:border-primary font-sans leading-relaxed"
                 />
+                <HashtagEditor
+                  platform="linkedin"
+                  tags={copyBundle.linkedin.hashtags}
+                  onChange={(hashtags) =>
+                    setCopyBundle((prev) => ({ ...prev, linkedin: { ...prev.linkedin, hashtags } }))
+                  }
+                />
               </div>
             )}
 
@@ -829,6 +916,11 @@ export default function PublishSchedule() {
                     {tweet}
                   </div>
                 ))}
+                <HashtagEditor
+                  platform="x"
+                  tags={copyBundle.x.hashtags}
+                  onChange={(hashtags) => setCopyBundle((prev) => ({ ...prev, x: { ...prev.x, hashtags } }))}
+                />
               </div>
             )}
           </Card>

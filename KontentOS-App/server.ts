@@ -836,8 +836,8 @@ Output valid JSON:
       res.json({ success: true, data: generated });
     } catch (err: any) {
       console.error('Error generating ideas:', err);
-      const { generateProceduralIdeas } = await import('./server/ideasEngine.js');
-      res.json({ success: true, data: generateProceduralIdeas(req.body?.topic, req.body?.niche), fallback: true });
+      const { generateScaffoldIdeas } = await import('./server/ideasEngine.js');
+      res.json({ success: true, data: generateScaffoldIdeas(req.body?.topic, req.body?.niche), fallback: true });
     }
   });
 

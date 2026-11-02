@@ -43,10 +43,10 @@ export const CarouselSlideCard: React.FC<Props> = ({ state, onUpdateText }) => {
   const isLastSlide = currentNum === totalNum && totalNum > 1;
   const headline =
     state.headline ||
-    'Most creators spend [80% of their time] on repetitive edits instead of high-leverage ideas.';
+    '[the claim this deck makes]';
   const supporting =
     state.supportingText ||
-    'Here is the exact 3-step system to turn 1 raw thought into 6 high-converting assets in under 5 minutes.';
+    '[why you are making it — one sentence, in your own words]';
 
   const getSlideBadgeText = () => {
     if (isHookSlide) return `HOOK • 01 / ${String(totalNum).padStart(2, '0')}`;

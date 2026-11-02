@@ -11,8 +11,6 @@ export const quickActions = [
   { id: 'publish-schedule', icon: 'send', title: 'Queue it', body: 'Write the caption once, set the date you will post.', tag: 'Out · Ship' },
 ];
 
-/* ---------------------------------- Ideas ---------------------------------- */
-
 export interface Idea {
   id: string;
   category: string;
@@ -34,122 +32,6 @@ export interface Idea {
   };
 }
 
-export const ideas: Idea[] = [
-  {
-    id: 'i1', category: 'Trending Sprint', categoryTone: 'tertiary',
-    title: '5 AI tools that actually save small businesses time',
-    excerpt: 'Exposing zero-productivity gimmickry and presenting 5 grounded agents that execute real back-office work.',
-    format: 'Reel · 30 sec', metric: 'Hook: 94%', thumb: 'a',
-    imageId: 'eGGFZ5X2LnA', imageAlt: 'Macro of an AI processor chip on a circuit board',
-    blueprint: {
-      focus: 'Trending Focus',
-      why: 'Strong pain point + practical tangible outcome for founders. Addresses cynicism around generic AI hype by promising zero-friction utilitarian tools.',
-      formats: ['Reel (30s)', 'Carousel', 'LinkedIn Post', 'YouTube Short'],
-      hook: '“You’re probably wasting 3 hours every week doing manual reporting. Here’s what we do instead:”',
-      hookScore: 94,
-      beats: [
-        { label: 'Beat 1: The Problem', time: '5 sec', body: 'Quick cut of overwhelming desktop spreadsheets with a red overlay timer.' },
-        { label: 'Beat 2: 3 Tool Demos', time: '18 sec', body: 'Rapid 6s screen recordings showing one-click pipeline automations.' },
-        { label: 'Beat 3: Key Takeaway', time: '7 sec', body: 'Founders checklist graphic displayed with bookmark prompt call to action.' },
-      ],
-    },
-  },
-  {
-    id: 'i2', category: 'High Potential', categoryTone: 'primary',
-    title: 'Why small businesses are replacing spreadsheets with automated ops',
-    excerpt: 'A sharp breakdown of manual calculation fragility compared against modern autonomous systems.',
-    format: 'Carousel · 8 slides', metric: 'Viral Resonance', thumb: 'b',
-    imageId: 'Wpnoqo2plFA', imageAlt: 'Close-up of a spreadsheet full of figures on a screen',
-    blueprint: {
-      focus: 'Authority Builder',
-      why: 'Contrarian framing that reframes a familiar tool as a liability — high save-intent for operators.',
-      formats: ['Carousel', 'LinkedIn Post', 'Thread'],
-      hook: '“Your spreadsheet isn’t saving you money. It’s quietly costing you 11 hours a week.”',
-      hookScore: 88,
-      beats: [
-        { label: 'Slide 1: The myth', time: '—', body: 'Familiar green grid, then a red error cascade.' },
-        { label: 'Slides 2–7: The cost', time: '—', body: 'One fragility example per slide with hard numbers.' },
-        { label: 'Slide 8: The fix', time: '—', body: 'Architecture diagram + soft CTA.' },
-      ],
-    },
-  },
-  {
-    id: 'i3', category: 'Your Niche', categoryTone: 'secondary',
-    title: 'What nobody tells you about creator automation in 2025',
-    excerpt: 'The uncomfortable reality: when everyone uses identical LLM chains, bespoke artisanal curation wins.',
-    format: 'Reel / Short · 45 sec', metric: 'Direct Dialogue', thumb: 'c',
-    imageId: 'DqmXihYx5UE', imageAlt: 'Videographer operating a cinema camera on a film set',
-    blueprint: {
-      focus: 'Contrarian',
-      why: 'Pattern-interrupt honesty builds trust and differentiates your voice from AI-slop creators.',
-      formats: ['Reel (45s)', 'Talking Head', 'Short'],
-      hook: '“Everyone’s automation stack is identical. Let me prove it in 20 seconds.”',
-      hookScore: 91,
-      beats: [
-        { label: 'Beat 1: Reveal', time: '8 sec', body: 'Side-by-side of five creators’ identical outputs.' },
-        { label: 'Beat 2: Explain', time: '24 sec', body: 'Why sameness happens + the artisanal counter-move.' },
-        { label: 'Beat 3: Invite', time: '13 sec', body: 'Prompt the audience to share their stack.' },
-      ],
-    },
-  },
-  {
-    id: 'i4', category: 'Transparent Studio', categoryTone: 'neutral',
-    title: 'Behind the scenes of our 4-person design studio workflow',
-    excerpt: 'A documentary-style walk through asynchronous handoffs, Figma design tokens, and Notion ops.',
-    format: 'Longform Thread · 6 parts', metric: 'Authority builder', thumb: 'd',
-    imageId: 'qC2n6RQU4Vw', imageAlt: 'Design team collaborating over wireframe sketches and sticky notes',
-    blueprint: {
-      focus: 'BTS / Documentary',
-      why: 'Process transparency is the highest-retention format for design-literate audiences.',
-      formats: ['Thread', 'Longform Reel', 'Carousel'],
-      hook: '“Four people. Zero stand-ups. Here’s the exact system that ships our work.”',
-      hookScore: 85,
-      beats: [
-        { label: 'Part 1: Capture', time: '—', body: 'How an idea enters the board.' },
-        { label: 'Parts 2–5: Handoffs', time: '—', body: 'Each discipline’s async pass.' },
-        { label: 'Part 6: Ship', time: '—', body: 'Publish + feedback loop.' },
-      ],
-    },
-  },
-  {
-    id: 'i5', category: 'Metric Runbook', categoryTone: 'primary',
-    title: 'The 3 metrics every solo founder should track daily',
-    excerpt: 'Cutting through vanity analytics: cash runway burn velocity, creator retention quotient, and…',
-    format: 'Reel · 40 sec', metric: 'Evergreen', thumb: 'e',
-    imageId: 'qwtCeJ5cLYs', imageAlt: 'Analytics dashboard showing CTR, cost-per-conversion and quality-score metrics',
-    blueprint: {
-      focus: 'Educational',
-      why: 'Evergreen utility content that compounds saves and positions you as operator-grade.',
-      formats: ['Reel (40s)', 'Short', 'Carousel'],
-      hook: '“Ignore your follower count. Track these three instead.”',
-      hookScore: 90,
-      beats: [
-        { label: 'Beat 1: Reframe', time: '6 sec', body: 'Dismiss vanity metrics on screen.' },
-        { label: 'Beat 2: The 3', time: '26 sec', body: 'Each metric with a live dashboard peek.' },
-        { label: 'Beat 3: Template', time: '8 sec', body: 'Offer the runbook template as a save trigger.' },
-      ],
-    },
-  },
-  {
-    id: 'i6', category: 'Bespoke Angle', categoryTone: 'neutral',
-    title: 'Generate a bespoke angle from your archives',
-    excerpt: 'Mine historical newsletter archives for unfilmed core arguments worth reshaping into a reel.',
-    format: 'AI Synthesis', metric: 'From your content', thumb: 'f',
-    imageId: '1tCQcTjLoRQ', imageAlt: 'Vintage handwritten journal with an old photograph and pressed flowers',
-    blueprint: {
-      focus: 'Repurpose',
-      why: 'Resurfacing proven writing de-risks new production and rewards existing subscribers.',
-      formats: ['Reel', 'Short', 'Post'],
-      hook: '“I wrote this two years ago and it’s even more true now.”',
-      hookScore: 82,
-      beats: [
-        { label: 'Beat 1: Quote', time: '5 sec', body: 'Pull the strongest archived line.' },
-        { label: 'Beat 2: Update', time: '20 sec', body: 'What changed since you wrote it.' },
-        { label: 'Beat 3: Bridge', time: '9 sec', body: 'Link to the original piece.' },
-      ],
-    },
-  },
-];
 
 /* ------------------------------ Raw → Reel ------------------------------ */
 

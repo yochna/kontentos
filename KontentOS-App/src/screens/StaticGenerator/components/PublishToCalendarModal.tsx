@@ -77,21 +77,12 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
   // Clean strings without formatting brackets
   const cleanHeadline = (text: string) => (text || '').replace(/\[([^\]]+)\]/g, '$1').trim();
 
-  // Extract hashtags from social caption or generate fallback contextual hashtags
+  // Only the tags the creator already wrote into the caption go onto the queue row.
   const hashtags = useMemo(() => {
     const captionText = (state.socialCaption || '').trim();
     const matched = captionText.match(/#[A-Za-z0-9_\u0590-\u05ff]+/g);
-    if (matched && matched.length > 0) {
-      return Array.from(new Set(matched));
-    }
-    const topicKeywords = cleanHeadline(state.headline)
-      .toLowerCase()
-      .replace(/[^a-z0-9 ]/g, '')
-      .split(/\s+/)
-      .filter((w) => w.length > 3)
-      .slice(0, 3);
-    return ['#kontentos', '#visualstory', ...topicKeywords.map((k) => `#${k}`)];
-  }, [state.socialCaption, state.headline]);
+    return matched ? Array.from(new Set(matched)) : [];
+  }, [state.socialCaption]);
 
   const togglePlatform = (plat: SocialPlatform) => {
     setSelectedPlatforms((prev) =>

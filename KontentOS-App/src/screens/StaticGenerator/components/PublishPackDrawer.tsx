@@ -35,20 +35,12 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
 
   const captionText = useMemo(() => (state.socialCaption || '').trim(), [state.socialCaption]);
 
-  // Extract hashtags from social caption or generate fallback contextual hashtags
+  // Whatever tags the caption already carries, and nothing more — a made-up set of generic tags would
+  // be published as the creator's own voice.
   const hashtags = useMemo(() => {
     const matched = captionText.match(/#[A-Za-z0-9_\u0590-\u05ff]+/g);
-    if (matched && matched.length > 0) {
-      return Array.from(new Set(matched));
-    }
-    const topicKeywords = cleanHeadline
-      .toLowerCase()
-      .replace(/[^a-z0-9 ]/g, '')
-      .split(/\s+/)
-      .filter((w) => w.length > 3)
-      .slice(0, 3);
-    return ['#kontentos', '#visualstory', ...topicKeywords.map((k) => `#${k}`)];
-  }, [captionText, cleanHeadline]);
+    return matched ? Array.from(new Set(matched)) : [];
+  }, [captionText]);
 
   const hashtagsString = useMemo(() => hashtags.join(' '), [hashtags]);
 
@@ -273,7 +265,7 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
                 <div className="flex items-center gap-2">
                   <Eyebrow>4. Extracted Hashtags</Eyebrow>
                   <span className="text-[11px] text-ink-muted">
-                    {hashtags.length} tags
+                    {hashtags.length > 0 ? `${hashtags.length} tags` : 'none in the caption'}
                   </span>
                 </div>
                 <Button
