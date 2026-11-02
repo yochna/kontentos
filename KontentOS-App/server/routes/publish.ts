@@ -1,8 +1,17 @@
 import express from 'express';
 import crypto from 'crypto';
 import * as db from '../db.js';
+import { checkCaption, platformSpec } from '../../src/lib/platforms.js';
 
 const router = express.Router();
+
+/** What the platform's composer will actually receive: the caption plus the tags appended under it. */
+function composedPost(text: string, tags: string[]): string {
+  const normalised = tags.map((t) => (String(t).startsWith('#') ? String(t) : `#${String(t)}`));
+  return [String(text || '').trim(), normalised.join(' ').trim()].filter(Boolean).join('\n\n');
+}
+
+const LIVE_URL = /^https?:\/\/[^\s.]+\.[^\s]{2,}$/i;
 
 // Get connection status (standalone mode - no platform logins required)
 router.get(['/status', '/instagram/status'], async (req, res) => {
@@ -178,6 +187,26 @@ router.post('/schedule', async (req, res) => {
       ? platforms
       : [platform || 'instagram'];
 
+    // A queued post the destination cannot accept is a lie on the calendar: X refuses more than
+    // 280 characters, so the row would sit "scheduled" forever and never be publishable as written.
+    const rejected = targetPlatforms
+      .map((p) => {
+        const custom = platformCustomizations[p] || {};
+        const text = custom.captionText !== undefined ? custom.captionText : captionText || '';
+        const tags = Array.isArray(custom.hashtags) ? custom.hashtags : (Array.isArray(hashtags) ? hashtags : []);
+        const verdict = checkCaption(composedPost(text, tags.map(String)), p);
+        return verdict.ok ? null : { platform: p, notes: verdict.notes };
+      })
+      .filter(Boolean) as { platform: string; notes: string[] }[];
+
+    if (rejected.length > 0) {
+      return res.status(400).json({
+        error: rejected
+          .map((r) => `${platformSpec(r.platform).label}: ${r.notes[0] || 'copy is over the platform limit'}`)
+          .join(' · '),
+      });
+    }
+
     const crossPostGroupId = targetPlatforms.length > 1 ? `cross_${crypto.randomUUID().slice(0, 10)}` : undefined;
     const baseTime = scheduledAt ? new Date(scheduledAt).getTime() : Date.now() + 86400000;
     const staggerMs = Math.max(0, Number(staggerMinutes) || 0) * 60 * 1000;
@@ -290,7 +319,7 @@ router.post('/schedule/:id/crosspost', async (req, res) => {
 // PATCH /api/publish/schedule/:id - Update post fields (e.g., date, time, caption, title)
 router.patch('/schedule/:id', async (req, res) => {
   try {
-    const { videoTitle, platform, captionText, hashtags, scheduledAt, status } = req.body;
+    const { videoTitle, platform, captionText, hashtags, scheduledAt, status, postUrl } = req.body;
     const updates: any = {};
     if (videoTitle !== undefined) updates.video_title = videoTitle;
     if (platform !== undefined) updates.platform = platform;
@@ -298,6 +327,13 @@ router.patch('/schedule/:id', async (req, res) => {
     if (hashtags !== undefined) updates.hashtags = hashtags;
     if (scheduledAt !== undefined) updates.scheduled_at = scheduledAt;
     if (status !== undefined) updates.status = status;
+    if (typeof postUrl === 'string') {
+      const link = postUrl.trim().slice(0, 2048);
+      if (link && !LIVE_URL.test(link)) {
+        return res.status(400).json({ error: 'That does not look like a link yet.' });
+      }
+      updates.post_url = link;
+    }
 
     const updated = await db.updateScheduledPost(req.params.id, updates, req.userId);
     if (!updated) {
@@ -332,15 +368,35 @@ router.put('/schedule/:id', async (req, res) => {
   }
 });
 
-// POST /api/publish/schedule/:id/publish-now - Mark a scheduled post as manually published.
-// No channel API is wired up, so this only records the creator's completion in KontentOS;
-// inventing platform_post_id / post_url here would publish links that lead nowhere.
+// POST /api/publish/schedule/:id/publish-now - Record that the creator posted this themselves.
+// No channel API is wired up, so KontentOS cannot mint a link: the creator pastes the one the
+// platform gave them and it is stored verbatim. Analytics' "View live post" then points at a real
+// page instead of nothing at all. A bare https URL is all that is required — refusing a link because
+// its host is not on a hard-coded list would block a re-hosted or branded short URL.
 router.post('/schedule/:id/publish-now', async (req, res) => {
   try {
-    const updated = await db.updateScheduledPost(req.params.id, {
-      status: 'published',
-      published_at: new Date().toISOString(),
-    }, req.userId);
+    const body = req.body || {};
+    const postUrl = typeof body.postUrl === 'string' ? body.postUrl.trim().slice(0, 2048) : '';
+    if (postUrl && !LIVE_URL.test(postUrl)) {
+      return res.status(400).json({
+        error: 'That does not look like a link yet. Paste the address bar of the post you just published.',
+      });
+    }
+
+    const when =
+      typeof body.publishedAt === 'string' && !Number.isNaN(Date.parse(body.publishedAt))
+        ? new Date(body.publishedAt).toISOString()
+        : new Date().toISOString();
+
+    const updated = await db.updateScheduledPost(
+      req.params.id,
+      {
+        status: 'published',
+        published_at: when,
+        ...(postUrl ? { post_url: postUrl } : {}),
+      },
+      req.userId
+    );
 
     if (!updated) {
       return res.status(404).json({ error: 'Scheduled post not found' });

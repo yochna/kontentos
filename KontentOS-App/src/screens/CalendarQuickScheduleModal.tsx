@@ -34,6 +34,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
   const [hashtags, setHashtags] = useState('');
   const [postType, setPostType] = useState<'static' | 'reel' | 'carousel'>('static');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   // Date and Time state
   const [dateStr, setDateStr] = useState(() => {
@@ -130,9 +131,14 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
         setTitle('');
         setCaption('');
         setHashtags('');
+      } else {
+        // The server refuses copy a platform cannot accept; saying nothing left the creator
+        // believing the slot was booked.
+        setSubmitError(res.message || 'The calendar did not take this one.');
       }
     } catch (err) {
       console.error('Failed to create calendar schedule event:', err);
+      setSubmitError(err instanceof Error ? err.message : 'Could not reach the calendar.');
     } finally {
       setIsSubmitting(false);
     }
@@ -345,6 +351,12 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
               className="w-full px-3 py-1.5 text-xs bg-app border border-line rounded-xl text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
+
+          {submitError && (
+            <p role="alert" className="rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-[12px] text-ink">
+              {submitError}
+            </p>
+          )}
 
           {/* Submit Buttons */}
           <div className="pt-3 border-t border-line flex items-center justify-end gap-2.5">

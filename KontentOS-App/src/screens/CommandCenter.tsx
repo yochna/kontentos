@@ -6,6 +6,7 @@ import { useDisplayProfile, useStore } from '@/lib/store';
 import { DRAFT_STEP_STATION, STATION_BY_ID } from '@/lib/bench';
 import { type ScreenId } from '@/lib/nav';
 import type { Video } from '@/lib/types';
+import { OfflinePlate } from '@/components/OfflinePlate';
 
 const STATUS_TONE: Record<Video['status'], { label: string; tone: string; pct: number }> = {
   uploading: { label: 'Uploading', tone: 'tertiary', pct: 30 },
@@ -301,7 +302,9 @@ export default function CommandCenter() {
                   >
                     <Card hover className="overflow-hidden flex flex-col h-full group-hover:border-primary/50">
                       <div className="relative aspect-[16/9] bg-surface-2 overflow-hidden">
-                        {v.thumbnail_url ? (
+                        {v.media_available === false ? (
+                          <OfflinePlate />
+                        ) : v.thumbnail_url ? (
                           <img
                             src={v.thumbnail_url}
                             alt=""

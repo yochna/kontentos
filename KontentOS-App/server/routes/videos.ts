@@ -1,7 +1,24 @@
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
 import * as db from '../db.js';
 
 const router = express.Router();
+
+const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+
+/**
+ * Render's free disk is wiped on redeploy while the Mongo row survives, so a clip can be a record
+ * of a file that no longer exists. The player would show a black rectangle; this says why instead.
+ */
+function mediaExists(fileUrl?: string): boolean {
+  if (!fileUrl) return false;
+  // Remote or in-browser sources (https, data:, blob:) are not files this server can stat.
+  if (!fileUrl.startsWith('/uploads/')) return true;
+  return [path.join(UPLOADS_DIR, path.basename(fileUrl)), path.join(process.cwd(), fileUrl)].some((p) =>
+    fs.existsSync(p)
+  );
+}
 
 // Every query below is filtered by req.userId, which the auth gate has already verified.
 
@@ -9,7 +26,7 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const videos = await db.listVideos(req.userId);
-    res.json({ success: true, data: videos });
+    res.json({ success: true, data: videos.map((v) => ({ ...v, media_available: mediaExists(v.file_url) })) });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to list videos' });
   }
@@ -39,6 +56,7 @@ router.get('/:id', async (req, res) => {
       success: true,
       data: {
         ...video,
+        media_available: mediaExists(video.file_url),
         subtitles,
         caption,
       },

@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { engineTimeout, readEngineJson } from './engine.js';
+import { engineTimeout, isEngineCeiling, readEngineJson } from './engine.js';
 import {
   DEFAULT_MODEL,
   ENGINE_MODELS,
@@ -120,6 +120,10 @@ Return STRICTLY a JSON array of 6 idea objects with NO markdown formatting, NO b
           );
           text = res.text?.trim() || '';
         } catch (mErr: any) {
+          if (isEngineCeiling(mErr?.message)) {
+            console.warn(`[ideasEngine] ${model} hit its ceiling — writing procedural seeds instead of stacking timeouts:`, mErr?.message);
+            break;
+          }
           console.warn(`[ideasEngine] ${model} unavailable, trying next engine:`, mErr?.message);
           continue;
         }

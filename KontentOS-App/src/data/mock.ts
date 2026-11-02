@@ -209,21 +209,6 @@ export const channels = [
   { id: 'fb', name: 'Facebook', handle: 'Inactive', icon: 'group', connected: false, on: false },
 ];
 
-export const dispatchModes = [
-  { id: 'peak', title: 'Peak Audience Window', tag: 'Optimal', body: 'Calculated dynamic dispatch based on real-time viewer concurrency.', selected: true },
-  { id: 'custom', title: 'Custom Scheduled Slot', body: 'Define bespoke publishing calendar coordinates.' },
-  { id: 'now', title: 'Publish Immediately', body: 'Immediate webhook dispatch across all active platforms.' },
-];
-
-export const dispatchReadiness = [
-  '9:16 Video normalized & encoded',
-  'Safe-zone captions & stickers verified',
-  'Thumbnails rendered for IG / YouTube',
-  'Platform metadata schemas matched',
-];
-
-export const recommendedTags = ['#creatorops', '#solopreneur', '#aiworkflow', '#videotools'];
-
 /* ------------------------------ Content Library ------------------------------ */
 
 export const libraryFilters = [

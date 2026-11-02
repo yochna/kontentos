@@ -4,6 +4,8 @@ import { Button, Card, PageHeader, PageShell, StatusPill, useDismiss } from '@/c
 import { useStore } from '@/lib/store';
 import { navigate } from '@/lib/nav';
 import type { ScheduledPost, SocialPlatform } from '@/lib/types';
+import { platformSpec } from '@/lib/platforms';
+import { MarkPostedDialog } from '@/components/MarkPostedDialog';
 import { CalendarQuickScheduleModal } from './CalendarQuickScheduleModal';
 
 const PLATFORM_CONFIG: Record<
@@ -78,6 +80,9 @@ export default function Calendar() {
   const [activePostModal, setActivePostModal] = useState<ScheduledPost | null>(null);
   const closePostModal = activePostModal ? () => setActivePostModal(null) : undefined;
   useDismiss(closePostModal);
+
+  // The only way a post becomes "published" is the creator recording it by hand.
+  const [postedTarget, setPostedTarget] = useState<ScheduledPost | null>(null);
 
   // Direct In-Calendar Quick Event Creation Modal
   const [isQuickModalOpen, setIsQuickModalOpen] = useState(false);
@@ -439,7 +444,7 @@ export default function Calendar() {
                   icon="add"
                   onClick={() => handleQuickScheduleForDay(selectedDay)}
                 >
-                  Schedule for Sep {selectedDay}
+                  Schedule for {MONTH_NAMES[month].slice(0, 3)} {selectedDay}
                 </Button>
               </div>
             ) : (
@@ -448,7 +453,7 @@ export default function Calendar() {
                   <DayPostCard
                     key={post.id}
                     post={post}
-                    onPublish={() => publishNow(post.id)}
+                    onPublish={() => setPostedTarget(post)}
                     onDelete={() => deleteScheduled(post.id)}
                     onInspect={() => setActivePostModal(post)}
                     disabled={!online}
@@ -579,6 +584,23 @@ export default function Calendar() {
                 </div>
               </div>
 
+              <div>
+                <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                  {activePostModal.post_url ? 'Live post' : 'Where it goes'}
+                </label>
+                <a
+                  href={activePostModal.post_url || platformSpec(activePostModal.platform).composerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="kt-focus inline-flex max-w-full items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
+                >
+                  <Icon name={activePostModal.post_url ? 'play_circle' : 'open_in_new'} size={15} />
+                  <span className="truncate">
+                    {activePostModal.post_url || `Open the ${platformSpec(activePostModal.platform).label} composer`}
+                  </span>
+                </a>
+              </div>
+
               <div className="grid grid-cols-2 gap-4 p-3.5 rounded-card bg-surface-2 border border-line">
                 <div>
                   <span className="text-[11px] text-ink-dim block uppercase">Scheduled For</span>
@@ -619,7 +641,7 @@ export default function Calendar() {
                     Formatted Caption &amp; Hashtags
                   </label>
                   <div className="text-[13px] text-ink bg-surface-2/60 border border-line rounded-btn p-3 whitespace-pre-wrap max-h-[140px] overflow-y-auto leading-relaxed">
-                    {activePostModal.caption_text}
+                    {captionPreview(activePostModal.caption_text, activePostModal.video_title)}
                     {activePostModal.hashtags && activePostModal.hashtags.length > 0 && (
                       <div className="mt-2 text-primary font-medium">
                         {activePostModal.hashtags.map((t) => (t.startsWith('#') ? t : `#${t}`)).join(' ')}
@@ -659,20 +681,31 @@ export default function Calendar() {
                 </Button>
                 <Button
                   size="sm"
-                  icon="send"
+                  icon="bookmark_added"
                   disabled={!online || activePostModal.status === 'published'}
                   onClick={() => {
-                    publishNow(activePostModal.id);
+                    setPostedTarget(activePostModal);
                     setActivePostModal(null);
                   }}
                 >
-                  {activePostModal.status === 'published' ? 'Published' : 'Publish Now'}
+                  {activePostModal.status === 'published' ? 'Posted' : 'Mark posted'}
                 </Button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* The single write path of the publishing ledger */}
+      <MarkPostedDialog
+        post={postedTarget}
+        onClose={() => setPostedTarget(null)}
+        onConfirm={async (id, postUrl) => {
+          const res = await publishNow(id, postUrl ? { postUrl } : undefined);
+          if (!res.ok) throw new Error(res.message || 'Could not record that post.');
+          setPostedTarget(null);
+        }}
+      />
 
       {/* Direct In-Calendar Quick Event Creation Modal */}
       <CalendarQuickScheduleModal
@@ -687,6 +720,22 @@ export default function Calendar() {
       />
     </PageShell>
   );
+}
+
+/**
+ * The scaffold and the queued YouTube text both open with the title, and the card already prints the
+ * title on the row above. Repeat it once and the preview reads like a stutter instead of a draft.
+ */
+function captionPreview(caption: string, title?: string): string {
+  const t = (title || '').trim();
+  if (!t) return caption;
+  const lines = caption.split('\n');
+  while (lines.length > 1 && lines[0].trim() === t) {
+    lines.shift();
+    while (lines.length > 1 && lines[0].trim() === '') lines.shift();
+  }
+  const stripped = lines.join('\n').trim();
+  return stripped.length > 0 ? stripped : caption;
 }
 
 function DayPostCard({
@@ -753,8 +802,21 @@ function DayPostCard({
 
       {post.caption_text && (
         <p className="text-[12px] text-ink-dim line-clamp-2 leading-relaxed bg-surface-2/50 p-2 rounded border border-line/60">
-          {post.caption_text}
+          {captionPreview(post.caption_text, post.video_title)}
         </p>
+      )}
+
+      {post.post_url && (
+        <a
+          href={post.post_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="kt-focus flex items-center gap-1.5 truncate text-[12px] font-medium text-primary hover:underline"
+        >
+          <Icon name="link" size={13} />
+          <span className="truncate">{post.post_url}</span>
+        </a>
       )}
 
       <div
@@ -763,8 +825,8 @@ function DayPostCard({
       >
         <div className="flex items-center gap-2">
           {post.status !== 'published' && (
-            <Button size="sm" variant="soft" icon="send" onClick={onPublish} disabled={disabled}>
-              Publish now
+            <Button size="sm" variant="soft" icon="bookmark_added" onClick={onPublish} disabled={disabled}>
+              Mark posted
             </Button>
           )}
           <Button

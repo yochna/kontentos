@@ -1,0 +1,147 @@
+@import 'tailwindcss';
+
+/*
+ * KontentOS Studio — a paper-and-ink identity, deliberately the opposite of the dark cutting-room
+ * bench: warm white stock, one deep moss green, a serif display voice and hairline rules. These
+ * tokens are prefixed `st-` so nothing here can collide with the bench's own `--kt-*` set.
+ */
+:root {
+  --st-paper: #fbfaf7;
+  --st-paper-2: #f4f2ed;
+  --st-paper-3: #eae7df;
+  --st-rule: #e2ded4;
+  --st-rule-strong: #cbc5b7;
+  --st-ink: #1b1b1a;
+  --st-ink-soft: #55534d;
+  --st-ink-faint: #8a867f;
+  --st-moss: #235c4a;
+  --st-moss-deep: #17402f;
+  --st-on-moss: #fbfaf7;
+  --st-moss-wash: #e6efe9;
+  --st-clay: #a8532f;
+  --st-clay-wash: #f4e8e0;
+  --st-ok: #2f7a4f;
+  --st-warn: #8f6a12;
+  --st-bad: #9b3226;
+  --st-lift: 0 1px 2px rgba(27, 27, 26, 0.05), 0 8px 24px -12px rgba(27, 27, 26, 0.12);
+  --st-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@theme inline {
+  --color-paper: var(--st-paper);
+  --color-paper-2: var(--st-paper-2);
+  --color-paper-3: var(--st-paper-3);
+  --color-rule: var(--st-rule);
+  --color-rule-strong: var(--st-rule-strong);
+  --color-ink: var(--st-ink);
+  --color-ink-soft: var(--st-ink-soft);
+  --color-ink-faint: var(--st-ink-faint);
+  --color-moss: var(--st-moss);
+  --color-moss-deep: var(--st-moss-deep);
+  --color-on-moss: var(--st-on-moss);
+  --color-moss-wash: var(--st-moss-wash);
+  --color-clay: var(--st-clay);
+  --color-clay-wash: var(--st-clay-wash);
+  --color-ok: var(--st-ok);
+  --color-warn: var(--st-warn);
+  --color-bad: var(--st-bad);
+
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --radius-card: 12px;
+  --radius-pill: 999px;
+  --shadow-lift: var(--st-lift);
+}
+
+@layer base {
+  html {
+    background: var(--st-paper);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--st-paper);
+    color: var(--st-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #studio-root {
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: var(--st-moss-wash);
+    color: var(--st-moss-deep);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--st-moss);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* Uppercase mono label — the studio's meta voice, used in place of an icon font. */
+@utility meta-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--st-ink-faint);
+}
+
+@keyframes st-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes st-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility rise-in {
+  animation: st-rise 220ms var(--st-ease) both;
+}
+
+@utility fade-in {
+  animation: st-fade 180ms var(--st-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

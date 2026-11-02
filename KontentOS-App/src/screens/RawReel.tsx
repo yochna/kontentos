@@ -7,6 +7,7 @@ import type { AutoEditOutcome } from '@/lib/store';
 import { useStore } from '@/lib/store';
 import { useNavPayload } from '@/lib/nav';
 import { selectCut, useSelectedCutId } from '@/lib/bench';
+import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
 
 const STEPS = [
   { icon: 'graphic_eq', label: 'Analyzing audio waveform & speech cadences' },
@@ -50,6 +51,7 @@ export default function RawReel() {
     handoffReelToEditor,
     handoffEditorToPublish,
     uploadVideo,
+    transcripts,
   } = useStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -105,6 +107,7 @@ export default function RawReel() {
   }, [litCutId, videos]);
 
   const video = videos.find((v) => v.id === videoId);
+  const media = useMediaSource(video?.file_url, video?.media_available);
   const preset = (PRESETS.find((p) => p.id === presetId) || PRESETS[0]) as EditPreset;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,14 +191,27 @@ export default function RawReel() {
         title="Bring the raw take onto the bench"
         description="Everything starts here — the take, its transcript, and the first cut. Dead-air trims, kinetic captions and punch zooms fire when you press them."
         actions={
-          result && (result.offline || result.source === 'gemini') ? (
-            <>
-              {result.offline && <StatusPill tone="neutral">Offline engine active</StatusPill>}
-              {result.source === 'gemini' && (
-                <StatusPill tone="tertiary">Gemini AI Enhanced</StatusPill>
-              )}
-            </>
-          ) : undefined
+          <>
+            {video && transcripts[video.id] === 'working' && (
+              <StatusPill tone="tertiary" pulse>
+                Reading the audio…
+              </StatusPill>
+            )}
+            {video && transcripts[video.id] === 'ready' && (
+              <StatusPill tone="primary">Transcript on file</StatusPill>
+            )}
+            {video && transcripts[video.id] === 'none' && (
+              <StatusPill tone="neutral">No speech stored — captions will use the title</StatusPill>
+            )}
+            {result && (result.offline || result.source === 'gemini') ? (
+              <>
+                {result.offline && <StatusPill tone="neutral">Offline engine active</StatusPill>}
+                {result.source === 'gemini' && (
+                  <StatusPill tone="tertiary">Gemini AI Enhanced</StatusPill>
+                )}
+              </>
+            ) : null}
+          </>
         }
         className="mb-6"
       />
@@ -287,7 +303,9 @@ export default function RawReel() {
                       }`}
                     >
                       <div className="relative aspect-[9/16] bg-black/90 overflow-hidden">
-                        {v.thumbnail_url ? (
+                        {v.media_available === false ? (
+                          <OfflinePlate />
+                        ) : v.thumbnail_url ? (
                           <img
                             src={v.thumbnail_url}
                             alt=""
@@ -496,13 +514,19 @@ export default function RawReel() {
                   />
                 ) : video ? (
                   <div className="absolute inset-0 w-full h-full bg-black flex flex-col items-center justify-center text-center p-4">
-                    <video
-                      src={video.file_url}
-                      crossOrigin="anonymous"
-                      className="absolute inset-0 w-full h-full object-cover opacity-60 block"
-                      muted
-                      playsInline
-                    />
+                    {media.offline ? (
+                      <OfflinePlate />
+                    ) : (
+                      <video
+                        src={video.file_url}
+                        crossOrigin="anonymous"
+                        className="absolute inset-0 w-full h-full object-cover opacity-60 block"
+                        muted
+                        playsInline
+                        onError={media.onError}
+                        onLoadedData={media.onLoadedData}
+                      />
+                    )}
                     <div className="relative z-10 bg-black/60 backdrop-blur p-3 rounded-card text-white">
                       <Icon name="play_arrow" size={24} className="mx-auto mb-1 text-primary" />
                       <p className="text-xs font-medium">Ready for auto-cut</p>

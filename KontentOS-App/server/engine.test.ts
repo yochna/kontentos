@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { engineTimeout, readEngineJson } from './engine.js';
+import { engineTimeout, isEngineCeiling, readEngineJson } from './engine.js';
 
 describe('engine JSON reader', () => {
   it('reads a clean array', () => {
@@ -42,5 +42,27 @@ describe('engine attempt ceiling', () => {
     await expect(engineTimeout(hangs, 10, 'Timeout with model test')).rejects.toThrow(
       'Timeout with model test'
     );
+  });
+});
+
+describe('what a spent ceiling means to a cascade', () => {
+  it('recognises the message engineTimeout actually rejects with', async () => {
+    const reason = await engineTimeout(
+      new Promise<never>(() => {}),
+      5,
+      'Timeout with model gemini-3.1-flash-lite'
+    ).catch((err: any) => err.message);
+    expect(isEngineCeiling(reason)).toBe(true);
+  });
+
+  it('treats an error that says something about one model as worth another attempt', () => {
+    expect(isEngineCeiling('429 RESOURCE_EXHAUSTED')).toBe(false);
+    expect(isEngineCeiling('API key not valid. Please pass a valid API key.')).toBe(false);
+    expect(isEngineCeiling('The model returned an unusable answer')).toBe(false);
+    expect(isEngineCeiling(undefined)).toBe(false);
+  });
+
+  it('does not let a sentence that merely mentions a timeout stop the cascade', () => {
+    expect(isEngineCeiling('Connection reset before Timeout with model anything')).toBe(false);
   });
 });

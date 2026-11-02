@@ -7,6 +7,7 @@ import { ingestFeatures } from '@/data/mock';
 import { getPreset } from '@/lib/timeline';
 import { api } from '@/lib/api';
 import type { Video } from '@/lib/types';
+import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
 
 const QUOTA_BYTES = 500 * 1024 * 1024 * 1024; // 500 GB workspace quota
 
@@ -269,7 +270,9 @@ export default function ContentLibrary() {
                   >
                     {/* Thumbnail / Video Viewport */}
                     <div className="sm:w-[135px] aspect-[9/16] sm:aspect-auto relative bg-black shrink-0 overflow-hidden">
-                      {v.thumbnail_url ? (
+                      {v.media_available === false ? (
+                        <OfflinePlate />
+                      ) : v.thumbnail_url ? (
                         <img
                           src={v.thumbnail_url}
                           alt=""
@@ -447,6 +450,7 @@ function VideoDetailModal({
   const [showPlayerCaptions, setShowPlayerCaptions] = useState(true);
   const [subMsg, setSubMsg] = useState<string | null>(null);
   const videoElRef = useRef<HTMLVideoElement>(null);
+  const media = useMediaSource(video.file_url, video.media_available);
 
   // Check if subtitles already exist for this video
   useEffect(() => {
@@ -568,15 +572,21 @@ function VideoDetailModal({
           <div className="flex-1 overflow-y-auto py-4 space-y-5">
             {/* Embedded Video Player with Live CC Overlay */}
             <div className="aspect-video rounded-card bg-black overflow-hidden relative shadow-inner group">
-              <video
-                ref={videoElRef}
-                src={video.file_url}
-                crossOrigin="anonymous"
-                controls
-                playsInline
-                onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-                className="w-full h-full object-contain block"
-              />
+              {media.offline ? (
+                <OfflinePlate />
+              ) : (
+                <video
+                  ref={videoElRef}
+                  src={video.file_url}
+                  crossOrigin="anonymous"
+                  controls
+                  playsInline
+                  onError={media.onError}
+                  onLoadedData={media.onLoadedData}
+                  onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+                  className="w-full h-full object-contain block"
+                />
+              )}
 
               {/* Live CC Toggle Button on Player */}
               <button

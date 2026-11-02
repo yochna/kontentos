@@ -13,6 +13,15 @@ export default defineConfig({
   worker: {
     format: 'es',
   },
+  build: {
+    // Two front ends ship from one repo: the cutting-room bench at / and the Studio at /studio.
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        studio: path.resolve(__dirname, 'studio/index.html'),
+      },
+    },
+  },
   server: {
     port: 4111,
     strictPort: true,

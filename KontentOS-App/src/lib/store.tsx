@@ -53,6 +53,9 @@ function deriveStats(project: TimelineProject): AutoEditStats {
 }
 
 
+/** 'none' means the engine answered with placeholder cues or not at all — nothing was stored. */
+type TranscriptState = 'working' | 'ready' | 'none';
+
 interface StoreValue {
   online: boolean;
   loading: boolean;
@@ -61,6 +64,9 @@ interface StoreValue {
   scheduled: ScheduledPost[];
   history: PublishingRecord[];
   dbStatus: DbStatus | null;
+  /** Per-clip speech-to-text progress, started the moment a clip lands on the bench. */
+  transcripts: Record<string, TranscriptState>;
+  transcribeOnIntake: (videoId: string) => Promise<void>;
   project: TimelineProject | null;
   setProject: (p: TimelineProject | null) => void;
   runAutoEdit: (video: Video, preset: EditPreset) => Promise<AutoEditOutcome>;
@@ -95,7 +101,8 @@ interface StoreValue {
     scheduledAt?: string;
     status?: 'scheduled' | 'published';
     publishedAt?: string;
-  }) => Promise<{ ok: boolean; message?: string; ids?: string[] }>;
+    platformCustomizations?: Record<string, { captionText: string; hashtags: string[] }>;
+  }) => Promise<{ ok: boolean; message?: string; ids?: string[]; posts?: ScheduledPost[] }>;
   updateScheduled: (
     id: string,
     patch: {
@@ -108,7 +115,10 @@ interface StoreValue {
     },
   ) => Promise<{ ok: boolean; message?: string }>;
   deleteScheduled: (id: string) => Promise<void>;
-  publishNow: (id: string) => Promise<{ ok: boolean; message?: string }>;
+  publishNow: (
+    id: string,
+    posted?: { postUrl?: string; publishedAt?: string },
+  ) => Promise<{ ok: boolean; message?: string }>;
   saveUser: (profile: Partial<User>) => Promise<boolean>;
 
   /** Closed-loop pipeline state & inter-screen handoffs */
@@ -151,6 +161,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [scheduled, setScheduled] = useState<ScheduledPost[]>([]);
   const [history, setHistory] = useState<PublishingRecord[]>([]);
   const [dbStatus, setDbStatus] = useState<DbStatus | null>(null);
+  const [transcripts, setTranscripts] = useState<Record<string, TranscriptState>>({});
   // Saved ideas come from the account's own rows in the database. They used to be mirrored in
   // localStorage, which would have shown one creator's briefs to the next person on the browser.
   const [savedIdeas, setSavedIdeas] = useState<Idea[]>([]);
@@ -294,16 +305,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, [refresh]);
 
+  /**
+   * Speech-to-text is what makes a clip cuttable: the caption engine, the auto-cut spine and the
+   * Studio's shorts all read stored cues. Starting it at intake means the words are on the server
+   * by the time the creator reaches a station. It runs in the background — nothing waits on it.
+   */
+  const transcribeOnIntake = useCallback<StoreValue['transcribeOnIntake']>(async (videoId) => {
+    setTranscripts((prev) => ({ ...prev, [videoId]: 'working' }));
+    try {
+      const res = await api.transcribeVideo({ videoId, forceRefresh: false });
+      // Placeholder cues are not the creator's speech and the server refuses to store them, so a
+      // clip with `persisted: false` really does have nothing to cut from.
+      setTranscripts((prev) => ({ ...prev, [videoId]: res?.persisted ? 'ready' : 'none' }));
+    } catch {
+      setTranscripts((prev) => ({ ...prev, [videoId]: 'none' }));
+    }
+  }, []);
+
   const uploadVideo = useCallback<StoreValue['uploadVideo']>(async (file, onProgress) => {
     try {
       const video = await api.uploadVideo(file, onProgress);
       setVideos((prev) => [video, ...prev]);
+      void transcribeOnIntake(video.id);
       return video;
     } catch (err) {
       console.error('Upload failed:', err);
       return null;
     }
-  }, []);
+  }, [transcribeOnIntake]);
 
   const updateVideo = useCallback(async (id: string, updates: Record<string, unknown>) => {
     try {
@@ -329,7 +358,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const s = await api.getScheduled();
       setScheduled(s);
       const created = Array.isArray(res.data) ? res.data : [res.data].filter(Boolean);
-      return { ok: true, message: res.message, ids: created.map((p) => p.id) };
+      return { ok: true, message: res.message, ids: created.map((p) => p.id), posts: created };
     } catch (err) {
       // A server-side rejection (validation, 500) must surface as a failure: the local
       // fallback below is memory-only and disappears on the next refresh().
@@ -353,7 +382,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         created_at: new Date().toISOString(),
       }));
       setScheduled((prev) => [...fallbackPosts, ...prev]);
-      return { ok: true, message: 'Saved to this browser only — server unreachable, it will not survive a reload' };
+      return { ok: true, posts: fallbackPosts, message: 'Saved to this browser only — server unreachable, it will not survive a reload' };
     }
   }, []);
 
@@ -395,9 +424,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const publishNow = useCallback<StoreValue['publishNow']>(async (id) => {
+  const publishNow = useCallback<StoreValue['publishNow']>(async (id, posted) => {
     try {
-      const res = await api.publishNow(id);
+      const res = await api.publishNow(id, posted);
       const [s, h] = await Promise.all([api.getScheduled(), api.getHistory()]);
       setScheduled(s);
       setHistory(h);
@@ -746,6 +775,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       scheduled,
       history,
       dbStatus,
+      transcripts,
+      transcribeOnIntake,
       project,
       setProject,
       runAutoEdit,
@@ -790,6 +821,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       scheduled,
       history,
       dbStatus,
+      transcripts,
+      transcribeOnIntake,
       project,
       runAutoEdit,
       histTick,

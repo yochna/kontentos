@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import * as db from '../db.js';
 import { isValidGeminiKey, envGeminiKey } from '../geminiKey.js';
-import { engineTimeout, readEngineJson } from '../engine.js';
+import { engineTimeout, isEngineCeiling, readEngineJson } from '../engine.js';
 
 const router = express.Router();
 
@@ -47,6 +47,14 @@ export function preferredModelFrom(value: unknown): string | undefined {
 }
 
 /**
+ * Copy an earlier build wrote out of a title alone — three invented "takeaways" presented as a
+ * breakdown of the creator's own reel. Anything already stored in that shape is treated as stale so
+ * it regenerates as a scaffold instead of surfacing words nobody said.
+ */
+const INVENTED_FALLBACK =
+  /Here is the breakdown directly from this reel|Batch raw ideas when your creative energy|Let AI automate kinetic subtitles|Syndicate your edited reel across all channels|Here is how to master[\s\S]{0,40}without burning out|90% of creators give up/i;
+
+/**
  * The model sometimes answers the prompt instead of writing the post — "the transcript provided is
  * empty, please supply dialogue" — and that complaint used to be saved and shown as the caption.
  * Real captions never name the pipeline, so anything carrying meta-language about the transcript or
@@ -88,7 +96,10 @@ async function generateGeminiContentWithRetry(
       }
     } catch (err: any) {
       lastError = err;
-      // Immediately try next model candidate on timeout or error
+      // A spent ceiling means the service is busy, not this model — stopping here turns a 45-second
+      // spinner into a 15-second one and hands the caller its local copy. Anything else is worth
+      // another candidate.
+      if (isEngineCeiling(err?.message)) break;
       continue;
     }
   }
@@ -192,15 +203,24 @@ function getTitleFallbackCopy(title: string, platform: string, tone: string) {
 }
 
 // Dynamic reel-grounded fallback generator that extracts actual spoken points from the reel
-function getFallbackCopy(platform: string, transcript: string, tone: string, videoTitle?: string) {
+export function getFallbackCopy(platform: string, transcript: string, tone: string, videoTitle?: string) {
   const clean = (transcript || '').replace(/\s+/g, ' ').trim();
   // Extract real spoken sentences or meaningful clauses
   const rawSentences = clean.split(/(?<=[.!?])\s+|\n+/).map(s => s.trim()).filter(s => s.length > 5);
-  
-  const hookQuote = rawSentences[0] || (videoTitle ? `Key insight from ${videoTitle}` : 'Stop overcomplicating video creation in 2026.');
-  const takeaway1 = rawSentences[1] || 'Batch raw ideas when your creative energy is highest.';
-  const takeaway2 = rawSentences[2] || 'Let AI automate kinetic subtitles and pacing adjustments.';
-  const takeaway3 = rawSentences[3] || 'Syndicate your edited reel across all channels simultaneously.';
+
+  // "Topic only — …" is what the route substitutes when nothing was transcribed. Quoting it back as
+  // the hook and inventing three takeaways underneath it is a lie the creator would post.
+  const untranscribed = rawSentences.length === 0 || /^Topic only/.test(rawSentences[0]);
+  if (untranscribed) {
+    const title = (videoTitle || 'This cut').trim();
+    const scaffold = `${title}\n\n[the hook — what you say in the first four seconds]\n\n[what you actually said, in your own words]\n\n[the one thing the viewer should do next]\n\nKontentOS scaffold — nothing on this take was transcribed, so these lines are yours to fill.`;
+    return { caption: platform === 'x' ? scaffold.slice(0, 280) : scaffold, hashtags: [] };
+  }
+
+  const hookQuote = rawSentences[0];
+  const takeaway1 = rawSentences[1] || hookQuote;
+  const takeaway2 = rawSentences[2] || takeaway1;
+  const takeaway3 = rawSentences[3] || takeaway2;
 
   // Derive relevant contextual topic tags from actual spoken content
   const words = clean.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3);
@@ -503,7 +523,11 @@ router.post('/generate-all', async (req, res) => {
 
       if (!forceRefresh) {
         const existing = await db.getCaption(videoId, p as any, userId);
-        if (existing && existing.transcript_hash === transcriptHash) {
+        if (
+          existing &&
+          existing.transcript_hash === transcriptHash &&
+          !INVENTED_FALLBACK.test(String(existing.caption_text || ''))
+        ) {
           return { platform: p, data: existing };
         }
       }

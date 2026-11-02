@@ -27,6 +27,7 @@ import captionRouter from './server/routes/caption.js';
 import publishRouter from './server/routes/publish.js';
 import scriptRouter from './server/routes/script.js';
 import editorRouter from './server/routes/editor.js';
+import repurposeRouter from './server/routes/repurpose.js';
 import staticCardAiRouter from './server/routes/staticCardAi.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -761,11 +762,13 @@ Output valid JSON:
           srt_content: srt,
           vtt_content: vtt,
           transcript,
+          persisted: !isFallback,
         },
         source: usedSource,
+        persisted: !isFallback,
         message: usedSource.startsWith('gemini')
           ? `Transcribed audio via Gemini LLM (${usedSource})`
-          : `✓ Synchronized captions generated automatically (${targetLanguage})`,
+          : `No speech-to-text available, so these ${segments.length} cues are placeholder copy for layout only — they are not your words and are not saved.`,
       });
     } catch (err: any) {
       console.error('Error in /api/transcribe:', err);
@@ -840,6 +843,8 @@ Output valid JSON:
 
   app.use('/api/script', scriptRouter);
   app.use('/api/editor', editorRouter);
+  // Studio's repurpose engine: one recording in, several shorts out.
+  app.use('/api/repurpose', repurposeRouter);
 
   // User profile — the signed-in creator, never another account.
   app.get('/api/user', async (req, res) => {
@@ -909,9 +914,16 @@ Output valid JSON:
       res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
       next();
     });
+    // The Studio ships as a second entry, so it needs its own document. Ahead of the static mount
+    // so `/studio` is answered instead of being 301'd to `/studio/` — a permanent redirect is cached
+    // by browsers and outlives the routing that produced it. It also has to come before the fallback
+    // below, which would otherwise answer every /studio path with the bench's index.html.
+    app.get(/^\/studio\/?(?:index\.html)?$/, (_req, res) => {
+      res.sendFile(path.join(distDir, 'studio', 'index.html'));
+    });
     app.use(express.static(distDir, { index: false, maxAge: '1h' }));
-    // SPA fallback for client-side navigation. Never swallow API/media routes.
-    app.get(/^\/(?!api\/|uploads\/|broll\/).*/, (_req, res) => {
+    // SPA fallback for client-side navigation. Never swallow API/media routes or the Studio entry.
+    app.get(/^\/(?!api\/|uploads\/|broll\/|studio\/).*/, (_req, res) => {
       res.sendFile(path.join(distDir, 'index.html'));
     });
   } else {
@@ -935,6 +947,12 @@ Output valid JSON:
         },
       },
       appType: 'spa',
+    });
+    // /studio is the Studio's public address in production as well, so the same URL has to work
+    // here — otherwise Vite's SPA fallback answers it with the bench and the two builds disagree.
+    app.get(/^\/studio\/?$/, (req, _res, next) => {
+      req.url = '/studio/index.html';
+      next();
     });
     app.use(vite.middlewares);
   }
@@ -962,7 +980,7 @@ Output valid JSON:
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n  KontentOS Cutting Room — standalone`);
     console.log(`  ▸ App + API : http://localhost:${PORT}`);
-    console.log(`  ▸ Data       : ${db.isMongoConnected() ? 'MongoDB' : `${dataDir}  (isolated from the original app)`}`);
+    console.log(`  ▸ Data       : ${db.isMongoConnected() ? 'MongoDB' : `${db.localDataDir()}  (isolated from the original app)`}`);
     console.log(`  ▸ Uploads    : ${uploadsDir}\n`);
     if (!db.isMongoConnected() && IS_PROD) {
       console.log(

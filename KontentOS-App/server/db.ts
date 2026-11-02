@@ -1187,3 +1187,18 @@ export async function importLegacySavedIdeas(ideas: any[]): Promise<number> {
   if (moved) saveLocalStore(store);
   return moved;
 }
+
+/**
+ * Two narrow accessors for entities that are not part of the eight-model core above — currently the
+ * Studio's repurpose jobs. They exist so a new entity can bind its own storage without reaching into
+ * the core's model registry or its write path.
+ */
+export async function mongoConnectionForNewEntities(): Promise<Connection | null> {
+  const m = await getModels();
+  return m ? m.video.db : null;
+}
+
+/** The directory holding kontentos-db.json, including the read-only-disk fallback. */
+export function localDataDir(): string {
+  return path.dirname(getDbFile());
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isUsableCaption, preferredModelFrom } from './routes/caption';
+import { getFallbackCopy, isUsableCaption, preferredModelFrom } from './routes/caption';
 
 describe('caption output guard', () => {
   it('rejects the model answering the prompt instead of writing the post', () => {
@@ -35,8 +35,37 @@ describe('caption output guard', () => {
   });
 });
 
-describe('engine choice', () => {
-  it('accepts an engine the server can actually run', () => {
+describe('the caption fallback when nothing was said', () => {
+  const PLACEHOLDER = 'Topic only — the creator has not transcribed this reel yet: kt-clip';
+
+  it('hands back a scaffold instead of quoting the placeholder as the hook', () => {
+    const { caption, hashtags } = getFallbackCopy('instagram', PLACEHOLDER, 'direct', 'kt-clip');
+    expect(caption).toMatch(/scaffold/i);
+    expect(caption).toContain('kt-clip');
+    expect(caption).toContain('[the hook');
+    expect(hashtags).toEqual([]);
+    // The lines that used to be invented and attributed to the reel.
+    expect(caption).not.toMatch(/directly from this reel/i);
+    expect(caption).not.toMatch(/Batch raw ideas/i);
+    expect(caption).not.toMatch(/Syndicate your edited reel/i);
+  });
+
+  it('stays inside the ceiling of the platform that refuses long posts', () => {
+    expect(getFallbackCopy('x', PLACEHOLDER, 'direct', 'a take').caption.length).toBeLessThanOrEqual(280);
+  });
+
+  it('quotes the creator when there are real sentences to quote', () => {
+    const { caption } = getFallbackCopy(
+      'instagram',
+      'Golden hour hits the glass at 18:40. The whole block turns amber and people stop walking.',
+      'dry',
+      'street frames'
+    );
+    expect(caption).toContain('Golden hour hits the glass at 18:40.');
+  });
+});
+
+describe('engine choice', () => {  it('accepts an engine the server can actually run', () => {
     expect(preferredModelFrom('gemini-3.1-flash-lite')).toBe('gemini-3.1-flash-lite');
     expect(preferredModelFrom('gemini-3.8-flash')).toBe('gemini-3.8-flash');
     expect(preferredModelFrom('  gemini-flash-latest  ')).toBe('gemini-flash-latest');

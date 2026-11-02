@@ -38,6 +38,7 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
     dateFormatted: string;
     targetIso: string;
     platforms: string[];
+    refused: string[];
   } | null>(null);
 
   // Scheduling date & time selection
@@ -147,6 +148,7 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
   const handleExportToCalendar = async () => {
     setIsPublishing(true);
     setSuccessInfo(null);
+    const refused: string[] = [];
 
     try {
       // 1. Capture snapshot thumbnail from the active canvas
@@ -201,9 +203,9 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
           firstScheduledIso = scheduledAtIso;
         }
 
-        const isLiveNow = markAsPublishedNow;
-
-        await schedulePost({
+        // "Live now" used to write status:'published' with no link and no platform contact —
+        // the ledger only becomes real when the creator marks it posted on the Calendar.
+        const res = await schedulePost({
           videoId: `static_${Date.now()}_slide_${i + 1}`,
           videoTitle: isCarousel ? `Slide ${i + 1}: ${slideTitle.slice(0, 48)}` : slideTitle,
           thumbnailUrl: thumbnailDataUrl,
@@ -212,26 +214,38 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
           captionText: fullCaption,
           hashtags,
           scheduledAt: scheduledAtIso,
-          status: isLiveNow ? 'published' : 'scheduled',
-          publishedAt: isLiveNow ? new Date().toISOString() : undefined,
+          status: 'scheduled',
         });
+        if (!res.ok) {
+          refused.push(`Post ${i + 1}: ${res.message || 'the calendar refused it.'}`);
+        }
       }
 
-      const formattedReadable = new Date(baseTime).toLocaleDateString([], {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
+      const formattedReadable = markAsPublishedNow
+        ? 'Right now'
+        : `${new Date(baseTime).toLocaleDateString([], {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })} at ${selectedTime}`;
 
       setSuccessInfo({
-        count: slides.length,
-        dateFormatted: `${formattedReadable} at ${selectedTime}`,
+        count: slides.length - refused.length,
+        dateFormatted: formattedReadable,
         targetIso: firstScheduledIso,
         platforms: selectedPlatforms.map((p) => p.toUpperCase()),
+        refused,
       });
     } catch (err) {
       console.error('Export to calendar failed:', err);
+      setSuccessInfo({
+        count: 0,
+        dateFormatted: '',
+        targetIso: new Date().toISOString(),
+        platforms: selectedPlatforms.map((p) => p.toUpperCase()),
+        refused: [`Could not reach the calendar: ${err instanceof Error ? err.message : 'unknown error'}`],
+      });
     } finally {
       setIsPublishing(false);
     }
@@ -283,21 +297,41 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
         {/* Modal Body */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1">
           {successInfo !== null ? (
-            /* Celebration State */
+            /* Result State — nothing is claimed until the calendar actually took the row */
             <div className="text-center py-6 px-4 space-y-4 animate-in fade-in duration-300">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 mx-auto shadow-sm">
-                <Icon name="check_circle" size={34} />
+              <div
+                className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center border shadow-sm ${
+                  successInfo.count > 0
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+                    : 'bg-danger/10 border-danger/30 text-danger'
+                }`}
+              >
+                <Icon name={successInfo.count > 0 ? 'check_circle' : 'error'} size={34} />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-ink">
-                  ✓ Successfully Exported {successInfo.count} Post{successInfo.count > 1 ? 's' : ''} to Calendar!
+                  {successInfo.count > 0
+                    ? `${successInfo.count} post${successInfo.count > 1 ? 's' : ''} queued in the Calendar`
+                    : 'Nothing was queued'}
                 </h3>
-                <p className="text-xs text-ink font-semibold mt-1">
-                  Scheduled for: <span className="text-primary">{successInfo.dateFormatted}</span>
-                </p>
+                {successInfo.dateFormatted && (
+                  <p className="text-xs text-ink font-semibold mt-1">
+                    Scheduled for: <span className="text-primary">{successInfo.dateFormatted}</span>
+                  </p>
+                )}
                 <p className="text-[11px] text-ink-muted mt-1">
                   Channels: {successInfo.platforms.join(', ')}
                 </p>
+                <p className="text-[11px] text-ink-muted mt-1">
+                  Queued, not published — post it yourself, then mark it on the Calendar.
+                </p>
+                {successInfo.refused.length > 0 && (
+                  <ul className="mx-auto mt-2 max-w-[42ch] space-y-1 rounded-xl border border-danger/30 bg-danger/10 p-2.5 text-left text-[11.5px] text-ink">
+                    {successInfo.refused.map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -334,7 +368,7 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
                       onChange={(e) => setMarkAsPublishedNow(e.target.checked)}
                       className="rounded border-line text-primary focus:ring-primary"
                     />
-                    <span className="text-[11px] font-medium">Publish live right now</span>
+                    <span className="text-[11px] font-medium">Queue for right now</span>
                   </label>
                 </div>
 

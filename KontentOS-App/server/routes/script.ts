@@ -1,7 +1,7 @@
 import express from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_MODEL, ENGINE_MODELS, MODEL_ATTEMPT_TIMEOUT_MS, preferredModelFrom } from './caption.js';
-import { engineTimeout, readEngineJson } from '../engine.js';
+import { engineTimeout, isEngineCeiling, readEngineJson } from '../engine.js';
 
 const router = express.Router();
 
@@ -45,6 +45,7 @@ async function generateGeminiContentWithRetry(
       }
     } catch (err: any) {
       lastError = err;
+      if (isEngineCeiling(err?.message)) break;
       continue;
     }
   }

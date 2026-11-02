@@ -1,9 +1,12 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/components/ui';
-import { channels as initialChannels, recommendedTags } from '@/data/mock';
+import { channels as initialChannels } from '@/data/mock';
 import { useStore, useDisplayProfile } from '@/lib/store';
 import { useNavPayload } from '@/lib/nav';
+import { checkCaption, platformSpec } from '@/lib/platforms';
+import { MarkPostedDialog } from '@/components/MarkPostedDialog';
+import type { ScheduledPost } from '@/lib/types';
 import { copyVoice, voiceTone } from '@/lib/brandKit';
 import { copyModel, readAiPrefs } from '@/lib/prefs';
 import type { SocialPlatform } from '@/lib/types';
@@ -22,6 +25,33 @@ const PLATFORM_MAP: Record<string, SocialPlatform> = {
   threads: 'threads',
   fb: 'facebook',
 };
+
+/**
+ * The composer edits one field per channel, but the queue historically shipped a single caption to
+ * every platform — an X post over 280 characters is refused by X, not by us. Each queued post now
+ * carries the copy written for its own platform.
+ */
+function copyForPlatform(p: SocialPlatform, b: PlatformCopyBundle): { text: string; tags: string[] } {
+  switch (p) {
+    case 'youtube':
+      return { text: `${b.youtube.title}\n\n${b.youtube.description}`.trim(), tags: b.youtube.tags };
+    case 'tiktok':
+      return { text: b.tiktok.caption, tags: b.tiktok.hashtags };
+    case 'linkedin':
+      return { text: b.linkedin.postText, tags: b.linkedin.hashtags };
+    // A 5-tweet thread cannot be one post; the queue holds its opening tweet, the full thread is in
+    // the export bundle.
+    case 'x':
+      return { text: b.x.thread[0] || '', tags: b.x.hashtags };
+    case 'threads':
+      return { text: b.threads.postText, tags: b.threads.hashtags };
+    case 'facebook':
+      return { text: b.facebook.postText, tags: b.facebook.hashtags };
+    case 'instagram':
+    default:
+      return { text: b.instagram.caption, tags: b.instagram.hashtags };
+  }
+}
 
 // Fixed offsets from "now" — labels describe the clock time only, not any audience claim.
 const PEAK_SLOTS = [
@@ -96,6 +126,7 @@ export default function PublishSchedule() {
   const [busy, setBusy] = useState(false);
   const [generatingCopy, setGeneratingCopy] = useState(false);
   const [flash, setFlash] = useState<{ tone: 'ok' | 'err'; msg: string } | null>(null);
+  const [ledgerPost, setLedgerPost] = useState<ScheduledPost | null>(null);
 
   // "Edit in Composer" from the Calendar deep-links here with the row to change. The composer
   // otherwise always creates new posts, so that id has to survive until save.
@@ -296,7 +327,26 @@ export default function PublishSchedule() {
     }
   };
 
-  const handleScheduleDispatch = async () => {
+  const dispatchPayload = () => {
+    const platforms = activeChannels.map((c) => PLATFORM_MAP[c.id] || (c.id as SocialPlatform)).filter(Boolean);
+    const customizations: Record<string, { captionText: string; hashtags: string[] }> = {};
+    for (const p of platforms) {
+      const c = copyForPlatform(p, copyBundle);
+      customizations[p] = { captionText: c.text, hashtags: c.tags };
+    }
+    return { platforms, customizations };
+  };
+
+  /** A caption the destination platform cannot accept is not a warning — the post would die at its composer. */
+  const findBreach = (platforms: SocialPlatform[]) => {
+    for (const p of platforms) {
+      const verdict = checkCaption(copyForPlatform(p, copyBundle).text, p);
+      if (!verdict.ok) return { platform: p, verdict };
+    }
+    return undefined;
+  };
+
+  const handleScheduleDispatch = async (whenIso?: string) => {
     setFlash(null);
     if (!selectedVideo) {
       setFlash({ tone: 'err', msg: 'Please select or upload a video clip first.' });
@@ -308,7 +358,17 @@ export default function PublishSchedule() {
     }
 
     setBusy(true);
-    const platforms = activeChannels.map((c) => PLATFORM_MAP[c.id] || (c.id as SocialPlatform)).filter(Boolean);
+    const { platforms, customizations } = dispatchPayload();
+
+    const breach = findBreach(platforms);
+    if (breach) {
+      setFlash({
+        tone: 'err',
+        msg: `${platformSpec(breach.platform).label} rejects that copy: ${breach.verdict.notes[0]}`,
+      });
+      setBusy(false);
+      return;
+    }
 
     try {
       if (editingPostId) {
@@ -335,19 +395,29 @@ export default function PublishSchedule() {
         fileUrl: selectedVideo.file_url,
         thumbnailUrl: selectedVideo.thumbnail_url,
         platforms,
+        platformCustomizations: customizations,
         captionText: copyBundle.instagram.caption,
         hashtags: copyBundle.instagram.hashtags,
-        scheduledAt: slot ? new Date(slot).toISOString() : undefined,
+        scheduledAt: whenIso || (slot ? new Date(slot).toISOString() : undefined),
       });
 
-      setFlash(
-        res.ok
-          ? {
-              tone: 'ok',
-              msg: res.message || `Scheduled across ${platforms.length} platform${platforms.length > 1 ? 's' : ''}!`,
-            }
-          : { tone: 'err', msg: res.message || 'Scheduling failed.' },
-      );
+      if (!res.ok) {
+        setFlash({ tone: 'err', msg: res.message || 'Scheduling failed.' });
+        return;
+      }
+
+      // Queueing is not publishing. With nothing connected, the honest next step is the composer
+      // tab and then the ledger, so the record of what went live stays real.
+      const created = res.posts || [];
+      if (whenIso && created.length === 1) {
+        setLedgerPost(created[0]);
+        setFlash({ tone: 'ok', msg: 'Queued for right now. Paste its live link to close the record.' });
+      } else {
+        setFlash({
+          tone: 'ok',
+          msg: `Queued on ${platforms.length} platform${platforms.length > 1 ? 's' : ''}. Post ${platforms.length > 1 ? 'them' : 'it'} yourself, then mark each one posted on the Calendar — KontentOS does not publish for you.`,
+        });
+      }
     } catch (err: any) {
       setFlash({ tone: 'err', msg: err?.message || 'Failed to schedule post.' });
     } finally {
@@ -355,47 +425,18 @@ export default function PublishSchedule() {
     }
   };
 
-  const handlePublishNow = async () => {
-    setFlash(null);
-    if (!selectedVideo) return;
-    setBusy(true);
-    const platforms = activeChannels.map((c) => PLATFORM_MAP[c.id] || (c.id as SocialPlatform)).filter(Boolean);
-
-    try {
-      const res = await schedulePost({
-        videoId: selectedVideo.id,
-        videoTitle: selectedVideo.title,
-        fileUrl: selectedVideo.file_url,
-        thumbnailUrl: selectedVideo.thumbnail_url,
-        platforms,
-        captionText: copyBundle.instagram.caption,
-        hashtags: copyBundle.instagram.hashtags,
-        scheduledAt: new Date().toISOString(),
-      });
-
-      if (!res.ok) {
-        setFlash({ tone: 'err', msg: res.message || 'Could not schedule the post.' });
-        return;
-      }
-
-      // No channel API is connected, so this only marks the posts as done inside KontentOS.
-      const ids = res.ids || [];
-      const results = await Promise.allSettled(ids.map((id) => publishNow(id)));
-      const failed = results.filter((r) => r.status === 'rejected').length;
-
-      if (failed > 0) {
-        setFlash({ tone: 'err', msg: `${failed} of ${ids.length} channel(s) could not be marked as published.` });
-      } else {
-        setFlash({
-          tone: 'ok',
-          msg: `Marked as published on ${ids.length} channel(s) in KontentOS. Nothing was sent to the platforms — no channel is connected yet, so post it yourself with "Export Bundle".`,
-        });
-      }
-    } catch (err: any) {
-      setFlash({ tone: 'err', msg: err?.message || 'Publish now failed.' });
-    } finally {
-      setBusy(false);
+  const openComposers = () => {
+    const { platforms } = dispatchPayload();
+    if (!platforms.length) {
+      setFlash({ tone: 'err', msg: 'Select at least one publishing destination first.' });
+      return;
     }
+    const spec = platformSpec(platforms[0]);
+    window.open(spec.composerUrl, '_blank', 'noopener,noreferrer');
+    setFlash({
+      tone: 'ok',
+      msg: `Opened the ${spec.label} composer. Post the clip there, then paste its link back on the Calendar.`,
+    });
   };
 
   const handleExportManualBundle = () => {
@@ -419,7 +460,7 @@ export default function PublishSchedule() {
             <Button variant="secondary" icon="download" onClick={handleExportManualBundle}>
               Export Bundle
             </Button>
-            <Button icon="send" onClick={handleScheduleDispatch} disabled={busy || !selectedVideo}>
+            <Button icon="send" onClick={() => void handleScheduleDispatch()} disabled={busy || !selectedVideo}>
               {busy ? 'Scheduling…' : 'Schedule Dispatch'}
             </Button>
           </>
@@ -634,6 +675,59 @@ export default function PublishSchedule() {
                 </button>
               ))}
             </div>
+
+            {/* What the destination will actually accept, measured against the copy in the tab */}
+            {(() => {
+              const spec = platformSpec(previewPlatform);
+              const verdict = checkCaption(copyForPlatform(previewPlatform, copyBundle).text, previewPlatform);
+              const pct = Math.min(100, Math.round((verdict.length / spec.captionMax) * 100));
+              return (
+                <div className="mb-3 rounded-btn border border-line bg-surface-2/60 p-3 space-y-2">
+                  <div className="flex items-center justify-between text-[11.5px]">
+                    <span className="font-semibold uppercase tracking-wider text-ink-dim">
+                      {spec.label} limits
+                    </span>
+                    <span className={`font-mono ${verdict.ok ? 'text-ink-muted' : 'text-danger font-semibold'}`}>
+                      {verdict.length.toLocaleString()} / {spec.captionMax.toLocaleString()} ·{' '}
+                      {verdict.hashtags} of {spec.hashtags.max} tags
+                    </span>
+                  </div>
+                  <div
+                    className="h-1.5 rounded-full bg-line overflow-hidden"
+                    role="progressbar"
+                    aria-valuenow={verdict.length}
+                    aria-valuemin={0}
+                    aria-valuemax={spec.captionMax}
+                    aria-label={`${spec.label} caption length`}
+                  >
+                    <div
+                      className={`h-full rounded-full transition-[width] duration-300 ${
+                        verdict.length > spec.captionMax ? 'bg-danger' : pct > 88 ? 'bg-tertiary' : 'bg-primary'
+                      }`}
+                      style={{ width: `${Math.max(pct, 2)}%` }}
+                    />
+                  </div>
+                  {verdict.notes.length > 0 && (
+                    <ul className="space-y-0.5 text-[11.5px] leading-relaxed">
+                      {verdict.notes.map((n) => (
+                        <li key={n} className={verdict.ok ? 'text-ink-muted' : 'text-danger font-medium'}>
+                          {n}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <a
+                    href={spec.composerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="kt-focus inline-flex items-center gap-1.5 text-[11.5px] font-medium text-primary hover:underline"
+                  >
+                    <Icon name="open_in_new" size={13} />
+                    Post it on {spec.label} yourself
+                  </a>
+                </div>
+              );
+            })()}
 
             {/* Tabbed Content Editors */}
             {previewPlatform === 'instagram' && (
@@ -906,7 +1000,7 @@ export default function PublishSchedule() {
             <div className="pt-2 border-t border-line space-y-2">
               <Button
                 icon="schedule_send"
-                onClick={handleScheduleDispatch}
+                onClick={() => void handleScheduleDispatch()}
                 disabled={busy || !selectedVideo}
                 className="w-full"
               >
@@ -914,17 +1008,41 @@ export default function PublishSchedule() {
               </Button>
               <Button
                 variant="secondary"
-                icon="send"
-                onClick={handlePublishNow}
+                icon="bolt"
+                onClick={() => void handleScheduleDispatch(new Date().toISOString())}
                 disabled={busy || !selectedVideo}
                 className="w-full"
               >
-                Publish Instantly Now
+                Queue for right now
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon="open_in_new"
+                onClick={openComposers}
+                disabled={busy}
+                className="w-full"
+              >
+                Open the composer to post it yourself
+              </Button>
+              <p className="text-[11.5px] leading-relaxed text-ink-dim">
+                Queuing writes to KontentOS&apos;s calendar. It never touches a platform — no channel is
+                connected, so a post only becomes “published” when you mark it and paste its live link.
+              </p>
             </div>
           </Card>
         </div>
       </div>
+      <MarkPostedDialog
+        post={ledgerPost}
+        onClose={() => setLedgerPost(null)}
+        onConfirm={async (id, postUrl) => {
+          const res = await publishNow(id, postUrl ? { postUrl } : undefined);
+          if (!res.ok) throw new Error(res.message || 'Could not record that post.');
+          setLedgerPost(null);
+          setFlash({ tone: 'ok', msg: 'Recorded as posted. Analytics now has its live link.' });
+        }}
+      />
     </PageShell>
   );
 }

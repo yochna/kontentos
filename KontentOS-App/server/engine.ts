@@ -5,8 +5,8 @@
 
 /**
  * One attempt at one engine. Without a ceiling a model Google is shedding load for can hold a
- * creator's click for minutes; 15s is long enough to catch a slow answer and short enough that the
- * next candidate still runs inside the spinner's patience.
+ * creator's click for minutes; 15s is long enough to catch a slow answer, and engines stop at the
+ * first one that spends it — see isEngineCeiling.
  */
 export function engineTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
   return Promise.race([
@@ -15,6 +15,16 @@ export function engineTimeout<T>(promise: Promise<T>, ms: number, errorMsg: stri
       setTimeout(() => reject(new Error(errorMsg)), ms)
     ),
   ]);
+}
+
+/**
+ * Running out a ceiling says something about the service, not about the model: three timeouts in a
+ * row is 45 seconds of spinner that ends in the same local template. Engines stop at the first one.
+ * A hard failure — bad key, quota, refused prompt — is different information, so those still try the
+ * next candidate.
+ */
+export function isEngineCeiling(reason: unknown): boolean {
+  return /^Timeout with model /.test(String(reason ?? ''));
 }
 
 /**

@@ -10,56 +10,69 @@ export interface PlatformCopyBundle {
   facebook: { postText: string; hashtags: string[] };
 }
 
+/**
+ * The offline scaffold. Nothing here is written *for* the creator: no invented stats, no "90% of
+ * creators" claims, no hashtags nobody chose — the only inputs are a title and sometimes a hook the
+ * creator typed, and a caption built out of those two is a fabrication wearing their name. Each
+ * bracket is a line to fill from the take itself.
+ */
 export function generateMultiPlatformCopy(
   title: string,
   hook?: string,
   _context?: string,
 ): PlatformCopyBundle {
-  const cleanTitle = (title || 'Creator Systems To Scale Output').trim();
-  const cleanHook = hook || `Most people do this completely wrong: "${cleanTitle}".`;
+  const cleanTitle = (title || '').trim() || 'This cut';
+  const lead = (hook || '').trim() || '[the hook — what you say in the first four seconds]';
+  const blank = (hint: string) => `[${hint}]`;
+  const note =
+    'KontentOS scaffold — this take has no transcript on the server, so the words are yours. Delete this line before posting.';
 
   return {
     instagram: {
-      caption: `🚨 ${cleanHook}\n\nHere is how to master "${cleanTitle}" without burning out:\n\n1️⃣ Capture raw high-signal insights when creative energy peaks\n2️⃣ Automate dead-air trimming, kinetic subtitles & color pop\n3️⃣ Syndicate across visual slides & vertical video in minutes\n\n👇 Save this reel for your next creation sprint! What is your biggest production bottleneck right now?`,
-      hashtags: ['contentcreator', 'reelsgrowth', 'videomarketing', 'creatoreconomy', 'kontentos'],
+      caption: `${cleanTitle}\n\n${lead}\n\n${blank('what you actually said, in your own words')}\n\n${blank(
+        'the one thing the viewer should do next'
+      )}\n\n${note}`,
+      hashtags: [],
     },
     youtube: {
-      title: `${cleanTitle.slice(0, 50)} 🚨 (Viral Creator Breakdown)`,
-      description: `Stop overcomplicating your video workflow. In this Short, we break down "${cleanTitle}" step-by-step.\n\n📌 Timestamps:\n0:00 - The Core Trap\n0:08 - The 1-Click System\n0:22 - Omnichannel Distribution\n\n💬 Subscribe for daily creator tools and drop your thoughts below!`,
-      tags: ['Shorts', 'YouTubeShorts', 'CreatorTips', 'VideoMarketing', 'CreatorEconomy'],
+      title: cleanTitle.slice(0, 100),
+      description: `${cleanTitle}\n\n${lead}\n\n${blank('what the short covers, in one sentence')}\n\n${note}`,
+      tags: [],
     },
     tiktok: {
-      caption: `Unpopular truth about "${cleanTitle}" ☕ Stop spending 4 hours editing a 30s video. Do this instead ⚡ #creator #editingtips #productivity #ai #kontentos`,
-      hashtags: ['creator', 'editingtips', 'productivity', 'ai', 'kontentos'],
+      caption: `${lead}\n\n${blank('the turn — why it matters')}\n\n${note}`,
+      hashtags: [],
     },
     linkedin: {
-      postText: `The creator economy is won on distribution speed, not editing fatigue.\n\nHere is the operational breakdown on "${cleanTitle}":\n\n• High-leverage creators do not spend half their day manually positioning subtitle keyframes.\n• They record unpolished high-conviction thoughts, leverage automated assembly, and syndicate.\n• One raw clip becomes a video reel, a 5-slide carousel, and a tactical text breakdown.\n\nAre you prioritizing manual production or streamlined distribution this quarter?`,
+      postText: `${cleanTitle}\n\n${lead}\n\n${blank('the argument, in your own words')}\n\n${blank(
+        'what you would do differently now'
+      )}\n\n${note}`,
       slideOutline: [
-        `Slide 1: Master Framework — ${cleanTitle}`,
-        'Slide 2: The Bottleneck — Manual Editing Burnout',
-        'Slide 3: The System — Raw Input + Automated AI Assembly',
-        'Slide 4: The Leverage — Multi-Platform Syndication',
-        'Slide 5: Save & Share with your creator team',
+        'Slide 1 — the claim you are making',
+        'Slide 2 — what happened in the take',
+        'Slide 3 — the number or scene that proves it',
+        'Slide 4 — what you changed after it',
+        'Slide 5 — the one thing the reader should do',
       ],
-      hashtags: ['leadership', 'productivity', 'creatoreconomy', 'saas', 'automation'],
+      hashtags: [],
     },
     x: {
       thread: [
-        `1/ Everything you need to know about "${cleanTitle}" (save this thread) 🧵👇`,
-        `2/ Point 1: 90% of creators give up because post-production friction drains their creative battery.`,
-        `3/ Point 2: The solution isn’t working harder—it’s turning raw 1-minute smartphone recordings into polished assets.`,
-        `4/ Point 3: Syndicate each idea everywhere: Reels for discovery, Shorts for subscriber momentum, and LinkedIn for B2B deals.`,
-        `5/ Want the complete viral creator blueprint? Retweet tweet #1 and check out @KontentOS! ⚡`,
+        // Truncated on purpose: a first tweet over 280 characters is refused by X, and the queue
+        // would hold a post that can never be published as written.
+        `${cleanTitle.slice(0, 90)}\n\n${lead.slice(0, 180)}`,
+        blank('the proof — one number or one scene from the take'),
+        `${blank('the turn — what to do next')}`,
       ],
-      hashtags: ['buildinpublic', 'creatoreconomy', 'productivity'],
+      hashtags: [],
     },
     threads: {
-      postText: `Unpopular truth about "${cleanTitle}" ☕\n\nYou do not need a 4K cinema rig or 10 hours in Premiere. You need raw conviction and a frictionless publishing pipeline.\n\nHow much time do you spend editing per week? 👇`,
-      hashtags: ['creator', 'productivity', 'mindset'],
+      postText: `${lead}\n\n${blank('what you think about it')}\n\n${note}`,
+      hashtags: [],
     },
     facebook: {
-      postText: `Here is something every modern content creator needs to hear about "${cleanTitle}":\n\nConsistency beats complexity every single time. Stop getting stuck in editing loops and focus on getting your message out.\n\nDrop a comment if you agree! 👇`,
-      hashtags: ['videocreator', 'digitalmarketing', 'contentstrategy'],
+      postText: `${cleanTitle}\n\n${lead}\n\n${blank('why it is worth two minutes of their day')}\n\n${note}`,
+      hashtags: [],
     },
   };
 }
@@ -86,8 +99,9 @@ export function exportManualAssistPackage(
     },
     instructions: [
       '1. Download your exported MP4 video asset from the studio.',
-      '2. Open the platform-specific text files below and copy the optimized captions.',
+      '2. Fill every [bracketed line] — KontentOS hands you a scaffold, not your voice.',
       '3. Post during your scheduled peak engagement window.',
+      '4. Nothing here was published for you; paste it into the platform composer yourself.',
     ],
   };
 

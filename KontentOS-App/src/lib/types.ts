@@ -41,6 +41,8 @@ export interface Video {
   status: VideoStatus;
   created_at: string;
   updated_at: string;
+  /** False when the record survived a redeploy but its file on the ephemeral disk did not. */
+  media_available?: boolean;
 }
 
 export interface Caption {

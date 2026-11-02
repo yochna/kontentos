@@ -494,6 +494,8 @@ Respond ONLY with pure JSON matching this exact structure:
     srt_content: string;
     vtt_content: string;
     language: string;
+    /** False when the server only produced placeholder cues, which it deliberately does not store. */
+    persisted?: boolean;
     segments: Array<{ id: number; start: string | number; end: string | number; text: string }>;
   }> {
     const res = await fetch('/api/transcribe', {
@@ -556,6 +558,7 @@ Respond ONLY with pure JSON matching this exact structure:
     scheduledAt?: string;
     status?: 'scheduled' | 'published';
     publishedAt?: string;
+    platformCustomizations?: Record<string, { captionText: string; hashtags: string[] }>;
   }) {
     return json<{ data: ScheduledPost | ScheduledPost[]; message?: string }>(
       await fetch('/api/publish/schedule', {
@@ -587,9 +590,13 @@ Respond ONLY with pure JSON matching this exact structure:
   async deleteScheduled(id: string) {
     return json<{ success: boolean }>(await fetch(`/api/publish/schedule/${id}`, { method: 'DELETE' }));
   },
-  async publishNow(id: string) {
-    return json<{ success: boolean; message?: string }>(
-      await fetch(`/api/publish/schedule/${id}/publish-now`, { method: 'POST' }),
+  async publishNow(id: string, body?: { postUrl?: string; publishedAt?: string }) {
+    return json<{ success: boolean; message?: string; data?: ScheduledPost }>(
+      await fetch(`/api/publish/schedule/${id}/publish-now`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {}),
+      }),
     );
   },
 
