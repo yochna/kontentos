@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { localDataDir } from './db.js';
 import { createJob, deleteJob, getJob, listJobs, updateClip } from './repurposeStore.js';
 import type { RepurposeClip } from './repurposeEngine.js';
@@ -57,6 +57,10 @@ beforeEach(() => {
   fs.rmSync(path.join(dataDir, 'kontentos-repurpose.json'), { force: true });
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe('repurpose store', () => {
   it('writes into the directory the core store already uses', () => {
     expect(localDataDir()).toBe(path.resolve(dataDir));
@@ -88,7 +92,11 @@ describe('repurpose store', () => {
   });
 
   it('applies a partial patch and leaves the fields it was not sent alone', async () => {
+    // The clock is moved by hand: on a fast runner a create and a patch can land in the same
+    // millisecond, and the timestamp bump this test cares about would look like a failure.
+    vi.useFakeTimers({ now: new Date('2026-01-01T00:00:00.000Z') });
     const job = await newJob();
+    vi.setSystemTime(new Date('2026-01-01T00:00:02.000Z'));
 
     const saved = await updateClip(OWNER, job.id, 'clip-1-5000', { caption: 'Rewritten caption.', status: 'saved' });
     expect(saved?.caption).toBe('Rewritten caption.');
