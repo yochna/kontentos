@@ -110,396 +110,6 @@ function srtToVtt(srt: string): string {
   return vtt.trim();
 }
 
-function buildSrtFromTranscript(transcriptText: string, durationSec: number = 10) {
-  const clean = (transcriptText || '').trim();
-  const words = clean.split(/\s+/).filter(Boolean);
-  if (!words.length) {
-    return { srt: '', vtt: '', transcript: '', segments: [] };
-  }
-
-  const dur = Math.max(durationSec || 10, 2);
-  const wordsPerSegment = 3;
-  const numSegments = Math.ceil(words.length / wordsPerSegment);
-  const segDur = dur / numSegments;
-
-  function fmt(sec: number): string {
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    const s = Math.floor(sec % 60);
-    const ms = Math.floor((sec % 1) * 1000);
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
-  }
-
-  const segments: Array<{ id: number; start: string; end: string; text: string }> = [];
-  let srt = '';
-  for (let i = 0; i < numSegments; i++) {
-    const chunk = words.slice(i * wordsPerSegment, (i + 1) * wordsPerSegment).join(' ');
-    const startSec = i * segDur;
-    const endSec = Math.min((i + 1) * segDur, dur);
-    const start = fmt(startSec);
-    const end = fmt(endSec);
-    segments.push({ id: i + 1, start, end, text: chunk });
-    srt += `${i + 1}\n${start} --> ${end}\n${chunk}\n\n`;
-  }
-  const vtt = srtToVtt(srt);
-  return { srt: srt.trim(), vtt, transcript: clean, segments };
-}
-
-// Language-specific fallback subtitles if Gemini or network is unavailable
-const MULTI_LANG_SYNTHESIS: Record<string, { srt: string; transcript: string }> = {
-  Spanish: {
-    srt: `1
-00:00:00,000 --> 00:00:02,500
-Deja de hacer scroll si quieres ahorrar 30 horas esta semana.
-
-2
-00:00:02,500 --> 00:00:05,200
-Este es el flujo de trabajo de IA que todo creador ignora.
-
-3
-00:00:05,200 --> 00:00:08,000
-Sube tu video crudo una sola vez y genera subtítulos automáticos,
-
-4
-00:00:08,000 --> 00:00:11,000
-y publica directamente en Instagram Reels en menos de 30 segundos.
-
-5
-00:00:11,000 --> 00:00:14,000
-Comenta 'OS' abajo y te enviaré la guía completa.`,
-    transcript: "Deja de hacer scroll si quieres ahorrar 30 horas esta semana. Este es el flujo de trabajo de IA que todo creador ignora. Sube tu video crudo una sola vez y genera subtítulos automáticos, y publica directamente en Instagram Reels en menos de 30 segundos. Comenta 'OS' abajo y te enviaré la guía completa.",
-  },
-  Hindi: {
-    srt: `1
-00:00:00,000 --> 00:00:02,500
-स्क्रोल करना बंद करें अगर आप इस हफ्ते 30 घंटे बचाना चाहते हैं।
-
-2
-00:00:02,500 --> 00:00:05,200
-यह वो सटीक एआई वर्कफ़्लो है जिसे हर क्रिएटर मिस कर रहा है।
-
-3
-00:00:05,200 --> 00:00:08,000
-बस एक बार अपनी रॉ वीडियो अपलोड करें और ऑटो सबटाइटल्स पाएं,
-
-4
-00:00:08,000 --> 00:00:11,000
-और 30 सेकंड में सीधे इंस्टाग्राम रील्स पर पब्लिश करें।
-
-5
-00:00:11,000 --> 00:00:14,000
-नीचे 'OS' कमेंट करें और पूरा ब्रेकडाउन प्राप्त करें!`,
-    transcript: "स्क्रोल करना बंद करें अगर आप इस हफ्ते 30 घंटे बचाना चाहते हैं। यह वो सटीक एआई वर्कफ़्लो है जिसे हर क्रिएटर मिस कर रहा है। बस एक बार अपनी रॉ वीडियो अपलोड करें और ऑटो सबटाइटल्स पाएं, और 30 सेकंड में सीधे इंस्टाग्राम रील्स पर पब्लिश करें। नीचे 'OS' कमेंट करें और पूरा ब्रेकडाउन प्राप्त करें!",
-  },
-  Hinglish: {
-    srt: `1
-00:00:00,000 --> 00:00:02,500
-Scroll karna band karo agar aap is hafte 30 ghante bachana chahte ho.
-
-2
-00:00:02,500 --> 00:00:05,200
-Ye hai wo exact AI workflow jo har creator miss kar raha hai.
-
-3
-00:00:05,200 --> 00:00:08,000
-Apni raw clip ek baar upload karo, auto captions aur hashtags pao,
-
-4
-00:00:08,000 --> 00:00:11,000
-aur 30 seconds ke andar directly Instagram Reels par publish karo.
-
-5
-00:00:11,000 --> 00:00:14,000
-Neeche 'OS' comment karo aur main full guide bhejunga!`,
-    transcript: "Scroll karna band karo agar aap is hafte 30 ghante bachana chahte ho. Ye hai wo exact AI workflow jo har creator miss kar raha hai. Apni raw clip ek baar upload karo, auto captions aur hashtags pao, aur 30 seconds ke andar directly Instagram Reels par publish karo. Neeche 'OS' comment karo aur main full guide bhejunga!",
-  },
-  French: {
-    srt: `1
-00:00:00,000 --> 00:00:02,500
-Arrêtez de scroller si vous voulez économiser 30 heures cette semaine.
-
-2
-00:00:02,500 --> 00:00:05,200
-Voici le flux de travail IA que chaque créateur néglige.
-
-3
-00:00:05,200 --> 00:00:08,000
-Téléchargez votre vidéo brute une fois, générez les sous-titres,
-
-4
-00:00:08,000 --> 00:00:11,000
-et publiez directement sur Instagram Reels en moins de 30 secondes.
-
-5
-00:00:11,000 --> 00:00:14,000
-Commentez 'OS' ci-dessous et je vous envoie le guide complet !`,
-    transcript: "Arrêtez de scroller si vous voulez économiser 30 heures cette semaine. Voici le flux de travail IA que chaque créateur néglige. Téléchargez votre vidéo brute une fois, générez les sous-titres, et publiez directement sur Instagram Reels en moins de 30 secondes. Commentez 'OS' ci-dessous et je vous envoie le guide complet !",
-  },
-  German: {
-    srt: `1
-00:00:00,000 --> 00:00:02,500
-Hör auf zu scrollen, wenn du diese Woche 30 Stunden sparen willst.
-
-2
-00:00:02,500 --> 00:00:05,200
-Hier ist der KI-Workflow, den viele Creator noch übersehen.
-
-3
-00:00:05,200 --> 00:00:08,000
-Lade deinen Rohclip einmal hoch, generiere kinetische Untertitel,
-
-4
-00:00:08,000 --> 00:00:11,000
-und veröffentliche direkt auf Instagram Reels in unter 30 Sekunden.
-
-5
-00:00:11,000 --> 00:00:14,000
-Kommentiere unten mit 'OS' für den kompletten Guide!`,
-    transcript: "Hör auf zu scrollen, wenn du diese Woche 30 Stunden sparen willst. Hier ist der KI-Workflow, den viele Creator noch übersehen. Lade deinen Rohclip einmal hoch, generiere kinetische Untertitel, und veröffentliche direkt auf Instagram Reels in unter 30 Sekunden. Kommentiere unten mit 'OS' für den kompletten Guide!",
-  },
-  Japanese: {
-    srt: `1
-00:00:00,000 --> 00:00:02,500
-今週30時間を節約したいなら、スクロールを止めてください。
-
-2
-00:00:02,500 --> 00:00:05,200
-これが見逃されている最新のクリエイターAI自動化フローです。
-
-3
-00:00:05,200 --> 00:00:08,000
-動画を1回アップロードするだけで字幕とハッシュタグを自動生成し、
-
-4
-00:00:08,000 --> 00:00:11,000
-30秒以内にInstagram Reelsへ直接公開できます。
-
-5
-00:00:11,000 --> 00:00:14,000
-コメント欄に「OS」と書いて詳細ガイドを受け取ってください！`,
-    transcript: "今週30時間を節約したいなら、スクロールを止めてください。これが見逃されている最新のクリエイターAI自動化フローです。動画を1回アップロードするだけで字幕とハッシュタグを自動生成し、30秒以内にInstagram Reelsへ直接公開できます。コメント欄に「OS」と書いて詳細ガイドを受け取ってください！",
-  },
-  English: {
-    srt: `1
-00:00:00,000 --> 00:00:02,500
-Stop scrolling if you want to save 30 hours this week.
-
-2
-00:00:02,500 --> 00:00:05,200
-Here is the exact AI workflow every creator is sleeping on.
-
-3
-00:00:05,200 --> 00:00:08,000
-Upload your raw clip once, auto-generate captions and hashtags,
-
-4
-00:00:08,000 --> 00:00:11,000
-and publish directly to Instagram Reels in under 30 seconds.
-
-5
-00:00:11,000 --> 00:00:14,000
-Comment 'OS' below and I'll send you the full breakdown!`,
-    transcript: "Stop scrolling if you want to save 30 hours this week. Here is the exact AI workflow every creator is sleeping on. Upload your raw clip once, auto-generate captions and hashtags, and publish directly to Instagram Reels in under 30 seconds. Comment 'OS' below and I'll send you the full breakdown!",
-  }
-};
-
-function generateSynthesizedSubtitles(videoTitle: string, language = 'English'): { srt: string; vtt: string; transcript: string } {
-  const selected = MULTI_LANG_SYNTHESIS[language] || MULTI_LANG_SYNTHESIS.English;
-  return {
-    srt: selected.srt,
-    vtt: srtToVtt(selected.srt),
-    transcript: selected.transcript,
-  };
-}
-
-// POST /api/transcribe — Main Speech-to-Text & Transcription Endpoint
-router.post('/', async (req, res) => {
-  try {
-    const { videoId, forceRefresh = false, targetLanguage = 'English', apiKey: clientKey } = req.body;
-    if (!videoId) {
-      return res.status(400).json({ error: 'Missing videoId' });
-    }
-
-    const video = await db.getVideo(videoId, req.userId);
-    if (!video) {
-      return res.status(404).json({ error: 'Video record not found' });
-    }
-
-    // Check existing subtitles unless forceRefresh or language switch requested
-    const existingSubtitles = await db.getSubtitles(videoId, req.userId);
-    if (existingSubtitles && !forceRefresh && (existingSubtitles.language === targetLanguage || (!existingSubtitles.language && targetLanguage === 'English'))) {
-      const segments = existingSubtitles.segments || parseSrtToSegments(existingSubtitles.srt_content);
-      return res.json({
-        success: true,
-        data: {
-          ...existingSubtitles,
-          segments,
-        },
-        cached: true,
-        message: 'Loaded cached subtitles',
-      });
-    }
-
-    const ai = getGeminiClient(clientKey);
-    let srt = '';
-    let transcript = '';
-    let segments: Array<{ id: number; start: string; end: string; text: string }> = [];
-
-    if (ai) {
-      try {
-        let mediaBuffer: Buffer | null = null;
-        let mimeType = 'video/mp4';
-
-        if (video.file_url && video.file_url.startsWith('/uploads/')) {
-          const filePath = path.join(process.cwd(), video.file_url);
-          if (fs.existsSync(filePath)) {
-            const stats = fs.statSync(filePath);
-            if (stats.size > 100 && stats.size <= 25 * 1024 * 1024) {
-              mediaBuffer = fs.readFileSync(filePath);
-              const ext = path.extname(filePath).toLowerCase();
-              if (ext === '.webm') mimeType = 'video/webm';
-              else if (ext === '.mov') mimeType = 'video/quicktime';
-              else if (ext === '.mp3') mimeType = 'audio/mp3';
-              else if (ext === '.wav') mimeType = 'audio/wav';
-              else if (ext === '.m4a' || ext === '.aac') mimeType = 'audio/aac';
-              else mimeType = 'video/mp4';
-            }
-          }
-        }
-
-        if (mediaBuffer) {
-          const base64Media = mediaBuffer.toString('base64');
-          const prompt = `You are an elite speech-to-text (STT) transcription and subtitle synchronization AI for viral short-form video (Instagram Reels / TikTok / YouTube Shorts).
-Transcribe every spoken sentence verbatim into target language: "${targetLanguage}".
-Provide exact millisecond-accurate timestamps in SRT format ("00:00:01,200 --> 00:00:03,450").
-Split into short, punchy segments (2 to 5 words each).
-Output valid JSON:
-{
-  "language": "${targetLanguage}",
-  "transcript": "Full text in ${targetLanguage}",
-  "srt": "1\\n00:00:00,150 --> 00:00:02,300\\nFirst phrase\\n",
-  "segments": [{ "id": 1, "start": "00:00:00,150", "end": "00:00:02,300", "text": "First phrase" }]
-}`;
-
-          const modelsToTry = [
-            'gemini-3.5-transcribe',
-            'gemini-3.8-flash',
-            'gemini-3.5-flash',
-            'gemini-3.5-flash-lite',
-          ];
-
-          for (const model of modelsToTry) {
-            try {
-              const effectiveMime = model.includes('transcribe') && mimeType.startsWith('video/')
-                ? (mimeType === 'video/webm' ? 'audio/webm' : 'audio/mp4')
-                : mimeType;
-
-              const isDedicatedTranscribe = model.includes('transcribe');
-              const contents = isDedicatedTranscribe
-                ? [{ inlineData: { data: base64Media, mimeType: effectiveMime } }]
-                : [{ inlineData: { data: base64Media, mimeType: effectiveMime } }, prompt];
-
-              const response = await ai.models.generateContent({
-                model,
-                contents,
-                config: isDedicatedTranscribe ? undefined : { responseMimeType: 'application/json' },
-              });
-
-              let extractedText = '';
-              const candidate = response.candidates?.[0];
-              const parts = candidate?.content?.parts || [];
-              for (const part of parts) {
-                if ((part as any).audioTranscription?.text) {
-                  extractedText += (extractedText ? ' ' : '') + (part as any).audioTranscription.text;
-                } else if (part.text) {
-                  extractedText += (extractedText ? ' ' : '') + part.text;
-                }
-              }
-              if (!extractedText) {
-                // `text` is a getter on GenerateContentResponse, not a method.
-                const directText = response.text;
-                if (directText && typeof directText === 'string') extractedText = directText;
-              }
-
-              if (extractedText && extractedText.trim()) {
-                let parsed: any = null;
-                try {
-                  const cleanedText = extractedText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-                  parsed = JSON.parse(cleanedText);
-                } catch {}
-
-                if (parsed && (parsed.srt || parsed.segments?.length || parsed.transcript)) {
-                  srt = parsed.srt || '';
-                  transcript = parsed.transcript || '';
-                  segments = parsed.segments || [];
-                  break;
-                } else {
-                  transcript = extractedText.trim();
-                  if (targetLanguage && targetLanguage.toLowerCase() !== 'english') {
-                    try {
-                      const trRes = await ai.models.generateContent({
-                        model: 'gemini-3.5-flash',
-                        contents: `Translate this spoken video transcript accurately into ${targetLanguage}. Output ONLY the translated text without markdown or commentary:\n\n${transcript}`,
-                      });
-                      const trText = trRes.text?.trim();
-                      if (trText) transcript = trText;
-                    } catch (trErr: any) {
-                      console.warn(`[transcribe] Translation to ${targetLanguage} skipped:`, trErr?.message);
-                    }
-                  }
-
-                  const built = buildSrtFromTranscript(transcript, video.duration || 10);
-                  srt = built.srt;
-                  segments = built.segments;
-                  break;
-                }
-              }
-            } catch (mErr: any) {
-              console.warn(`[transcribe] Model ${model} failed, trying next candidate:`, mErr?.message);
-            }
-          }
-        }
-      } catch (geminiErr: any) {
-        console.warn('Gemini STT transcription note:', geminiErr?.message);
-      }
-    }
-
-    if (!srt || !transcript) {
-      const synth = generateSynthesizedSubtitles(video.title, targetLanguage);
-      srt = synth.srt;
-      transcript = synth.transcript;
-    }
-
-    const vtt = srtToVtt(srt);
-    if (!segments || segments.length === 0) {
-      segments = parseSrtToSegments(srt);
-    }
-
-    const saved = await db.saveSubtitles({
-      video_id: videoId,
-      srt_content: srt,
-      vtt_content: vtt,
-      transcript_text: transcript,
-      language: targetLanguage,
-      segments,
-    }, req.userId);
-
-    res.json({
-      success: true,
-      data: {
-        ...saved,
-        language: targetLanguage,
-        segments,
-      },
-      cached: false,
-      message: `Transcription completed successfully in ${targetLanguage}`,
-    });
-  } catch (err: any) {
-    console.error('Error in /api/transcribe:', err);
-    res.status(500).json({ error: err.message || 'AI service failed' });
-  }
-});
-
 // POST /api/transcribe/translate — Dedicated STT Subtitle Translation
 router.post('/translate', async (req, res) => {
   try {
@@ -519,10 +129,12 @@ router.post('/translate', async (req, res) => {
       }
     }
 
-    if (!baseSrt) {
-      const synth = generateSynthesizedSubtitles('Creator Reel', 'English');
-      baseSrt = synth.srt;
-      baseTranscript = synth.transcript;
+    if (!baseSrt && !baseTranscript) {
+      // A translation of nothing is a licence to invent. The stored cues are the only source this
+      // route will put words into, so an untranscribed clip gets an error instead of a script.
+      return res.status(409).json({
+        error: 'Nothing real to translate yet — transcribe this clip, or paste its script, first.',
+      });
     }
 
     const ai = getGeminiClient();
@@ -530,14 +142,20 @@ router.post('/translate', async (req, res) => {
     let translatedTranscript = '';
     let segments: Array<{ id: number; start: string; end: string; text: string }> = [];
 
-    if (ai) {
-      try {
-        const prompt = `You are an expert subtitle translator and linguistic localizer for viral short-form video (Instagram Reels / TikTok).
+    if (!ai) {
+      return res.status(502).json({
+        error: `No translation engine is configured, so KontentOS will not write ${targetLanguage} subtitles for you.`,
+      });
+    }
+
+    try {
+      const prompt = `You are an expert subtitle translator and linguistic localizer for viral short-form video (Instagram Reels / TikTok).
 Translate the following SRT subtitles and full transcript accurately into "${targetLanguage}".
 Requirements:
 1. Preserve the EXACT timing timestamps and sequential numbers (00:00:00,000 --> 00:00:02,500).
 2. Adapt natural spoken idioms and high-energy creator pacing in "${targetLanguage}".
 3. Keep line lengths suitable for kinetic captions on mobile screens (3 to 6 words per subtitle line).
+4. Translate only what is written here. Do not add hooks, claims or calls to action of your own.
 
 Original Transcript:
 ${baseTranscript}
@@ -555,35 +173,27 @@ Return JSON strictly matching this schema:
   ]
 }`;
 
-        const response = await generateGeminiContentWithRetry(ai, {
-          preferredModel: 'gemini-3.1-flash-lite',
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
-          },
-        });
+      const response = await generateGeminiContentWithRetry(ai, {
+        preferredModel: 'gemini-3.1-flash-lite',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+        },
+      });
 
-        const text = (typeof response.text === 'function' ? response.text() : response.text) || '{}';
-        const parsed = readEngineJson<any>(text) || {};
-        translatedSrt = parsed.srt || '';
-        translatedTranscript = parsed.transcript || '';
-        segments = parsed.segments || [];
-      } catch (err: any) {
-        console.log('Gemini subtitle translation note: using language synthesis fallback');
-        const synth = generateSynthesizedSubtitles('Creator Reel', targetLanguage);
-        translatedSrt = synth.srt;
-        translatedTranscript = synth.transcript;
-      }
-    } else {
-      const synth = generateSynthesizedSubtitles('Creator Reel', targetLanguage);
-      translatedSrt = synth.srt;
-      translatedTranscript = synth.transcript;
+      const text = (typeof response.text === 'function' ? response.text() : response.text) || '{}';
+      const parsed = readEngineJson<any>(text) || {};
+      translatedSrt = parsed.srt || '';
+      translatedTranscript = parsed.transcript || '';
+      segments = parsed.segments || [];
+    } catch (err: any) {
+      console.warn('[transcribe/translate] engine did not answer:', err?.message);
     }
 
-    if (!translatedSrt) {
-      const synth = generateSynthesizedSubtitles('Creator Reel', targetLanguage);
-      translatedSrt = synth.srt;
-      translatedTranscript = synth.transcript;
+    if (!translatedSrt && !translatedTranscript) {
+      return res.status(502).json({
+        error: `The translation engine gave no ${targetLanguage} answer. Your original captions are untouched.`,
+      });
     }
 
     const translatedVtt = srtToVtt(translatedSrt);

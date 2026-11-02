@@ -505,6 +505,8 @@ Respond ONLY with pure JSON matching this exact structure:
     targetLanguage?: string;
     apiKey?: string;
     forceRefresh?: boolean;
+    /** Intake runs this in the background; a wedged engine must not hold the pill on "working" forever. */
+    signal?: AbortSignal;
   }): Promise<{
     transcript: string;
     srt_content: string;
@@ -517,7 +519,13 @@ Respond ONLY with pure JSON matching this exact structure:
     const res = await fetch('/api/transcribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(opts),
+      body: JSON.stringify({
+        videoId: opts.videoId,
+        targetLanguage: opts.targetLanguage,
+        apiKey: opts.apiKey,
+        forceRefresh: opts.forceRefresh,
+      }),
+      signal: opts.signal,
     });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -526,6 +534,21 @@ Respond ONLY with pure JSON matching this exact structure:
       throw err;
     }
     return d.data;
+  },
+
+  /**
+   * The creator's typed or dictated script, stored as this clip's cues. Nothing is generated here —
+   * the server only splits the text it is handed.
+   */
+  async saveScriptCues(videoId: string, transcriptText: string, language = 'English') {
+    const res = await fetch('/api/transcribe/live', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videoId, transcriptText, language }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || 'Could not save the script');
+    return d.data as { video_id: string; segments: unknown[] };
   },
 
   async getSubtitles(videoId: string) {

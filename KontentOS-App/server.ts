@@ -23,6 +23,8 @@ import * as db from './server/db.js';
 import uploadRouter from './server/routes/upload.js';
 import videosRouter from './server/routes/videos.js';
 import transcribeRouter from './server/routes/transcribe.js';
+import { generateCueScaffold } from './server/cueScaffold.js';
+import { isEmptySpeechEnvelope, isSpokenTextUsable } from './server/spokenText.js';
 import captionRouter from './server/routes/caption.js';
 import publishRouter from './server/routes/publish.js';
 import scriptRouter from './server/routes/script.js';
@@ -441,99 +443,6 @@ async function createApp() {
     return { srt: srt.trim(), vtt, transcript: clean, segments };
   }
 
-  function generateSmartSubtitles(title: string, durationSec: number = 10, targetLanguage: string = 'English') {
-    const cleanTitle = (title || 'Creator Video').trim();
-    const dur = Math.max(durationSec || 10, 4);
-
-    const scriptsByLang: Record<string, string[]> = {
-      English: [
-        `Stop scrolling if you want to master ${cleanTitle}.`,
-        `Here is the exact strategy top creators use in 2026.`,
-        `First, dial in your visual hooks and kinetic captions.`,
-        `Second, eliminate every second of dead air and pacing lag.`,
-        `Save this reel right now and execute today!`,
-      ],
-      Spanish: [
-        `Deja de hacer scroll si quieres dominar ${cleanTitle}.`,
-        `Esta es la estrategia exacta que usan los mejores creadores.`,
-        `Primero, optimiza tus ganchos visuales y subtítulos cinéticos.`,
-        `Segundo, elimina las pausas y mantén la máxima retención.`,
-        `¡Guarda este reel y empieza hoy mismo!`,
-      ],
-      Hindi: [
-        `स्क्रोल करना बंद करें अगर आप ${cleanTitle} में महारत हासिल करना चाहते हैं।`,
-        `यह वही सीक्रेट फॉर्मूला है जो टॉप क्रिएटर्स इस्तेमाल कर रहे हैं।`,
-        `पहले 3 सेकंड में स्ट्रॉन्ग हुक और काइनेटिक सबटाइटल्स लगाएं।`,
-        `डेड एयर और बोरिंग पार्ट्स को तुरंत ट्रिम करें।`,
-        `इस रील को अभी सेव करें और आज ही ट्राई करें!`,
-      ],
-      French: [
-        `Arrêtez de scroller pour maîtriser ${cleanTitle}.`,
-        `Voici la stratégie exacte des meilleurs créateurs en 2026.`,
-        `Optimisez vos accroches visuelles et sous-titres dynamiques.`,
-        `Coupez les temps morts pour maximiser la rétention.`,
-        `Enregistrez ce reel et passez à l'action aujourd'hui !`,
-      ],
-      German: [
-        `Hör auf zu scrollen, um ${cleanTitle} zu meistern.`,
-        `Das ist die exakte Strategie erfolgreicher Creator 2026.`,
-        `Setze auf starke visuelle Hooks und kinetische Untertitel.`,
-        `Schneide Pausen radikal für maximale Aufmerksamkeit.`,
-        `Speichere dieses Reel jetzt und setze es direkt um!`,
-      ],
-      Japanese: [
-        `${cleanTitle}を極めたいなら、スクロールを止めてください。`,
-        `これが2026年にトップクリエイターが実践する最新手法です。`,
-        `最初の3秒で惹きつけるフックと動的な字幕を配置。`,
-        `無駄な間をカットして視聴維持率を最大化しましょう。`,
-        `このリールを今すぐ保存して実践してみてください！`,
-      ],
-      Portuguese: [
-        `Pare de rolar se você quer dominar ${cleanTitle}.`,
-        `Aqui está a estratégia exata dos maiores criadores em 2026.`,
-        `Primeiro, ajuste seus ganchos visuais e legendas cinéticas.`,
-        `Segundo, elimine qualquer pausa e retenha a atenção.`,
-        `Salve este reel agora e coloque em prática hoje!`,
-      ],
-      Chinese: [
-        `想要掌握${cleanTitle}，请立刻停下划动。`,
-        `这是顶级创作者在2026年都在使用的高效秘诀。`,
-        `开篇前3秒抓住眼球，并搭配生动的动态卡拉OK字幕。`,
-        `果断剪除所有空白停顿，保持高节奏完播率。`,
-        `收藏这条视频，今天就行动起来！`,
-      ],
-    };
-
-    const lines = scriptsByLang[targetLanguage] || scriptsByLang['English'];
-    const numLines = Math.min(lines.length, Math.max(2, Math.floor(dur / 2)));
-    const step = dur / numLines;
-
-    function fmtSrtTime(totalSec: number): string {
-      const h = Math.floor(totalSec / 3600);
-      const m = Math.floor((totalSec % 3600) / 60);
-      const s = Math.floor(totalSec % 60);
-      const ms = Math.floor((totalSec % 1) * 1000);
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
-    }
-
-    const segments: Array<{ id: number; start: string; end: string; text: string }> = [];
-    let srt = '';
-
-    for (let i = 0; i < numLines; i++) {
-      const startSec = i * step;
-      const endSec = Math.min((i + 1) * step - 0.05, dur);
-      const start = fmtSrtTime(startSec);
-      const end = fmtSrtTime(endSec);
-      const text = lines[i % lines.length];
-
-      segments.push({ id: i + 1, start, end, text });
-      srt += `${i + 1}\n${start} --> ${end}\n${text}\n\n`;
-    }
-
-    const transcript = lines.slice(0, numLines).join(' ');
-    return { srt: srt.trim(), transcript, segments };
-  }
-
   // Live Speech-to-Text & Subtitle Synchronization API (Works automatically with or without API Key)
   app.post('/api/transcribe', async (req, res) => {
     try {
@@ -622,6 +531,24 @@ Output valid JSON:
   "segments": [{ "id": 1, "start": "00:00:00,150", "end": "00:00:02,300", "text": "First phrase" }]
 }`;
 
+            // A saturated model used to leave intake on "Reading the audio…" indefinitely, because
+            // each candidate was awaited with no deadline at all. Every attempt now gets one, inside
+            // a shared budget, so the honest "nothing was transcribed" answer always arrives.
+            const TRANSCRIBE_BUDGET_MS = 45_000;
+            const budgetEndsAt = Date.now() + TRANSCRIBE_BUDGET_MS;
+            const withinBudget = () => Date.now() < budgetEndsAt;
+            function raceBudget<T>(work: Promise<T>, label: string): Promise<T> {
+              const left = budgetEndsAt - Date.now();
+              if (left <= 0) return Promise.reject(new Error(`${label}: transcription budget spent`));
+              return Promise.race([
+                work,
+                new Promise<T>((_, reject) => {
+                  const timer = setTimeout(() => reject(new Error(`${label}: no answer in ${left}ms`)), left);
+                  timer.unref?.();
+                }),
+              ]);
+            }
+
             const modelsToTry = [
               'gemini-3.5-transcribe',
               'gemini-3.8-flash',
@@ -630,6 +557,10 @@ Output valid JSON:
             ];
 
             for (const model of modelsToTry) {
+              if (!withinBudget()) {
+                console.warn(`[KontentOS AI CC] Stopping transcription at ${model}: the whole call ran out of time.`);
+                break;
+              }
               try {
                 // gemini-3.5-transcribe is an audio-only model; map video containers to audio containers
                 const effectiveMime = model.includes('transcribe') && mimeType.startsWith('video/')
@@ -641,11 +572,14 @@ Output valid JSON:
                   ? [{ inlineData: { data: base64Media, mimeType: effectiveMime } }]
                   : [{ inlineData: { data: base64Media, mimeType: effectiveMime } }, prompt];
 
-                const response = await ai.models.generateContent({
-                  model,
-                  contents,
-                  config: isDedicatedTranscribe ? undefined : { responseMimeType: 'application/json' },
-                });
+                const response = await raceBudget(
+                  ai.models.generateContent({
+                    model,
+                    contents,
+                    config: isDedicatedTranscribe ? undefined : { responseMimeType: 'application/json' },
+                  }),
+                  `transcribe via ${model}`
+                );
 
                 // Extract verbatim audio transcription from audioTranscription parts or text parts
                 let extractedText = '';
@@ -677,6 +611,17 @@ Output valid JSON:
                     segments = parsed.segments || [];
                     usedSource = `gemini_multimodal_${model}`;
                     break;
+                  } else if (isEmptySpeechEnvelope(parsed)) {
+                    // The model looked at the take and reported no speech. That is an answer, and it
+                    // is not a transcript: keep trying, then fall through to the unsaved scaffold.
+                    console.warn(`[KontentOS AI CC] ${model} found no speech in "${video.title}".`);
+                    continue;
+                  } else if (!isSpokenTextUsable(extractedText)) {
+                    console.warn(
+                      `[KontentOS AI CC] ${model} answered about the job instead of the take; not stored:`,
+                      extractedText.trim().slice(0, 90)
+                    );
+                    continue;
                   } else {
                     // Verbatim transcription returned directly by speech model
                     transcript = extractedText.trim();
@@ -684,10 +629,13 @@ Output valid JSON:
                     // If a non-English target language was requested, translate the verbatim text
                     if (targetLanguage && targetLanguage.toLowerCase() !== 'english') {
                       try {
-                        const trRes = await ai.models.generateContent({
-                          model: 'gemini-3.5-flash',
-                          contents: `Translate this spoken video transcript accurately into ${targetLanguage}. Output ONLY the translated text without markdown or commentary:\n\n${transcript}`,
-                        });
+                        const trRes = await raceBudget(
+                          ai.models.generateContent({
+                            model: 'gemini-3.5-flash',
+                            contents: `Translate this spoken video transcript accurately into ${targetLanguage}. Output ONLY the translated text without markdown or commentary:\n\n${transcript}`,
+                          }),
+                          `translate to ${targetLanguage}`
+                        );
                         const trText = trRes.text?.trim();
                         if (trText) transcript = trText;
                       } catch (trErr: any) {
@@ -720,7 +668,7 @@ Output valid JSON:
       // Seamless fallback: If no API key or Gemini failed/timed out, automatically generate smart synchronized subtitles
       if (!srt || !segments.length) {
         console.log(`[KontentOS AI CC] Generating automatic synchronized captions for "${video.title}" in ${targetLanguage}...`);
-        const autoData = generateSmartSubtitles(video.title, video.duration || 10, targetLanguage);
+        const autoData = generateCueScaffold(video.title, video.duration || 10, targetLanguage);
         srt = autoData.srt;
         transcript = autoData.transcript;
         segments = autoData.segments;

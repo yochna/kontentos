@@ -710,7 +710,7 @@ export default function PublishSchedule() {
                   <Icon name="auto_fix_high" size={18} className="text-tertiary" /> Platform-Tailored Copy
                 </h2>
                 <p className="text-xs text-ink-muted mt-0.5">
-                  AI dynamically reformulates hooks, captions, and hashtags per channel
+                  The engine rewrites the hook and the caption for each channel. The tags are the ones you type.
                 </p>
               </div>
               <Button
@@ -750,7 +750,8 @@ export default function PublishSchedule() {
             {/* What the destination will actually accept, measured against the copy in the tab */}
             {(() => {
               const spec = platformSpec(previewPlatform);
-              const verdict = checkCaption(copyForPlatform(previewPlatform, copyBundle).text, previewPlatform);
+              const { text, tags } = copyForPlatform(previewPlatform, copyBundle);
+              const verdict = checkCaption(text, previewPlatform);
               const pct = Math.min(100, Math.round((verdict.length / spec.captionMax) * 100));
               return (
                 <div className="mb-3 rounded-btn border border-line bg-surface-2/60 p-3 space-y-2">
@@ -760,7 +761,9 @@ export default function PublishSchedule() {
                     </span>
                     <span className={`font-mono ${verdict.ok ? 'text-ink-muted' : 'text-danger font-semibold'}`}>
                       {verdict.length.toLocaleString()} / {spec.captionMax.toLocaleString()} ·{' '}
-                      {verdict.hashtags} of {spec.hashtags.max} tags
+                      {/* The count the creator can act on is the tags attached to this post, not the
+                          ones that happen to be written inside the caption text. */}
+                      {tags.length} of {spec.hashtags.max} tags
                     </span>
                   </div>
                   <div

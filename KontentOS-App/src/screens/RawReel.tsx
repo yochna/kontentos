@@ -53,10 +53,15 @@ export default function RawReel() {
     uploadVideo,
     relinkMedia,
     transcripts,
+    saveScript,
   } = useStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingPct, setUploadingPct] = useState<number | null>(null);
+  const [scriptOpen, setScriptOpen] = useState(false);
+  const [scriptText, setScriptText] = useState('');
+  const [savingScript, setSavingScript] = useState(false);
+  const [scriptMsg, setScriptMsg] = useState('');
 
   const ready = useMemo(
     () => videos.filter((v) => v.status === 'ready' || v.status === 'processing'),
@@ -132,6 +137,26 @@ export default function RawReel() {
     }
   };
 
+  // A script typed for one clip must not carry over when the creator lights a different cut.
+  useEffect(() => {
+    setScriptOpen(false);
+    setScriptMsg('');
+  }, [videoId]);
+
+  async function saveScriptNow() {
+    if (!video) return;
+    setSavingScript(true);
+    setScriptMsg('');
+    const ok = await saveScript(video.id, scriptText);
+    setSavingScript(false);
+    if (ok) {
+      setScriptMsg('Saved — the cues on this clip are your words now.');
+      setScriptOpen(false);
+    } else {
+      setScriptMsg('Could not save. Nothing was written to the clip.');
+    }
+  }
+
   async function create() {
     if (!video || busy) return;
     setBusy(true);
@@ -202,7 +227,7 @@ export default function RawReel() {
               <StatusPill tone="primary">Transcript on file</StatusPill>
             )}
             {video && transcripts[video.id] === 'none' && (
-              <StatusPill tone="neutral">No speech stored — captions will use the title</StatusPill>
+              <StatusPill tone="neutral">No speech on file — paste the script below</StatusPill>
             )}
             {result && (result.offline || result.source === 'gemini') ? (
               <>
@@ -356,6 +381,74 @@ export default function RawReel() {
               </div>
             )}
           </Card>
+
+          {/* The engine is not the only way words reach the bench: a creator who has their script
+              typed can hand it over and get real cues, with no audio and no API key involved. */}
+          {video && (
+            <Card className="p-4">
+              <div className="flex items-start gap-3">
+                <span className="grid place-items-center w-9 h-9 rounded-btn bg-surface-2 text-primary shrink-0">
+                  <Icon name="edit_note" size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-[13px] font-semibold text-ink">Paste the script instead</h4>
+                    {transcripts[video.id] === 'ready' && (
+                      <Badge tone="primary">Cues on file</Badge>
+                    )}
+                  </div>
+                  <p className="text-[12px] text-ink-muted mt-0.5">
+                    {transcripts[video.id] === 'working'
+                      ? 'Reading the audio in the background — you can type over it.'
+                      : 'KontentOS will not write your spoken lines for you. Type or paste what you actually said and the cues become yours.'}
+                  </p>
+
+                  {scriptOpen ? (
+                    <div className="mt-3 space-y-2">
+                      <textarea
+                        value={scriptText}
+                        onChange={(e) => setScriptText(e.target.value)}
+                        rows={5}
+                        aria-label={`Script for ${video.title}`}
+                        placeholder={'Paste or type what you say on camera, one sentence after another.'}
+                        className="w-full rounded-card border border-line bg-surface px-3 py-2 text-[13px] text-ink placeholder:text-ink-dim kt-focus resize-y"
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={saveScriptNow}
+                          disabled={savingScript || scriptText.trim().length < 3}
+                        >
+                          {savingScript ? 'Saving…' : 'Use this as the script'}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setScriptOpen(false)}>
+                          Cancel
+                        </Button>
+                        {scriptMsg && (
+                          <span className="text-[12px] text-ink-muted flex items-center gap-1.5">
+                            <Icon name={scriptMsg.startsWith('Saved') ? 'check_circle' : 'error'} size={14} />
+                            {scriptMsg}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setScriptText('');
+                        setScriptMsg('');
+                        setScriptOpen(true);
+                      }}
+                      className="kt-focus mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary"
+                    >
+                      <Icon name="keyboard" size={14} />
+                      Open the script field
+                    </button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* Step 2: Choose Look / Style Preset */}
           <Card className="p-5">

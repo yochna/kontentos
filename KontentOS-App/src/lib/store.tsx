@@ -67,6 +67,8 @@ interface StoreValue {
   /** Per-clip speech-to-text progress, started the moment a clip lands on the bench. */
   transcripts: Record<string, TranscriptState>;
   transcribeOnIntake: (videoId: string) => Promise<void>;
+  /** Store the creator's own typed script as this clip's cues. False when nothing was written. */
+  saveScript: (videoId: string, text: string) => Promise<boolean>;
   project: TimelineProject | null;
   setProject: (p: TimelineProject | null) => void;
   runAutoEdit: (video: Video, preset: EditPreset) => Promise<AutoEditOutcome>;
@@ -318,12 +320,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const transcribeOnIntake = useCallback<StoreValue['transcribeOnIntake']>(async (videoId) => {
     setTranscripts((prev) => ({ ...prev, [videoId]: 'working' }));
     try {
-      const res = await api.transcribeVideo({ videoId, forceRefresh: false });
+      // Slightly longer than the server's own engine budget, so a request that never comes back
+      // still ends the pill instead of leaving the creator staring at "Reading the audio…".
+      const res = await api.transcribeVideo({ videoId, forceRefresh: false, signal: AbortSignal.timeout(60_000) });
       // Placeholder cues are not the creator's speech and the server refuses to store them, so a
       // clip with `persisted: false` really does have nothing to cut from.
       setTranscripts((prev) => ({ ...prev, [videoId]: res?.persisted ? 'ready' : 'none' }));
     } catch {
       setTranscripts((prev) => ({ ...prev, [videoId]: 'none' }));
+    }
+  }, []);
+
+  /**
+   * Speech-to-text is one way to get words onto a clip; typing them is the other, and it works with
+   * no engine and no audio. The cues stored here are the creator's own sentences, so everything
+   * downstream — captions, the cut, the repurpose engine — has something real to work from.
+   */
+  const saveScript = useCallback<StoreValue['saveScript']>(async (videoId, text) => {
+    const clean = text.trim();
+    if (clean.length < 3) return false;
+    try {
+      const saved = await api.saveScriptCues(videoId, clean);
+      setTranscripts((prev) => ({ ...prev, [videoId]: saved ? 'ready' : 'none' }));
+      return Boolean(saved);
+    } catch {
+      return false;
     }
   }, []);
 
@@ -798,6 +819,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       dbStatus,
       transcripts,
       transcribeOnIntake,
+      saveScript,
       project,
       setProject,
       runAutoEdit,
@@ -845,6 +867,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       dbStatus,
       transcripts,
       transcribeOnIntake,
+      saveScript,
       project,
       runAutoEdit,
       histTick,
