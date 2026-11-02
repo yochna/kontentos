@@ -2429,7 +2429,7 @@ function Header({
     <PageHeader
       eyebrow="Smart Editor · 60fps Multi-Track"
       icon="content_cut"
-      title={hasProject && title ? title : 'Editorial precision on the timeline'}
+      title={hasProject && title ? title : 'Cut & caption on the timeline'}
       className="mb-6"
       actions={
         hasProject && (

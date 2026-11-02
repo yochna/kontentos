@@ -5,10 +5,11 @@ export type Theme = 'light' | 'dark';
 const STORAGE_KEY = 'kontentos_redesign_theme';
 
 function getInitialTheme(): Theme {
-  if (typeof window === 'undefined') return 'light';
+  if (typeof window === 'undefined') return 'dark';
   const saved = window.localStorage.getItem(STORAGE_KEY);
-  // Light is the DEFAULT for the redesign; only honour an explicit saved dark.
-  return saved === 'dark' ? 'dark' : 'light';
+  // The cutting room is dark by default; only an explicitly saved light preference opens the
+  // daylight variant.
+  return saved === 'light' ? 'light' : 'dark';
 }
 
 type ViewTransitionDocument = Document & {

@@ -5,10 +5,10 @@
 /* ------------------------------- Command Center ------------------------------- */
 
 export const quickActions = [
-  { id: 'ideas', icon: 'lightbulb', title: 'Find an idea', body: 'Discover what to create next & analyze trending publisher signals.', tag: '#FounderLed', tag2: '+12 tags' },
-  { id: 'raw-reel', icon: 'play_circle', title: 'Make a Reel', body: 'Turn raw ingested clips into a finished, narrative vertical broadcast.', tag: 'Auto-stitch ready' },
-  { id: 'smart-editor', icon: 'tune', title: 'Edit content', body: 'Refine existing compositions with our smart editorial assistance bar.', tag: 'Precision timeline · 60fps' },
-  { id: 'publish-schedule', icon: 'send', title: 'Publish', body: 'Preview, package and schedule one dispatch for every channel you post to.', tag: 'Export bundle ready' },
+  { id: 'ideas', icon: 'lightbulb', title: 'Seed an angle', body: 'Decide what the cut is about before you shoot it.', tag: '#FounderLed', tag2: '+12 tags' },
+  { id: 'raw-reel', icon: 'play_circle', title: 'Intake & reel', body: 'Turn raw footage into a first vertical cut.', tag: 'Auto-stitch ready' },
+  { id: 'smart-editor', icon: 'tune', title: 'Cut it', body: 'Trim, zoom and caption on a frame-accurate timeline.', tag: 'Precision timeline · 60fps' },
+  { id: 'publish-schedule', icon: 'send', title: 'Queue it', body: 'Write the caption once, set the date you will post.', tag: 'Export bundle ready' },
 ];
 
 /* ---------------------------------- Ideas ---------------------------------- */

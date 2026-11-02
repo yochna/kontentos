@@ -66,7 +66,7 @@ export default function CommandCenter() {
       {
         phase: 'Phase 03',
         icon: 'content_cut',
-        title: 'Editorial Precision',
+        title: 'Cut & Caption',
         headline: activeDraft?.project ? 'Timeline project active' : 'Fine-tune kinetic cuts',
         meta: activeDraft?.project ? `${activeDraft.project.tracks.length} tracks assembled` : 'Auto-zoom & captions',
         screenId: 'smart-editor' as ScreenId,
@@ -75,9 +75,9 @@ export default function CommandCenter() {
       {
         phase: 'Phase 04',
         icon: 'schedule_send',
-        title: 'Broadcast Distribution',
-        headline: hasScheduled ? `${scheduled.length} post(s) queued` : 'Schedule multi-channel',
-        meta: hasScheduled ? 'Waiting on dispatch time' : 'Cross-post ready',
+        title: 'Queue & Ship',
+        headline: hasScheduled ? `${scheduled.length} post(s) queued` : 'Set its date',
+        meta: hasScheduled ? 'Waiting on its date' : 'KontentOS holds the plan; you post it',
         screenId: 'publish-schedule' as ScreenId,
         done: hasScheduled,
       },
@@ -118,8 +118,8 @@ export default function CommandCenter() {
       <PageHeader
         eyebrow={`Good morning, ${firstName}`}
         icon="space_dashboard"
-        title="Your creator command center"
-        description="One calm desk for the whole loop — find the idea, cut the reel, publish everywhere."
+        title="Cutting room desk"
+        description="Four phases, one cut at a time: seed the angle, intake the footage, cut and caption it, queue it to ship."
         actions={
           <>
             <Button variant="secondary" icon="history" onClick={() => navigate('content-library')}>

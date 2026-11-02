@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@/lib/icons';
 
-const TAGLINE = 'Create once. Publish everywhere.';
+const TAGLINE = 'Raw in. Scheduled out.';
 const HOLD_MS = 3700;
 
 export function Splash({ onDone }: { onDone: () => void }) {

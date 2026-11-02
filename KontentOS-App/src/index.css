@@ -6,91 +6,93 @@
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 /* ==========================================================================
-   KontentOS — Editorial Studio design tokens
-   Light (Paper Editorial) is the DEFAULT. Dark (Evergreen) is opt-in.
+   KontentOS — Cutting Room tokens
+   The room is dark: a graphite bench lit by one safelight, with bone-colored
+   labels on it. Dark is the DEFAULT (it is what a grading room looks like);
+   'Daylight' is the opt-in variant for a creator working in the open.
    Raw palette lives on :root / [data-theme] so it can switch at runtime;
    @theme inline maps Tailwind color utilities onto those runtime vars.
    ========================================================================== */
 
 :root,
-[data-theme='light'] {
-  color-scheme: light;
+[data-theme='dark'] {
+  color-scheme: dark;
 
-  --app: #faf9f5; /* warm archival cream canvas */
-  --surface: #ffffff; /* paper sheets / cards */
-  --surface-2: #f4f2ec; /* subtle fills, hovers */
-  --surface-3: #edeae1; /* stronger fills, tracks */
-  --line: #dde7df; /* pale lichen hairlines */
-  --line-strong: #c7d3ca;
+  --app: #0d1013; /* bench floor, near-black with a cold cast */
+  --surface: #15191d; /* bench top */
+  --surface-2: #1c2228; /* raised panels, hovers */
+  --surface-3: #262e35; /* wells, tracks, rails */
+  --line: #29323a; /* hairline between machines */
+  --line-strong: #3b4750;
 
-  --ink: #1e2522; /* primary carbon-forest text */
-  --ink-muted: #68736d; /* secondary stone-green */
-  --ink-dim: #9aa39d; /* tertiary metadata */
+  --ink: #e9e4d9; /* bone — printed label on the slate */
+  --ink-muted: #9ba6ad;
+  --ink-dim: #6a757c;
 
-  --primary: #285c4d; /* deep forest green */
-  --primary-hover: #1f473b;
-  --on-primary: #ffffff;
-  --primary-soft: rgba(40, 92, 77, 0.08);
+  --primary: #f0a33c; /* safelight amber */
+  --primary-hover: #ffb957;
+  --on-primary: #171004; /* labels burned into the amber, never white on it */
+  --primary-soft: rgba(240, 163, 60, 0.14);
 
-  --secondary: #4d7365; /* muted pine */
-  --secondary-soft: rgba(77, 115, 101, 0.12);
-  --tertiary: #c98a58; /* warm terracotta */
-  --tertiary-soft: rgba(201, 138, 88, 0.14);
+  --secondary: #7fb2c4; /* steel cold-light */
+  --secondary-soft: rgba(127, 178, 196, 0.16);
+  --tertiary: #e2593b; /* vermilion — rejection, splice marks */
+  --tertiary-soft: rgba(226, 89, 59, 0.16);
 
-  --success: #2f7d5b;
-  --warning: #b08233;
-  --danger: #b4503f;
+  --success: #64c394;
+  --warning: #e8b93f;
+  --danger: #e2593b;
 
-  --ring: rgba(40, 92, 77, 0.35);
-  --shadow-1: 0 1px 3px rgba(30, 37, 34, 0.05), 0 4px 12px rgba(30, 37, 34, 0.03);
-  --shadow-2: 0 8px 24px rgba(30, 37, 34, 0.08), 0 2px 6px rgba(30, 37, 34, 0.04);
-  --scrim: rgba(30, 37, 34, 0.28);
-  --splash-glow: rgba(40, 92, 77, 0.12);
-  --splash-shine: rgba(255, 255, 255, 0.65);
-  --kt-shimmer: rgba(255, 255, 255, 0.78);
-  --kt-sheen: rgba(255, 255, 255, 0.62);
-  --kt-glow: rgba(40, 92, 77, 0.10);
+  --ring: rgba(240, 163, 60, 0.45);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.55), 0 6px 18px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 18px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --scrim: rgba(6, 8, 10, 0.74);
+  --splash-glow: rgba(240, 163, 60, 0.16);
+  --splash-shine: rgba(255, 255, 255, 0.2);
+  --kt-shimmer: rgba(255, 255, 255, 0.07);
+  --kt-sheen: rgba(255, 255, 255, 0.14);
+  --kt-glow: rgba(240, 163, 60, 0.12);
   --kt-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --kt-ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
 }
 
-[data-theme='dark'] {
-  color-scheme: dark;
+[data-theme='light'] {
+  color-scheme: light;
 
-  --app: #14171a;
-  --surface: #1c2023;
-  --surface-2: #232829;
-  --surface-3: #2e3537;
-  --line: #2f3638;
-  --line-strong: #3c4547;
+  --app: #f2f3f1; /* daylight workshop: cool paper, not cream */
+  --surface: #ffffff;
+  --surface-2: #ebeeef;
+  --surface-3: #dfe4e2;
+  --line: #d7ddd9;
+  --line-strong: #bcc6c1;
 
-  --ink: #ecebe4;
-  --ink-muted: #a7ada6;
-  --ink-dim: #767d76;
+  --ink: #141a1d;
+  --ink-muted: #5a646a;
+  --ink-dim: #8a9499;
 
-  --primary: #7fb09a;
-  --primary-hover: #96c3ae;
-  --on-primary: #10201a;
-  --primary-soft: rgba(127, 176, 154, 0.16);
+  --primary: #a35a12; /* burnt amber, deep enough to carry white text on paper */
+  --primary-hover: #8c4d0e;
+  --on-primary: #fff7ea;
+  --primary-soft: rgba(163, 90, 18, 0.1);
 
-  --secondary: #a8c3a0;
-  --secondary-soft: rgba(168, 195, 160, 0.16);
-  --tertiary: #d9a06a;
-  --tertiary-soft: rgba(217, 160, 106, 0.16);
+  --secondary: #3f7185;
+  --secondary-soft: rgba(63, 113, 133, 0.14);
+  --tertiary: #c1452a;
+  --tertiary-soft: rgba(193, 69, 42, 0.12);
 
-  --success: #6fbf95;
-  --warning: #d8b863;
-  --danger: #d9776a;
+  --success: #2b7c5a;
+  --warning: #98701d;
+  --danger: #c1452a;
 
-  --ring: rgba(127, 176, 154, 0.4);
-  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25);
-  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.5);
-  --scrim: rgba(0, 0, 0, 0.6);
-  --splash-glow: rgba(127, 176, 154, 0.18);
-  --splash-shine: rgba(255, 255, 255, 0.22);
-  --kt-shimmer: rgba(255, 255, 255, 0.08);
-  --kt-sheen: rgba(255, 255, 255, 0.16);
-  --kt-glow: rgba(127, 176, 154, 0.16);
+  --ring: rgba(163, 90, 18, 0.35);
+  --shadow-1: 0 1px 3px rgba(20, 26, 29, 0.06), 0 4px 12px rgba(20, 26, 29, 0.04);
+  --shadow-2: 0 10px 28px rgba(20, 26, 29, 0.1), 0 2px 6px rgba(20, 26, 29, 0.05);
+  --scrim: rgba(20, 26, 29, 0.34);
+  --splash-glow: rgba(163, 90, 18, 0.12);
+  --splash-shine: rgba(255, 255, 255, 0.7);
+  --kt-shimmer: rgba(255, 255, 255, 0.8);
+  --kt-sheen: rgba(255, 255, 255, 0.64);
+  --kt-glow: rgba(163, 90, 18, 0.09);
 }
 
 @theme inline {
@@ -115,16 +117,20 @@
   --color-warning: var(--warning);
   --color-danger: var(--danger);
 
-  --font-display: 'Newsreader', ui-serif, Georgia, serif;
-  --font-body: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  /* Syne sets the machine-shop display voice; Space Grotesk carries the body at the
+     same width, so a heading and its control label read as one instrument.
+     The serif/sans pairs below stay only because the static card presets render them
+     into exported images by name — they are content, not chrome. */
+  --font-display: 'Syne', 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Space Grotesk', 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-playfair: 'Playfair Display', Georgia, serif;
   --font-jakarta: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   --font-space: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-syne: 'Syne', ui-sans-serif, system-ui, sans-serif;
 
-  --radius-btn: 8px;
-  --radius-card: 12px;
+  --radius-btn: 6px;
+  --radius-card: 10px;
 
   --shadow-paper: var(--shadow-1);
   --shadow-float: var(--shadow-2);
@@ -134,8 +140,14 @@
    Base
    ========================================================================== */
 
-* {
-  border-color: var(--line);
+/* Must stay inside @layer base: unlayered rules outrank Tailwind's utility layer,
+   and this default used to beat every border-primary / border-danger in the app. */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--line);
+  }
 }
 
 html,
@@ -161,8 +173,9 @@ h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  /* Syne only shows its character at 600+; at the old serif weight it reads as a thin generic sans. */
+  font-weight: 650;
+  letter-spacing: -0.022em;
   color: var(--ink);
   margin: 0;
 }
@@ -223,11 +236,12 @@ h4 {
   box-shadow: var(--shadow-1);
 }
 
+/* Labels on machines, not editorial kickers: set in the mono face with wide tracking. */
 .kt-eyebrow {
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-dim);
 }
@@ -502,13 +516,6 @@ input[type='range'] {
   .kt-reveal--left { transform: translateX(-14px); }
   .kt-reveal.is-in { opacity: 1; transform: none; }
 
-  /* --- screen switch ------------------------------------------------------- */
-  @keyframes ktScreenIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: none; }
-  }
-  .kt-screen-enter { animation: ktScreenIn 380ms var(--kt-ease-out) both; }
-
   /* --- header cascade (runs on mount, so it replays on every navigation) --- */
   @keyframes ktHeroIn {
     from { opacity: 0; transform: translateY(12px); }
@@ -719,6 +726,96 @@ input[type='range'] {
   .group:hover .kt-grow { transform: scale(1.12); }
 }
 
+/* ==========================================================================
+   The bench — station swap, cut rail, spine keys
+   Kept in @layer components so call-site utilities still override them.
+   ========================================================================== */
+@layer components {
+  /* --- station swap --------------------------------------------------------
+     'backwards', not 'both': the stage must stop owning transform once it lands,
+     or the spotlight tiles inside it can never lift on hover. */
+  @keyframes ktStationIn {
+    from { opacity: 0; transform: translate3d(16px, 0, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+  .kt-station { animation: ktStationIn 320ms var(--kt-ease-out) backwards; }
+
+  /* --- machine table backdrop ----------------------------------------------
+     A 64px hairline grid, faded out below so the stage floor reads as a surface
+     the cut sits on rather than as empty space. */
+  .kt-graph {
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: radial-gradient(130% 95% at 50% 0%, #000 18%, transparent 78%);
+    mask-image: radial-gradient(130% 95% at 50% 0%, #000 18%, transparent 78%);
+  }
+
+  /* --- cut tile -------------------------------------------------------------
+     --kt-fill is how far the ledger says this cut has travelled (0..1). */
+  .kt-cut-tile {
+    position: relative;
+    transition:
+      transform 220ms var(--kt-ease-out),
+      border-color 200ms ease-out,
+      background-color 200ms ease-out;
+  }
+  .kt-cut-tile:hover { transform: translateY(-3px); }
+  .kt-cut-tile::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    width: calc(var(--kt-fill, 0) * 100%);
+    background: var(--primary);
+    opacity: 0.6;
+    transition: width 460ms var(--kt-ease-out);
+  }
+  /* The selected cut carries a safelight mark across its top edge. Its border is lit by a
+     call-site border-primary utility: a component-layer border-color would lose to border-line. */
+  .kt-cut-tile[data-selected='true']::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: var(--primary);
+  }
+
+  /* --- cut rail ----------------------------------------------------------- */
+  .kt-railstrip {
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .kt-railstrip::-webkit-scrollbar { display: none; }
+  .kt-railstrip > * { scroll-snap-align: start; }
+
+  /* --- spine key ---------------------------------------------------------- */
+  .kt-key { position: relative; transition: color 180ms ease-out, background-color 180ms ease-out; }
+  .kt-key::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    height: 0;
+    width: 2px;
+    background: var(--primary);
+    transform: translateY(-50%);
+    transition: height 220ms var(--kt-ease-out);
+  }
+  .kt-key:hover::before { height: 55%; }
+  .kt-key[data-active='true']::before { height: 100%; }
+
+  /* --- ledger led ---------------------------------------------------------- */
+  @keyframes ktLed {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
+  }
+  .kt-led--now { animation: ktLed 1.7s ease-in-out infinite; }
+}
+
 /* Theme switching repaints every token at once; a view transition cross-fades
    that swap instead of snapping. Browsers without the API run the update directly. */
 ::view-transition-old(root),
@@ -744,7 +841,8 @@ input[type='range'] {
     animation-delay: 0ms !important;
   }
 
-  .kt-screen-enter,
+  .kt-station,
+  .kt-led--now,
   .kt-hero-in,
   .kt-dialog,
   .kt-scrim,
@@ -775,7 +873,11 @@ input[type='range'] {
   .kt-spot { transform: none; transition: none; }
   .kt-nudge,
   .kt-grow,
+  .kt-cut-tile,
+  .kt-cut-tile::after,
+  .kt-key::before,
   .kt-bar { transition: none; }
+  .kt-cut-tile:hover { transform: none; }
   ::view-transition-old(root),
   ::view-transition-new(root) { animation: none; }
 }

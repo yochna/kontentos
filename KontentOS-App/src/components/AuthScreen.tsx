@@ -55,8 +55,8 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (user: User) => void })
             <Icon name="movie_filter" size={18} />
           </span>
           <div>
-            <h1 className="font-display text-[19px] font-bold leading-tight">KontentOS Studio</h1>
-            <p className="text-[12px] text-ink-dim">Your clips, your calendar, your account</p>
+            <h1 className="font-display text-[19px] font-bold leading-tight">KontentOS</h1>
+            <p className="text-[12px] text-ink-dim">One bench. Raw in, scheduled out.</p>
           </div>
         </div>
 

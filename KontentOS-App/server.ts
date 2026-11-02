@@ -1,5 +1,5 @@
 /**
- * KontentOS — Editorial Studio · Standalone Application Server
+ * KontentOS — Cutting Room · Standalone Application Server
  *
  * Runs the complete KontentOS creative studio, modern React application,
  * and unified backend API services on port 4111.
@@ -337,7 +337,7 @@ async function createApp() {
   app.get('/api/health', (_req, res) => {
     res.json({
       status: 'ok',
-      app: 'KontentOS — Editorial Studio (Redesign)',
+      app: 'KontentOS — Cutting Room',
       standalone: true,
       port: PORT,
       authRequired: true,
@@ -960,7 +960,7 @@ Output valid JSON:
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n  KontentOS Editorial Studio (Redesign) — standalone`);
+    console.log(`\n  KontentOS Cutting Room — standalone`);
     console.log(`  ▸ App + API : http://localhost:${PORT}`);
     console.log(`  ▸ Data       : ${db.isMongoConnected() ? 'MongoDB' : `${dataDir}  (isolated from the original app)`}`);
     console.log(`  ▸ Uploads    : ${uploadsDir}\n`);

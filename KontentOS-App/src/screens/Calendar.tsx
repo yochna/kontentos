@@ -174,10 +174,10 @@ export default function Calendar() {
   return (
     <PageShell className="animate-fade-in">
       <PageHeader
-        eyebrow="Distribution Engine"
+        eyebrow="Ship calendar"
         icon="calendar_today"
-        title="Publishing Calendar"
-        description="Coordinate multi-platform reels, manage release cadence, and dispatch scheduled drops."
+        title="Release Calendar"
+        description="The dates you committed to. KontentOS keeps the plan and the caption; posting is still you."
         actions={
           <>
             <div className="flex items-center rounded-btn border border-line bg-surface shadow-xs">
