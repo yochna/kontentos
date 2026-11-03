@@ -21,9 +21,20 @@ declare global {
   }
 }
 
-export const SESSION_COOKIE = 'kt_session';
 export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 const IS_PROD = process.env.NODE_ENV === 'production';
+
+/**
+ * On the https deployment the cookie carries the `__Host-` prefix, which the browser refuses to set
+ * unless it is Secure, sent to the root path and given no Domain — so no other origin, including
+ * anything on a subdomain of the workspace, can plant or read a session. On http://localhost the
+ * prefix would be rejected outright, so the plain name stays there.
+ *
+ * The name changed, which means every session on a live instance ends at the next deploy and each
+ * creator signs in once more. That is the point: a session no other origin can re-set is the one
+ * worth having.
+ */
+export const SESSION_COOKIE = IS_PROD ? '__Host-kt_session' : 'kt_session';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export const MIN_PASSWORD_LENGTH = 8;

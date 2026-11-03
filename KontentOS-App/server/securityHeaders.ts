@@ -15,7 +15,9 @@ type CspOptions = Exclude<
 /**
  * The hosts a creator's browser actually talks to.
  *
- * - unpkg.com: the ffmpeg core the export worker falls back to when it is not bundled locally.
+ * - unpkg.com: the ffmpeg core the export worker falls back to when it is not bundled locally. It is
+ *   fetched and re-fetched as a blob, so it needs connect-src only — no script on that CDN ever
+ *   runs on this origin, which is why it is absent from script-src.
  * - huggingface.co: the Whisper weights the transcription worker pulls on first use.
  * - images.unsplash.com / images.pexels.com: stock frames shown in the picker.
  * - blob: / data:: workers built from the page, canvases turned into downloads, proxied thumbnails.
@@ -23,8 +25,9 @@ type CspOptions = Exclude<
 export function cspOptions(): CspOptions {
   const directives: CspOptions['directives'] = {
     defaultSrc: ["'self'"],
-    // 'wasm-unsafe-eval' lets the ffmpeg and Whisper workers run without opening eval to anything else.
-    scriptSrc: ["'self'", "'wasm-unsafe-eval'", 'blob:', 'https://unpkg.com'],
+    // 'wasm-unsafe-eval' lets the ffmpeg and Whisper workers run without opening eval to anything
+    // else. Everything executed here is either this bundle or a blob this bundle assembled.
+    scriptSrc: ["'self'", "'wasm-unsafe-eval'", 'blob:'],
     workerSrc: ["'self'", 'blob:'],
     // A style attribute is how React writes one; the Google Fonts sheet is a plain <link>, so only
     // that host is trusted rather than any style a page might be tricked into accepting.

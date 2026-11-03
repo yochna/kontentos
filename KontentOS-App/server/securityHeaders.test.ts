@@ -53,10 +53,15 @@ describe('the headers a KontentOS page ships with', () => {
     expect(csp).toMatch(/https:\/\/images\.unsplash\.com/);
 
     // The script source is the one worth reading back: 'wasm-unsafe-eval' is the only eval-shaped
-    // thing allowed, and inline script is not.
+    // thing allowed, and inline script is not. No remote origin may script this page either — the
+    // CDN core the export worker falls back to is fetched and rewritten as a blob before it runs.
     const scriptSrc = /script-src ([^;]*)/.exec(csp)?.[1] ?? '';
     expect(scriptSrc).toMatch(/'wasm-unsafe-eval'/);
     expect(scriptSrc).not.toMatch(/'unsafe-eval'|'unsafe-inline'/);
+    expect(scriptSrc).not.toMatch(/https?:\/\//);
+    // ...though it still has to be fetchable.
+    const connectSrc = /connect-src ([^;]*)/.exec(csp)?.[1] ?? '';
+    expect(connectSrc).toMatch(/https:\/\/unpkg\.com/);
   });
 
   it('denies framing, sniffing and referrer leaks, and upgrades to https in production', async () => {

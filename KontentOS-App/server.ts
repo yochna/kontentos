@@ -35,6 +35,7 @@ import editorRouter from './server/routes/editor.js';
 import repurposeRouter from './server/routes/repurpose.js';
 import staticCardAiRouter from './server/routes/staticCardAi.js';
 import { safeMessage } from './server/errorText.js';
+import { uploadAccessGate } from './server/mediaAccess.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const appRoot = path.dirname(__filename);
@@ -109,8 +110,18 @@ async function createApp() {
     limit: 300,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    skip: (req) => req.path === '/health',
+    skip: (req) => req.path === '/health' || req.path.startsWith('/upload'),
     message: { error: 'Too many requests, please slow down and try again shortly.' },
+  });
+  // A clip is sent in 5 MB chunks and one clip may reach 2 GB, so the largest honest upload is 400
+  // requests on its own. Counting those against the general cap would 429 a creator partway through
+  // their own footage; this ceiling still bounds one IP, and the per-session byte cap bounds the disk.
+  const uploadLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 2000,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Too many upload requests. Please restart this upload in a few minutes.' },
   });
   const aiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -120,6 +131,7 @@ async function createApp() {
     message: { error: 'AI request limit reached. Please wait a few minutes and try again.' },
   });
   app.use('/api', apiLimiter);
+  app.use('/api/upload', uploadLimiter);
   app.use(['/api/script', '/api/caption', '/api/transcribe', '/api/static-card', '/api/editor'], aiLimiter);
   // Nothing under /api is a public page: a shared cache must not hold one creator's transcript,
   // caption or schedule where the next visitor could read it.
@@ -165,6 +177,9 @@ async function createApp() {
   app.use(
     '/uploads',
     requireUser,
+    // Being signed in is not the same as being the owner, and every clip sits in one shared
+    // directory under predictable ids, so each file is checked against the row that names it.
+    uploadAccessGate,
     (req, res, next) => {
       res.header('Cross-Origin-Resource-Policy', 'cross-origin');
       res.header('Access-Control-Allow-Headers', 'Range');
@@ -227,6 +242,15 @@ async function createApp() {
   );
 
   // ---- Media proxy hardening (SSRF protection) --------------------------------
+  /** The plate a picker shows instead of a broken image. It carries no upstream bytes at all. */
+  const sendAtmosphere = (res: express.Response, maxAgeSeconds: number) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', `private, max-age=${maxAgeSeconds}`);
+    res.send(FALLBACK_ATMOSPHERE_SVG);
+  };
+
   // Only these hosts may be fetched. Add more via PROXY_ALLOWED_HOSTS="cdn.example.com,other.com".
   const PROXY_ALLOWED_HOSTS = new Set<string>([
     'images.unsplash.com',
@@ -240,6 +264,29 @@ async function createApp() {
   const PROXY_MAX_BYTES = 100 * 1024 * 1024; // 100 MB hard cap per proxied file
   const PROXY_TIMEOUT_MS = 15000;
   const PROXY_MAX_REDIRECTS = 3;
+
+  /**
+   * The bytes a picker or an <img> actually needs. Anything else is refused even from an allow-listed
+   * host, because the proxied answer is served from this origin: an upstream that replied
+   * text/html or image/svg+xml would hand the browser a document that can script KontentOS itself.
+   */
+  const PROXY_ALLOWED_CONTENT_TYPES = new Set([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/avif',
+    'image/gif',
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+  ]);
+  const isProxyableContentType = (value: string | null): boolean => {
+    const type = (value || '').split(';')[0].trim().toLowerCase();
+    return PROXY_ALLOWED_CONTENT_TYPES.has(type);
+  };
+  /** Shared cache entries outlive the creator who fetched them, so nothing here is public. */
+  const PROXY_CACHE_CONTROL = 'private, max-age=86400, stale-while-revalidate=604800';
 
   const isAllowedProxyUrl = (u: URL): boolean =>
     (u.protocol === 'https:' || u.protocol === 'http:') &&
@@ -288,7 +335,7 @@ async function createApp() {
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
       res.setHeader('Content-Type', cached.contentType);
-      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+      res.setHeader('Cache-Control', PROXY_CACHE_CONTROL);
       return res.send(cached.buffer);
     }
 
@@ -316,19 +363,21 @@ async function createApp() {
       }
       if (!upstream.ok && upstream.status !== 206) {
         console.warn(`[proxy-media] Upstream status ${upstream.status} for ${mediaUrl}. Serving atmosphere fallback.`);
-        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-        res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
-        res.setHeader('Content-Type', 'image/svg+xml');
-        res.setHeader('Cache-Control', 'public, max-age=3600');
-        return res.send(FALLBACK_ATMOSPHERE_SVG);
+        return sendAtmosphere(res, 3600);
+      }
+
+      // The answer is served from this origin, so only real media may pass through it.
+      const ct = upstream.headers.get('content-type') || '';
+      if (!isProxyableContentType(ct)) {
+        console.warn(`[proxy-media] Blocked content type "${ct}" from ${parsed.hostname}. Serving atmosphere fallback.`);
+        return sendAtmosphere(res, 3600);
       }
 
       res.status(upstream.status);
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
-      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+      res.setHeader('Cache-Control', PROXY_CACHE_CONTROL);
 
-      const ct = upstream.headers.get('content-type') || (mediaUrl.endsWith('.png') ? 'image/png' : 'image/jpeg');
       res.setHeader('Content-Type', ct);
 
       const cr = upstream.headers.get('content-range');
@@ -354,11 +403,7 @@ async function createApp() {
     } catch (err: any) {
       console.warn('[proxy-media] Error fetching media URL:', mediaUrl, err?.message);
       // Return beautiful fallback atmosphere image instead of failing with 502 JSON
-      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-      res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
-      res.setHeader('Content-Type', 'image/svg+xml');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      res.send(FALLBACK_ATMOSPHERE_SVG);
+      return sendAtmosphere(res, 3600);
     }
   });
 
@@ -752,7 +797,9 @@ Output valid JSON:
         const v = all.find((item: any) => item.id === videoId || item.title === videoId);
         if (v) existing = await db.getSubtitles(v.id, req.userId);
       }
-      if (!existing) return res.status(404).json({ error: 'No captions found for video' });
+      // A clip nobody has captioned yet is the normal state of a fresh take, not a failed request.
+      // Answering 404 made the browser log a network error for every uncaptioned clip the bench opens.
+      if (!existing) return res.json({ success: true, data: null });
       const segments = existing.segments || parseSrtToSegments(existing.srt_content || '');
       res.json({ success: true, data: { ...existing, segments } });
     } catch (err: any) {

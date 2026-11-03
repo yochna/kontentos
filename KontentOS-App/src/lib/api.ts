@@ -552,13 +552,14 @@ Respond ONLY with pure JSON matching this exact structure:
   async getSubtitles(videoId: string) {
     const d = await json<{
       success: boolean;
+      // null is the ordinary answer for a take nobody has captioned yet.
       data: {
         transcript: string;
         srt_content: string;
         vtt_content: string;
         language: string;
         segments: Array<{ id: number; start: string | number; end: string | number; text: string }>;
-      };
+      } | null;
     }>(await fetch(`/api/transcribe/${videoId}`));
     return d.data;
   },

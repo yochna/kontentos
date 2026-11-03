@@ -749,6 +749,21 @@ export async function createVideo(data: Partial<Video> & { user_id: string }): P
   return newVideo;
 }
 
+/**
+ * The creator a stored clip belongs to, or '' when no row claims the file. /uploads needs the owner
+ * rather than a yes/no, because one answer can then be cached and checked against whoever asks next.
+ */
+export async function ownerOfClipFile(clipId: string): Promise<string> {
+  const id = asId(clipId);
+  if (!id) return '';
+  const m = await mongoModels();
+  if (m) {
+    const row = plain<{ user_id?: string }>(await m.video.findOne({ id }, { user_id: 1 }).lean());
+    return row?.user_id ? String(row.user_id) : '';
+  }
+  return loadLocalStore().videos.find((v) => v.id === id)?.user_id || '';
+}
+
 export async function getVideo(id: string, userId: string): Promise<Video | null> {
   id = asId(id);
   if (!id) return null;
