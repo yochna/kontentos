@@ -219,20 +219,30 @@ Return JSON strictly matching this schema:
         language: targetLanguage,
         segments,
       }, req.userId);
+      // A clip was named and the write did not land. Inventing a row id here would hand the
+      // browser a subtitle that no fetch can ever return again.
+      if (!savedSub) {
+        return res.status(409).json({
+          error: 'Those captions could not be written back — the clip is not in your vault. Your original captions are untouched.',
+        });
+      }
     }
 
     res.json({
       success: true,
       data: {
-        id: savedSub?.id || `sub_trans_${Date.now()}`,
+        id: savedSub?.id,
         video_id: videoId,
         srt_content: translatedSrt,
         vtt_content: translatedVtt,
         transcript_text: translatedTranscript,
         language: targetLanguage,
         segments,
+        filed: !!savedSub,
       },
-      message: `Successfully translated subtitles to ${targetLanguage}`,
+      message: savedSub
+        ? `Successfully translated subtitles to ${targetLanguage}`
+        : `Translated to ${targetLanguage} — nothing was stored, because no clip was named`,
     });
   } catch (err: any) {
     console.error('Error in /api/transcribe/translate:', err);
@@ -294,6 +304,14 @@ router.post('/live', async (req, res) => {
       language,
       segments,
     }, req.userId);
+
+    // null means the clip named here is not this creator's row. The browser caches whatever this
+    // route returns and says the script is saved, so an unfiled answer has to be an error.
+    if (!saved) {
+      return res.status(409).json({
+        error: 'That clip is not in your vault, so the script could not be attached to it.',
+      });
+    }
 
     res.json({
       success: true,

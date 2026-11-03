@@ -8,6 +8,9 @@ const router = express.Router();
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
+/** The states a clip row may carry — the same four the bench draws badges for. */
+const VIDEO_STATUSES: string[] = ['uploading', 'processing', 'ready', 'failed'];
+
 /**
  * Render's free disk is wiped on redeploy while the Mongo row survives, so a clip can be a record
  * of a file that no longer exists. The player would show a black rectangle; this says why instead.
@@ -142,7 +145,17 @@ router.post('/:id/inspect', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const { status, title, description, aspectRatio, duration } = req.body;
-    const updated = await db.updateVideoStatus(req.params.id, status || 'ready', {
+    // Only the four states the bench can draw. A row whose status is a free string is a row no
+    // filter, badge or ledger can recognise.
+    if (status !== undefined && !VIDEO_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'Unknown video status.' });
+    }
+    if ([title, description, aspectRatio, duration, status].every((v) => v === undefined)) {
+      return res.status(400).json({ error: 'Nothing to update was sent.' });
+    }
+    // A rename is not a change of state: with no status in the body the row keeps the one it has,
+    // so a clip still processing does not become ready because somebody edited its title.
+    const updated = await db.updateVideoStatus(req.params.id, status, {
       title,
       description,
       aspect_ratio: aspectRatio,

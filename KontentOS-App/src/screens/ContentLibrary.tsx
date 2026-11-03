@@ -9,8 +9,6 @@ import { api } from '@/lib/api';
 import type { Video } from '@/lib/types';
 import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
 
-const QUOTA_BYTES = 500 * 1024 * 1024 * 1024; // 500 GB workspace quota
-
 const fmtBytes = (n: number) => {
   if (!n) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -55,7 +53,6 @@ export default function ContentLibrary() {
 
   const used = useMemo(() => videos.reduce((sum, v) => sum + (v.file_size || 0), 0), [videos]);
   const totalSec = useMemo(() => videos.reduce((sum, v) => sum + (v.duration || 0), 0), [videos]);
-  const usedPct = Math.min(100, (used / QUOTA_BYTES) * 100);
 
   const filteredVideos = useMemo(() => {
     if (!searchQuery.trim()) return videos;
@@ -140,16 +137,13 @@ export default function ContentLibrary() {
             <div className="text-xs font-semibold text-ink flex items-center gap-1.5">
               <Icon name="storage" size={16} className="text-primary" /> Workspace Storage
             </div>
-            <span className="text-xs font-mono text-ink-dim tabular-nums">
-              {fmtBytes(used)} / 500 GB
-            </span>
+            <span className="text-xs font-mono text-ink-dim tabular-nums">{fmtBytes(used)}</span>
           </div>
-          <div className="h-2 rounded-full bg-surface-3 overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-300"
-              style={{ width: `${Math.max(usedPct, videos.length ? 1.5 : 0)}%` }}
-            />
-          </div>
+          {/* No ceiling is drawn: this workspace has no quota behind it, and Render's free disk is
+              sized by the host, not promised by us. Only what the vault actually holds is shown. */}
+          <p className="text-[11.5px] text-ink-dim">
+            {videos.length} {videos.length === 1 ? 'file' : 'files'} on this account · up to 2 GB per clip
+          </p>
         </Card>
 
         <Card className="p-4 flex items-center justify-between">
@@ -324,7 +318,9 @@ export default function ContentLibrary() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (confirm(`Delete "${v.title}" from library?`)) {
-                                  deleteVideo(v.id);
+                                  void deleteVideo(v.id).then((res) => {
+                                    if (!res.ok) setError(res.message || 'The server did not delete this clip.');
+                                  });
                                 }
                               }}
                               title="Delete clip"
@@ -372,7 +368,7 @@ export default function ContentLibrary() {
                 <Icon name="cloud_upload" size={24} />
               </span>
               <span className="text-[14px] font-semibold text-ink">Drop footage here to ingest</span>
-              <span className="text-xs text-ink-dim mt-1">MP4, MOV, WEBM, WAV · Up to 8 GB</span>
+              <span className="text-xs text-ink-dim mt-1">MP4, MOV, WEBM · Up to 2 GB per clip</span>
               <span className="mt-3 text-xs font-semibold text-primary inline-flex items-center gap-1">
                 <Icon name="add" size={14} /> Browse local files
               </span>
@@ -404,8 +400,11 @@ export default function ContentLibrary() {
           video={videos.find((v) => v.id === inspectVideo.id) ?? inspectVideo}
           onClose={() => setInspectVideo(null)}
           onUpdateTitle={async (newTitle) => {
-            await updateVideo(inspectVideo.id, { title: newTitle });
-            setInspectVideo((prev) => (prev ? { ...prev, title: newTitle } : null));
+            const res = await updateVideo(inspectVideo.id, { title: newTitle });
+            // The inspector only repeats the new name once the row carries it; otherwise the
+            // creator is shown a rename that the next load takes back.
+            if (res.ok) setInspectVideo((prev) => (prev ? { ...prev, title: newTitle } : null));
+            else setError(res.message || 'The server did not take this rename.');
           }}
           onOpenRawStudio={() => {
             setInspectVideo(null);
@@ -417,8 +416,13 @@ export default function ContentLibrary() {
           }}
           onDelete={() => {
             if (confirm(`Are you sure you want to delete "${inspectVideo.title}"?`)) {
-              deleteVideo(inspectVideo.id);
-              setInspectVideo(null);
+              void deleteVideo(inspectVideo.id).then((res) => {
+                if (!res.ok) {
+                  setError(res.message || 'The server did not delete this clip.');
+                  return;
+                }
+                setInspectVideo(null);
+              });
             }
           }}
         />
@@ -451,7 +455,9 @@ function VideoDetailModal({
   const [subLang, setSubLang] = useState('English');
   const [currentTime, setCurrentTime] = useState(0);
   const [showPlayerCaptions, setShowPlayerCaptions] = useState(true);
-  const [subMsg, setSubMsg] = useState<string | null>(null);
+  // The same box carries the transcribe result and its failure, so it remembers which of the two it
+  // is holding — a red message in a green box reads as a success to anyone skimming the panel.
+  const [subMsg, setSubMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const videoElRef = useRef<HTMLVideoElement>(null);
   const media = useMediaSource(video.file_url, video.media_available);
 
@@ -481,9 +487,9 @@ function VideoDetailModal({
         forceRefresh: true,
       });
       setSubtitles(data);
-      setSubMsg(`Transcribed ${data.segments?.length || 0} live subtitle cues`);
+      setSubMsg({ text: `Transcribed ${data.segments?.length || 0} live subtitle cues`, ok: true });
     } catch (err: any) {
-      setSubMsg(err?.message || 'Failed to transcribe audio');
+      setSubMsg({ text: err?.message || 'Failed to transcribe audio', ok: false });
     } finally {
       setLoadingSubs(false);
     }
@@ -672,8 +678,14 @@ function VideoDetailModal({
 
               {/* Status Message */}
               {subMsg && (
-                <div className="p-2 text-xs rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-                  {subMsg}
+                <div
+                  className={`p-2 text-xs rounded border ${
+                    subMsg.ok
+                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
+                      : 'bg-danger/10 text-danger border-danger/30'
+                  }`}
+                >
+                  {subMsg.text}
                 </div>
               )}
 

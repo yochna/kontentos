@@ -4,6 +4,7 @@ import * as db from '../db.js';
 import { checkCaption, platformSpec } from '../../src/lib/platforms.js';
 import { asId } from '../safeId.js';
 import { safeMessage } from '../errorText.js';
+import type { ScheduledPost } from '../../src/lib/types.js';
 
 const router = express.Router();
 
@@ -234,7 +235,7 @@ router.post('/schedule', async (req, res) => {
     const baseTime = scheduledAt ? new Date(scheduledAt).getTime() : Date.now() + 86400000;
     const staggerMs = Math.max(0, Number(staggerMinutes) || 0) * 60 * 1000;
 
-    const createdPosts = [];
+    const createdPosts: (ScheduledPost | null)[] = [];
     const userId = req.userId;
     for (let i = 0; i < targetPlatforms.length; i++) {
       const targetPlat = targetPlatforms[i];
@@ -264,15 +265,30 @@ router.post('/schedule', async (req, res) => {
       createdPosts.push(created);
     }
 
+    // createScheduledPost answers null when the clip named here is not this creator's row. The
+    // queue would then show nothing while the creator was told the post was scheduled.
+    if (createdPosts.every((post) => post === null)) {
+      return res.status(409).json({
+        error: 'That clip is not in your vault, so nothing could be queued against it.',
+      });
+    }
+    const written = createdPosts.filter((post) => post !== null);
+
     const platformNames = targetPlatforms.map(p => p.toUpperCase()).join(', ');
     res.json({
       success: true,
-      data: createdPosts.length === 1 ? createdPosts[0] : createdPosts,
-      total: createdPosts.length,
+      data: written.length === 1 ? written[0] : written,
+      total: written.length,
       crossPostGroupId,
-      message: createdPosts.length > 1
-        ? `✨ Multi-Platform Cross-Post scheduled across ${createdPosts.length} platforms (${platformNames})!`
-        : '✨ Post scheduled successfully!',
+      message:
+        written.length < createdPosts.length
+          ? `⚠️ ${written.length} of ${createdPosts.length} platforms queued — ${targetPlatforms
+              .filter((_p, i) => createdPosts[i] === null)
+              .map((p) => String(p).toUpperCase())
+              .join(', ')} were not.`
+          : written.length > 1
+            ? `✨ Multi-Platform Cross-Post scheduled across ${written.length} platforms (${platformNames})!`
+            : '✨ Post scheduled successfully!',
     });
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
@@ -303,7 +319,7 @@ router.post('/schedule/:id/crosspost', async (req, res) => {
 
     const baseTime = new Date(existing.scheduled_at).getTime();
     const staggerMs = Math.max(0, Number(staggerMinutes) || 0) * 60 * 1000;
-    const createdPosts = [];
+    const createdPosts: (ScheduledPost | null)[] = [];
     const userId = req.userId;
 
     for (let i = 0; i < targetPlatforms.length; i++) {

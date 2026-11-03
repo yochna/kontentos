@@ -815,9 +815,14 @@ export async function countVideos(userId: string): Promise<number> {
   return loadLocalStore().videos.filter((v) => v.user_id === userId).length;
 }
 
+/**
+ * The only writer of the video row's columns. `status` is optional because a rename is not a
+ * change of state: a caller that edits a title must not move a clip that is still processing to
+ * `ready`, which is what a default here would do.
+ */
 export async function updateVideoStatus(
   id: string,
-  status: VideoStatus,
+  status: VideoStatus | undefined,
   extra: Partial<Video>,
   userId: string
 ): Promise<Video | null> {
@@ -825,7 +830,7 @@ export async function updateVideoStatus(
   if (!id) return null;
   const updates = {
     ...extra,
-    status,
+    ...(status ? { status } : {}),
     updated_at: new Date().toISOString(),
   };
 

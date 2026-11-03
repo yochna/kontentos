@@ -155,7 +155,11 @@ describe('account endpoints', () => {
     const laptop = cookieFrom(await post('/api/auth/login', { email: 'creator@test.example', password: PASSWORD }));
     expect((await get('/api/private', laptop)).status).toBe(200);
 
-    expect((await post('/api/auth/change-password', { current: 'nope', next: 'brand-new-passphrase' }, fresh)).status).toBe(401);
+    // A wrong current password is not an ended session. The studio wipes the bench on any 401, so
+    // one mistyped character must not read as "sign in again".
+    const wrong = await post('/api/auth/change-password', { current: 'nope', next: 'brand-new-passphrase' }, fresh);
+    expect(wrong.status).toBe(403);
+    expect((await get('/api/private', fresh)).status).toBe(200);
     expect(
       (await post('/api/auth/change-password', { current: PASSWORD, next: 'tiny' }, fresh)).status,
     ).toBe(400);

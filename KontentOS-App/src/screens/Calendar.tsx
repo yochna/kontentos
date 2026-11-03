@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, Card, PageHeader, PageShell, StatusPill, useDismiss } from '@/components/ui';
 import { useStore } from '@/lib/store';
@@ -75,6 +75,8 @@ export default function Calendar() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate());
+  // A queue row that the server refused to delete must not look deleted.
+  const [queueNotice, setQueueNotice] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
   const [activePostModal, setActivePostModal] = useState<ScheduledPost | null>(null);
@@ -113,6 +115,21 @@ export default function Calendar() {
   const daysInMonth = useMemo(() => {
     return new Date(year, month + 1, 0).getDate();
   }, [year, month]);
+
+  // February has no 31st. Carrying a day that the shown month does not have would leave the
+  // inspector naming a date that never exists and offering to schedule a post onto it.
+  useEffect(() => {
+    if (selectedDay > daysInMonth) setSelectedDay(daysInMonth);
+  }, [daysInMonth, selectedDay]);
+
+  const removeFromQueue = useCallback(
+    (id: string) => {
+      void deleteScheduled(id).then((res) => {
+        if (!res.ok) setQueueNotice(res.message || 'That post is still scheduled.');
+      });
+    },
+    [deleteScheduled],
+  );
 
   const leadDays = useMemo(() => {
     // 0 = Sunday, 1 = Monday. We want Monday-first (0 for Monday, 6 for Sunday)
@@ -220,6 +237,18 @@ export default function Calendar() {
         }
         className="mb-6"
       />
+
+      {queueNotice && (
+        <div className="mb-6 flex items-center justify-between gap-3 rounded-card border border-danger/30 bg-danger/10 px-4 py-2.5 text-[12.5px] text-danger">
+          <span className="flex items-center gap-2">
+            <Icon name="error_outline" size={16} className="shrink-0" />
+            {queueNotice}
+          </span>
+          <button onClick={() => setQueueNotice(null)} className="shrink-0 hover:underline kt-focus">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Platform Filter Bar & Quick Stats */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-3 bg-surface border border-line rounded-card mb-6">
@@ -454,7 +483,7 @@ export default function Calendar() {
                     key={post.id}
                     post={post}
                     onPublish={() => setPostedTarget(post)}
-                    onDelete={() => deleteScheduled(post.id)}
+                    onDelete={() => removeFromQueue(post.id)}
                     onInspect={() => setActivePostModal(post)}
                     disabled={!online}
                   />
@@ -655,8 +684,10 @@ export default function Calendar() {
             <div className="flex items-center justify-between px-6 py-4 border-t border-line bg-surface-2/30">
               <button
                 onClick={() => {
-                  deleteScheduled(activePostModal.id);
-                  setActivePostModal(null);
+                  void deleteScheduled(activePostModal.id).then((res) => {
+                    if (!res.ok) setQueueNotice(res.message || 'That post is still scheduled.');
+                    else setActivePostModal(null);
+                  });
                 }}
                 className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-danger hover:underline kt-focus"
               >

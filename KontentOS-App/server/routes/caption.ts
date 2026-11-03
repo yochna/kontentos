@@ -470,15 +470,27 @@ router.post(['/', '/generate'], async (req, res) => {
       character_count: captionOutput.length,
     }, req.userId);
 
+    // saveCaption answers null when the clip named here is not this creator's row. A caller that
+    // asked to file copy against a video must be told it was not filed; the words are still shown,
+    // but nothing pretends the vault holds them.
+    if (!saved && videoId) {
+      return res.status(409).json({
+        error: 'That clip is not in your vault, so this copy could not be filed against it.',
+      });
+    }
+
     res.json({
       success: true,
       data: {
         ...saved,
         caption: captionOutput,
         caption_text: captionOutput,
+        filed: !!saved,
       },
       cached: false,
-      message: `Generated reel-contextual ${platform} copy and descriptions`,
+      message: saved
+        ? `Generated reel-contextual ${platform} copy and descriptions`
+        : `Generated ${platform} copy — not filed, because no clip was named`,
     });
   } catch (err: any) {
     console.error('Error in /api/caption/generate:', err);

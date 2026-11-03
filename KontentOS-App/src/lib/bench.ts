@@ -119,6 +119,17 @@ export function getSelectedCutId(): string | null {
 }
 
 /**
+ * Sign-out removes the stored cut, but this module already read it into `selectedId`, so a second
+ * account signing in in the same tab would open on the first one's clip until the page reloads.
+ */
+export function resetSelectedCut(): void {
+  if (selectedId === null) return;
+  selectedId = null;
+  writeStored(null);
+  for (const notify of listeners) notify();
+}
+
+/**
  * Selecting a cut is the one piece of state the whole bench reacts to: the rail marks it, the
  * inspector reads its dossier, and stations that take a clip open on it.
  */

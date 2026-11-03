@@ -18,8 +18,10 @@ export default function Settings() {
   const [email, setEmail] = useState('');
   const [igHandle, setIgHandle] = useState('');
   const [ytHandle, setYtHandle] = useState('');
-  const [niche, setNiche] = useState('Founder Ops · AI Workflows');
-  const [locale, setLocale] = useState('English (US)');
+  // Both start empty and are filled from the account below. Seeding them with sample text meant the
+  // first profile save — for any reason — wrote that sample over the creator's real niche and locale.
+  const [niche, setNiche] = useState('');
+  const [locale, setLocale] = useState('');
   const [profileSaved, setProfileSaved] = useState<boolean | null>(null);
 
   // AI settings — hydrated from what the engines actually read, so a reload shows the saved truth.
@@ -34,8 +36,10 @@ export default function Settings() {
   // API Keys state
   const [geminiKey, setGeminiKey] = useState('Checking...');
   const [isEditingKey, setIsEditingKey] = useState(false);
+  const [keyEditable, setKeyEditable] = useState(true);
   const [newKeyInput, setNewKeyInput] = useState('');
-  const [keyNotice, setKeyNotice] = useState<string | null>(null);
+  // The one box under the key field carries both outcomes, so it remembers which one it holds.
+  const [keyNotice, setKeyNotice] = useState<{ text: string; ok: boolean } | null>(null);
 
   // Export settings
   const [exportRes, setExportRes] = useState('1080x1920');
@@ -54,6 +58,8 @@ export default function Settings() {
     setEmail(user?.email ?? '');
     setIgHandle(user?.instagram_username ?? '');
     setYtHandle(user?.youtube_channel_id ?? '');
+    setNiche(user?.niche ?? '');
+    setLocale(user?.locale ?? '');
   }, [user]);
 
   useEffect(() => {
@@ -64,7 +70,10 @@ export default function Settings() {
     } catch {}
     api
       .getAiStatus()
-      .then((st) => setGeminiKey(st?.keyMasked || 'Not set yet'))
+      .then((st) => {
+        setGeminiKey(st?.keyMasked || 'Not set yet');
+        setKeyEditable(st?.editable !== false);
+      })
       .catch(() => setGeminiKey('Not set yet'));
   }, []);
 
@@ -123,10 +132,10 @@ export default function Settings() {
       setGeminiKey(res.keyMasked || '••••••••••••••••');
       setIsEditingKey(false);
       setNewKeyInput('');
-      setKeyNotice('Gemini key active for this workspace.');
+      setKeyNotice({ text: 'Gemini key active for this workspace.', ok: true });
       setTimeout(() => setKeyNotice(null), 4000);
     } catch (err: any) {
-      setKeyNotice(err?.message || 'Failed to save API key');
+      setKeyNotice({ text: err?.message || 'Failed to save API key', ok: false });
     }
   }
 
@@ -276,7 +285,8 @@ export default function Settings() {
                     <input
                       value={niche}
                       onChange={(e) => setNiche(e.target.value)}
-                      className="w-full rounded-btn border border-line bg-surface px-3 py-2 text-[13.5px] text-ink outline-none focus:border-primary"
+                      placeholder="Not set yet"
+                      className="w-full rounded-btn border border-line bg-surface px-3 py-2 text-[13.5px] text-ink outline-none focus:border-primary placeholder:text-ink-dim"
                     />
                   </div>
 
@@ -287,7 +297,8 @@ export default function Settings() {
                     <input
                       value={locale}
                       onChange={(e) => setLocale(e.target.value)}
-                      className="w-full rounded-btn border border-line bg-surface px-3 py-2 text-[13.5px] text-ink outline-none focus:border-primary"
+                      placeholder="Not set yet"
+                      className="w-full rounded-btn border border-line bg-surface px-3 py-2 text-[13.5px] text-ink outline-none focus:border-primary placeholder:text-ink-dim"
                     />
                   </div>
                 </div>
@@ -598,9 +609,15 @@ export default function Settings() {
               </div>
 
               {keyNotice && (
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-900 rounded-btn text-[13px] flex items-center gap-2">
-                  <Icon name="check_circle" size={16} className="text-emerald-600" />
-                  {keyNotice}
+                <div
+                  className={`p-3 border rounded-btn text-[13px] flex items-center gap-2 ${
+                    keyNotice.ok
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-900'
+                      : 'bg-danger/10 text-danger border-danger/30'
+                  }`}
+                >
+                  <Icon name={keyNotice.ok ? 'check_circle' : 'error_outline'} size={16} className={keyNotice.ok ? 'text-emerald-600' : 'shrink-0'} />
+                  {keyNotice.text}
                 </div>
               )}
 
@@ -613,13 +630,21 @@ export default function Settings() {
                       <div className="text-[12px] text-ink-dim font-mono">{geminiKey}</div>
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setIsEditingKey(!isEditingKey)}
-                  >
-                    {isEditingKey ? 'Cancel' : 'Rotate Key'}
-                  </Button>
+                  {keyEditable ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setIsEditingKey(!isEditingKey)}
+                    >
+                      {isEditingKey ? 'Cancel' : 'Rotate Key'}
+                    </Button>
+                  ) : (
+                    // The endpoint refuses this in production, so the field is not offered rather than
+                    // shown and then answered with a 403.
+                    <span className="text-[11.5px] text-ink-dim text-right max-w-[28ch]">
+                      Held by the host · set GEMINI_API_KEY in its environment
+                    </span>
+                  )}
                 </div>
 
                 {isEditingKey && (

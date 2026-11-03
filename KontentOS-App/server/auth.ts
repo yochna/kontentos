@@ -248,7 +248,10 @@ export function createAuthRouter(): express.Router {
       const next = String(req.body?.next ?? '');
       const account = await db.getAccountById(req.userId);
       if (!account || !(await db.verifyPassword(current, account.password_hash))) {
-        return res.status(401).json({ error: 'Your current password is wrong.' });
+        // 403, not 401: this creator IS signed in and their session is still good. A 401 reads as
+        // "session over" to the studio, which would wipe the bench and bounce them to the sign-in
+        // screen for typing one wrong character in the current-password box.
+        return res.status(403).json({ error: 'Your current password is wrong.' });
       }
       if (next.length < MIN_PASSWORD_LENGTH || next.length > 200) {
         return res.status(400).json({ error: `New password needs at least ${MIN_PASSWORD_LENGTH} characters.` });

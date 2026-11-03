@@ -155,6 +155,12 @@ async function createApp() {
     if (err instanceof SyntaxError && 'status' in err && (err as any).status === 400) {
       return res.status(400).json({ error: 'Malformed JSON payload in request body' });
     }
+    // A body over the limit is a normal outcome of working with footage, not a crash. Left for
+    // Express to handle, it comes back as an HTML stack page the studio cannot read and which
+    // names the size limit and the route.
+    if (err && (err.status === 413 || err.type === 'entity.too.large')) {
+      return res.status(413).json({ error: 'That payload is larger than this endpoint accepts.' });
+    }
     next(err);
   });
 
@@ -401,22 +407,25 @@ async function createApp() {
         return sendAtmosphere(res, 3600);
       }
 
-      res.status(upstream.status);
-      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-      res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
-      res.setHeader('Cache-Control', PROXY_CACHE_CONTROL);
-
-      res.setHeader('Content-Type', ct);
-
-      const cr = upstream.headers.get('content-range');
-      if (cr) res.setHeader('Content-Range', cr);
-      res.setHeader('Accept-Ranges', 'bytes');
-
       const arrayBuffer = await upstream.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       if (buffer.length > PROXY_MAX_BYTES) {
         return res.status(413).json({ error: 'Remote file too large' });
       }
+
+      // Nothing above writes to the response, so every failure in this block — the size check and
+      // the catch below — can still answer as itself. Committing the media status and Content-Type
+      // first would have let the atmosphere plate be delivered as `video/mp4`, or as a 206 holding
+      // a slice of a file that is no longer there.
+      res.status(upstream.status);
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+      res.setHeader('Cache-Control', PROXY_CACHE_CONTROL);
+      res.setHeader('Content-Type', ct);
+
+      const cr = upstream.headers.get('content-range');
+      if (cr) res.setHeader('Content-Range', cr);
+      res.setHeader('Accept-Ranges', 'bytes');
 
       // A 206 carries a slice of the file, and the key is the whole file. Kept under that key it
       // would be replayed to the next reader as the complete answer: a clip that stops halfway, for
@@ -428,7 +437,10 @@ async function createApp() {
       res.send(buffer);
     } catch (err: any) {
       console.warn('[proxy-media] Error fetching media URL:', mediaUrl, err?.message);
-      // Return beautiful fallback atmosphere image instead of failing with 502 JSON
+      // Once a byte of footage has reached the browser the answer is already decided; the plate
+      // would arrive as garbage appended to a video. Return beautiful fallback atmosphere image
+      // instead of failing with 502 JSON.
+      if (res.headersSent) return res.end();
       return sendAtmosphere(res, 3600);
     }
   });
@@ -914,6 +926,9 @@ Output valid JSON:
       success: true,
       hasGeminiKey: !!key,
       keyMasked: key ? `••••••••••••${key.slice(-4)}` : null,
+      // The screen offers a key field only where posting one can actually work; elsewhere it says
+      // where the key does get set instead of sending the creator to a 403.
+      editable: process.env.NODE_ENV !== 'production',
       model: 'gemini-2.0-flash',
     });
   });
@@ -935,8 +950,10 @@ Output valid JSON:
     try {
       const envFile = path.join(appRoot, '.env');
       let envContent = fs.existsSync(envFile) ? fs.readFileSync(envFile, 'utf-8') : '';
-      if (envContent.includes('GEMINI_API_KEY=')) {
-        envContent = envContent.replace(/GEMINI_API_KEY=.*/g, `GEMINI_API_KEY=${cleanKey}`);
+      // Anchored to the start of a line: an unanchored search also matches a comment or another
+      // variable that ends in the same name, and would rewrite that instead of the key.
+      if (/^GEMINI_API_KEY=/m.test(envContent)) {
+        envContent = envContent.replace(/^GEMINI_API_KEY=.*/gm, `GEMINI_API_KEY=${cleanKey}`);
       } else {
         envContent += `\nGEMINI_API_KEY=${cleanKey}\n`;
       }

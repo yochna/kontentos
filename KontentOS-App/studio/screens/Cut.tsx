@@ -350,7 +350,10 @@ export function CutScreen({
                   </div>
 
                   <footer className="flex flex-wrap items-center gap-3 border-t border-rule pt-4">
-                    <Button onClick={() => void save(clip)} disabled={!isDirty(clip) || busyId === clip.id}>
+                    <Button
+                      onClick={() => void save(clip)}
+                      disabled={(clip.status === 'draft' ? false : !isDirty(clip)) || busyId === clip.id}
+                    >
                       {busyId === clip.id ? 'Saving…' : isDirty(clip) ? 'Save changes' : clip.status === 'draft' ? 'Keep on the shelf' : 'Saved'}
                     </Button>
                     <Button kind="outline" onClick={() => void copyCaption(clip)}>

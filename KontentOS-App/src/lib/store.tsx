@@ -6,7 +6,7 @@ import type { Idea } from '@/data/mock';
 import { navigate, type ScreenId } from './nav';
 import { copyVoice } from './brandKit';
 import { copyModel, readAiPrefs } from './prefs';
-import { DRAFT_STEP_STATION } from './bench';
+import { DRAFT_STEP_STATION, resetSelectedCut } from './bench';
 import {
   applyCaptionsToProject,
   applyPresetLook,
@@ -95,8 +95,8 @@ interface StoreValue {
     file: File,
     onProgress?: (pct: number) => void
   ) => Promise<Video | null>;
-  updateVideo: (id: string, updates: Record<string, unknown>) => Promise<void>;
-  deleteVideo: (id: string) => Promise<void>;
+  updateVideo: (id: string, updates: Record<string, unknown>) => Promise<{ ok: boolean; message?: string }>;
+  deleteVideo: (id: string) => Promise<{ ok: boolean; message?: string }>;
   schedulePost: (payload: {
     videoId: string;
     videoTitle?: string;
@@ -122,7 +122,7 @@ interface StoreValue {
       status?: 'scheduled' | 'published';
     },
   ) => Promise<{ ok: boolean; message?: string }>;
-  deleteScheduled: (id: string) => Promise<void>;
+  deleteScheduled: (id: string) => Promise<{ ok: boolean; message?: string }>;
   publishNow: (
     id: string,
     posted?: { postUrl?: string; publishedAt?: string },
@@ -175,6 +175,9 @@ export function clearBenchWorkspace(): void {
       /* a browser that refuses localStorage has nothing left to leak */
     }
   }
+  // The lit cut is also held in a module variable, which outlives the provider being unmounted and
+  // rebuilt — without this the next account in the same tab opens on the last one's clip.
+  resetSelectedCut();
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
@@ -393,23 +396,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const updateVideo = useCallback(async (id: string, updates: Record<string, unknown>) => {
-    try {
-      await api.updateVideo(id, updates);
-      setVideos((prev) => prev.map((v) => (v.id === id ? { ...v, ...updates } : v)));
-    } catch (err) {
-      console.error('Update video failed:', err);
-    }
-  }, []);
+  // The vault's three writes answer the same way a failed bookmark does: the row on screen is the
+  // row the server has, or the creator is told it is not. A clip that looks deleted and is still
+  // there on reload costs the next upload session a slot they think they freed.
+  const updateVideo = useCallback(
+    async (id: string, updates: Record<string, unknown>): Promise<{ ok: boolean; message?: string }> => {
+      try {
+        await api.updateVideo(id, updates);
+        setVideos((prev) => prev.map((v) => (v.id === id ? { ...v, ...updates } : v)));
+        return { ok: true };
+      } catch (err) {
+        console.error('Update video failed:', err);
+        return { ok: false, message: err instanceof Error ? err.message : 'Could not update this clip. It is unchanged on your account.' };
+      }
+    },
+    [],
+  );
 
-  const deleteVideo = useCallback(async (id: string) => {
-    try {
-      await api.deleteVideo(id);
-      setVideos((prev) => prev.filter((v) => v.id !== id));
-    } catch (err) {
-      console.error('Delete video failed:', err);
-    }
-  }, []);
+  const deleteVideo = useCallback(
+    async (id: string): Promise<{ ok: boolean; message?: string }> => {
+      try {
+        await api.deleteVideo(id);
+        setVideos((prev) => prev.filter((v) => v.id !== id));
+        return { ok: true };
+      } catch (err) {
+        console.error('Delete video failed:', err);
+        return { ok: false, message: err instanceof Error ? err.message : 'Could not delete this clip. It is still in your vault.' };
+      }
+    },
+    [],
+  );
 
   const schedulePost = useCallback<StoreValue['schedulePost']>(async (payload) => {
     try {
@@ -474,12 +490,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const deleteScheduled = useCallback(async (id: string) => {
+  const deleteScheduled = useCallback<StoreValue['deleteScheduled']>(async (id) => {
     try {
       await api.deleteScheduled(id);
       setScheduled((prev) => prev.filter((p) => p.id !== id));
+      return { ok: true };
     } catch (err) {
       console.error('Delete scheduled failed:', err);
+      return { ok: false, message: (err as Error).message || 'Could not remove that from the queue. It is still scheduled.' };
     }
   }, []);
 

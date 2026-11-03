@@ -568,7 +568,7 @@ Respond ONLY with pure JSON matching this exact structure:
   },
 
   // ---- AI Settings & API Keys ----
-  async getAiStatus(): Promise<{ success: boolean; hasGeminiKey: boolean; keyMasked: string | null; model: string }> {
+  async getAiStatus(): Promise<{ success: boolean; hasGeminiKey: boolean; keyMasked: string | null; editable?: boolean; model: string }> {
     return json(await fetch('/api/settings/ai-status'));
   },
 
