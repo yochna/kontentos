@@ -9,6 +9,7 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import * as db from './db.js';
+import { safeMessage } from './errorText.js';
 
 declare global {
   namespace Express {
@@ -69,6 +70,14 @@ function forgetSession(tokenHash: string) {
   sessionCache.delete(tokenHash);
 }
 
+/**
+ * Drop every cached session. Only for the rare account-wide revocation — a password change, where
+ * the rows are gone but a cached hit would keep a signed-out device working for a minute.
+ */
+function forgetAllSessions() {
+  sessionCache.clear();
+}
+
 async function resolveToken(tokenHash: string): Promise<string | null> {
   const hit = sessionCache.get(tokenHash);
   if (hit && hit.expiresAt > Date.now()) return hit.userId;
@@ -96,7 +105,7 @@ export function requireUser(req: Request, res: Response, next: NextFunction) {
       req.userId = userId;
       next();
     } catch (err: any) {
-      return res.status(503).json({ error: err?.message || 'Storage is unavailable.' });
+      return res.status(503).json({ error: safeMessage(err, 'Storage is unavailable.') });
     }
   })();
 }
@@ -115,6 +124,28 @@ const authLimiter = rateLimit({
   message: { error: 'Too many attempts. Please wait a few minutes and try again.' },
 });
 
+/**
+ * Changing the password verifies the old one with the same scrypt work a sign-in does, and it now
+ * revokes every session, so it is both the most expensive and the most damaging endpoint to hit in
+ * a loop. Six attempts a quarter of an hour is more than a real creator needs.
+ */
+const changePasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 6,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please wait a few minutes and try again.' },
+});
+
+/** Signing out is not a race; the cap only stops the session table from being churned. */
+const logoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please wait a moment.' },
+});
+
 export function createAuthRouter(): express.Router {
   const router = express.Router();
 
@@ -124,7 +155,7 @@ export function createAuthRouter(): express.Router {
       const user = userId ? db.publicUser(await db.getAccountById(userId)) : null;
       res.json({ success: true, data: user });
     } catch (err: any) {
-      res.status(503).json({ error: err?.message || 'Storage is unavailable.' });
+      res.status(503).json({ error: safeMessage(err, 'Storage is unavailable.') });
     }
   });
 
@@ -159,7 +190,7 @@ export function createAuthRouter(): express.Router {
       if (err instanceof db.EmailAlreadyRegistered) {
         return res.status(409).json({ error: 'That email already has an account. Try signing in.' });
       }
-      res.status(500).json({ error: err?.message || 'Could not create the account.' });
+      res.status(500).json({ error: safeMessage(err, 'Could not create the account.') });
     }
   });
 
@@ -179,11 +210,11 @@ export function createAuthRouter(): express.Router {
       await issueSession(res, account.id);
       res.json({ success: true, data: db.publicUser(account) });
     } catch (err: any) {
-      res.status(503).json({ error: err?.message || 'Could not sign in right now.' });
+      res.status(503).json({ error: safeMessage(err, 'Could not sign in right now.') });
     }
   });
 
-  router.post('/logout', async (req, res) => {
+  router.post('/logout', logoutLimiter, async (req, res) => {
     try {
       if (req.sessionToken) {
         const hash = db.hashSessionToken(req.sessionToken);
@@ -196,8 +227,11 @@ export function createAuthRouter(): express.Router {
     }
   });
 
-  /** Signing out of the account everywhere, e.g. before deleting it. */
-  router.post('/change-password', requireUser, async (req, res) => {
+  /**
+   * Signing out of the account everywhere. A password change means the old one was compromised or
+   * merely shared, so every other session dies with it — not just this browser's.
+   */
+  router.post('/change-password', changePasswordLimiter, requireUser, async (req, res) => {
     try {
       const current = String(req.body?.current ?? '');
       const next = String(req.body?.next ?? '');
@@ -209,15 +243,13 @@ export function createAuthRouter(): express.Router {
         return res.status(400).json({ error: `New password needs at least ${MIN_PASSWORD_LENGTH} characters.` });
       }
       await db.changePassword(account.id, await db.hashPassword(next));
-      if (req.sessionToken) {
-        const hash = db.hashSessionToken(req.sessionToken);
-        forgetSession(hash);
-        await db.deleteSession(hash);
-      }
+      if (req.sessionToken) forgetSession(db.hashSessionToken(req.sessionToken));
+      await db.deleteSessionsForUser(account.id);
+      forgetAllSessions();
       res.setHeader('Set-Cookie', sessionCookie('', 0));
-      res.json({ success: true, message: 'Password changed. Please sign in again.' });
+      res.json({ success: true, message: 'Password changed. Every device is signed out; please sign in again.' });
     } catch (err: any) {
-      res.status(500).json({ error: err?.message || 'Could not change the password.' });
+      res.status(500).json({ error: safeMessage(err, 'Could not change the password.') });
     }
   });
 

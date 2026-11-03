@@ -145,8 +145,8 @@ interface StoreValue {
   generateLiveCaptions: (
     videoIdOrOpts:
       | string
-      | { videoId: string; style?: Partial<TextClip['style']>; language?: string; forceRefresh?: boolean; apiKey?: string },
-    maybeOpts?: { style?: Partial<TextClip['style']>; language?: string; forceRefresh?: boolean; apiKey?: string },
+      | { videoId: string; style?: Partial<TextClip['style']>; language?: string; forceRefresh?: boolean },
+    maybeOpts?: { style?: Partial<TextClip['style']>; language?: string; forceRefresh?: boolean },
   ) => Promise<{ ok: boolean; count: number; transcript?: string; code?: string; message: string }>;
   toggleCaptions: (enabled?: boolean) => void;
   isCaptionsActive: boolean;
@@ -762,20 +762,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ? maybeOpts
           : { ...videoIdOrOpts, ...maybeOpts };
       try {
-        let storedKey: string | undefined = opts?.apiKey;
-        try {
-          const raw = localStorage.getItem('kontentos_gemini_api_key');
-          if (raw && (raw.includes('TESTINGKEY') || raw.length < 20)) {
-            localStorage.removeItem('kontentos_gemini_api_key');
-          } else if (!storedKey && raw) {
-            storedKey = raw;
-          }
-        } catch {}
-
         const result = await api.transcribeVideo({
           videoId,
           targetLanguage: opts?.language || 'English',
-          apiKey: storedKey,
           forceRefresh: opts?.forceRefresh ?? true,
         });
 

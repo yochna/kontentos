@@ -775,23 +775,16 @@ export default function SmartEditor() {
   }
 
   const handleGenerateCaptions = useCallback(
-    async (explicitKey?: string | React.MouseEvent | unknown) => {
+    async (_eventOrNothing?: unknown) => {
       if (!project || generatingCaptions) return;
       const vClips = videoClips(project);
       const vId = sourceVideo?.id || vClips[0]?.sourceFileId || videos[0]?.id || 'testing_video';
       setGeneratingCaptions(true);
       setCaptionNotice(null);
       try {
-        const rawKey = typeof explicitKey === 'string' ? explicitKey : localStorage.getItem('kontentos_gemini_api_key') || undefined;
-        let key = rawKey;
-        if (rawKey && (rawKey.includes('TESTINGKEY') || rawKey.length < 20)) {
-          try { localStorage.removeItem('kontentos_gemini_api_key'); } catch {}
-          key = undefined;
-        }
         const res = await generateLiveCaptions({
           videoId: vId,
           language: captionLang,
-          apiKey: key,
           style: {
             fontFamily: captionFont,
             activeWordColorHex: highlightColor,
@@ -2372,22 +2365,13 @@ export default function SmartEditor() {
         <ShortcutsModal onClose={() => setShowShortcutsModal(false)} />
       )}
 
-      {/* Gemini API Key Dialog with Free Auto-Sync fallback */}
+      {/* Speech-sync options for this clip */}
       {showApiKeyModal && (
         <GeminiKeyModal
           onClose={() => setShowApiKeyModal(false)}
           onAutoGenerate={async () => {
             setShowApiKeyModal(false);
-            await handleGenerateCaptions('');
-          }}
-          onSave={async (key) => {
-            localStorage.setItem('kontentos_gemini_api_key', key);
-            try {
-              await api.saveGeminiApiKey(key);
-            } catch {}
-            setShowApiKeyModal(false);
-            // Immediately run transcription with newly saved key
-            await handleGenerateCaptions(key);
+            await handleGenerateCaptions();
           }}
         />
       )}
@@ -3556,33 +3540,11 @@ function clipLabel(clip: TimelineClip): string {
 
 function GeminiKeyModal({
   onClose,
-  onSave,
   onAutoGenerate,
 }: {
   onClose: () => void;
-  onSave: (key: string) => Promise<void>;
   onAutoGenerate?: () => Promise<void> | void;
 }) {
-  const [keyInput, setKeyInput] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const clean = keyInput.trim();
-    if (!clean) {
-      setError('Please enter a valid Google Gemini API key or click "Auto-Generate (Free)"');
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      await onSave(clean);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to save API key');
-      setSaving(false);
-    }
-  };
 
   return (
     <>
@@ -3628,51 +3590,23 @@ function GeminiKeyModal({
             </Button>
           </div>
 
-          <div className="relative flex py-1 items-center">
-            <div className="flex-grow border-t border-line"></div>
-            <span className="flex-shrink mx-2 text-[10.5px] uppercase tracking-wider text-ink-dim font-bold">Or Connect Custom Gemini Key</span>
-            <div className="flex-grow border-t border-line"></div>
+          <div className="rounded-btn border border-line bg-surface-2 p-3.5">
+            <p className="text-[12.5px] font-bold text-ink flex items-center gap-1.5 mb-1">
+              <Icon name="lock" size={15} />
+              Word-accurate timing runs on the studio's own engine
+            </p>
+            <p className="text-[11.5px] text-ink-muted leading-snug">
+              The model key belongs to the deployment, so it is never kept on this device and never
+              travels with your clips. Whoever runs this workspace sets it once; until then Auto-Sync
+              times the captions from the speech cadence you can edit by hand.
+            </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim block mb-1.5">
-                Google Gemini API Key (Optional)
-              </label>
-              <input
-                type="password"
-                value={keyInput}
-                onChange={(e) => {
-                  setKeyInput(e.target.value);
-                  setError(null);
-                }}
-                placeholder="AIzaSy... (leave blank to use Free Auto-Sync)"
-                className="w-full rounded-btn border border-line bg-surface-2 px-3 py-2 text-[13px] font-mono text-ink outline-none focus:border-primary"
-              />
-              {error && <p className="text-danger text-[12px] mt-1.5 font-medium">{error}</p>}
-            </div>
-
-            <div className="text-[12px] text-ink-dim flex items-center justify-between pt-1">
-              <span>Free key from Google AI Studio</span>
-              <a
-                href="https://aistudio.google.com/apikey"
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary hover:underline font-semibold flex items-center gap-1"
-              >
-                Get Free Gemini Key <Icon name="open_in_new" size={12} />
-              </a>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
-              <Button variant="ghost" onClick={onClose} type="button">
-                Cancel
-              </Button>
-              <Button icon="bolt" iconSpin={saving} disabled={saving} type="submit">
-                {saving ? 'Connecting...' : 'Save Key'}
-              </Button>
-            </div>
-          </form>
+          <div className="flex items-center justify-end pt-1 border-t border-line">
+            <Button variant="ghost" onClick={onClose} type="button">
+              Close
+            </Button>
+          </div>
         </Card>
       </div>
     </>

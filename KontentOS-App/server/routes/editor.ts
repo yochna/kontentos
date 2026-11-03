@@ -1,5 +1,6 @@
 import express from 'express';
 import { GoogleGenAI } from '@google/genai';
+import { safeMessage } from '../errorText.js';
 import {
   TimelineProject,
   TimelineTrack,
@@ -926,7 +927,7 @@ router.post('/auto-edit', async (req, res) => {
     });
   } catch (err: any) {
     console.error('Error in /api/editor/auto-edit:', err);
-    return res.status(500).json({ error: err.message || 'Auto-edit processing failed' });
+    return res.status(500).json({ error: safeMessage(err, 'Auto-edit processing failed') });
   }
 });
 
@@ -1021,7 +1022,7 @@ router.post('/command', async (req, res) => {
     });
   } catch (err: any) {
     console.error('Error in /api/editor/command:', err);
-    return res.status(500).json({ error: err.message || 'Command processing failed' });
+    return res.status(500).json({ error: safeMessage(err, 'Command processing failed') });
   }
 });
 

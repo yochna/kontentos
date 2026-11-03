@@ -4,6 +4,7 @@ import { PLATFORMS } from '../../src/lib/platforms.js';
 import * as db from '../db.js';
 import * as store from '../repurposeStore.js';
 import { buildRepurposeJob, type TranscriptSegment } from '../repurposeEngine.js';
+import { safeMessage } from '../errorText.js';
 
 const router = express.Router();
 
@@ -89,7 +90,7 @@ router.post('/jobs', startJobLimiter, async (req, res) => {
     });
     res.json({ success: true, data: job });
   } catch (err: any) {
-    res.status(500).json({ error: err?.message || 'Failed to start the repurpose job.' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to start the repurpose job.') });
   }
 });
 
@@ -97,7 +98,7 @@ router.get('/jobs', async (req, res) => {
   try {
     res.json({ success: true, data: await store.listJobs(req.userId) });
   } catch (err: any) {
-    res.status(500).json({ error: err?.message || 'Failed to list repurpose jobs.' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to list repurpose jobs.') });
   }
 });
 
@@ -107,7 +108,7 @@ router.get('/jobs/:id', async (req, res) => {
     if (!job) return res.status(404).json({ error: 'Job not found.' });
     res.json({ success: true, data: job });
   } catch (err: any) {
-    res.status(500).json({ error: err?.message || 'Failed to read the job.' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to read the job.') });
   }
 });
 
@@ -133,7 +134,7 @@ router.patch('/jobs/:jobId/clips/:clipId', async (req, res) => {
     if (!clip) return res.status(404).json({ error: 'Clip not found in this job.' });
     res.json({ success: true, data: clip });
   } catch (err: any) {
-    res.status(500).json({ error: err?.message || 'Failed to save the clip.' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to save the clip.') });
   }
 });
 
@@ -143,7 +144,7 @@ router.delete('/jobs/:id', async (req, res) => {
     if (!removed) return res.status(404).json({ error: 'Job not found.' });
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: err?.message || 'Failed to delete the job.' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to delete the job.') });
   }
 });
 

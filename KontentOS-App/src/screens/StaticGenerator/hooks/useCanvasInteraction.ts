@@ -18,6 +18,7 @@ import {
   sendToBack,
 } from '../utils/layerOrdering';
 import { getCanvasBounds, getElementCanvasRect } from '../utils/canvasMath';
+import { htmlToPlainText } from '../utils/richText';
 
 const MAX_HISTORY = 50;
 
@@ -63,17 +64,6 @@ function defaultTransform(id: string, zIndex: number): ElementTransform {
 function ensureLayerTransform(scene: SlideSceneState, id: string): SlideSceneState {
   if (scene[id]) return scene;
   return { ...scene, [id]: defaultTransform(id, nextZ(scene)) };
-}
-
-function looksLikeHtml(text: string) {
-  return /<\/?[a-z][\s\S]*>/i.test(text);
-}
-
-function stripHtml(text: string) {
-  if (!looksLikeHtml(text)) return text;
-  const div = document.createElement('div');
-  div.innerHTML = text;
-  return div.textContent || '';
 }
 
 function readBuiltInVisual(id: string) {
@@ -1033,5 +1023,5 @@ export function getElementRect(id: string) {
 }
 
 export function stripRichText(value: string) {
-  return stripHtml(value);
+  return htmlToPlainText(value);
 }

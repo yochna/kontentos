@@ -148,9 +148,12 @@ describe('account endpoints', () => {
     expect((await json(await get('/api/auth/me'))).data).toBeNull();
   });
 
-  it('changes the password only for the right current one, and signs out on success', async () => {
+  it('changes the password only for the right current one, and signs out every device', async () => {
     const login = await post('/api/auth/login', { email: 'creator@test.example', password: PASSWORD });
     const fresh = cookieFrom(login);
+    // A second browser on the same account — the one a leaked password would have opened.
+    const laptop = cookieFrom(await post('/api/auth/login', { email: 'creator@test.example', password: PASSWORD }));
+    expect((await get('/api/private', laptop)).status).toBe(200);
 
     expect((await post('/api/auth/change-password', { current: 'nope', next: 'brand-new-passphrase' }, fresh)).status).toBe(401);
     expect(
@@ -160,8 +163,17 @@ describe('account endpoints', () => {
     const ok = await post('/api/auth/change-password', { current: PASSWORD, next: 'brand-new-passphrase' }, fresh);
     expect(ok.status).toBe(200);
     expect((await get('/api/private', fresh)).status).toBe(401);
+    // Revoking only the caller's own cookie would leave the other session live for its whole month.
+    expect((await get('/api/private', laptop)).status).toBe(401);
 
     expect((await post('/api/auth/login', { email: 'creator@test.example', password: PASSWORD })).status).toBe(401);
-    expect((await post('/api/auth/login', { email: 'creator@test.example', password: 'brand-new-passphrase' })).status).toBe(200);
+    const backIn = await post('/api/auth/login', { email: 'creator@test.example', password: 'brand-new-passphrase' });
+    expect(backIn.status).toBe(200);
+
+    // A profile answer carries the handle the Studio shows, never a platform credential.
+    const me = await json(await get('/api/auth/me', cookieFrom(backIn)));
+    expect(JSON.stringify(me.data)).not.toMatch(/token/i);
+    expect(me.data).not.toHaveProperty('instagram_token');
+    expect(me.data).not.toHaveProperty('instagram_user_id');
   });
 });

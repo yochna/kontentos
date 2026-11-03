@@ -503,7 +503,6 @@ Respond ONLY with pure JSON matching this exact structure:
   async transcribeVideo(opts: {
     videoId: string;
     targetLanguage?: string;
-    apiKey?: string;
     forceRefresh?: boolean;
     /** Intake runs this in the background; a wedged engine must not hold the pill on "working" forever. */
     signal?: AbortSignal;
@@ -522,7 +521,6 @@ Respond ONLY with pure JSON matching this exact structure:
       body: JSON.stringify({
         videoId: opts.videoId,
         targetLanguage: opts.targetLanguage,
-        apiKey: opts.apiKey,
         forceRefresh: opts.forceRefresh,
       }),
       signal: opts.signal,

@@ -57,18 +57,15 @@ export default function Settings() {
   }, [user]);
 
   useEffect(() => {
-    const local = localStorage.getItem('kontentos_gemini_api_key');
-    if (local) {
-      setGeminiKey(`••••••••••••${local.slice(-4)}`);
-    }
-    api.getAiStatus()
-      .then((st) => {
-        if (st?.keyMasked) setGeminiKey(st.keyMasked);
-        else if (!local) setGeminiKey('Not configured');
-      })
-      .catch(() => {
-        if (!local) setGeminiKey('Not configured');
-      });
+    // An older build mirrored the engine key into this browser. It has no use here any more —
+    // the server reads only its own environment — so a key left behind is deleted, not shown.
+    try {
+      if (localStorage.getItem('kontentos_gemini_api_key')) localStorage.removeItem('kontentos_gemini_api_key');
+    } catch {}
+    api
+      .getAiStatus()
+      .then((st) => setGeminiKey(st?.keyMasked || 'Not set yet'))
+      .catch(() => setGeminiKey('Not set yet'));
   }, []);
 
   const initials = (fullName || 'A').trim().charAt(0).toUpperCase();
@@ -121,12 +118,12 @@ export default function Settings() {
     const clean = newKeyInput.trim();
     if (!clean) return;
     try {
-      localStorage.setItem('kontentos_gemini_api_key', clean);
+      // Sent once, to the server that will use it. Nothing about a key is kept in this browser.
       const res = await api.saveGeminiApiKey(clean);
-      setGeminiKey(res.keyMasked || `••••••••••••${clean.slice(-4)}`);
+      setGeminiKey(res.keyMasked || '••••••••••••••••');
       setIsEditingKey(false);
       setNewKeyInput('');
-      setKeyNotice('Google Gemini API Key securely saved and active for LLM speech transcription.');
+      setKeyNotice('Gemini key active for this workspace.');
       setTimeout(() => setKeyNotice(null), 4000);
     } catch (err: any) {
       setKeyNotice(err?.message || 'Failed to save API key');
@@ -591,10 +588,12 @@ export default function Settings() {
             <Card className="p-6 shadow-xs border-line space-y-6">
               <div>
                 <h2 className="font-display text-[22px] font-bold text-ink">
-                  API Key &amp; Credential Vault
+                  Engine key
                 </h2>
                 <p className="text-[12.5px] text-ink-muted">
-                  Securely stored in your local standalone environment. Keys are never sent to external third parties.
+                  The model key lives on the server that runs this workspace, so the studio can keep
+                  writing while you are away from this device. This browser keeps no copy of it, and
+                  nothing you paste here is ever sent to a third party except Google.
                 </p>
               </div>
 

@@ -2,14 +2,17 @@ import express from 'express';
 import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import * as db from '../db.js';
-import { isValidGeminiKey, envGeminiKey } from '../geminiKey.js';
+import { envGeminiKey } from '../geminiKey.js';
 import { engineTimeout, isEngineCeiling, readEngineJson } from '../engine.js';
+import { asId } from '../safeId.js';
+import { safeMessage } from '../errorText.js';
 
 const router = express.Router();
 
 
-function getGeminiClient(customKey?: string): GoogleGenAI | null {
-  const apiKey = (isValidGeminiKey(customKey) ? customKey.trim() : null) || envGeminiKey();
+function getGeminiClient(): GoogleGenAI | null {
+  // Only the deployment's key — see the note in routes/transcribe.ts.
+  const apiKey = envGeminiKey();
   if (!apiKey) return null;
   return new GoogleGenAI({
     apiKey,
@@ -376,7 +379,9 @@ Format: Hook, reel summary, call to action, and 4-5 hashtags.`;
 // Generate Platform-Specific Copy and Hashtags Grounded in Reel Context
 router.post(['/', '/generate'], async (req, res) => {
   try {
-    const { videoId, transcriptText, tone = 'Viral & Punchy', platform = 'instagram', forceRefresh = false, videoTitle, title, model } = req.body;
+    const { videoId: sentVideoId, transcriptText, tone = 'Viral & Punchy', platform = 'instagram', forceRefresh = false, videoTitle, title, model } = req.body;
+    // Text only: a body carrying {"videoId":{"$ne":null}} would otherwise reach the filters below.
+    const videoId = asId(sentVideoId);
     const effectiveTitle = videoTitle || title || 'Creator Video Reel';
     const effectiveVideoId = videoId || `title_${Date.now()}`;
 
@@ -477,14 +482,15 @@ router.post(['/', '/generate'], async (req, res) => {
     });
   } catch (err: any) {
     console.error('Error in /api/caption/generate:', err);
-    res.status(500).json({ error: err.message || 'AI service failed' });
+    res.status(500).json({ error: safeMessage(err, 'AI service failed') });
   }
 });
 
 // Generate copy for all supported platforms simultaneously in parallel
 router.post('/generate-all', async (req, res) => {
   try {
-    const { videoId, transcriptText, tone = 'Viral & Punchy', forceRefresh = false, videoTitle, brandVoice = '', temperature, model } = req.body;
+    const { videoId: sentVideoId, transcriptText, tone = 'Viral & Punchy', forceRefresh = false, videoTitle, brandVoice = '', temperature, model } = req.body;
+    const videoId = asId(sentVideoId);
     const modelTemperature = clampTemperature(temperature);
     const requestedModel = preferredModelFrom(model) ?? DEFAULT_MODEL;
     if (!videoId) {
@@ -603,7 +609,7 @@ router.post('/generate-all', async (req, res) => {
     });
   } catch (err: any) {
     console.error('Error in /api/caption/generate-all:', err);
-    res.status(500).json({ error: err.message || 'AI service failed' });
+    res.status(500).json({ error: safeMessage(err, 'AI service failed') });
   }
 });
 
@@ -635,7 +641,7 @@ router.patch('/:id', async (req, res) => {
       message: 'Caption updated successfully',
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to update caption' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to update caption') });
   }
 });
 
@@ -727,7 +733,7 @@ router.post('/generate-from-title', async (req, res) => {
     });
   } catch (err: any) {
     console.error('Error in /api/caption/generate-from-title:', err);
-    res.status(500).json({ error: err.message || 'AI caption generation failed' });
+    res.status(500).json({ error: safeMessage(err, 'AI caption generation failed') });
   }
 });
 
@@ -756,7 +762,7 @@ router.post('/text-gen', async (req, res) => {
 
     return res.json({ success: true, text: String(prompt) });
   } catch (err: any) {
-    res.status(500).json({ error: err?.message || 'Text generation failed' });
+    res.status(500).json({ error: safeMessage(err, 'Text generation failed') });
   }
 });
 

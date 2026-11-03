@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'crypto';
 import * as db from '../db.js';
 import type { Video } from '../../src/types.js';
+import { safeMessage } from '../errorText.js';
 
 const router = express.Router();
 
@@ -21,16 +22,30 @@ if (!fs.existsSync(CHUNKS_DIR)) {
 // In-flight chunk uploads tracking
 interface UploadSession {
   uploadId: string;
+  /**
+   * The creator who opened the session. Chunk ids are unguessable but not proof of ownership, and
+   * a re-linked upload writes over an existing clip, so every later request has to match this.
+   */
+  userId: string;
   fileName: string;
   totalChunks: number;
   receivedChunks: Set<number>;
   totalSize: number;
+  /** Bytes actually accepted so far — the declared totalSize is the sender's own claim. */
+  receivedBytes: number;
   createdAt: number;
   /** Set when this upload re-attaches media to a record that already exists. See relinkTarget. */
   videoId?: string;
 }
 
 const activeSessions = new Map<string, UploadSession>();
+
+/** The session, but only if this creator is the one who opened it. */
+function ownSession(uploadId: unknown, userId: string): UploadSession | null {
+  const id = typeof uploadId === 'string' ? uploadId : '';
+  const session = activeSessions.get(id) || null;
+  return session && session.userId === userId ? session : null;
+}
 
 // ---- Upload hardening -------------------------------------------------------
 const ALLOWED_EXTENSIONS = new Set(['.mp4', '.mov', '.webm', '.m4v', '.mkv']);
@@ -54,8 +69,7 @@ function parseIndex(value: unknown): number | null {
 }
 
 /** Removes sessions (and their chunk folders) that were never completed. */
-function sweepExpiredSessions() {
-  const now = Date.now();
+function sweepExpiredSessions() {  const now = Date.now();
   for (const [id, s] of activeSessions) {
     if (now - s.createdAt > SESSION_TTL_MS) {
       fs.rmSync(path.join(CHUNKS_DIR, id), { recursive: true, force: true });
@@ -116,10 +130,12 @@ router.post('/init', async (req, res) => {
 
     activeSessions.set(uploadId, {
       uploadId,
+      userId: req.userId,
       fileName,
       totalChunks: chunkCount,
       receivedChunks: new Set<number>(),
       totalSize: parseInt(totalSize, 10) || 0,
+      receivedBytes: 0,
       createdAt: Date.now(),
       videoId: relink?.video.id,
     });
@@ -131,7 +147,7 @@ router.post('/init', async (req, res) => {
     });
   } catch (err: any) {
     console.error('Error in /api/upload/init:', err);
-    res.status(500).json({ error: err.message || 'Internal server error' });
+    res.status(500).json({ error: safeMessage(err, 'Internal server error') });
   }
 });
 
@@ -144,7 +160,7 @@ router.post('/chunk', async (req, res) => {
       return res.status(400).json({ error: 'Missing uploadId, chunkIndex, or chunkData' });
     }
 
-    const session = activeSessions.get(uploadId);
+    const session = ownSession(uploadId, req.userId);
     if (!session) {
       return res.status(404).json({ error: 'Upload session not found or expired' });
     }
@@ -159,7 +175,7 @@ router.post('/chunk', async (req, res) => {
       return res.status(400).json({ error: 'chunkData must be a base64 string' });
     }
 
-    const sessionDir = path.join(CHUNKS_DIR, uploadId);
+    const sessionDir = path.join(CHUNKS_DIR, session.uploadId);
     const chunkPath = path.join(sessionDir, `chunk_${idx}`);
     // Defense in depth: the resolved path must stay inside this session's folder.
     if (!path.resolve(chunkPath).startsWith(path.resolve(sessionDir) + path.sep)) {
@@ -168,6 +184,15 @@ router.post('/chunk', async (req, res) => {
 
     // chunkData can be base64 string
     const buffer = Buffer.from(chunkData, 'base64');
+    // The declared totalSize is only a promise; a session that keeps sending past the ceiling
+    // would fill the disk every creator shares.
+    if (!session.receivedChunks.has(idx)) {
+      const nextBytes = session.receivedBytes + buffer.length;
+      if (nextBytes > MAX_FILE_BYTES) {
+        return res.status(413).json({ error: 'This upload has grown past the 2 GB limit for one clip.' });
+      }
+      session.receivedBytes = nextBytes;
+    }
     fs.writeFileSync(chunkPath, buffer);
 
     session.receivedChunks.add(idx);
@@ -183,7 +208,7 @@ router.post('/chunk', async (req, res) => {
     });
   } catch (err: any) {
     console.error('Error in /api/upload/chunk:', err);
-    res.status(500).json({ error: err.message || 'Failed to process chunk' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to process chunk') });
   }
 });
 
@@ -191,7 +216,7 @@ router.post('/chunk', async (req, res) => {
 router.post('/complete', async (req, res) => {
   try {
     const { uploadId, title, description, aspectRatio, duration } = req.body;
-    const session = activeSessions.get(uploadId);
+    const session = ownSession(uploadId, req.userId);
 
     if (!session) {
       return res.status(404).json({ error: 'Upload session not found' });
@@ -207,13 +232,13 @@ router.post('/complete', async (req, res) => {
     // before overwriting anything, and treat it as a fresh clip if it has gone.
     const relink = session.videoId ? await findRelinkRow(session.videoId, req.userId) : null;
     if (relink && 'error' in relink) {
-      fs.rmSync(path.join(CHUNKS_DIR, uploadId), { recursive: true, force: true });
-      activeSessions.delete(uploadId);
+      fs.rmSync(path.join(CHUNKS_DIR, session.uploadId), { recursive: true, force: true });
+      activeSessions.delete(session.uploadId);
       return res.status(relink.status).json({ error: relink.error });
     }
     const existing = relink?.video;
 
-    const sessionDir = path.join(CHUNKS_DIR, uploadId);
+    const sessionDir = path.join(CHUNKS_DIR, session.uploadId);
     const fileExt = safeExtension(session.fileName) || '.mp4';
     const videoId = existing?.id || `vid_${crypto.randomUUID()}`;
     const finalFileName = `${videoId}${fileExt}`;
@@ -237,7 +262,7 @@ router.post('/complete', async (req, res) => {
 
     // Cleanup chunks
     fs.rmSync(sessionDir, { recursive: true, force: true });
-    activeSessions.delete(uploadId);
+    activeSessions.delete(session.uploadId);
 
     const fileStats = fs.statSync(finalFilePath);
     // The assembled clip stays in this container's uploads directory; only its record is
@@ -285,7 +310,7 @@ router.post('/complete', async (req, res) => {
     });
   } catch (err: any) {
     console.error('Error in /api/upload/complete:', err);
-    res.status(500).json({ error: err.message || 'Failed to finalize video' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to finalize video') });
   }
 });
 
@@ -366,7 +391,7 @@ router.post('/direct', async (req, res) => {
     });
   } catch (err: any) {
     console.error('Error in /api/upload/direct:', err);
-    res.status(500).json({ error: err.message || 'Direct upload failed' });
+    res.status(500).json({ error: safeMessage(err, 'Direct upload failed') });
   }
 });
 

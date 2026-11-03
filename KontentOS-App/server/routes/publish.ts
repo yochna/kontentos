@@ -2,6 +2,8 @@ import express from 'express';
 import crypto from 'crypto';
 import * as db from '../db.js';
 import { checkCaption, platformSpec } from '../../src/lib/platforms.js';
+import { asId } from '../safeId.js';
+import { safeMessage } from '../errorText.js';
 
 const router = express.Router();
 
@@ -25,7 +27,8 @@ router.get(['/status', '/instagram/status'], async (req, res) => {
 // Save / Export Reel record to library & history
 router.post(['/reels', '/instagram', '/save'], async (req, res) => {
   try {
-    const { videoId, captionText, hashtags = [] } = req.body;
+    const { videoId: sentVideoId, captionText, hashtags = [] } = req.body;
+    const videoId = asId(sentVideoId);
     if (!videoId) {
       return res.status(400).json({ error: 'Missing videoId' });
     }
@@ -74,7 +77,7 @@ router.post(['/reels', '/instagram', '/save'], async (req, res) => {
     });
   } catch (err: any) {
     console.error('Error in /api/publish/reels:', err);
-    res.status(500).json({ error: err.message || 'Saving failed' });
+    res.status(500).json({ error: safeMessage(err, 'Saving failed') });
   }
 });
 
@@ -97,7 +100,7 @@ router.get('/history', async (req, res) => {
     );
     res.json({ success: true, data: enriched });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
   }
 });
 
@@ -107,7 +110,7 @@ router.delete('/history/:id', async (req, res) => {
     const deleted = await db.deletePublishingRecord(req.params.id, req.userId);
     res.json({ success: deleted, message: deleted ? 'Record deleted' : 'Record not found' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
   }
 });
 
@@ -136,7 +139,7 @@ router.get('/schedule', async (req, res) => {
     );
     res.json({ success: true, data: enriched });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
   }
 });
 
@@ -144,8 +147,8 @@ router.get('/schedule', async (req, res) => {
 router.post('/schedule', async (req, res) => {
   try {
     const {
-      id,
-      videoId,
+      id: sentId,
+      videoId: sentVideoId,
       videoTitle,
       fileUrl,
       thumbnailUrl,
@@ -157,6 +160,8 @@ router.post('/schedule', async (req, res) => {
       staggerMinutes = 0,
       platformCustomizations = {},
     } = req.body;
+    const id = asId(sentId);
+    const videoId = asId(sentVideoId);
 
     if (!videoId) {
       return res.status(400).json({ error: 'Missing videoId' });
@@ -183,9 +188,10 @@ router.post('/schedule', async (req, res) => {
     }
 
     // Determine target platforms for cross-posting
-    const targetPlatforms: string[] = Array.isArray(platforms) && platforms.length > 0
-      ? platforms
-      : [platform || 'instagram'];
+    const requestedPlatforms = Array.isArray(platforms) ? platforms.map(asId).filter(Boolean) : [];
+    const targetPlatforms: string[] = requestedPlatforms.length > 0
+      ? requestedPlatforms
+      : [asId(platform) || 'instagram'];
 
     // A queued post the destination cannot accept is a lie on the calendar: X refuses more than
     // 280 characters, so the row would sit "scheduled" forever and never be publishable as written.
@@ -252,7 +258,7 @@ router.post('/schedule', async (req, res) => {
         : '✨ Post scheduled successfully!',
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
   }
 });
 
@@ -264,8 +270,10 @@ router.post('/schedule/:id/crosspost', async (req, res) => {
       return res.status(404).json({ error: 'Source post not found' });
     }
 
-    const { targetPlatforms = [], staggerMinutes = 0, customCaptions = {} } = req.body;
-    if (!Array.isArray(targetPlatforms) || targetPlatforms.length === 0) {
+    const { targetPlatforms: sentTargets = [], staggerMinutes = 0, customCaptions: sentCustom = {} } = req.body;
+    const customCaptions = sentCustom && typeof sentCustom === 'object' ? sentCustom : {};
+    const targetPlatforms = (Array.isArray(sentTargets) ? sentTargets : []).map(asId).filter(Boolean);
+    if (targetPlatforms.length === 0) {
       return res.status(400).json({ error: 'No target platforms specified for cross-posting' });
     }
 
@@ -285,7 +293,9 @@ router.post('/schedule/:id/crosspost', async (req, res) => {
       const plat = targetPlatforms[i];
       if (plat === existing.platform) continue; // Skip source platform
 
-      const platCaption = customCaptions[plat] !== undefined ? customCaptions[plat] : existing.caption_text;
+      const platCaption = Object.prototype.hasOwnProperty.call(customCaptions, plat)
+        ? customCaptions[plat]
+        : existing.caption_text;
       const platTime = new Date(baseTime + ((i + 1) * staggerMs)).toISOString();
 
       const newPost = await db.createScheduledPost({
@@ -312,7 +322,7 @@ router.post('/schedule/:id/crosspost', async (req, res) => {
       message: `✨ Successfully cross-posted to ${createdPosts.length} additional platforms!`,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
   }
 });
 
@@ -341,7 +351,7 @@ router.patch('/schedule/:id', async (req, res) => {
     }
     res.json({ success: true, data: updated, message: 'Post updated successfully!' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
   }
 });
 
@@ -364,7 +374,7 @@ router.put('/schedule/:id', async (req, res) => {
     }
     res.json({ success: true, data: updated, message: 'Post updated successfully!' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
   }
 });
 
@@ -413,7 +423,7 @@ router.post('/schedule/:id/publish-now', async (req, res) => {
 
     res.json({ success: true, data: updated, message: 'Marked as published in KontentOS.' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
   }
 });
 
@@ -423,7 +433,7 @@ router.delete('/schedule/:id', async (req, res) => {
     const deleted = await db.deleteScheduledPost(req.params.id, req.userId);
     res.json({ success: deleted, message: deleted ? 'Scheduled post cancelled' : 'Not found' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
   }
 });
 

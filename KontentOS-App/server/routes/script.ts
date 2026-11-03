@@ -2,6 +2,7 @@ import express from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { DEFAULT_MODEL, ENGINE_MODELS, MODEL_ATTEMPT_TIMEOUT_MS, preferredModelFrom } from './caption.js';
 import { engineTimeout, isEngineCeiling, readEngineJson } from '../engine.js';
+import { safeMessage } from '../errorText.js';
 
 const router = express.Router();
 
@@ -249,7 +250,7 @@ Return STRICTLY JSON conforming to this schema without markdown fences:
     });
   } catch (err: any) {
     console.error('Error in /api/script/generate:', err);
-    res.status(500).json({ error: err.message || 'AI service failed' });
+    res.status(500).json({ error: safeMessage(err, 'AI service failed') });
   }
 });
 
@@ -370,7 +371,7 @@ Return ONLY a single JSON object (not an array) matching this schema:
     });
   } catch (err: any) {
     console.error('Error in /api/script/graphic-copy:', err);
-    res.status(500).json({ error: err.message || 'AI service failed' });
+    res.status(500).json({ error: safeMessage(err, 'AI service failed') });
   }
 });
 

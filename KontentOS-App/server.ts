@@ -9,6 +9,7 @@
  *  - Direct Gemini AI ideation and multimodal audio transcription endpoints.
  */
 import express from 'express';
+import helmet from 'helmet';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
@@ -16,6 +17,8 @@ import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import rateLimit from 'express-rate-limit';
 import { isValidGeminiKey, envGeminiKey } from './server/geminiKey.js';
+import { asId } from './server/safeId.js';
+import { cspOptions, noStoreApi } from './server/securityHeaders.js';
 import { attachSession, createAuthRouter, requireUser } from './server/auth.js';
 
 // Local backend routes and database
@@ -31,6 +34,7 @@ import scriptRouter from './server/routes/script.js';
 import editorRouter from './server/routes/editor.js';
 import repurposeRouter from './server/routes/repurpose.js';
 import staticCardAiRouter from './server/routes/staticCardAi.js';
+import { safeMessage } from './server/errorText.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const appRoot = path.dirname(__filename);
@@ -51,6 +55,22 @@ async function createApp() {
 
   // Behind Render/Railway there is one reverse proxy; trust it so req.ip is the real client.
   app.set('trust proxy', 1);
+
+  // Headers first, so every response — including the ones that fail — carries them.
+  // COEP/COOP/CORP are left to the middleware below: the ffmpeg workers need credentialless and
+  // shared clips need cross-origin reads, which helmet's stricter defaults would refuse.
+  app.use(
+    helmet({
+      // Development serves through Vite's middleware, which injects an inline module preamble; a
+      // script-src that forbids inline would stop the dev server from booting at all.
+      contentSecurityPolicy: IS_PROD ? cspOptions() : false,
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: false,
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+      frameguard: { action: 'deny' },
+      hsts: { maxAge: 180 * 24 * 60 * 60, includeSubDomains: true, preload: true },
+    }),
+  );
 
   // CORS allow-list. Same-origin requests (the app talking to its own server) send no
   // Origin header and are always fine. Anything else must be listed in ALLOWED_ORIGINS
@@ -101,11 +121,22 @@ async function createApp() {
   });
   app.use('/api', apiLimiter);
   app.use(['/api/script', '/api/caption', '/api/transcribe', '/api/static-card', '/api/editor'], aiLimiter);
+  // Nothing under /api is a public page: a shared cache must not hold one creator's transcript,
+  // caption or schedule where the next visitor could read it.
+  app.use('/api', noStoreApi);
 
-  // 15 MB is enough for the largest JSON the client sends (the <10 MB direct-upload path is
-  // base64, about 13.4 MB). Bigger files go through the chunked upload route instead.
-  app.use(express.json({ limit: '15mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+  // Two body sizes, because only the upload routes carry footage. The widest non-upload payload is
+  // a full transcript (400k characters, and a Devanagari one is escaped to about six bytes a
+  // character), so 4 MB covers real work while nothing else can make the server buffer 15.
+  const uploadJson = express.json({ limit: '15mb' });
+  const uploadUrlencoded = express.urlencoded({ extended: true, limit: '15mb' });
+  const apiJson = express.json({ limit: '4mb' });
+  const apiUrlencoded = express.urlencoded({ extended: true, limit: '4mb' });
+  app.use((req, res, next) => {
+    const isUpload = req.path === '/api/upload' || req.path.startsWith('/api/upload/');
+    if (isUpload) return uploadJson(req, res, (err) => (err ? next(err) : uploadUrlencoded(req, res, next)));
+    return apiJson(req, res, (err) => (err ? next(err) : apiUrlencoded(req, res, next)));
+  });
 
   // Gracefully handle malformed JSON in request bodies so the server process never crashes
   app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -129,12 +160,13 @@ async function createApp() {
 
   // Serve media uploaded by THIS app instance with explicit CORP and Accept-Ranges.
   // Signed-in only: a clip's URL used to be enough to read anyone's footage.
+  // No Access-Control-Allow-Origin here: the allow-list middleware above already answers the
+  // origins we trust, and a wildcard would let any site embed a creator's footage by URL alone.
   app.use(
     '/uploads',
     requireUser,
     (req, res, next) => {
       res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-      res.header('Access-Control-Allow-Origin', '*');
       res.header('Access-Control-Allow-Headers', 'Range');
       res.header('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
       next();
@@ -143,7 +175,6 @@ async function createApp() {
       acceptRanges: true,
       setHeaders: (res) => {
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-        res.setHeader('Access-Control-Allow-Origin', '*');
       },
     }),
   );
@@ -156,7 +187,6 @@ async function createApp() {
     '/broll',
     (req, res, next) => {
       res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-      res.header('Access-Control-Allow-Origin', '*');
       res.header('Access-Control-Allow-Headers', 'Range');
       res.header('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
       next();
@@ -165,7 +195,6 @@ async function createApp() {
       acceptRanges: true,
       setHeaders: (res) => {
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-        res.setHeader('Access-Control-Allow-Origin', '*');
       },
     }),
   );
@@ -256,7 +285,6 @@ async function createApp() {
     // Check fast in-memory LRU cache
     const cached = mediaCache.get(mediaUrl);
     if (cached && Date.now() - cached.timestamp < 3600000 * 24) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
       res.setHeader('Content-Type', cached.contentType);
@@ -288,7 +316,6 @@ async function createApp() {
       }
       if (!upstream.ok && upstream.status !== 206) {
         console.warn(`[proxy-media] Upstream status ${upstream.status} for ${mediaUrl}. Serving atmosphere fallback.`);
-        res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
         res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
         res.setHeader('Content-Type', 'image/svg+xml');
@@ -297,7 +324,6 @@ async function createApp() {
       }
 
       res.status(upstream.status);
-      res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
       res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
@@ -328,7 +354,6 @@ async function createApp() {
     } catch (err: any) {
       console.warn('[proxy-media] Error fetching media URL:', mediaUrl, err?.message);
       // Return beautiful fallback atmosphere image instead of failing with 502 JSON
-      res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
       res.setHeader('Content-Type', 'image/svg+xml');
@@ -446,22 +471,15 @@ async function createApp() {
   // Live Speech-to-Text & Subtitle Synchronization API (Works automatically with or without API Key)
   app.post('/api/transcribe', async (req, res) => {
     try {
-      const { videoId, forceRefresh = false, targetLanguage = 'English', apiKey: clientKey } = req.body || {};
+      const { videoId: sentVideoId, forceRefresh = false, targetLanguage = 'English' } = req.body || {};
+      const videoId = asId(sentVideoId);
       if (!videoId) return res.status(400).json({ error: 'Missing videoId' });
 
-      let video = await db.getVideo(videoId, req.userId);
-      if (!video) {
-        const all = await db.listVideos(req.userId);
-        video =
-          all.find((v: any) => v.id === videoId || v.title === videoId || (v.file_url && v.file_url.includes(videoId))) ||
-          (all.length > 0 ? all[0] : null);
-      }
+      const video = await db.getVideo(videoId, req.userId);
       if (!video) return res.status(404).json({ error: 'Video not found' });
 
       // Cached subtitles check
-      const existing =
-        (await db.getSubtitles(video.id, req.userId)) ||
-        (videoId !== video.id ? await db.getSubtitles(videoId, req.userId) : null);
+      const existing = await db.getSubtitles(video.id, req.userId);
       if (existing && !forceRefresh && (existing.language === targetLanguage || (!existing.language && targetLanguage === 'English'))) {
         const segments = existing.segments || parseSrtToSegments(existing.srt_content || '');
         return res.json({
@@ -472,9 +490,10 @@ async function createApp() {
         });
       }
 
-      // Key priority: key sent with this request, then the server's GEMINI_API_KEY.
-      // No built-in fallback: with no key we skip Gemini and use the offline captions below.
-      const activeApiKey: string | null = isValidGeminiKey(clientKey) ? clientKey.trim() : envGeminiKey();
+      // The deployment's key only. A key the browser sent used to win over it, which meant a
+      // creator's own Gemini key sat in localStorage and travelled on every request; with no key
+      // at all we skip Gemini and use the offline captions below.
+      const activeApiKey: string | null = envGeminiKey();
 
       let srt = '';
       let transcript = '';
@@ -720,7 +739,7 @@ Output valid JSON:
       });
     } catch (err: any) {
       console.error('Error in /api/transcribe:', err);
-      res.status(500).json({ error: err?.message || 'Failed to transcribe audio with LLM model' });
+      res.status(500).json({ error: safeMessage(err, 'Failed to transcribe audio with LLM model') });
     }
   });
 
@@ -737,7 +756,7 @@ Output valid JSON:
       const segments = existing.segments || parseSrtToSegments(existing.srt_content || '');
       res.json({ success: true, data: { ...existing, segments } });
     } catch (err: any) {
-      res.status(500).json({ error: err?.message || 'Failed to get captions' });
+      res.status(500).json({ error: safeMessage(err, 'Failed to get captions') });
     }
   });
 
@@ -754,7 +773,7 @@ Output valid JSON:
     try {
       res.json({ success: true, data: await db.listSavedIdeas(req.userId) });
     } catch (err: any) {
-      res.status(500).json({ error: err?.message || 'Could not load saved ideas' });
+      res.status(500).json({ error: safeMessage(err, 'Could not load saved ideas') });
     }
   });
 
@@ -764,7 +783,7 @@ Output valid JSON:
     try {
       res.json({ success: true, data: await db.saveSavedIdea(req.userId, idea) });
     } catch (err: any) {
-      res.status(500).json({ error: err?.message || 'Could not save this idea' });
+      res.status(500).json({ error: safeMessage(err, 'Could not save this idea') });
     }
   });
 
@@ -772,7 +791,7 @@ Output valid JSON:
     try {
       res.json({ success: true, data: await db.deleteSavedIdea(req.userId, req.params.id) });
     } catch (err: any) {
-      res.status(500).json({ error: err?.message || 'Could not delete this idea' });
+      res.status(500).json({ error: safeMessage(err, 'Could not delete this idea') });
     }
   });
 
@@ -796,13 +815,21 @@ Output valid JSON:
 
   // User profile — the signed-in creator, never another account.
   app.get('/api/user', async (req, res) => {
-    const user = await db.getUser(req.userId);
-    res.json({ success: true, data: user });
+    try {
+      const user = await db.getUser(req.userId);
+      res.json({ success: true, data: user });
+    } catch (err: any) {
+      res.status(503).json({ error: safeMessage(err, 'Could not read your profile. Please try again.') });
+    }
   });
   app.post('/api/user', async (req, res) => {
-    // Email and the password hash are changed through /api/auth, not here.
-    const updated = await db.updateUserProfile(req.userId, req.body || {});
-    res.json({ success: true, data: updated });
+    try {
+      // Email and the password hash are changed through /api/auth, not here.
+      const updated = await db.updateUserProfile(req.userId, req.body || {});
+      res.json({ success: true, data: db.publicUser(updated) });
+    } catch (err: any) {
+      res.status(503).json({ error: safeMessage(err, 'Could not save your profile. Please try again.') });
+    }
   });
 
   // AI & Model Settings

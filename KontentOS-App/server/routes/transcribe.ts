@@ -3,14 +3,21 @@ import fs from 'fs';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import * as db from '../db.js';
-import { isValidGeminiKey, envGeminiKey } from '../geminiKey.js';
+import { envGeminiKey } from '../geminiKey.js';
 import { readEngineJson } from '../engine.js';
+import { asId } from '../safeId.js';
+import { safeMessage } from '../errorText.js';
 
 const router = express.Router();
 
+/** A clip id, made safe to put in a download filename: nothing that could break the header out. */
+const fileSafe = (value: string) => value.replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80) || 'subtitles';
 
-function getGeminiClient(customKey?: string): GoogleGenAI | null {
-  const apiKey = (isValidGeminiKey(customKey) ? customKey.trim() : null) || envGeminiKey();
+
+function getGeminiClient(): GoogleGenAI | null {
+  // Only the deployment's key: a request-supplied one would have to come out of the browser's
+  // storage, and a key that leaves a creator's machine is no longer theirs to keep.
+  const apiKey = envGeminiKey();
   if (!apiKey) return null;
   return new GoogleGenAI({
     apiKey,
@@ -113,7 +120,8 @@ function srtToVtt(srt: string): string {
 // POST /api/transcribe/translate — Dedicated STT Subtitle Translation
 router.post('/translate', async (req, res) => {
   try {
-    const { videoId, targetLanguage = 'Spanish', srt: inputSrt, transcript: inputTranscript } = req.body;
+    const { videoId: sentVideoId, targetLanguage = 'Spanish', srt: inputSrt, transcript: inputTranscript } = req.body;
+    const videoId = asId(sentVideoId);
     if (!videoId && !inputSrt && !inputTranscript) {
       return res.status(400).json({ error: 'Missing videoId or subtitle content to translate' });
     }
@@ -228,16 +236,17 @@ Return JSON strictly matching this schema:
     });
   } catch (err: any) {
     console.error('Error in /api/transcribe/translate:', err);
-    res.status(500).json({ error: err.message || 'AI service failed' });
+    res.status(500).json({ error: safeMessage(err, 'AI service failed') });
   }
 });
 
 // POST /api/transcribe/live — Save in-browser speech dictation
 router.post('/live', async (req, res) => {
   try {
-    const { videoId, transcriptText: rawTranscript, text, language = 'English' } = req.body;
-    const transcriptText = rawTranscript || text;
-    if (!videoId || !transcriptText) {
+    const { videoId: sentVideoId, transcriptText: rawTranscript, text, language = 'English' } = req.body;
+    const videoId = asId(sentVideoId);
+    const transcriptText = typeof rawTranscript === 'string' ? rawTranscript : typeof text === 'string' ? text : '';
+    if (!videoId || !transcriptText.trim()) {
       return res.status(400).json({ error: 'Missing videoId or transcriptText' });
     }
 
@@ -297,7 +306,7 @@ router.post('/live', async (req, res) => {
     });
   } catch (err: any) {
     console.error('Error in /api/transcribe/live:', err);
-    res.status(500).json({ error: err.message || 'AI service failed' });
+    res.status(500).json({ error: safeMessage(err, 'AI service failed') });
   }
 });
 
@@ -309,10 +318,10 @@ router.get('/:videoId/download/srt', async (req, res) => {
       return res.status(404).send('Subtitles not found');
     }
     res.setHeader('Content-Type', 'text/plain');
-    res.setHeader('Content-Disposition', `attachment; filename="${req.params.videoId}.srt"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileSafe(req.params.videoId)}.srt"`);
     res.send(subtitles.srt_content);
   } catch (err: any) {
-    res.status(500).send(err.message);
+    res.status(500).send('Could not read those subtitles.');
   }
 });
 
@@ -323,10 +332,10 @@ router.get('/:videoId/download/vtt', async (req, res) => {
       return res.status(404).send('Subtitles not found');
     }
     res.setHeader('Content-Type', 'text/vtt');
-    res.setHeader('Content-Disposition', `attachment; filename="${req.params.videoId}.vtt"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileSafe(req.params.videoId)}.vtt"`);
     res.send(subtitles.vtt_content);
   } catch (err: any) {
-    res.status(500).send(err.message);
+    res.status(500).send('Could not read those subtitles.');
   }
 });
 

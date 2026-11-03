@@ -1,7 +1,8 @@
 import express from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { searchStockPhotos } from '../stockSearchService.js';
-import { isValidGeminiKey, envGeminiKey } from '../geminiKey.js';
+import { envGeminiKey } from '../geminiKey.js';
+import { safeMessage } from '../errorText.js';
 
 const router = express.Router();
 
@@ -16,10 +17,11 @@ function readGeminiText(payload: unknown): string {
 }
 
 
-function getEffectiveApiKey(clientApiKey?: string): string {
-  // Server key first, then a key the caller sent. Empty string = no key: the
-  // Gemini calls below fail quietly and the route uses its built-in fallback copy.
-  return envGeminiKey() || (isValidGeminiKey(clientApiKey) ? clientApiKey.trim() : '');
+function getEffectiveApiKey(): string {
+  // The deployment's key, or nothing. A browser-sent key is not accepted: it would have to travel
+  // on every request and sit in somebody's localStorage to be worth anything to its owner.
+  // Empty string = no key: the Gemini calls below fail quietly and the route uses its fallback copy.
+  return envGeminiKey() || '';
 }
 
 // Timeout helper
@@ -75,11 +77,13 @@ Return ONLY valid JSON with keys: "headline", "supportingText", "socialCaption".
 
   for (const model of models) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      // The key goes in a header, not the URL: a query string is what ends up in proxy logs,
+      // crash reports and anybody's browser history.
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const res = await withTimeout(
         fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
           body: JSON.stringify({
             contents: [
               {
@@ -124,14 +128,14 @@ Return ONLY valid JSON with keys: "headline", "supportingText", "socialCaption".
  */
 router.post('/generate-copy', async (req, res) => {
   try {
-    const { prompt, format = 'instagram-overlay', apiKey } = req.body;
+    const { prompt, format = 'instagram-overlay' } = req.body;
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ error: 'Please provide a topic or prompt for the AI to generate copy.' });
     }
 
     const cleanPrompt = prompt.trim();
-    const effectiveKey = getEffectiveApiKey(apiKey);
+    const effectiveKey = getEffectiveApiKey();
 
     // Call REST first with the verified active Gemini models
     let generatedCopy = await callGeminiRest(effectiveKey, cleanPrompt, format);
@@ -224,7 +228,7 @@ Return pure JSON with keys: "headline", "supportingText", "socialCaption".`;
   } catch (err: any) {
     console.error('[StaticCardAi] Server error:', err);
     return res.status(500).json({
-      error: err?.message || 'Server error while contacting Gemini AI.',
+      error: safeMessage(err, 'Server error while contacting Gemini AI.'),
     });
   }
 });
@@ -309,7 +313,7 @@ function generateDynamicFallbackDeck(prompt: string, count: number): { slides: G
  */
 router.post('/generate-deck', async (req, res) => {
   try {
-    const { prompt, slideCount = 5, apiKey } = req.body;
+    const { prompt, slideCount = 5 } = req.body;
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ error: 'Please provide a topic or prompt for the carousel deck.' });
@@ -317,7 +321,7 @@ router.post('/generate-deck', async (req, res) => {
 
     const cleanPrompt = prompt.trim();
     const count = Math.min(Math.max(Number(slideCount) || 5, 3), 8);
-    const effectiveKey = getEffectiveApiKey(apiKey);
+    const effectiveKey = getEffectiveApiKey();
 
     const systemPrompt = `You are a viral ghostwriter, editorial director, and visual slide strategist for top 0.1% creators on LinkedIn, Instagram, and 𝕏.
 Generate an authoritative, scroll-stopping ${count}-slide carousel presentation deck that STRICTLY and DEEPLY focuses on the user's prompt: "${cleanPrompt}".
@@ -355,11 +359,11 @@ Return ONLY valid JSON with this exact schema:
 
     for (const model of models) {
       try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${effectiveKey}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
         const resp = await withTimeout(
           fetch(endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': effectiveKey },
             body: JSON.stringify({
               contents: [
                 {
@@ -457,7 +461,7 @@ Return ONLY valid JSON with this exact schema:
   } catch (err: any) {
     console.error('[StaticCardAi Deck] Server error:', err);
     return res.status(500).json({
-      error: err?.message || 'Server error while generating carousel deck.',
+      error: safeMessage(err, 'Server error while generating carousel deck.'),
     });
   }
 });
@@ -554,7 +558,6 @@ function generateFallbackSlide(
  * - nextSlide?: { headline: string; supportingText: string } | null
  * - topic?: string
  * - instruction?: string (e.g. "Make this step more tactical")
- * - apiKey?: string
  */
 router.post('/regenerate-slide', async (req, res) => {
   try {
@@ -566,7 +569,6 @@ router.post('/regenerate-slide', async (req, res) => {
       nextSlide,
       topic = '',
       instruction = '',
-      apiKey,
     } = req.body || {};
 
     if (
@@ -579,7 +581,7 @@ router.post('/regenerate-slide', async (req, res) => {
       });
     }
 
-    const effectiveKey = getEffectiveApiKey(apiKey);
+    const effectiveKey = getEffectiveApiKey();
     const cleanTopic = (topic || '').trim();
     const cleanInstruction = (instruction || '').trim();
     const idx = Number(slideIndex) || 1;
@@ -624,11 +626,11 @@ Return ONLY valid JSON with this exact schema:
 
     for (const model of models) {
       try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${effectiveKey}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
         const resp = await withTimeout(
           fetch(endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': effectiveKey },
             body: JSON.stringify({
               contents: [
                 {
@@ -712,7 +714,7 @@ Return ONLY valid JSON with this exact schema:
     console.error('[RegenerateSlide] Server error:', err);
     return res.status(500).json({
       success: false,
-      error: err?.message || 'Server error while regenerating slide.',
+      error: safeMessage(err, 'Server error while regenerating slide.'),
     });
   }
 });
@@ -736,7 +738,7 @@ router.get('/stock-search', async (req, res) => {
     console.error('[StockSearch] Error in GET route:', err);
     return res.status(500).json({
       success: false,
-      error: err?.message || 'Failed to search stock photos',
+      error: safeMessage(err, 'Failed to search stock photos'),
       photos: [],
     });
   }
@@ -760,7 +762,7 @@ router.post('/stock-search', async (req, res) => {
     console.error('[StockSearch] Error in POST route:', err);
     return res.status(500).json({
       success: false,
-      error: err?.message || 'Failed to search stock photos',
+      error: safeMessage(err, 'Failed to search stock photos'),
       photos: [],
     });
   }

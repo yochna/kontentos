@@ -5,6 +5,7 @@ import os from 'os';
 import crypto from 'crypto';
 import { promisify } from 'util';
 import type { Video, Subtitle, Caption, PublishingRecord, User, VideoStatus, SocialPlatform, ScheduledPost } from '../src/types.js';
+import { asId, isPlainJson } from './safeId.js';
 
 // promisify picks the 3-argument scrypt overload; the options form needs its own signature.
 const scryptAsync = promisify(crypto.scrypt) as unknown as (
@@ -25,6 +26,12 @@ const SCRYPT_OPTS = { N: 16384, r: 8, p: 1 } as const;
 
 export interface Account extends User {
   password_hash: string;
+  /**
+   * Kept in the store because old rows have them; declared here, and nowhere in the browser's
+   * User type, because publicUser removes them and no code path reads them back.
+   */
+  instagram_token?: string;
+  instagram_user_id?: string;
 }
 
 export interface SessionRow {
@@ -34,10 +41,15 @@ export interface SessionRow {
   expires_at: string;
 }
 
-/** The shape the API is allowed to hand to a browser: no hash, no tokens. */
+/** The shape the API is allowed to hand to a browser: no hash, and no platform credentials. */
 export function publicUser(account: Partial<Account> | null | undefined): User | null {
   if (!account) return null;
-  const { password_hash: _hash, ...rest } = account as Account;
+  const {
+    password_hash: _hash,
+    instagram_token: _igToken,
+    instagram_user_id: _igUserId,
+    ...rest
+  } = account as Account;
   return rest as User;
 }
 
@@ -338,9 +350,9 @@ async function mongoModels(): Promise<Models | null> {
   const m = await getModels();
   if (m) return m;
   if (MONGODB_URI) {
-    throw new Error(
-      `MongoDB is configured but unavailable${lastConnectError ? ` (${lastConnectError})` : ''}. Nothing was saved.`,
-    );
+    // The driver's own words go to the log (openConnection above), not to this message: a creator
+    // needs to know nothing was saved, and a probe needs to learn nothing about the deployment.
+    throw new Error('The workspace store is unreachable, so nothing was saved. Try again in a moment.');
   }
   return null;
 }
@@ -352,10 +364,6 @@ export function isMongoConnected(): boolean {
 export function storageProvider(): 'mongodb' | 'local_persistent_json' {
   // The configured engine, not the live socket: isMongoConnected() carries the health.
   return MONGODB_URI ? 'mongodb' : 'local_persistent_json';
-}
-
-export function databaseError(): string {
-  return lastConnectError;
 }
 
 /** Attempts the connection at boot so the log says up-front which engine is live. */
@@ -513,9 +521,11 @@ export async function getAccountByEmail(email: string): Promise<Account | null> 
 }
 
 export async function getAccountById(id: string): Promise<Account | null> {
+  const accountId = asId(id);
+  if (!accountId) return null;
   const m = await mongoModels();
-  if (m) return plain<Account>(await m.user.findOne({ id }).lean());
-  return loadLocalStore().users.find((u) => u.id === id) || null;
+  if (m) return plain<Account>(await m.user.findOne({ id: accountId }).lean());
+  return loadLocalStore().users.find((u) => u.id === accountId) || null;
 }
 
 export class EmailAlreadyRegistered extends Error {}
@@ -583,19 +593,24 @@ export async function adoptLegacyData(userId: string): Promise<void> {
   saveLocalStore(store);
 }
 
-/** Only these fields are user-editable; email and the hash are not reachable from the profile route. */
+/**
+ * Only these fields are user-editable; email and the hash are not reachable from the profile route.
+ * Platform access tokens are deliberately absent: nothing reads them back, so the profile must not
+ * be a place a creator can drop a credential that then sits in the store unreadable.
+ */
 export async function updateUserProfile(
   userId: string,
   patch: Partial<User>,
 ): Promise<Account | null> {
   const allowed = [
     'full_name', 'avatar_url', 'niche', 'locale',
-    'instagram_username', 'instagram_user_id', 'instagram_token',
-    'youtube_channel_id', 'tiktok_username',
+    'instagram_username', 'youtube_channel_id', 'tiktok_username',
   ] as const;
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
-    if (patch[key] !== undefined) updates[key] = patch[key];
+    // Text only, and short: a body value of `{$ne: null}` would otherwise reach $set (or the JSON
+    // store) as an operator object instead of the profile string its field name promises.
+    if (typeof patch[key] === 'string') updates[key] = (patch[key] as string).trim().slice(0, 300);
   }
   if (!Object.keys(updates).length) return getAccountById(userId);
 
@@ -675,25 +690,40 @@ export async function deleteSession(tokenHash: string): Promise<void> {
   saveLocalStore(store);
 }
 
+/** Signs every device out of one account, for when its password has changed or the account is going. */
+export async function deleteSessionsForUser(userId: string): Promise<void> {
+  const id = asId(userId);
+  if (!id) return;
+  const m = await mongoModels();
+  if (m) {
+    await m.session.deleteMany({ user_id: id });
+    return;
+  }
+  const store = loadLocalStore();
+  store.sessions = store.sessions.filter((s) => s.user_id !== id);
+  saveLocalStore(store);
+}
+
 // ==========================================
 // Database Operations Service
 // ==========================================
-
 /**
  * Every content read and write below is scoped to a user id. Passing it explicitly (rather than
  * reading it from a global) keeps request handling correct under concurrency, and a missing id
  * fails to compile instead of quietly returning another creator's rows.
  */
 async function ownsVideo(videoId: string, userId: string): Promise<boolean> {
-  if (!videoId || !userId) return false;
+  const id = asId(videoId);
+  if (!id || !userId) return false;
   const m = await mongoModels();
-  if (m) return !!(await m.video.exists({ id: videoId, user_id: userId }));
-  return loadLocalStore().videos.some((v) => v.id === videoId && v.user_id === userId);
+  if (m) return !!(await m.video.exists({ id, user_id: userId }));
+  return loadLocalStore().videos.some((v) => v.id === id && v.user_id === userId);
 }
 
 export async function createVideo(data: Partial<Video> & { user_id: string }): Promise<Video> {
+  const requestedId = asId(data.id);
   const newVideo: Video = {
-    id: data.id || `vid_${crypto.randomUUID()}`,
+    id: requestedId || `vid_${crypto.randomUUID()}`,
     user_id: data.user_id,
     title: data.title || 'Untitled Video',
     description: data.description || '',
@@ -720,6 +750,8 @@ export async function createVideo(data: Partial<Video> & { user_id: string }): P
 }
 
 export async function getVideo(id: string, userId: string): Promise<Video | null> {
+  id = asId(id);
+  if (!id) return null;
   const m = await mongoModels();
   if (m) return plain<Video>(await m.video.findOne({ id, user_id: userId }).lean());
 
@@ -746,6 +778,8 @@ export async function updateVideoStatus(
   extra: Partial<Video>,
   userId: string
 ): Promise<Video | null> {
+  id = asId(id);
+  if (!id) return null;
   const updates = {
     ...extra,
     status,
@@ -786,6 +820,8 @@ export function removeUploadedVideoFile(fileUrl: string | undefined): void {
 }
 
 export async function deleteVideo(id: string, userId: string): Promise<boolean> {
+  id = asId(id);
+  if (!id) return false;
   const m = await mongoModels();
   if (m) {
     const video = plain<{ file_url?: string }>(await m.video.findOne({ id, user_id: userId }).lean());
@@ -820,7 +856,9 @@ export async function saveSubtitles(
   sub: Omit<Subtitle, 'id' | 'created_at'>,
   userId: string
 ): Promise<Subtitle | null> {
-  if (!(await ownsVideo(sub.video_id, userId))) return null;
+  const videoId = asId(sub.video_id);
+  if (!videoId) return null;
+  if (!(await ownsVideo(videoId, userId))) return null;
   const fields = {
     srt_content: sub.srt_content,
     vtt_content: sub.vtt_content,
@@ -834,7 +872,7 @@ export async function saveSubtitles(
     // Upsert on video_id, not on a fresh sub_ id: the unique index means one document per
     // clip, and re-transcribing replaces the cues instead of appending a second set.
     const doc = await m.subtitle.findOneAndUpdate(
-      { video_id: sub.video_id },
+      { video_id: videoId },
       { $set: fields, $setOnInsert: { id: `sub_${crypto.randomUUID()}`, created_at: new Date().toISOString() } },
       { new: true, upsert: true },
     ).lean();
@@ -843,32 +881,37 @@ export async function saveSubtitles(
 
   const newSub: Subtitle = {
     id: `sub_${crypto.randomUUID()}`,
-    video_id: sub.video_id,
+    video_id: videoId,
     ...fields,
     created_at: new Date().toISOString(),
   } as Subtitle;
 
   const store = loadLocalStore();
-  store.subtitles = store.subtitles.filter((s) => s.video_id !== sub.video_id);
+  store.subtitles = store.subtitles.filter((s) => s.video_id !== videoId);
   store.subtitles.unshift(newSub);
   saveLocalStore(store);
   return newSub;
 }
 
 export async function getSubtitles(videoId: string, userId: string): Promise<Subtitle | null> {
-  if (!(await ownsVideo(videoId, userId))) return null;
+  const id = asId(videoId);
+  if (!id) return null;
+  if (!(await ownsVideo(id, userId))) return null;
   const m = await mongoModels();
-  if (m) return plain<Subtitle>(await m.subtitle.findOne({ video_id: videoId }).lean());
+  if (m) return plain<Subtitle>(await m.subtitle.findOne({ video_id: id }).lean());
 
   const store = loadLocalStore();
-  return store.subtitles.find((s) => s.video_id === videoId) || null;
+  return store.subtitles.find((s) => s.video_id === id) || null;
 }
 
 export async function saveCaption(
   caption: Omit<Caption, 'id' | 'created_at'>,
   userId: string
 ): Promise<Caption | null> {
-  if (!(await ownsVideo(caption.video_id, userId))) return null;
+  const videoId = asId(caption.video_id);
+  const platform = asId(caption.platform) as SocialPlatform;
+  if (!videoId || !platform) return null;
+  if (!(await ownsVideo(videoId, userId))) return null;
   const fields = {
     caption_text: caption.caption_text,
     hashtags: caption.hashtags,
@@ -881,7 +924,7 @@ export async function saveCaption(
   if (m) {
     // Same shape as subtitles: the unique (video_id, platform) index is the conflict target.
     const doc = await m.caption.findOneAndUpdate(
-      { video_id: caption.video_id, platform: caption.platform },
+      { video_id: videoId, platform },
       { $set: fields, $setOnInsert: { id: `cap_${crypto.randomUUID()}`, created_at: new Date().toISOString() } },
       { new: true, upsert: true },
     ).lean();
@@ -890,15 +933,15 @@ export async function saveCaption(
 
   const newCap: Caption = {
     id: `cap_${crypto.randomUUID()}`,
-    video_id: caption.video_id,
-    platform: caption.platform,
+    video_id: videoId,
+    platform,
     ...fields,
     created_at: new Date().toISOString(),
   } as Caption;
 
   const store = loadLocalStore();
   store.captions = store.captions.filter(
-    (c) => !(c.video_id === caption.video_id && c.platform === caption.platform)
+    (c) => !(c.video_id === videoId && c.platform === platform)
   );
   store.captions.unshift(newCap);
   saveLocalStore(store);
@@ -910,12 +953,15 @@ export async function getCaption(
   platform: SocialPlatform,
   userId: string
 ): Promise<Caption | null> {
-  if (!(await ownsVideo(videoId, userId))) return null;
+  const id = asId(videoId);
+  const name = asId(platform);
+  if (!id || !name) return null;
+  if (!(await ownsVideo(id, userId))) return null;
   const m = await mongoModels();
-  if (m) return plain<Caption>(await m.caption.findOne({ video_id: videoId, platform }).lean());
+  if (m) return plain<Caption>(await m.caption.findOne({ video_id: id, platform: name }).lean());
 
   const store = loadLocalStore();
-  return store.captions.find((c) => c.video_id === videoId && c.platform === platform) || null;
+  return store.captions.find((c) => c.video_id === id && c.platform === name) || null;
 }
 
 export async function updateCaption(
@@ -923,17 +969,19 @@ export async function updateCaption(
   updates: Partial<Caption>,
   userId: string
 ): Promise<Caption | null> {
-  const existing = await getCaptionById(id);
+  const captionId = asId(id);
+  if (!captionId) return null;
+  const existing = await getCaptionById(captionId);
   if (!existing || !(await ownsVideo(existing.video_id, userId))) return null;
 
   const m = await mongoModels();
   if (m) {
-    const doc = await m.caption.findOneAndUpdate({ id }, { $set: updates }, { new: true }).lean();
+    const doc = await m.caption.findOneAndUpdate({ id: captionId }, { $set: updates }, { new: true }).lean();
     return plain<Caption>(doc);
   }
 
   const store = loadLocalStore();
-  const idx = store.captions.findIndex((c) => c.id === id);
+  const idx = store.captions.findIndex((c) => c.id === captionId);
   if (idx === -1) return null;
 
   store.captions[idx] = {
@@ -945,8 +993,10 @@ export async function updateCaption(
 }
 
 async function getCaptionById(id: string): Promise<Caption | null> {
+  const captionId = asId(id);
+  if (!captionId) return null;
   const m = await mongoModels();
-  if (m) return plain<Caption>(await m.caption.findOne({ id }).lean());
+  if (m) return plain<Caption>(await m.caption.findOne({ id: captionId }).lean());
   return loadLocalStore().captions.find((c) => c.id === id) || null;
 }
 
@@ -954,11 +1004,13 @@ export async function recordPublish(
   record: Omit<PublishingRecord, 'id' | 'published_at' | 'user_id'>,
   userId: string
 ): Promise<PublishingRecord | null> {
-  if (!(await ownsVideo(record.video_id, userId))) return null;
+  const videoId = asId(record.video_id);
+  if (!videoId) return null;
+  if (!(await ownsVideo(videoId, userId))) return null;
   const newRec: PublishingRecord = {
     id: `pub_${crypto.randomUUID()}`,
     user_id: userId,
-    video_id: record.video_id,
+    video_id: videoId,
     platform: record.platform,
     platform_post_id: record.platform_post_id || '',
     url: record.url || '',
@@ -993,6 +1045,8 @@ export async function listPublishingHistory(userId: string): Promise<PublishingR
 }
 
 export async function deletePublishingRecord(id: string, userId: string): Promise<boolean> {
+  id = asId(id);
+  if (!id) return false;
   const m = await mongoModels();
   if (m) {
     const res = await m.publishingHistory.deleteOne({ id, user_id: userId });
@@ -1028,6 +1082,8 @@ export async function listScheduledPosts(userId: string): Promise<ScheduledPost[
 }
 
 export async function getScheduledPost(id: string, userId: string): Promise<ScheduledPost | null> {
+  id = asId(id);
+  if (!id) return null;
   const m = await mongoModels();
   if (m) return plain<ScheduledPost>(await m.scheduledPost.findOne({ id, user_id: userId }).lean());
 
@@ -1038,11 +1094,13 @@ export async function getScheduledPost(id: string, userId: string): Promise<Sche
 export async function createScheduledPost(
   postData: Partial<ScheduledPost> & { user_id: string; video_id: string }
 ): Promise<ScheduledPost | null> {
-  if (!(await ownsVideo(postData.video_id, postData.user_id))) return null;
+  const videoId = asId(postData.video_id);
+  if (!videoId) return null;
+  if (!(await ownsVideo(videoId, postData.user_id))) return null;
   const newPost: ScheduledPost = {
-    id: postData.id || `sched_${crypto.randomUUID()}`,
+    id: asId(postData.id) || `sched_${crypto.randomUUID()}`,
     user_id: postData.user_id,
-    video_id: postData.video_id,
+    video_id: videoId,
     video_title: postData.video_title || 'Untitled Video',
     file_url: postData.file_url || '',
     thumbnail_url: postData.thumbnail_url || '',
@@ -1069,6 +1127,8 @@ export async function updateScheduledPost(
   updates: Partial<ScheduledPost>,
   userId: string
 ): Promise<ScheduledPost | null> {
+  id = asId(id);
+  if (!id) return null;
   const m = await mongoModels();
   if (m) {
     const doc = await m.scheduledPost
@@ -1090,6 +1150,8 @@ export async function updateScheduledPost(
 }
 
 export async function deleteScheduledPost(id: string, userId: string): Promise<boolean> {
+  id = asId(id);
+  if (!id) return false;
   const m = await mongoModels();
   if (m) {
     const res = await m.scheduledPost.deleteOne({ id, user_id: userId });
@@ -1123,7 +1185,9 @@ export async function listSavedIdeas(userId: string): Promise<any[]> {
 }
 
 export async function saveSavedIdea(userId: string, idea: any): Promise<any[]> {
-  const row: SavedIdeaRow = { id: String(idea.id), user_id: userId, idea, updated_at: new Date().toISOString() };
+  const ideaId = asId(idea?.id);
+  if (!ideaId || !isPlainJson(idea)) return listSavedIdeas(userId);
+  const row: SavedIdeaRow = { id: ideaId, user_id: userId, idea, updated_at: new Date().toISOString() };
   const m = await mongoModels();
   if (m) {
     await m.savedIdea.updateOne({ user_id: userId, id: row.id }, { $set: row }, { upsert: true });

@@ -17,8 +17,6 @@ export interface User {
   email: string;
   full_name: string;
   avatar_url?: string;
-  instagram_token?: string;
-  instagram_user_id?: string;
   instagram_username?: string;
   youtube_channel_id?: string;
   tiktok_username?: string;

@@ -2,6 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import * as db from '../db.js';
+import { safeMessage } from '../errorText.js';
 
 const router = express.Router();
 
@@ -28,17 +29,34 @@ router.get('/', async (req, res) => {
     const videos = await db.listVideos(req.userId);
     res.json({ success: true, data: videos.map((v) => ({ ...v, media_available: mediaExists(v.file_url) })) });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to list videos' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to list videos') });
   }
 });
 
 // Create or register a video asset in library
 router.post('/', async (req, res) => {
   try {
-    const video = await db.createVideo({ ...req.body, user_id: req.userId });
+    // Field-by-field, not `{...req.body}`: a caller must not be able to plant arbitrary keys on
+    // the stored row, and every value has to be the type the player and the ledger assume.
+    const body = req.body || {};
+    const asText = (value: unknown, limit: number, fallback = '') =>
+      typeof value === 'string' && value.length <= limit ? value.trim() : fallback;
+    const asNumber = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
+    const video = await db.createVideo({
+      id: asText(body.id, 200) || undefined,
+      user_id: req.userId,
+      title: asText(body.title, 200, 'Untitled recording'),
+      description: asText(body.description, 4000),
+      file_url: asText(body.file_url, 2000),
+      thumbnail_url: asText(body.thumbnail_url, 2000),
+      duration: asNumber(body.duration),
+      file_size: asNumber(body.file_size),
+      aspect_ratio: asText(body.aspect_ratio, 10, '9:16'),
+      status: 'uploading',
+    });
     res.json({ success: true, data: video });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to create video record' });
+    res.status(500).json({ error: 'Could not add that clip to your library. Please try again.' });
   }
 });
 
@@ -62,7 +80,7 @@ router.get('/:id', async (req, res) => {
       },
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to get video' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to get video') });
   }
 });
 
@@ -105,7 +123,7 @@ router.post('/:id/inspect', async (req, res) => {
       data: compliance,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to inspect video' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to inspect video') });
   }
 });
 
@@ -124,7 +142,7 @@ router.patch('/:id', async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to update video' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to update video') });
   }
 });
 
@@ -134,7 +152,7 @@ router.delete('/:id', async (req, res) => {
     const deleted = await db.deleteVideo(req.params.id, req.userId);
     res.json({ success: deleted, message: deleted ? 'Video deleted' : 'Video not found' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to delete video' });
+    res.status(500).json({ error: safeMessage(err, 'Failed to delete video') });
   }
 });
 
