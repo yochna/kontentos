@@ -221,7 +221,31 @@ async function createApp() {
     timestamp: number;
   }
   const mediaCache = new Map<string, CachedMedia>();
-  const MAX_CACHE_ENTRIES = 120;
+  /** The biggest answer worth holding. A picker thumbnail is a few hundred KB; a whole clip is not. */
+  const MAX_CACHED_BYTES = 4 * 1024 * 1024;
+  /**
+   * Render's free instance gives the whole process a fraction of a gigabyte, so the cache has to be
+   * sized in bytes rather than in entries. Counted eviction — 120 answers of any size — is how a
+   * media proxy turns into an out-of-memory restart under a creator who opens a big library.
+   */
+  const MAX_CACHE_TOTAL_BYTES = 48 * 1024 * 1024;
+  let mediaCacheBytes = 0;
+
+  function rememberMedia(key: string, buffer: Buffer, contentType: string): void {
+    if (buffer.length > MAX_CACHED_BYTES) return;
+    const previous = mediaCache.get(key);
+    if (previous) mediaCacheBytes -= previous.buffer.length;
+    mediaCache.set(key, { buffer, contentType, timestamp: Date.now() });
+    mediaCacheBytes += buffer.length;
+    while (mediaCacheBytes > MAX_CACHE_TOTAL_BYTES && mediaCache.size > 0) {
+      // Insertion order, so the first entry is the oldest answer nobody asked for lately.
+      const oldestKey = mediaCache.keys().next().value as string | undefined;
+      if (oldestKey === undefined) break;
+      const evicted = mediaCache.get(oldestKey);
+      if (evicted) mediaCacheBytes -= evicted.buffer.length;
+      mediaCache.delete(oldestKey);
+    }
+  }
 
   const FALLBACK_ATMOSPHERE_SVG = Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
@@ -329,9 +353,13 @@ async function createApp() {
       return res.status(400).json({ error: 'Missing url query parameter' });
     }
 
-    // Check fast in-memory LRU cache
+    // Check fast in-memory cache
     const cached = mediaCache.get(mediaUrl);
     if (cached && Date.now() - cached.timestamp < 3600000 * 24) {
+      // Reading an answer makes it the newest again, so the entry the budget evicts is the one
+      // nobody has asked for, rather than whichever happened to be fetched first.
+      mediaCache.delete(mediaUrl);
+      mediaCache.set(mediaUrl, cached);
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
       res.setHeader('Content-Type', cached.contentType);
@@ -390,13 +418,11 @@ async function createApp() {
         return res.status(413).json({ error: 'Remote file too large' });
       }
 
-      // Store in memory cache if sensible size (< 15MB)
-      if (buffer.length < 15 * 1024 * 1024) {
-        if (mediaCache.size >= MAX_CACHE_ENTRIES) {
-          const oldestKey = mediaCache.keys().next().value;
-          if (oldestKey) mediaCache.delete(oldestKey);
-        }
-        mediaCache.set(mediaUrl, { buffer, contentType: ct, timestamp: Date.now() });
+      // A 206 carries a slice of the file, and the key is the whole file. Kept under that key it
+      // would be replayed to the next reader as the complete answer: a clip that stops halfway, for
+      // a day. Only a full body that nobody asked a piece of may be remembered.
+      if (upstream.status === 200 && !req.headers.range) {
+        rememberMedia(mediaUrl, buffer, ct);
       }
 
       res.send(buffer);
@@ -419,22 +445,24 @@ async function createApp() {
   });
 
   app.get('/api/db/status', async (req, res) => {
-    // Resolve the engine before reporting it: on the very first request the lazy connection
-    // may still be opening, and "local JSON" would be a lie about a configured database.
-    await db.initDatabase();
-    const connected = db.isMongoConnected();
-    let videoCount = 0;
+    // Express 4 does not catch a rejected async handler, so anything that can throw in here is
+    // caught in here — otherwise the request hangs until the browser gives up.
     try {
-      videoCount = (await db.listVideos(req.userId)).length;
-    } catch { /* a read failure still reports the storage state below */ }
-    res.json({
-      status: 'ok',
-      provider: db.storageProvider(),
-      connected,
-      // The JSON store keeps data only inside this container, so nothing is shared or durable.
-      isolated: !connected,
-      video_count: videoCount,
-    });
+      // Resolve the engine before reporting it: on the very first request the lazy connection
+      // may still be opening, and "local JSON" would be a lie about a configured database.
+      await db.initDatabase();
+      const connected = db.isMongoConnected();
+      res.json({
+        status: 'ok',
+        provider: db.storageProvider(),
+        connected,
+        // The JSON store keeps data only inside this container, so nothing is shared or durable.
+        isolated: !connected,
+        video_count: await db.countVideos(req.userId),
+      });
+    } catch (err: any) {
+      res.status(503).json({ status: 'unavailable', error: safeMessage(err, 'Storage is unavailable.') });
+    }
   });
 
   // Helper to format seconds to SRT timestamp: "00:00:02,500"

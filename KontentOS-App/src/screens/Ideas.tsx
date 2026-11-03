@@ -29,6 +29,16 @@ export default function Ideas() {
   const [searchTopic, setSearchTopic] = useState('');
   const [generating, setGenerating] = useState(false);
   const [showTranscriptPicker, setShowTranscriptPicker] = useState(false);
+  // The store rolls a failed bookmark back on its own; without this line the icon simply flips
+  // back and the creator has no way to know the archive never received it.
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+
+  const toggleSaved = (idea: Idea) => {
+    const request = isSavedIdea(idea.id) ? removeSavedIdea(idea.id) : saveIdea(idea);
+    void request.then((res) => {
+      setSaveNotice(res.ok ? null : res.message || 'The server did not take that change.');
+    });
+  };
 
   // Trigger idea generation via API with procedural fallback
   const handleGenerate = async (topicToUse?: string) => {
@@ -231,6 +241,18 @@ export default function Ideas() {
         </span>
       </div>
 
+      {saveNotice && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-card border border-danger/30 bg-danger/10 px-4 py-2.5 text-[12.5px] text-danger">
+          <span className="flex items-center gap-2">
+            <Icon name="error_outline" size={16} className="shrink-0" />
+            {saveNotice}
+          </span>
+          <button onClick={() => setSaveNotice(null)} className="hover:underline shrink-0 kt-focus">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Idea grid */}
       {displayedIdeas.length === 0 ? (
         <Card className="p-12 text-center flex flex-col items-center justify-center">
@@ -307,11 +329,7 @@ export default function Ideas() {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (saved) {
-                      removeSavedIdea(idea.id);
-                    } else {
-                      saveIdea(idea);
-                    }
+                    toggleSaved(idea);
                   }}
                   title={saved ? 'Remove from saved' : 'Save archetype'}
                   aria-label={saved ? 'Remove from saved' : 'Save archetype'}
@@ -335,13 +353,7 @@ export default function Ideas() {
         <BlueprintDrawer
           idea={open}
           isSaved={isSavedIdea(open.id)}
-          onToggleSave={() => {
-            if (isSavedIdea(open.id)) {
-              removeSavedIdea(open.id);
-            } else {
-              saveIdea(open);
-            }
-          }}
+          onToggleSave={() => toggleSaved(open)}
           onStartProduction={() => {
             startProductionFromIdea(open);
             setOpen(null);

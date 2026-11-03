@@ -34,6 +34,8 @@ interface UploadSession {
   /** Bytes actually accepted so far — the declared totalSize is the sender's own claim. */
   receivedBytes: number;
   createdAt: number;
+  /** When a chunk last arrived. An upload that stops answering is abandoned, not slow. */
+  lastActivityAt: number;
   /** Set when this upload re-attaches media to a record that already exists. See relinkTarget. */
   videoId?: string;
 }
@@ -53,6 +55,16 @@ const MAX_TOTAL_CHUNKS = 2000; // ~10 GB at 5 MB/chunk
 const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB per video
 const MAX_DIRECT_BYTES = 100 * 1024 * 1024; // 100 MB for /direct
 const SESSION_TTL_MS = 6 * 60 * 60 * 1000; // abandoned sessions expire after 6h
+/** An upload that stops sending chunks is gone; six hours of held bytes would be only a disk leak. */
+const SESSION_IDLE_MS = 30 * 60 * 1000;
+/** /init followed by nothing is a page reload, not an upload. It cannot hold a slot for long. */
+const NEVER_STARTED_MS = 5 * 60 * 1000;
+/**
+ * Chunks wait on this container's disk until they are merged, and Render's free disk is shared by
+ * every creator. One account opening session after session — each allowed to hold 2 GB — fills it,
+ * and the whole workspace goes down with it.
+ */
+const MAX_SESSIONS_PER_USER = 3;
 
 /** Returns a safe, lower-cased extension from a user-supplied filename, or null if not allowed. */
 function safeExtension(fileName: unknown): string | null {
@@ -69,15 +81,30 @@ function parseIndex(value: unknown): number | null {
 }
 
 /** Removes sessions (and their chunk folders) that were never completed. */
-function sweepExpiredSessions() {  const now = Date.now();
+export function sweepExpiredSessions() {
+  const now = Date.now();
   for (const [id, s] of activeSessions) {
-    if (now - s.createdAt > SESSION_TTL_MS) {
+    const abandoned =
+      now - s.createdAt > SESSION_TTL_MS ||
+      now - s.lastActivityAt > SESSION_IDLE_MS ||
+      (s.receivedChunks.size === 0 && now - s.createdAt > NEVER_STARTED_MS);
+    if (abandoned) {
       fs.rmSync(path.join(CHUNKS_DIR, id), { recursive: true, force: true });
       activeSessions.delete(id);
     }
   }
 }
 setInterval(sweepExpiredSessions, 30 * 60 * 1000).unref();
+
+/** Sessions this creator still holds open, after anything abandoned has been cleared away. */
+function liveSessionsFor(userId: string): number {
+  sweepExpiredSessions();
+  let count = 0;
+  for (const session of activeSessions.values()) {
+    if (session.userId === userId) count++;
+  }
+  return count;
+}
 
 /**
  * Render's free disk is wiped on every redeploy while the Mongo row survives, so a creator can end up
@@ -124,6 +151,12 @@ router.post('/init', async (req, res) => {
       return res.status(relink.status).json({ error: relink.error });
     }
 
+    if (liveSessionsFor(req.userId) >= MAX_SESSIONS_PER_USER) {
+      return res.status(429).json({
+        error: `You already have ${MAX_SESSIONS_PER_USER} uploads in flight. Let one finish before starting another.`,
+      });
+    }
+
     const uploadId = `upl_${crypto.randomUUID()}`;
     const sessionDir = path.join(CHUNKS_DIR, uploadId);
     fs.mkdirSync(sessionDir, { recursive: true });
@@ -137,6 +170,7 @@ router.post('/init', async (req, res) => {
       totalSize: parseInt(totalSize, 10) || 0,
       receivedBytes: 0,
       createdAt: Date.now(),
+      lastActivityAt: Date.now(),
       videoId: relink?.video.id,
     });
 
@@ -196,6 +230,7 @@ router.post('/chunk', async (req, res) => {
     fs.writeFileSync(chunkPath, buffer);
 
     session.receivedChunks.add(idx);
+    session.lastActivityAt = Date.now();
 
     const progress = Math.round((session.receivedChunks.size / session.totalChunks) * 100);
 

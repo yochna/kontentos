@@ -6,6 +6,7 @@ import type { Idea } from '@/data/mock';
 import { navigate, type ScreenId } from './nav';
 import { copyVoice } from './brandKit';
 import { copyModel, readAiPrefs } from './prefs';
+import { DRAFT_STEP_STATION } from './bench';
 import {
   applyCaptionsToProject,
   applyPresetLook,
@@ -153,12 +154,28 @@ interface StoreValue {
 
   /** Saved Ideas Archive */
   savedIdeas: Idea[];
-  saveIdea: (idea: Idea) => Promise<void>;
-  removeSavedIdea: (id: string) => Promise<void>;
+  saveIdea: (idea: Idea) => Promise<{ ok: boolean; message?: string }>;
+  removeSavedIdea: (id: string) => Promise<{ ok: boolean; message?: string }>;
   isSavedIdea: (id: string) => boolean;
 }
 
 const StoreCtx = createContext<StoreValue | null>(null);
+
+/**
+ * The bench keeps the working project, the resume draft and the lit cut in this browser so a
+ * refresh does not cost a creator their place. None of it belongs to the next account that signs in
+ * here, and remounting the provider cannot help: it reads these same keys back on start-up. So the
+ * keys are cleared where the session ends.
+ */
+export function clearBenchWorkspace(): void {
+  for (const key of ['kontentos_working_project', 'kontentos_active_draft', 'kontentos_bench_cut']) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* a browser that refuses localStorage has nothing left to leak */
+    }
+  }
+}
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [online, setOnline] = useState(true);
@@ -578,7 +595,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [activeDraft, setActiveDraftState] = useState<ActiveDraft | null>(() => {
     try {
       const saved = localStorage.getItem('kontentos_active_draft');
-      return saved ? JSON.parse(saved) : null;
+      const parsed = saved ? JSON.parse(saved) : null;
+      // The step is read back out of whatever this browser held, and every desk panel maps it to a
+      // station before drawing. A value that is not one of the four would render nothing at all.
+      return parsed && Object.keys(DRAFT_STEP_STATION).includes(parsed.step) ? parsed : null;
     } catch {
       return null;
     }
@@ -712,27 +732,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [activeDraft?.sourceVideo, navigate, updateActiveDraft, user?.id],
   );
 
-  const saveIdea = useCallback(async (idea: Idea) => {
-    // Optimistic so the button answers immediately, then settle on what the account's rows say.
-    setSavedIdeas((prev) => {
-      const idx = prev.findIndex((i) => i.id === idea.id);
-      return idx >= 0 ? prev.map((i) => (i.id === idea.id ? idea : i)) : [idea, ...prev];
-    });
-    try {
-      setSavedIdeas(await api.saveIdea(idea));
-    } catch (err) {
-      console.error('Could not persist this idea:', err);
-    }
-  }, []);
+  // Bookmarks live on the server only — replaying them from this browser would hand the next
+  // creator the previous one's briefs — so a failed write has nowhere to fall back to. It undoes
+  // the optimistic card and says so, instead of leaving a bookmark that vanishes on refresh.
+  const saveIdea = useCallback(
+    async (idea: Idea): Promise<{ ok: boolean; message?: string }> => {
+      const previous = savedIdeas;
+      setSavedIdeas((prev) => {
+        const idx = prev.findIndex((i) => i.id === idea.id);
+        return idx >= 0 ? prev.map((i) => (i.id === idea.id ? idea : i)) : [idea, ...prev];
+      });
+      try {
+        setSavedIdeas(await api.saveIdea(idea));
+        return { ok: true };
+      } catch (err) {
+        setSavedIdeas(previous);
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : 'Could not save this idea. It is not on your account.',
+        };
+      }
+    },
+    [savedIdeas],
+  );
 
-  const removeSavedIdea = useCallback(async (id: string) => {
-    setSavedIdeas((prev) => prev.filter((i) => i.id !== id));
-    try {
-      setSavedIdeas(await api.deleteSavedIdea(id));
-    } catch (err) {
-      console.error('Could not delete this idea:', err);
-    }
-  }, []);
+  const removeSavedIdea = useCallback(
+    async (id: string): Promise<{ ok: boolean; message?: string }> => {
+      const previous = savedIdeas;
+      setSavedIdeas((prev) => prev.filter((i) => i.id !== id));
+      try {
+        setSavedIdeas(await api.deleteSavedIdea(id));
+        return { ok: true };
+      } catch (err) {
+        setSavedIdeas(previous);
+        return {
+          ok: false,
+          message: err instanceof Error ? err.message : 'Could not remove this idea. It is still saved.',
+        };
+      }
+    },
+    [savedIdeas],
+  );
 
   const isSavedIdea = useCallback(
     (id: string) => {

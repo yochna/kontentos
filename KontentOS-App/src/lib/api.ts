@@ -277,7 +277,7 @@ export const api = {
   async generateStaticCardCopy(opts: {
     prompt: string;
     format?: string;
-  }): Promise<{ headline: string; supportingText: string; socialCaption?: string }> {
+  }): Promise<{ headline: string; supportingText: string; socialCaption?: string; fallback?: boolean }> {
     // 1. Primary: Specialized static card Gemini AI endpoint with model cascades
     try {
       const res = await fetch('/api/static-card/generate-copy', {
@@ -359,12 +359,15 @@ Respond ONLY with pure JSON matching this exact structure:
       console.warn('[api.generateStaticCardCopy] Fallback text-gen error:', fallbackErr);
     }
 
-    // 3. Resilient synthesis fallback ensuring UI never breaks
-    const cleanTopic = opts.prompt.replace(/^(how to|why|the|a|an)\s+/i, '').trim();
+    // Neither endpoint answered, so nothing was written for this creator. The card's shape — hook,
+    // takeaway, caption — is the reusable part; every bracket is a line they fill from their own
+    // thinking. `fallback` is what the panel says out loud instead of claiming an engine wrote it.
+    const seed = opts.prompt.replace(/^(how to|why|the|a|an)\s+/i, '').trim() || 'this topic';
     return {
-      headline: `The real reason creators struggle with ${cleanTopic}: they optimize for willpower instead of repeatable leverage.`,
-      supportingText: `Break the cycle: decouple your capture phase from final execution, batch modular assets weekly, and build friction-free publishing habits.`,
-      socialCaption: `Consistency is not about discipline—it is an operations architecture.\n\nSave this framework for your next production sprint.\n\n#ContentStrategy #CreatorEconomy #KontentOS`,
+      headline: `[the hook about ${seed} — one line, in your own words]`,
+      supportingText: '[the takeaway, the number or the scene that backs it]',
+      socialCaption: `${seed}\n\n[the opening line]\n\n[what the reader should do]\n\nKontentOS scaffold — no engine answered, so these lines are yours.`,
+      fallback: true,
     };
   },
 

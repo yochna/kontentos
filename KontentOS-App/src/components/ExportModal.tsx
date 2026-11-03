@@ -54,6 +54,19 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const monitorGainRef = useRef<GainNode | null>(null);
+  const detachVisibilityRef = useRef<(() => void) | null>(null);
+
+  /**
+   * One export owns one AudioContext and one document-level listener. A browser only allows a
+   * handful of contexts per page, so leaving them open means the fifth export fails outright.
+   */
+  const releaseExportAudio = () => {
+    if (detachVisibilityRef.current) detachVisibilityRef.current();
+    detachVisibilityRef.current = null;
+    const ctx = audioContextRef.current;
+    audioContextRef.current = null;
+    if (ctx && ctx.state !== 'closed') ctx.close().catch(() => {});
+  };
 
   // Clean up blob URL and audio nodes on unmount
   useEffect(() => {
@@ -69,6 +82,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
       if (audioDestRef.current) {
         sfxEngine.disconnectFromDestination(audioDestRef.current);
       }
+      releaseExportAudio();
       if (renderedBlobUrl && !transferredRef.current) {
         URL.revokeObjectURL(renderedBlobUrl);
       }
@@ -604,6 +618,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
           }
         };
         document.addEventListener('visibilitychange', onVisibilityChange);
+        detachVisibilityRef.current = () => document.removeEventListener('visibilitychange', onVisibilityChange);
 
         animId = requestAnimationFrame(loop);
       });
@@ -615,6 +630,9 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
       await new Promise<void>((resolve) => {
         mediaRecorder.onstop = () => resolve();
       });
+
+      // The take is recorded, so the audio graph behind it has no reason to stay open.
+      releaseExportAudio();
 
       const finalBlob = new Blob(recordedChunks, { type: selectedMimeType });
       const blobUrl = URL.createObjectURL(finalBlob);
@@ -629,6 +647,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
       setRendering(false);
       sfxEngine.stopBGM();
       if (audioDestRef.current) sfxEngine.disconnectFromDestination(audioDestRef.current);
+      releaseExportAudio();
       setErrorMsg(err?.message || 'Video export rendering encountered an issue.');
     }
   };

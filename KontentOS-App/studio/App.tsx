@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { studioApi, type RepurposeJob, type SessionUser } from './lib/api';
 import { AuthScreen } from './screens/Auth';
 import { CutScreen } from './screens/Cut';
@@ -16,37 +16,62 @@ function parseHash(hash: string): Route {
   return { name: 'feed' };
 }
 
-function useRoute(): [Route, (to: string) => void] {
-  const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
-  useEffect(() => {
-    const onHash = () => setRoute(parseHash(window.location.hash));
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
-  }, []);
-  const go = useCallback((to: string) => {
-    window.location.hash = to;
-  }, []);
-  return [route, go];
+/** The bar reads `#/x` once a hash route exists, but the very first load has nothing to compare against. */
+function normalizeHash(hash: string): string {
+  return hash === '' || hash === '#' ? '#/' : hash;
 }
 
 export function App() {
-  const [route, go] = useRoute();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [checking, setChecking] = useState(true);
   const [jobs, setJobs] = useState<RepurposeJob[]>([]);
-  const [dirtyCount, setDirtyCount] = useState(0);
+  const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
   const [pendingTo, setPendingTo] = useState<string | null>(null);
+
+  // The hash and the unsaved-work marker both have to be readable at the exact moment an event
+  // fires, not the value some earlier render closed over: the back button does not wait for React.
+  const acceptedHash = useRef(normalizeHash(window.location.hash));
+  const dirtyRef = useRef(0);
+  const [dirtyCount, setDirtyCountState] = useState(0);
+  const setDirtyCount = useCallback((count: number) => {
+    dirtyRef.current = count;
+    setDirtyCountState(count);
+  }, []);
+
+  const go = useCallback((to: string) => {
+    acceptedHash.current = normalizeHash(to);
+    window.location.hash = to;
+    setRoute(parseHash(to));
+  }, []);
+
+  useEffect(() => {
+    const onHash = () => {
+      const to = normalizeHash(window.location.hash);
+      if (to === acceptedHash.current || !dirtyRef.current) {
+        acceptedHash.current = to;
+        setRoute(parseHash(to));
+        return;
+      }
+      // Back, forward and a hand-typed address all move without passing through a link, so the
+      // prompt is raised here too and the bar is snapped back. pushState does not fire hashchange,
+      // which keeps this from looping.
+      setPendingTo(to);
+      history.pushState(null, '', acceptedHash.current);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   // A screen that holds unsaved words says so here, and every in-app link asks before it navigates.
   const navTo = useCallback(
     (to: string) => {
-      if (dirtyCount > 0 && to !== window.location.hash) {
-        setPendingTo(to);
+      if (dirtyRef.current > 0 && normalizeHash(to) !== acceptedHash.current) {
+        setPendingTo(normalizeHash(to));
         return;
       }
       go(to);
     },
-    [dirtyCount, go]
+    [go]
   );
 
   useEffect(() => {

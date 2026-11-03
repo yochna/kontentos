@@ -574,11 +574,15 @@ export async function createAccount(input: {
 export async function adoptLegacyData(userId: string): Promise<void> {
   const m = await mongoModels();
   if (m) {
+    // The same three shapes the JSON branch below claims: the old id, no id at all, and the empty
+    // string a row written by an older build could carry. Leaving '' out here would orphan those
+    // clips in production while a local test of the same code adopts them.
+    const unowned = { user_id: { $in: [LEGACY_USER_ID, null, ''] } };
     const rows = [
-      [m.video, { user_id: { $in: [LEGACY_USER_ID, null] } }],
-      [m.scheduledPost, { user_id: { $in: [LEGACY_USER_ID, null] } }],
-      [m.publishingHistory, { user_id: { $in: [LEGACY_USER_ID, null] } }],
-      [m.savedIdea, { user_id: { $in: [LEGACY_USER_ID, null] } }],
+      [m.video, unowned],
+      [m.scheduledPost, unowned],
+      [m.publishingHistory, unowned],
+      [m.savedIdea, unowned],
     ] as const;
     await Promise.all(rows.map(([model, filter]) => model.updateMany(filter, { $set: { user_id: userId } })));
     return;
@@ -739,11 +743,28 @@ export async function createVideo(data: Partial<Video> & { user_id: string }): P
 
   const m = await mongoModels();
   if (m) {
-    const created = await m.video.create(newVideo);
-    return plain<Video>(created)!;
+    try {
+      const created = await m.video.create(newVideo);
+      return plain<Video>(created)!;
+    } catch (err: any) {
+      if (!requestedId || !(err?.code === 11000 || /E11000|duplicate key/i.test(err?.message || ''))) throw err;
+      const already = await getVideo(requestedId, data.user_id);
+      if (already) return already;
+      throw new Error('That clip id is already in use.');
+    }
   }
 
   const store = loadLocalStore();
+  if (requestedId) {
+    // Without this check the file would grow a second row under the same id, and every lookup that
+    // stops at the first match — ownership, deletion, the /uploads gate — would then disagree about
+    // which clip it is answering for.
+    const clash = store.videos.find((v) => v.id === requestedId);
+    if (clash) {
+      if (clash.user_id !== data.user_id) throw new Error('That clip id is already in use.');
+      return clash;
+    }
+  }
   store.videos.unshift(newVideo);
   saveLocalStore(store);
   return newVideo;
@@ -787,6 +808,13 @@ export async function listVideos(userId: string): Promise<Video[]> {
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
+/** How many clips a creator has, without reading every one of them to count the pile. */
+export async function countVideos(userId: string): Promise<number> {
+  const m = await mongoModels();
+  if (m) return m.video.countDocuments({ user_id: userId });
+  return loadLocalStore().videos.filter((v) => v.user_id === userId).length;
+}
+
 export async function updateVideoStatus(
   id: string,
   status: VideoStatus,
@@ -811,10 +839,15 @@ export async function updateVideoStatus(
   const idx = store.videos.findIndex((v) => v.id === id && v.user_id === userId);
   if (idx === -1) return null;
 
-  store.videos[idx] = {
-    ...store.videos[idx],
-    ...updates,
-  };
+  // Mongo's $set leaves a field alone when the caller handed it undefined; a spread writes the
+  // undefined and JSON.stringify then drops the key. Same sentence, both engines: only the columns
+  // that actually arrived are changed.
+  const next: Video = { ...store.videos[idx] };
+  const writable = next as unknown as Record<string, unknown>;
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined) writable[key] = value;
+  }
+  store.videos[idx] = next;
   saveLocalStore(store);
   return store.videos[idx];
 }

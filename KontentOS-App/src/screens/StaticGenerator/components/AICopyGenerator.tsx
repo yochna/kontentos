@@ -44,7 +44,11 @@ export const AICopyGenerator: React.FC<Props> = ({ format, onGenerated, onDeckGe
           supportingText: result.supportingText,
           socialCaption: result.socialCaption || '',
         });
-        setSuccessNotice('✓ Fresh copy synthesized with Gemini AI!');
+        setSuccessNotice(
+          result.fallback
+            ? 'No engine answered — that is the card skeleton, not generated copy. Every bracket is yours.'
+            : '✓ Fresh copy synthesized with Gemini AI!'
+        );
         setTimeout(() => setSuccessNotice(null), 3500);
       } else {
         throw new Error('Failed to generate copy from AI engine.');

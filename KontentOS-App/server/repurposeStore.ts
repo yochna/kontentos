@@ -1,7 +1,7 @@
 import { Schema, type Model } from 'mongoose';
 import fs from 'fs';
 import path from 'path';
-import { localDataDir, mongoConnectionForNewEntities } from './db.js';
+import { localDataDir, mongoConnectionForNewEntities, storageProvider } from './db.js';
 import type { RepurposeClip } from './repurposeEngine.js';
 
 /**
@@ -45,66 +45,101 @@ function newJobId(): string {
 
 let jobModel: Promise<Model<any> | null> | null = null;
 
-/** The model is bound lazily, so a server without MONGODB_URI never pays for a failed connect. */
+/**
+ * The model is bound lazily, so a server without MONGODB_URI never pays for a failed connect.
+ *
+ * A bind that answers null — no URI configured, or the driver still inside its reconnect cooldown —
+ * is deliberately NOT kept. Caching it would let the first hiccup pin this store to the container's
+ * own disk for the rest of the process's life, and Render deletes that disk on the next redeploy,
+ * taking every Studio job in it with the answer already given.
+ */
 function mongoJobModel(): Promise<Model<any> | null> {
   if (!jobModel) {
-    jobModel = (async () => {
-      const conn = await mongoConnectionForNewEntities();
-      if (!conn) return null;
-      const existing = (conn as any).models?.RepurposeJob as Model<any> | undefined;
-      if (existing) return existing;
-
-      const beatSchema = new Schema({ label: String, time: String, body: String }, { _id: false });
-      const clipSchema = new Schema(
-        {
-          id: String,
-          start: Number,
-          end: Number,
-          startLabel: String,
-          endLabel: String,
-          spanSeconds: Number,
-          score: Number,
-          title: String,
-          hook: String,
-          excerpt: String,
-          beats: [beatSchema],
-          caption: String,
-          cardHeadline: String,
-          platform: String,
-          status: String,
-        },
-        { _id: false },
-      );
-      const jobSchema = new Schema(
-        {
-          id: { type: String, required: true },
-          userId: { type: String, required: true },
-          title: String,
-          sourceKind: String,
-          videoId: String,
-          transcript: String,
-          createdAt: String,
-          updatedAt: String,
-          engineModel: String,
-          engineSource: String,
-          clips: [clipSchema],
-        },
-        { versionKey: false, strict: false },
-      );
-      jobSchema.index({ id: 1 }, { unique: true });
-      jobSchema.index({ userId: 1, createdAt: -1 });
-      const model = conn.model('RepurposeJob', jobSchema, 'repurpose_jobs');
-      try {
-        await model.syncIndexes();
-      } catch (err: any) {
-        // Duplicate rows from an earlier build would reject the unique index. Reads and writes
-        // still work, so keep serving rather than calling the database down.
-        console.warn('⚠️ Repurpose job indexes could not be synchronised:', err?.message || err);
+    const bind = bindModel();
+    jobModel = bind.then(
+      (model) => {
+        if (!model) jobModel = null;
+        return model;
+      },
+      (err) => {
+        jobModel = null;
+        throw err;
       }
-      return model;
-    })();
+    );
   }
   return jobModel;
+}
+
+async function bindModel(): Promise<Model<any> | null> {
+  const conn = await mongoConnectionForNewEntities();
+  if (!conn) return null;
+
+  const existing = (conn as any).models?.RepurposeJob as Model<any> | undefined;
+  if (existing) return existing;
+
+  const beatSchema = new Schema({ label: String, time: String, body: String }, { _id: false });
+  const clipSchema = new Schema(
+    {
+      id: String,
+      start: Number,
+      end: Number,
+      startLabel: String,
+      endLabel: String,
+      spanSeconds: Number,
+      score: Number,
+      title: String,
+      hook: String,
+      excerpt: String,
+      beats: [beatSchema],
+      caption: String,
+      cardHeadline: String,
+      platform: String,
+      status: String,
+    },
+    { _id: false },
+  );
+  const jobSchema = new Schema(
+    {
+      id: { type: String, required: true },
+      userId: { type: String, required: true },
+      title: String,
+      sourceKind: String,
+      videoId: String,
+      transcript: String,
+      createdAt: String,
+      updatedAt: String,
+      engineModel: String,
+      engineSource: String,
+      clips: [clipSchema],
+    },
+    { versionKey: false, strict: false },
+  );
+  jobSchema.index({ id: 1 }, { unique: true });
+  jobSchema.index({ userId: 1, createdAt: -1 });
+  const model = conn.model('RepurposeJob', jobSchema, 'repurpose_jobs');
+  try {
+    await model.syncIndexes();
+  } catch (err: any) {
+    // Duplicate rows from an earlier build would reject the unique index. Reads and writes
+    // still work, so keep serving rather than calling the database down.
+    console.warn('⚠️ Repurpose job indexes could not be synchronised:', err?.message || err);
+  }
+  return model;
+}
+
+/**
+ * The bound model, or null when this deployment runs on the JSON file by design.
+ *
+ * A MongoDB-backed deployment never falls through to that file. Jobs written to Render's disk
+ * disappear on the next redeploy, and the creator only finds out when the Shelf is empty — so the
+ * store says so at the moment of the write instead. This mirrors db.ts `mongoModels()`.
+ */
+async function modelOrRefuse(): Promise<Model<any> | null> {
+  const model = await mongoJobModel();
+  if (!model && storageProvider() === 'mongodb') {
+    throw new Error('The workspace store is unreachable, so nothing was saved. Try again in a moment.');
+  }
+  return model;
 }
 
 const strip = (doc: any): RepurposeJob => {
@@ -190,7 +225,7 @@ function withLocalJobs<T>(mutate: (jobs: RepurposeJob[]) => T): Promise<T> {
 // ==========================================
 
 export async function listJobs(userId: string): Promise<RepurposeJob[]> {
-  const model = await mongoJobModel();
+  const model = await modelOrRefuse();
   if (model) return (await model.find({ userId }).sort({ createdAt: -1 }).lean()).map(strip);
   return readLocalJobs()
     .filter((job) => job.userId === userId)
@@ -198,7 +233,7 @@ export async function listJobs(userId: string): Promise<RepurposeJob[]> {
 }
 
 export async function getJob(userId: string, jobId: string): Promise<RepurposeJob | null> {
-  const model = await mongoJobModel();
+  const model = await modelOrRefuse();
   if (model) {
     const doc = await model.findOne({ id: jobId, userId }).lean();
     return doc ? strip(doc) : null;
@@ -231,7 +266,7 @@ export async function createJob(input: {
     clips: input.clips,
   };
 
-  const model = await mongoJobModel();
+  const model = await modelOrRefuse();
   if (model) {
     await model.create(job);
     return job;
@@ -260,7 +295,7 @@ export async function updateClip(
   clipId: string,
   changes: ClipChanges,
 ): Promise<RepurposeClip | null> {
-  const model = await mongoJobModel();
+  const model = await modelOrRefuse();
   if (model) {
     const doc: any = await model.findOne({ id: jobId, userId }).lean();
     if (!doc) return null;
@@ -268,9 +303,12 @@ export async function updateClip(
     const index = clips.findIndex((clip) => clip.id === clipId);
     if (index < 0) return null;
     const updated = applyClipChanges(clips[index], changes);
+    // Matched by the clip's own id, not by the position found above: another save could have moved
+    // the array between the read and the write, and clips.<index> would then land on a different cut.
     await model.updateOne(
-      { id: jobId, userId },
-      { $set: { [`clips.${index}`]: updated, updatedAt: nowIso() } },
+      { id: jobId, userId, 'clips.id': clipId },
+      { $set: { 'clips.$[clip]': updated, updatedAt: nowIso() } },
+      { arrayFilters: [{ 'clip.id': clipId }] },
     );
     return updated;
   }
@@ -288,7 +326,7 @@ export async function updateClip(
 }
 
 export async function deleteJob(userId: string, jobId: string): Promise<boolean> {
-  const model = await mongoJobModel();
+  const model = await modelOrRefuse();
   if (model) {
     const result = await model.deleteOne({ id: jobId, userId });
     return result.deletedCount > 0;

@@ -210,21 +210,9 @@ Return pure JSON with keys: "headline", "supportingText", "socialCaption".`;
       });
     }
 
-    // Resilient fallback: Synthesize an authoritative, structured editorial copy from seed prompt
-    const cleanSeed = cleanPrompt.replace(/^(how to|why|the|a|an)\s+/i, '').trim();
-    const fallbackCopy = {
-      headline: `The truth about ${cleanSeed}: high-leverage creators optimize for systems, not willpower.`,
-      supportingText: `Decouple raw capture from final polish. When you turn one core insight into modular assets, consistency becomes the default.`,
-      socialCaption: `Consistency isn't a character trait—it is an operations system.\n\nSave this framework for your next production sprint.\n\n#ContentStrategy #CreatorEconomy #KontentOS #Systems`,
-    };
-
-    return res.json({
-      success: true,
-      headline: fallbackCopy.headline,
-      supportingText: fallbackCopy.supportingText,
-      socialCaption: fallbackCopy.socialCaption,
-      modelUsed: 'editorial-resilience-engine',
-    });
+    // Nothing answered. A sentence pattern with the creator's topic dropped into it is not copy —
+    // and the panel that shows this result is labelled with the engine's name, so say what happened.
+    return res.status(502).json({ error: 'No copy engine answered. Try again in a moment.' });
   } catch (err: any) {
     console.error('[StaticCardAi] Server error:', err);
     return res.status(500).json({
@@ -260,51 +248,6 @@ function parseGeneratedDeck(rawText: string, expectedCount: number = 5): { slide
     // If json parse failed
   }
   return null;
-}
-
-/**
- * Context-aware dynamic fallback generator:
- * Deeply parses user prompt keywords and structures a 5-slide narrative arc
- * with zero placeholders or generic filler.
- */
-function generateDynamicFallbackDeck(prompt: string, count: number): { slides: GeneratedSlide[]; socialCaption: string } {
-  const cleanSeed = prompt.replace(/^(how to|why|the|a|an|5 steps to|3 steps to|rules for|guide to)\s+/i, '').trim() || 'High-Leverage Execution';
-  const words = cleanSeed.split(/\s+/).filter(Boolean);
-  const primaryTopic = words.slice(0, 4).join(' ') || 'Strategic Growth';
-  const coreConcept = words.slice(0, 2).join(' ') || primaryTopic;
-
-  const slides: GeneratedSlide[] = [
-    {
-      id: 1,
-      headline: `Most people approach [${primaryTopic}] backwards. Here is what elite operators do differently.`,
-      supportingText: `Conventional wisdom fails because it optimizes for vanity effort instead of high-signal clarity. To win with ${coreConcept}, you must redesign your underlying structure.`,
-    },
-    {
-      id: 2,
-      headline: `Step 1: Diagnose the [Bottlenecks in ${coreConcept}].`,
-      supportingText: `Before scaling any output, audit where the friction originates. Remove manual guesswork and establish a single repeatable baseline standard.`,
-    },
-    {
-      id: 3,
-      headline: `Step 2: Build an [Actionable Blueprint] for rapid implementation.`,
-      supportingText: `Translate your high-level strategy into modular steps. Focus on high-leverage execution where 20% of the inputs drive 80% of tangible outcomes.`,
-    },
-    {
-      id: 4,
-      headline: `Step 3: Enforce [Compounding Leverage] & constraints.`,
-      supportingText: `Discipline is perishable, but robust systems compound. Lock in standard operating principles so progress becomes the automatic default.`,
-    },
-    {
-      id: 5,
-      headline: `The Playbook: [Execute This Framework] today.`,
-      supportingText: `Success with ${primaryTopic} is not accidental—it is engineered through relentless focus. Save this carousel to your bookmarks and execute this sprint.`,
-    },
-  ];
-
-  return {
-    slides: slides.slice(0, count),
-    socialCaption: `The complete tactical blueprint for ${primaryTopic}.\n\nSave this carousel for your next planning sprint and share your biggest takeaway below.\n\n#ContentStrategy #${words[0] || 'Leadership'} #Productivity #Systems`,
-  };
 }
 
 /**
@@ -449,15 +392,7 @@ Return ONLY valid JSON with this exact schema:
       });
     }
 
-    // High-signal dynamic fallback deck generated from user prompt keywords
-    const dynamicFallback = generateDynamicFallbackDeck(cleanPrompt, count);
-
-    return res.json({
-      success: true,
-      slides: dynamicFallback.slides,
-      socialCaption: dynamicFallback.socialCaption,
-      modelUsed: 'dynamic-editorial-engine',
-    });
+    return res.status(502).json({ error: 'No copy engine answered. Try again in a moment.' });
   } catch (err: any) {
     console.error('[StaticCardAi Deck] Server error:', err);
     return res.status(500).json({
@@ -494,56 +429,6 @@ function parseRegeneratedSlide(rawText: string): { headline: string; supportingT
     }
   }
   return null;
-}
-
-function generateFallbackSlide(
-  slideIndex: number,
-  currentSlide: { headline?: string; supportingText?: string },
-  instruction: string,
-  _previousSlide?: { headline?: string; supportingText?: string } | null,
-  _nextSlide?: { headline?: string; supportingText?: string } | null,
-): { headline: string; supportingText: string } {
-  const instrLower = (instruction || '').toLowerCase();
-  const baseHeadline = currentSlide.headline || `Key Point #${slideIndex}`;
-  const baseSupporting = currentSlide.supportingText || 'Focus on high-leverage creation systems and asset reuse.';
-
-  if (instrLower.includes('tactical') || instrLower.includes('actionable')) {
-    return {
-      headline: `Step ${slideIndex}: Deploy [Tactical Systemization].`,
-      supportingText: 'Eliminate manual guesswork. Define a standardized checklist for asset generation and automate distribution.',
-    };
-  }
-
-  if (instrLower.includes('concise') || instrLower.includes('short')) {
-    const trimmedHeadline = baseHeadline.split(':')[1]?.trim() || baseHeadline;
-    return {
-      headline: `[${trimmedHeadline.slice(0, 35)}]`,
-      supportingText: baseSupporting.split('.')[0] + '.',
-    };
-  }
-
-  if (instrLower.includes('hook') || instrLower.includes('strengthen')) {
-    return {
-      headline: `The counter-intuitive truth about [${baseHeadline.replace(/[\[\]]/g, '').slice(0, 28)}]:`,
-      supportingText: 'Most creators optimize for speed. Elite creators optimize for compound leverage and repeatability.',
-    };
-  }
-
-  if (instrLower.includes('example') || instrLower.includes('concrete')) {
-    return {
-      headline: `For Example: [300% Engagement Lift] in 14 Days.`,
-      supportingText: 'When one seed insight is converted across 6 modular formats, distribution scales without additional production time.',
-    };
-  }
-
-  const bracketedHeadline = baseHeadline.includes('[')
-    ? baseHeadline
-    : baseHeadline.replace(/^(\w+\s+\d+:?\s*)?(.+)$/, (_m, p1, p2) => (p1 || '') + `[${p2}]`);
-
-  return {
-    headline: bracketedHeadline,
-    supportingText: baseSupporting,
-  };
 }
 
 /**
@@ -703,13 +588,7 @@ Return ONLY valid JSON with this exact schema:
       });
     }
 
-    // High-signal resilient fallback engine
-    const fallback = generateFallbackSlide(idx, currentSlide, cleanInstruction, previousSlide, nextSlide);
-    return res.json({
-      success: true,
-      slide: fallback,
-      modelUsed: 'editorial-continuity-engine',
-    });
+    return res.status(502).json({ error: 'No copy engine answered. Try again in a moment.' });
   } catch (err: any) {
     console.error('[RegenerateSlide] Server error:', err);
     return res.status(500).json({

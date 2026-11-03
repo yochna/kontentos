@@ -85,19 +85,33 @@ router.post(['/reels', '/instagram', '/save'], async (req, res) => {
 router.get('/history', async (req, res) => {
   try {
     const history = await db.listPublishingHistory(req.userId);
-    // Join with video info
-    const enriched = await Promise.all(
-      history.map(async (item) => {
-        const video = await db.getVideo(item.video_id, req.userId);
-        const caption = await db.getCaption(item.video_id, item.platform, req.userId);
-        return {
-          ...item,
-          video_title: video?.title || 'Reel Post',
-          caption_text: caption?.caption_text || '',
-          hashtags: caption?.hashtags || [],
-        };
-      })
+    // One read per table instead of two per row: a creator with a long ledger would otherwise make
+    // this page wait on hundreds of round trips before it shows a single entry.
+    const wanted: typeof history = [];
+    const seen = new Set<string>();
+    for (const item of history) {
+      const key = `${item.video_id}::${item.platform}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      wanted.push(item);
+    }
+    const [videos, captions] = await Promise.all([
+      db.listVideos(req.userId),
+      Promise.all(wanted.map((item) => db.getCaption(item.video_id, item.platform, req.userId))),
+    ]);
+    const videoById = new Map(videos.map((video) => [video.id, video]));
+    const captionByKey = new Map(
+      wanted.map((item, index) => [`${item.video_id}::${item.platform}`, captions[index]])
     );
+    const enriched = history.map((item) => {
+      const caption = captionByKey.get(`${item.video_id}::${item.platform}`);
+      return {
+        ...item,
+        video_title: videoById.get(item.video_id)?.title || 'Reel Post',
+        caption_text: caption?.caption_text || '',
+        hashtags: caption?.hashtags || [],
+      };
+    });
     res.json({ success: true, data: enriched });
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
@@ -185,6 +199,9 @@ router.post('/schedule', async (req, res) => {
       if (updated) {
         return res.json({ success: true, data: updated, message: 'Scheduled post updated successfully!' });
       }
+      // The row they were editing is not on this account — deleted, or somebody else's id. Writing a
+      // fresh one here would leave the calendar with two entries for one edit.
+      return res.status(404).json({ error: 'No scheduled post with that id is on your account.' });
     }
 
     // Determine target platforms for cross-posting

@@ -11,14 +11,20 @@ const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 /**
  * Render's free disk is wiped on redeploy while the Mongo row survives, so a clip can be a record
  * of a file that no longer exists. The player would show a black rectangle; this says why instead.
+ *
+ * The probe is a promise, not existsSync: a bench load asks it for every clip in the library, and a
+ * synchronous stat per row holds the one thread that is also serving everybody else.
  */
-function mediaExists(fileUrl?: string): boolean {
+async function mediaExists(fileUrl?: string): Promise<boolean> {
   if (!fileUrl) return false;
   // Remote or in-browser sources (https, data:, blob:) are not files this server can stat.
   if (!fileUrl.startsWith('/uploads/')) return true;
-  return [path.join(UPLOADS_DIR, path.basename(fileUrl)), path.join(process.cwd(), fileUrl)].some((p) =>
-    fs.existsSync(p)
-  );
+  try {
+    await fs.promises.access(path.join(UPLOADS_DIR, path.basename(fileUrl)));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Every query below is filtered by req.userId, which the auth gate has already verified.
@@ -27,7 +33,12 @@ function mediaExists(fileUrl?: string): boolean {
 router.get('/', async (req, res) => {
   try {
     const videos = await db.listVideos(req.userId);
-    res.json({ success: true, data: videos.map((v) => ({ ...v, media_available: mediaExists(v.file_url) })) });
+    res.json({
+      success: true,
+      data: await Promise.all(
+        videos.map(async (v) => ({ ...v, media_available: await mediaExists(v.file_url) }))
+      ),
+    });
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err, 'Failed to list videos') });
   }
@@ -74,7 +85,7 @@ router.get('/:id', async (req, res) => {
       success: true,
       data: {
         ...video,
-        media_available: mediaExists(video.file_url),
+        media_available: await mediaExists(video.file_url),
         subtitles,
         caption,
       },

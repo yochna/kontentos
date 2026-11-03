@@ -5,7 +5,7 @@ import { AuthScreen } from '@/components/AuthScreen';
 import { Icon } from '@/lib/icons';
 import { api } from '@/lib/api';
 import { useTheme } from '@/lib/theme';
-import { StoreProvider } from '@/lib/store';
+import { StoreProvider, clearBenchWorkspace } from '@/lib/store';
 import type { User } from '@/lib/types';
 
 export default function App() {
@@ -21,7 +21,10 @@ export default function App() {
       if (!cancelled) setAccount(user);
     });
     // api.ts raises this when any call comes back 401, i.e. the session ended in this tab.
-    const onSignedOut = () => setAccount(null);
+    const onSignedOut = () => {
+      clearBenchWorkspace();
+      setAccount(null);
+    };
     window.addEventListener('kt:signedOut', onSignedOut);
     return () => {
       cancelled = true;

@@ -366,8 +366,11 @@ Return ONLY a single JSON object (not an array) matching this schema:
     return res.json({
       success: true,
       data: fallback,
+      fallback: true,
       source: 'local_generator',
-      message: 'Generated headline and supporting text',
+      // The engine is silent and these are sentence patterns with the prompt dropped in. Saying
+      // 'generated' here would let a creator publish a template believing a model wrote it.
+      message: 'No engine answered — this is the house template, with every line yours to rewrite.',
     });
   } catch (err: any) {
     console.error('Error in /api/script/graphic-copy:', err);

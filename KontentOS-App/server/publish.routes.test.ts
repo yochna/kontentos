@@ -176,6 +176,26 @@ describe('publishing ledger', () => {
     expect((await jsonOf(right)).data.post_url).toBe('https://linkedin.com/feed/posts/abc');
   });
 
+  it('refuses to re-queue an edit aimed at a post that is no longer on the account', async () => {
+    const video = await makeVideo('Ghost edit clip');
+    const before = await jsonOf(await call('GET', '/api/publish/schedule'));
+
+    // The calendar posts an edit as a schedule with the row's id. When that row has been deleted —
+    // or never belonged to this creator — creating a fresh one would leave two entries for one edit.
+    const res = await call('POST', '/api/publish/schedule', {
+      id: 'sp_does_not_exist',
+      videoId: video.id,
+      platforms: ['instagram'],
+      captionText: 'Correcting a post that is gone.',
+      scheduledAt: new Date(Date.now() + 3600_000).toISOString(),
+    });
+    expect(res.status).toBe(404);
+    expect((await jsonOf(res)).error).toMatch(/no scheduled post/i);
+
+    const after = await jsonOf(await call('GET', '/api/publish/schedule'));
+    expect(after.data).toHaveLength(before.data.length);
+  });
+
   it('scopes the ledger to the signed-in creator', async () => {
     const anon = await call('GET', '/api/publish/schedule');
     expect(anon.status).toBe(200); // this session is the owner; prove a second one sees nothing

@@ -756,11 +756,13 @@ router.post('/text-gen', async (req, res) => {
           return res.json({ success: true, text: response.text });
         }
       } catch (err: any) {
-        console.log('Gemini text-gen note: using fallback content');
+        console.warn('Gemini text-gen error:', err?.message);
       }
     }
 
-    return res.json({ success: true, text: String(prompt) });
+    // The prompt is the caller's own words. Answering with them puts the creator's question inside
+    // the box the interface labels "generated", so the honest answer is that nothing answered.
+    return res.status(502).json({ error: 'No copy engine answered. Try again in a moment.' });
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err, 'Text generation failed') });
   }
@@ -806,12 +808,17 @@ Return ONLY JSON with keys:
     const topicWords = String(prompt).replace(/^(e\.g\.|why|how to|a framework to)\s*/i, '').trim();
     return res.json({
       success: true,
+      // The engine is not answering, so what follows is a sentence pattern with the topic dropped
+      // into it. Saying so keeps it from being read as copy written about this creator's subject.
+      fallback: true,
+      source: 'local_generator',
+      message: 'No engine answered — this is the house template, ready for you to rewrite.',
       headline: `The creators winning in 2026 build systems around ${topicWords.slice(0, 50)}.`,
       supportingText: `Here is the exact 3-step breakdown to scale ${topicWords.slice(0, 35)}:\n1. Eliminate low-leverage repetitive friction\n2. Codify your core insights into modular visual cards\n3. Syndicate seamlessly across all social channels.`,
       socialCaption: `Consistency without leverage leads to burnout.\n\nSave this framework for your next sprint.\n\n#ContentStrategy #${topicWords.split(' ')[0] || 'Creator'} #KontentOS`,
     });
   } catch (e: any) {
-    res.status(500).json({ error: e?.message || 'Failed to generate static card copy' });
+    res.status(500).json({ error: safeMessage(e, 'Failed to generate static card copy') });
   }
 });
 
