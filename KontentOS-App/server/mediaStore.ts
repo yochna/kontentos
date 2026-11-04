@@ -70,11 +70,48 @@ export function provider(): MediaProvider {
 }
 
 /**
+ * What the last bucket probe said, or null while nothing has asked yet. Set only by probeBucket(),
+ * which runs at boot: four keys in the dashboard is a claim about intent, not about the bucket
+ * accepting them, and a mistyped key otherwise reads as durable until a creator's upload fails.
+ */
+let bucketAnswer: { ok: boolean; reason: string } | null = null;
+
+/**
+ * Ask the bucket, with the keys exactly as configured, whether it will have us. The reason is an
+ * error name (`Forbidden`, `NoSuchBucket`, `TimeoutError`) — never a key, a secret or a URL.
+ */
+export async function probeBucket(): Promise<{ ok: boolean; reason: string } | null> {
+  const store = await bucket();
+  if (!store) return null;
+  try {
+    await store.s3.send(
+      new store.sdk.HeadBucketCommand({ Bucket: store.cfg.bucket }),
+      { abortSignal: AbortSignal.timeout(15_000) },
+    );
+    bucketAnswer = { ok: true, reason: '' };
+  } catch (err: any) {
+    bucketAnswer = { ok: false, reason: probeReason(err) };
+  }
+  return bucketAnswer;
+}
+
+/**
+ * A name the creator can act on. A bad key arrives as `Forbidden` and a wrong bucket as
+ * `NoSuchBucket`, but a socket that never connected keeps Node's generic `Error` and hides the real
+ * cause in `Code`, so both are read. Nothing from the error is echoed beyond the name.
+ */
+function probeReason(err: any): string {
+  const name = String(err?.name ?? '');
+  return (name && name !== 'Error' ? name : String(err?.Code ?? err?.__type ?? 'Error')).slice(0, 40);
+}
+
+/**
  * Whether bytes written here can still be read after the next redeploy — or, on the free plans,
- * after a long enough quiet period. Only an object store says yes on a hosted container.
+ * after a long enough quiet period. Only an object store says yes on a hosted container, and only
+ * one that has actually taken the keys.
  */
 export function bytesAreDurable(): boolean {
-  if (provider() === 'bucket') return true;
+  if (provider() === 'bucket') return bucketAnswer?.ok !== false;
   return env('RENDER') !== 'true';
 }
 
@@ -94,10 +131,24 @@ export function missingBucketKeys(): string[] {
 export function mediaStatus(): MediaStatus {
   const bucket = bucketConfig();
   if (bucket) {
+    if (bucketAnswer?.ok === false) {
+      // Still the bucket provider: writes really do go there and really do fail. What changes is the
+      // promise — the creator must see this as unproven storage, not as a configuration success.
+      return {
+        provider: 'bucket',
+        durable: false,
+        note:
+          `The “${bucket.bucket}” bucket answered with ${bucketAnswer.reason}, ` +
+          'so this server cannot store clips there yet.',
+      };
+    }
     return {
       provider: 'bucket',
       durable: true,
-      note: `Clips live in the “${bucket.bucket}” bucket, so a redeploy cannot delete them.`,
+      note:
+        bucketAnswer === null
+          ? `Clips are set to live in the “${bucket.bucket}” bucket — its keys have not answered yet.`
+          : `Clips live in the “${bucket.bucket}” bucket, so a redeploy cannot delete them.`,
     };
   }
   if (env('RENDER') === 'true') {
@@ -160,6 +211,7 @@ async function bucket(): Promise<{ s3: S3Client; sdk: typeof import('@aws-sdk/cl
 /** Only a test swaps the store out from under a running server. */
 export function resetMediaClient(): void {
   client = null;
+  bucketAnswer = null;
 }
 
 export async function hasClipBytes(fileUrl: string | undefined): Promise<boolean> {

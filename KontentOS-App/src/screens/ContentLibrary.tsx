@@ -150,7 +150,8 @@ export default function ContentLibrary() {
       />
 
       {/* A surviving record says nothing about its file. When the bytes sit on a disk the host wipes,
-          the vault has to say so before anybody trusts it with a month of footage. */}
+          the vault has to say so before anybody trusts it with a month of footage. A bucket that was
+          configured but refuses the keys is worse, not better: the footage has nowhere to go at all. */}
       {dbStatus?.media && !dbStatus.media.durable && (
         <div
           role="status"
@@ -158,12 +159,17 @@ export default function ContentLibrary() {
         >
           <Icon name="no_photography" size={18} className="mt-0.5 shrink-0 text-danger" />
           <div className="min-w-0">
-            <div className="text-[12.5px] font-semibold text-ink">Media is not durable here</div>
+            <div className="text-[12.5px] font-semibold text-ink">
+              {dbStatus.media.provider === 'bucket' ? 'Media storage is not accepting clips' : 'Media is not durable here'}
+            </div>
             <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-muted">
-              {dbStatus.media.note} Download anything you still need before the service next restarts —{' '}
-              {dbStatus.provider === 'mongodb'
-                ? 'the records, captions and queue stay; the footage does not.'
-                : 'nothing on this workspace survives it, records included.'}
+              {dbStatus.media.provider === 'bucket'
+                ? `${dbStatus.media.note} Check the MEDIA_* values in the hosting dashboard — until the bucket answers, an upload has nowhere to put your footage.`
+                : `${dbStatus.media.note} Download anything you still need before the service next restarts — ${
+                    dbStatus.provider === 'mongodb'
+                      ? 'the records, captions and queue stay; the footage does not.'
+                      : 'nothing on this workspace survives it, records included.'
+                  }`}
             </p>
           </div>
         </div>

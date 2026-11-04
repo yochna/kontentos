@@ -1060,6 +1060,10 @@ Output valid JSON:
     console.error('Could not import the legacy saved-ideas file:', err);
   }
 
+  // Four keys in a dashboard say what this server means to do. Only the bucket gets to say what it
+  // will accept, so the promise that footage survives a redeploy is made after the answer, not before.
+  const bucketProbe = mediaStore.provider() === 'bucket' ? mediaStore.probeBucket() : Promise.resolve(null);
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n  KontentOS Cutting Room — standalone`);
     console.log(`  ▸ App + API : http://localhost:${PORT}`);
@@ -1082,6 +1086,17 @@ Output valid JSON:
     } else {
       console.log('');
     }
+    void bucketProbe.then((answer) => {
+      if (!answer) return;
+      console.log(
+        answer.ok
+          ? `  ▸ Bucket     : reachable. Clips written here outlive this container.\n`
+          : `\n  ⚠️  The media bucket did not accept this server (${answer.reason}).\n` +
+            `      Every upload that tries to store footage there will fail. Check MEDIA_BUCKET,\n` +
+            `      MEDIA_ENDPOINT and the two key values in the Render dashboard, then restart.\n` +
+            `      Until the bucket answers, the Vault says your clips are not durable — which is true.\n`,
+      );
+    });
     if (!db.isMongoConnected() && IS_PROD) {
       console.log(
         '  ⚠️  MONGODB_URI is not set: uploads, schedules and history live only in this container and\n' +

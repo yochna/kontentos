@@ -12,6 +12,7 @@ import {
   missingBucketKeys,
   objectKey,
   persistClip,
+  probeBucket,
   provider,
   readBucketClip,
   removeBucketClip,
@@ -126,6 +127,38 @@ describe('whether the bytes outlive the container', () => {
   });
 });
 
+/**
+ * A bucket is only a promise until it answers. These cases use an endpoint that cannot be reached,
+ * so the failure is a socket, not a credential — which is the same shape the module has to survive.
+ */
+describe('a bucket that has not answered', () => {
+  it('believes four keys only until the bucket itself says otherwise', async () => {
+    await withEnv({ ...COMPLETE, MEDIA_ENDPOINT: 'http://127.0.0.1:1', RENDER: 'true' }, async () => {
+      // Before the probe, the configuration is the only evidence there is.
+      expect(bytesAreDurable()).toBe(true);
+      expect(mediaStatus().note).toMatch(/not answered/i);
+
+      const answer = await probeBucket();
+      expect(answer?.ok).toBe(false);
+      expect(answer?.reason).not.toBe('');
+
+      expect(bytesAreDurable()).toBe(false);
+      const status = mediaStatus();
+      expect(status.provider).toBe('bucket');
+      expect(status.durable).toBe(false);
+      expect(status.note).toMatch(/cannot store clips there/i);
+      expect(status.note).toContain('kontentos-clips');
+      expect(status.note).not.toContain('a-secret');
+    });
+  });
+
+  it('asks nothing of a server that was never given a bucket', async () => {
+    await withEnv({ ...NO_BUCKET, RENDER: undefined }, async () => {
+      expect(await probeBucket()).toBeNull();
+    });
+  });
+});
+
 describe('translating a clip url into a place', () => {
   it('accepts only the file names this app mints', () => {
     expect(objectKey('/uploads/vid_abcdef12.mp4')).toBe('clips/vid_abcdef12.mp4');
@@ -202,6 +235,11 @@ describe.skipIf(!liveBucket)('a real bucket', () => {
     await removeBucketClip(fileUrl);
     fs.rmSync(scratch, { recursive: true, force: true });
     fs.rmSync(localCopy, { force: true });
+  });
+
+  it('confirms with its own name that the keys work', async () => {
+    expect(await probeBucket()).toEqual({ ok: true, reason: '' });
+    expect(mediaStatus().durable).toBe(true);
   });
 
   it('holds a clip the container no longer has', async () => {
