@@ -342,6 +342,135 @@ async function exportMP4(
   }
 }
 
+/**
+ * Cuts one timecode span out of a source clip and re-encodes it as a standalone MP4.
+ *
+ * `-ss` sits before `-i` so ffmpeg seeks instead of decoding from the top of the file, and the
+ * audio map is optional (`0:a:0?`) because a screen recording can arrive without a sound track —
+ * a required map would fail the whole cut on a span that has pictures to show.
+ */
+async function cutSpan(
+  id: string,
+  inputBuffer: ArrayBuffer,
+  fileName: string,
+  start: number,
+  duration: number
+): Promise<void> {
+  let writtenInput = false;
+  let outputFileName = '';
+
+  try {
+    if (!ffmpeg || !ffmpeg.loaded) {
+      await initFFmpeg();
+    }
+    if (!ffmpeg) {
+      throw new Error('FFmpeg instance is unavailable');
+    }
+
+    outputFileName = `cut_${Date.now()}.mp4`;
+
+    self.postMessage({
+      type: 'EXPORT_PROGRESS',
+      id,
+      stage: 'preparing_assets',
+      progress: 0.05,
+      message: 'Reading the source into the cut bench...',
+    });
+
+    await ffmpeg.writeFile(fileName, new Uint8Array(inputBuffer));
+    writtenInput = true;
+
+    self.postMessage({
+      type: 'EXPORT_PROGRESS',
+      id,
+      stage: 'encoding',
+      progress: 0.15,
+      message: `Cutting ${duration.toFixed(1)}s from ${start.toFixed(1)}s and encoding H.264...`,
+    });
+
+    const execArgs: string[] = [
+      '-ss', start.toFixed(3),
+      '-i', fileName,
+      '-t', duration.toFixed(3),
+      '-map', '0:v:0',
+      '-map', '0:a:0?',
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-threads', '1',
+      '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      '-movflags', '+faststart',
+      '-avoid_negative_ts', 'make_zero',
+      '-y',
+      outputFileName,
+    ];
+
+    const execPromise = ffmpeg.exec(execArgs);
+    const timeoutPromise = new Promise<number>((_, reject) =>
+      setTimeout(
+        () => reject(new Error('The browser cut timed out after 120 seconds. The span or the source may be too large to render here.')),
+        120_000
+      )
+    );
+    const exitCode = await Promise.race([execPromise, timeoutPromise]);
+    if (exitCode !== 0) {
+      throw new Error(`The cut failed with exit code ${exitCode}.`);
+    }
+
+    self.postMessage({
+      type: 'EXPORT_PROGRESS',
+      id,
+      stage: 'finalizing',
+      progress: 0.95,
+      message: 'Writing the cut file...',
+    });
+
+    const outputData = await ffmpeg.readFile(outputFileName);
+    let outputBuffer: ArrayBuffer;
+    if (typeof outputData === 'string') {
+      outputBuffer = new TextEncoder().encode(outputData).buffer;
+    } else if (outputData instanceof Uint8Array) {
+      outputBuffer = outputData.buffer.slice(outputData.byteOffset, outputData.byteOffset + outputData.byteLength);
+    } else {
+      outputBuffer = (outputData as any).buffer || outputData;
+    }
+
+    try {
+      await ffmpeg.deleteFile(fileName);
+      await ffmpeg.deleteFile(outputFileName);
+    } catch {
+      // Non-fatal cleanup
+    }
+
+    (self as any).postMessage(
+      {
+        type: 'CUT_SUCCESS',
+        id,
+        buffer: outputBuffer,
+        byteLength: outputBuffer.byteLength,
+        fileName: 'kontentos_cut.mp4',
+      },
+      [outputBuffer]
+    );
+  } catch (error: any) {
+    console.error('[FFmpeg Worker] Cut error:', error);
+    try {
+      if (ffmpeg?.loaded) {
+        if (writtenInput) await ffmpeg.deleteFile(fileName);
+        if (outputFileName) await ffmpeg.deleteFile(outputFileName);
+      }
+    } catch {
+      /* leaving the virtual filesystem is not worth failing the answer over */
+    }
+    self.postMessage({
+      type: 'CUT_ERROR',
+      id,
+      error: error?.message || 'The browser cut could not be completed',
+    });
+  }
+}
+
 self.onmessage = async (event: MessageEvent) => {
   const { type, id } = event.data;
 
@@ -378,6 +507,16 @@ self.onmessage = async (event: MessageEvent) => {
       );
       break;
     }
+
+    case 'CUT_SPAN':
+      await cutSpan(
+        id,
+        event.data.buffer,
+        event.data.inputFileName || 'input.mp4',
+        Number(event.data.start) || 0,
+        Number(event.data.duration) || 0
+      );
+      break;
 
     default:
       self.postMessage({

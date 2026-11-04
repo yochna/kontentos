@@ -63,7 +63,9 @@ function parseGeneratedCopy(rawText: string): { headline: string; supportingText
  * Direct REST caller to Google Generative AI API using the active Gemini models
  */
 async function callGeminiRest(apiKey: string, promptText: string, format: string): Promise<{ headline: string; supportingText: string; socialCaption: string } | null> {
-  const models = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+  // No key means no engine. Asking anyway is four live HTTPS calls per card that Google refuses,
+  // which reads as a slow 502 for the creator and as noise in the deploy log.
+  const models = apiKey ? ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'] : [];
   
   const systemPrompt = `You are a world-class creator, viral ghostwriter, and design strategist for Instagram, LinkedIn, and 𝕏.
 Generate highly specific, authoritative, non-generic copy for a visual social card (Format: ${format}).
@@ -141,7 +143,7 @@ router.post('/generate-copy', async (req, res) => {
     let generatedCopy = await callGeminiRest(effectiveKey, cleanPrompt, format);
 
     // If REST had any issue, try SDK with gemini-3.8-flash
-    if (!generatedCopy) {
+    if (!generatedCopy && effectiveKey) {
       try {
         const ai = new GoogleGenAI({
           apiKey: effectiveKey,
@@ -296,7 +298,7 @@ Return ONLY valid JSON with this exact schema:
 }`;
 
     // Try active Gemini REST models first
-    const models = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+    const models = effectiveKey ? ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'] : [];
     let generatedDeck: { slides: GeneratedSlide[]; socialCaption: string } | null = null;
     let modelUsed = '';
 
@@ -505,7 +507,7 @@ Return ONLY valid JSON with this exact schema:
   "supportingText": "..."
 }`;
 
-    const models = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+    const models = effectiveKey ? ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'] : [];
     let rewrittenSlide: { headline: string; supportingText: string } | null = null;
     let modelUsed = '';
 

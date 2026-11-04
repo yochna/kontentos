@@ -260,36 +260,53 @@ function localCaption(m: Moment, tone: string, platform: string): string {
   return withStamp.length <= limit ? withStamp : build(false);
 }
 
+/**
+ * The three beat windows of a moment, stamped as timecodes.
+ *
+ * Fractions of the real span, not a rounded third multiplied back up: a 68s short divided by three
+ * used to end its last beat at 0:69, past both the minute mark and the end of the clip.
+ */
+function beatWindows(m: Moment): string[] {
+  if (!(m.start >= 0 && m.end > m.start)) return ['—', '—', '—'];
+  const len = m.end - m.start;
+  return [0, 1, 2].map((i) => {
+    const from = formatTimecode(m.start + (len * i) / 3);
+    const to = formatTimecode(m.start + (len * (i + 1)) / 3);
+    return `${from} – ${to}`;
+  });
+}
+
 function localBeats(m: Moment): RepurposeBeat[] {
   const parts = m.excerpt.split(/(?<=[.!?])\s+/).filter(Boolean);
-  const timed = m.start >= 0 && m.end > m.start;
-  const third = timed ? Math.max(3, Math.round((m.end - m.start) / 3)) : 0;
-  const at = (n: number) => (timed ? `0:${String(n).padStart(2, '0')}` : '—');
+  const [first, second, third] = beatWindows(m);
   return [
     {
       label: 'Beat 1: The claim',
-      time: timed ? `${at(0)} – ${at(third)}` : '—',
+      time: first,
       body: parts[0] || m.excerpt.slice(0, 120),
     },
     {
       label: 'Beat 2: The proof',
-      time: timed ? `${at(third)} – ${at(third * 2)}` : '—',
+      time: second,
       body: parts.slice(1, 3).join(' ') || m.excerpt.slice(120, 260),
     },
     {
       label: 'Beat 3: The turn',
-      time: timed ? `${at(third * 2)} – ${at(third * 3)}` : '—',
+      time: third,
       body: parts.slice(3, 6).join(' ') || 'Land the ask: what the viewer should do next.',
     },
   ];
 }
 
 function assemble(m: Moment, copy: EngineCopy | null, tone: string, platform: string): RepurposeClip {
+  const windows = beatWindows(m);
   const beats =
     copy?.beats && copy.beats.length >= 3
-      ? copy.beats.slice(0, 3).map((b) => ({
+      ? copy.beats.slice(0, 3).map((b, i) => ({
           label: String(b.label || 'Beat').trim(),
-          time: String(b.time || '').trim() || '0:00 – 0:30',
+          // A beat the engine left untimed is still inside this moment: stamp it from the real span
+          // rather than pasting a generic 0:00–0:30 over a short that runs somewhere else.
+          time: String(b.time || '').trim() || windows[i],
           body: String(b.body || '').trim() || m.excerpt.slice(0, 140),
         }))
       : localBeats(m);

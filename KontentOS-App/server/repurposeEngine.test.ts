@@ -187,6 +187,40 @@ describe('buildRepurposeJob without an engine', () => {
     }
   });
 
+  it('stamps every beat inside its own short, past the minute too', async () => {
+    const segments = segmentSet(30);
+    const result = await buildRepurposeJob({
+      transcript: segments.map((s) => s.text).join(' '),
+      segments,
+      clipCount: 4,
+      tone: 'direct',
+      brandVoice: '',
+      temperature: 0.7,
+    });
+    expect(result.clips.length).toBeGreaterThan(0);
+
+    const secondsOf = (label: string) => {
+      const [m, s] = label.split(':').map(Number);
+      return m * 60 + s;
+    };
+
+    for (const clip of result.clips) {
+      let previous = clip.start;
+      for (const beat of clip.beats) {
+        const [from, to] = beat.time.split(' – ');
+        // A minute that never rolls over is the bug: 69 seconds used to print as 0:69.
+        expect(from).toMatch(/^\d{2}:[0-5]\d$/);
+        expect(to).toMatch(/^\d{2}:[0-5]\d$/);
+        const a = secondsOf(from);
+        const b = secondsOf(to);
+        expect(a).toBeGreaterThanOrEqual(previous - 1);
+        expect(b).toBeGreaterThanOrEqual(a);
+        expect(b).toBeLessThanOrEqual(Math.round(clip.end) + 1);
+        previous = a;
+      }
+    }
+  });
+
   it('clamps the requested clip count instead of trusting it', async () => {
     const segments = segmentSet(30);
     const result = await buildRepurposeJob({

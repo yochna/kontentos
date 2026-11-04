@@ -557,14 +557,19 @@ Respond ONLY with pure JSON matching this exact structure:
       success: boolean;
       // null is the ordinary answer for a take nobody has captioned yet.
       data: {
-        transcript: string;
+        transcript?: string;
+        transcript_text?: string;
         srt_content: string;
         vtt_content: string;
         language: string;
         segments: Array<{ id: number; start: string | number; end: string | number; text: string }>;
       } | null;
     }>(await fetch(`/api/transcribe/${videoId}`));
-    return d.data;
+    if (!d.data) return null;
+    // The stored row names the words `transcript_text`, while every reader in this app asks for
+    // `transcript`. Left unmapped, auto-edit saw real cues as having no speech and wrote copy from
+    // the title instead.
+    return { ...d.data, transcript: (d.data.transcript || d.data.transcript_text || '').trim() };
   },
 
   // ---- AI Settings & API Keys ----

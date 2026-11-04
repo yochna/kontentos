@@ -329,9 +329,10 @@ export function FeedScreen({
               </div>
 
               <p className="text-[13.5px] leading-relaxed text-ink-soft">
-                Every short keeps the timecode span it came from, so you cut exactly that in the bench. The
-                Studio writes words — it does not render a video file, because this server has no video
-                engine and uploads do not survive Render&apos;s free disk.
+                Every short keeps the timecode span it came from. On the Cut screen you can render exactly that
+                span here — your browser does the cut, and the file only leaves the tab when you save it to your
+                vault. The server has no video engine, and on the free plan saved uploads are erased when the
+                service restarts, so keep anything you cannot afford to lose on your own machine.
               </p>
             </div>
 

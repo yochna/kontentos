@@ -56,6 +56,11 @@ export interface VideoRecord {
   duration?: number | string;
   status?: string;
   created_at?: string;
+  /** Bytes on disk, and whether this container still has them — a cut can only be made from media
+   *  that is actually here. */
+  file_size?: number;
+  media_available?: boolean;
+  aspect_ratio?: string;
 }
 
 async function json<T>(res: Response): Promise<T> {
@@ -136,13 +141,18 @@ export const studioApi = {
 
   async subtitles(videoId: string): Promise<{ transcript: string; segments: unknown[] } | null> {
     try {
-      const d = await get<{
-        data?: { transcript?: string; segments?: unknown[] };
+      interface SubtitleBody {
         transcript?: string;
+        transcript_text?: string;
         segments?: unknown[];
-      }>(`/api/transcribe/${encodeURIComponent(videoId)}`);
+      }
+      const d = await get<{ data?: SubtitleBody } & SubtitleBody>(
+        `/api/transcribe/${encodeURIComponent(videoId)}`
+      );
       const body = d.data || d;
-      const transcript = (body.transcript || '').trim();
+      // The subtitle row the server hands back calls this `transcript_text`; reading only
+      // `transcript` made every recorded clip look uncaptioned and blocked the Studio's whole intake.
+      const transcript = (body.transcript || body.transcript_text || '').trim();
       if (!transcript && !body.segments?.length) return null;
       return { transcript, segments: body.segments || [] };
     } catch {
@@ -192,4 +202,55 @@ export const studioApi = {
   async deleteJob(id: string): Promise<void> {
     await del(`/api/repurpose/jobs/${encodeURIComponent(id)}`);
   },
+
+  /**
+   * Puts a file produced in the browser — a Studio span cut — into the vault as a real clip, in
+   * 5 MB chunks. The direct route is capped at 100 MB of base64 in one JSON body, and a re-encoded
+   * short can exceed that, so the chunked path is the only one that never fails at an arbitrary
+   * length.
+   */
+  async uploadClip(
+    file: Blob,
+    opts: { fileName: string; title: string; duration?: number; aspectRatio?: string },
+    onProgress?: (fraction: number) => void
+  ): Promise<VideoRecord> {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const CHUNK = 5 * 1024 * 1024;
+    const totalChunks = Math.max(1, Math.ceil(bytes.length / CHUNK));
+
+    const init = await post<{ success: boolean; uploadId: string }>('/api/upload/init', {
+      fileName: opts.fileName,
+      totalChunks,
+      totalSize: bytes.length,
+    });
+    if (!init.uploadId) throw new Error('The vault did not open an upload session.');
+
+    for (let i = 0; i < totalChunks; i++) {
+      const slice = bytes.subarray(i * CHUNK, (i + 1) * CHUNK);
+      await post('/api/upload/chunk', {
+        uploadId: init.uploadId,
+        chunkIndex: i,
+        chunkData: toBase64(slice),
+      });
+      onProgress?.((i + 1) / totalChunks);
+    }
+
+    const done = await post<{ success: boolean; video: VideoRecord }>('/api/upload/complete', {
+      uploadId: init.uploadId,
+      title: opts.title,
+      duration: opts.duration,
+      aspectRatio: opts.aspectRatio,
+    });
+    return done.video;
+  },
 };
+
+/** String.fromCharCode over 5 MB of arguments would blow the stack, so it goes in 32 KB bites. */
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const step = 0x8000;
+  for (let i = 0; i < bytes.length; i += step) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + step));
+  }
+  return btoa(binary);
+}

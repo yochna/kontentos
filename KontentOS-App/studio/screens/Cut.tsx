@@ -1,11 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { studioApi, type RepurposeClip, type RepurposeJob } from '../lib/api';
+import { studioApi, type RepurposeClip, type RepurposeJob, type VideoRecord } from '../lib/api';
 import { checkCaption, PLATFORMS, platformSpec } from '@/lib/platforms';
 import { notify } from '../lib/notify';
 import { packFor } from '../lib/pack';
+import { cutSpan, resolveSpan, type CutProgress } from '../lib/cut';
 import { Button, Label, Timecode } from '../components/atoms';
 
 type Edits = Pick<RepurposeClip, 'title' | 'hook' | 'caption' | 'cardHeadline' | 'platform'>;
+
+/** Where one short's browser cut has got to. `idle` never renders a panel. */
+type CutState =
+  | { phase: 'idle' }
+  | { phase: 'working'; progress: CutProgress }
+  | {
+      phase: 'done';
+      url: string;
+      byteLength: number;
+      blob: Blob;
+      /** Seconds of film actually in the cut, which is the span unless the source ran out first. */
+      seconds: number;
+      shortOfSpan?: boolean;
+      saved?: VideoRecord;
+      saving?: number;
+    }
+  | { phase: 'failed'; message: string };
 
 const baseOf = (clip: RepurposeClip): Edits => ({
   title: clip.title,
@@ -14,6 +32,10 @@ const baseOf = (clip: RepurposeClip): Edits => ({
   cardHeadline: clip.cardHeadline,
   platform: clip.platform,
 });
+
+/** A short's title turned into something safe to name a downloaded file with. */
+const slug = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'studio-short';
 
 export function CutScreen({
   job,
@@ -34,7 +56,45 @@ export function CutScreen({
   const [busyId, setBusyId] = useState('');
   const [copiedId, setCopiedId] = useState('');
   const [focused, setFocused] = useState('');
+  const [cuts, setCuts] = useState<Record<string, CutState>>({});
+  const [source, setSource] = useState<{ checked: boolean; video: VideoRecord | null; offline: boolean }>({
+    checked: false,
+    video: null,
+    offline: false,
+  });
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
+  // Every finished cut hands back an object URL; they are revoked together when this job closes,
+  // so a long session does not pin a stack of decoded clips in memory.
+  const cutUrls = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const urls = cutUrls.current;
+    return () => {
+      for (const url of urls) URL.revokeObjectURL(url);
+      urls.clear();
+    };
+  }, [jobId]);
+
+  // A cut needs the creator's own bytes, and only a job that came from a recording has any.
+  useEffect(() => {
+    const videoId = (job || live)?.videoId;
+    if (!videoId) {
+      setSource({ checked: true, video: null, offline: false });
+      return;
+    }
+    let alive = true;
+    studioApi
+      .listVideos()
+      .then((rows) => {
+        if (!alive) return;
+        const row = rows.find((v) => v.id === videoId) || null;
+        setSource({ checked: true, video: row, offline: !!row && row.media_available === false });
+      })
+      .catch(() => alive && setSource({ checked: true, video: null, offline: false }));
+    return () => {
+      alive = false;
+    };
+  }, [job, live]);
 
   useEffect(() => {
     if (job) {
@@ -139,6 +199,96 @@ export function CutScreen({
         : 'The browser blocked the clipboard. Open the short on the Shelf and copy the fields one by one.',
       ok ? 'ok' : 'bad'
     );
+  };
+
+  // Why the cut cannot run right now, in the creator's terms, or null when it can.
+  const cutBlocker = (): string | null => {
+    if (!source.checked) return 'Checking your source…';
+    if (!source.video) {
+      return current && current.sourceKind === 'paste'
+        ? 'This job came from a pasted transcript, so there is no footage here to cut.'
+        : 'The recording behind this job is no longer on your account.';
+    }
+    if (source.offline) {
+      return 'The source file is not on this server any more, so this span cannot be cut.';
+    }
+    if (!source.video.file_url) return 'The source has no file path to read from.';
+    return null;
+  };
+
+  const runCut = async (clip: RepurposeClip) => {
+    const video = source.video;
+    const blocked = cutBlocker();
+    if (!video?.file_url || blocked) {
+      if (blocked) setCuts((prev) => ({ ...prev, [clip.id]: { phase: 'failed', message: blocked } }));
+      return;
+    }
+    const filmSeconds = Number(video.duration) || 0;
+    // The span was timed from cues, which do not know how long the file turned out to be. Cut to
+    // the end of the real film and say so, rather than promising 50s of a 12s clip.
+    const span = resolveSpan(clip.start, clip.end, filmSeconds);
+    const settle = (next: CutState) =>
+      setCuts((prev) => {
+        const previous = prev[clip.id];
+        if (previous?.phase === 'done') {
+          URL.revokeObjectURL(previous.url);
+          cutUrls.current.delete(previous.url);
+        }
+        return { ...prev, [clip.id]: next };
+      });
+
+    settle({ phase: 'working', progress: { stage: 'reading', fraction: null, message: 'Reading your source…' } });
+    try {
+      const { blob, byteLength } = await cutSpan(
+        {
+          fileUrl: video.file_url,
+          fileSize: video.file_size,
+          sourceSeconds: filmSeconds,
+          start: span.start,
+          duration: span.duration,
+        },
+        (progress) => settle({ phase: 'working', progress })
+      );
+      const url = URL.createObjectURL(blob);
+      cutUrls.current.add(url);
+      setCuts((prev) => ({
+        ...prev,
+        [clip.id]: { phase: 'done', url, byteLength, blob, seconds: span.duration, shortOfSpan: span.shortOfSpan },
+      }));
+      notify(
+        `${span.shortOfSpan ? `The source runs out at ${Math.round(filmSeconds)}s, so this is shorter than the span asked for. ` : ''}Cut to ${span.duration.toFixed(1)}s — ${(byteLength / 1024 / 1024).toFixed(1)} MB. Play it below before you keep it.`,
+        'ok'
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'The browser cut could not be completed.';
+      settle({ phase: 'failed', message });
+      notify(message, 'bad');
+    }
+  };
+
+  const saveCutToVault = async (clip: RepurposeClip) => {
+    const state = cuts[clip.id];
+    const video = source.video;
+    if (state?.phase !== 'done' || !state.blob || !video) return;
+
+    setCuts((prev) => ({ ...prev, [clip.id]: { ...state, saving: 0 } }));
+    try {
+      const row = await studioApi.uploadClip(
+        state.blob,
+        {
+          fileName: `${slug(clip.title)}.mp4`,
+          title: `${clip.title || 'Studio short'} (cut)`,
+          duration: Math.round(state.seconds),
+          aspectRatio: video.aspect_ratio,
+        },
+        (fraction) => setCuts((prev) => ({ ...prev, [clip.id]: { ...state, saving: fraction } }))
+      );
+      setCuts((prev) => ({ ...prev, [clip.id]: { ...state, saved: row, saving: undefined } }));
+      notify(`In your vault as “${row.title || 'this cut'}” — queue it from the bench whenever you are ready.`, 'ok');
+    } catch (err) {
+      setCuts((prev) => ({ ...prev, [clip.id]: { ...state, saving: undefined } }));
+      notify(err instanceof Error ? err.message : 'The vault did not take that cut.', 'bad');
+    }
   };
 
   if (missing) {
@@ -344,7 +494,9 @@ export function CutScreen({
                         className="mt-1.5 w-full resize-y rounded-[8px] border border-rule bg-white px-3 py-2 text-[14px] leading-relaxed focus:border-moss focus:outline-none focus:ring-2 focus:ring-moss/15"
                       />
                       <p className="mt-2 text-[13px] leading-relaxed text-ink-faint">
-                        Cut the span above in the bench to make the visual. The Studio only writes words.
+                        {source.video && !source.offline
+                          ? 'Cut this span below to render the short from your own source. The file stays in this browser until you save it to your vault.'
+                          : 'The Studio writes words. Cut the span above in the bench to make the visual.'}
                       </p>
                     </div>
                   </div>
@@ -362,6 +514,13 @@ export function CutScreen({
                     <Button kind="quiet" onClick={() => void copyPack(clip)}>
                       Copy {spec.label} pack
                     </Button>
+                    <Button
+                      kind="outline"
+                      onClick={() => void runCut(clip)}
+                      disabled={!!cutBlocker() || cuts[clip.id]?.phase === 'working'}
+                    >
+                      {cuts[clip.id]?.phase === 'working' ? 'Cutting…' : 'Cut this span'}
+                    </Button>
                     <a
                       href={spec.composerUrl}
                       target="_blank"
@@ -375,6 +534,93 @@ export function CutScreen({
                       <span className="meta-label ml-auto text-moss">kept on the shelf</span>
                     )}
                   </footer>
+
+                  {(() => {
+                    const state = cuts[clip.id];
+                    if (!state || state.phase === 'idle') {
+                      // Before a cut is asked for, say why the button is asleep.
+                      if (!source.checked) return null;
+                      const blocked = cutBlocker();
+                      return blocked ? (
+                        <p className="mt-3 border-t border-rule pt-3 text-[12.5px] leading-relaxed text-ink-faint">
+                          {blocked}
+                        </p>
+                      ) : null;
+                    }
+                    if (state.phase === 'working') {
+                      const pct = state.progress.fraction === null ? null : Math.round(state.progress.fraction * 100);
+                      return (
+                        <div className="mt-3 border-t border-rule pt-3">
+                          <p className="text-[13px] text-ink-soft">{state.progress.message}</p>
+                          <span className="mt-2 block h-[3px] w-full overflow-hidden rounded-pill bg-paper-3">
+                            <span
+                              className={
+                                pct === null
+                                  ? 'block h-full w-[30%] animate-pulse bg-moss/50'
+                                  : 'block h-full bg-moss transition-[width] duration-300'
+                              }
+                              style={pct === null ? undefined : { width: `${Math.max(2, pct)}%` }}
+                            />
+                          </span>
+                          <p className="mt-2 text-[12.5px] leading-relaxed text-ink-faint">
+                            Only this span is decoded, and it happens in this tab — nothing is uploaded.
+                          </p>
+                        </div>
+                      );
+                    }
+                    if (state.phase === 'failed') {
+                      return (
+                        <p className="mt-3 border-t border-rule pt-3 text-[13px] leading-relaxed text-clay">
+                          {state.message}
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="mt-4 flex flex-wrap gap-4 border-t border-rule pt-4">
+                        <video
+                          src={state.url}
+                          controls
+                          playsInline
+                          className="h-[220px] w-auto max-w-full rounded-[8px] border border-rule bg-ink"
+                        />
+                        <div className="min-w-[200px] flex-1">
+                          <p className="meta-label text-ink-soft">
+                            {(state.byteLength / 1024 / 1024).toFixed(1)} MB · {state.seconds.toFixed(1)}s from{' '}
+                            {clip.startLabel}
+                            {state.shortOfSpan ? ' · the source ends here' : ` → ${clip.endLabel}`}
+                          </p>
+                          <div className="mt-2.5 flex flex-wrap items-center gap-3">
+                            {state.saved ? (
+                              <a
+                                href="/"
+                                className="meta-label text-moss underline-offset-4 hover:underline"
+                                title="The bench is where a saved clip gets queued"
+                              >
+                                In your vault · open the bench
+                              </a>
+                            ) : (
+                              <Button
+                                kind="outline"
+                                onClick={() => void saveCutToVault(clip)}
+                                disabled={typeof state.saving === 'number'}
+                              >
+                                {typeof state.saving === 'number'
+                                  ? `Saving ${Math.round(state.saving * 100)}%`
+                                  : 'Save to vault'}
+                              </Button>
+                            )}
+                            <a
+                              href={state.url}
+                              download={`${slug(clip.title)}.mp4`}
+                              className="meta-label text-ink-soft underline-offset-4 hover:text-moss hover:underline"
+                            >
+                              Download MP4
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </article>
             );
