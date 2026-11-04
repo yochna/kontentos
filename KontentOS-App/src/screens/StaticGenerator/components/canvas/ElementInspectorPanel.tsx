@@ -1,5 +1,7 @@
 import React, { useMemo, useRef } from 'react';
 import { Icon } from '@/lib/icons';
+import { Tooltip } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import type { CanvasCustomElement } from '../../../../types/canvasScene';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 import { VectorShapesSection } from './VectorShapesSection';
@@ -176,11 +178,11 @@ export const ElementInspectorPanel: React.FC<Props> = ({
   const uploadReplacement = (file?: File) => {
     if (!file || !selectedId) return;
     if (!file.type.startsWith('image/')) {
-      setToast('Please choose an image file');
+      setToast('Please choose an image file', 'bad');
       return;
     }
     if (file.size > 6 * 1024 * 1024) {
-      setToast('Image must be under 6 MB');
+      setToast('Image must be under 6 MB', 'bad');
       return;
     }
     const reader = new FileReader();
@@ -340,17 +342,20 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                   <Icon name="edit" size={12} /> Edit text inline
                 </button>
                 <Field label="Font family">
-                  <select
-                    value={textFontFamily}
-                    onChange={(event) => patchText({ fontFamily: event.target.value })}
-                    className="w-full bg-slate-900 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-slate-200 outline-none focus:border-cyan-400/50"
-                  >
-                    {FONTS.map((font) => (
-                      <option key={font.value} value={font.value}>
-                        {font.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={textFontFamily} onValueChange={(font) => patchText({ fontFamily: font })}>
+                    <SelectTrigger aria-label="Font family" size="sm" className="text-[10.5px]">
+                      <span className="truncate">
+                        {FONTS.find((font) => font.value === textFontFamily)?.label ?? textFontFamily}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FONTS.map((font) => (
+                        <SelectItem key={font.value} value={font.value}>
+                          {font.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <div className="grid grid-cols-2 gap-2">
                   <NumberField
@@ -359,17 +364,21 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                     onChange={(value) => patchText({ fontSize: Math.max(6, value) })}
                   />
                   <Field label="Weight">
-                    <select
+                    <Select
                       value={String(textFontWeight)}
-                      onChange={(event) => patchText({ fontWeight: event.target.value })}
-                      className="w-full bg-slate-900 border border-white/10 rounded-md px-2 py-1.5 text-[10px] text-slate-200 outline-none focus:border-cyan-400/50"
+                      onValueChange={(weight) => patchText({ fontWeight: weight })}
                     >
-                      {['300', '400', '500', '600', '700', '800', '900'].map((weight) => (
-                        <option key={weight} value={weight}>
-                          {weight}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger aria-label="Font weight" size="sm" className="text-[10.5px]">
+                        <span className="truncate">{String(textFontWeight)}</span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {['300', '400', '500', '600', '700', '800', '900'].map((weight) => (
+                          <SelectItem key={weight} value={weight}>
+                            {weight}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </Field>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -399,19 +408,19 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                     Italic
                   </button>
                   {(['left', 'center', 'right'] as const).map((align) => (
-                    <button
-                      key={align}
-                      type="button"
-                      onClick={() => patchText({ textAlign: align })}
-                      className={`w-8 h-7 rounded-md flex items-center justify-center border ${
-                        textAlign === align
-                          ? 'bg-cyan-500/20 border-cyan-400/30 text-cyan-200'
-                          : 'bg-white/5 border-white/10 text-slate-400'
-                      }`}
-                      title={`Align ${align}`}
-                    >
-                      <Icon name={`format_align_${align}`} size={13} />
-                    </button>
+                    <Tooltip key={align} content={`Align ${align}`}>
+                      <button
+                        type="button"
+                        onClick={() => patchText({ textAlign: align })}
+                        className={`w-8 h-7 rounded-md flex items-center justify-center border ${
+                          textAlign === align
+                            ? 'bg-cyan-500/20 border-cyan-400/30 text-cyan-200'
+                            : 'bg-white/5 border-white/10 text-slate-400'
+                        }`}
+                      >
+                        <Icon name={`format_align_${align}`} size={13} />
+                      </button>
+                    </Tooltip>
                   ))}
                 </div>
                 <Field label="Text color">
@@ -574,7 +583,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
               <div className="grid grid-cols-3 gap-1.5">
                 <AddButton icon="title" label="Text" onClick={() => addTextBox()} />
                 <AddButton icon="image" label="Image" onClick={onAddImage} />
-                <AddButton icon="category" label="Shapes" onClick={() => setToast('Pick a shape below')} />
+                <AddButton icon="category" label="Shapes" onClick={() => setToast('Pick a shape below', 'bad')} />
               </div>
             </Section>
 
@@ -649,28 +658,30 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                         (entry.custom ? `${entry.custom.kind} ${entry.id.slice(-3)}` : entry.id)}
                     </span>
                     <span className="text-[8px] font-mono text-slate-600">{entry.transform.zIndex}</span>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleHidden(entry.id);
-                      }}
-                      className="w-5 h-5 rounded flex items-center justify-center text-slate-500 hover:bg-white/10 hover:text-white opacity-0 group-hover:opacity-100"
-                      title={entry.transform.isHidden ? 'Show layer' : 'Hide layer'}
-                    >
-                      <Icon name={entry.transform.isHidden ? 'visibility' : 'visibility_off'} size={11} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleLock(entry.id);
-                      }}
-                      className="w-5 h-5 rounded flex items-center justify-center text-slate-500 hover:bg-white/10 hover:text-white opacity-0 group-hover:opacity-100"
-                      title={entry.transform.isLocked ? 'Unlock layer' : 'Lock layer'}
-                    >
-                      <Icon name={entry.transform.isLocked ? 'lock' : 'lock_open'} size={11} />
-                    </button>
+                    <Tooltip content={entry.transform.isHidden ? 'Show layer' : 'Hide layer'}>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleHidden(entry.id);
+                        }}
+                        className="w-5 h-5 rounded flex items-center justify-center text-slate-500 hover:bg-white/10 hover:text-white opacity-0 group-hover:opacity-100"
+                      >
+                        <Icon name={entry.transform.isHidden ? 'visibility' : 'visibility_off'} size={11} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={entry.transform.isLocked ? 'Unlock layer' : 'Lock layer'}>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleLock(entry.id);
+                        }}
+                        className="w-5 h-5 rounded flex items-center justify-center text-slate-500 hover:bg-white/10 hover:text-white opacity-0 group-hover:opacity-100"
+                      >
+                        <Icon name={entry.transform.isLocked ? 'lock' : 'lock_open'} size={11} />
+                      </button>
+                    </Tooltip>
                   </div>
                 );
               })}
@@ -793,7 +804,6 @@ const ActionButton: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    title={label}
     className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-md border text-[8px] font-bold transition-colors ${
       danger
         ? 'border-rose-400/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20'

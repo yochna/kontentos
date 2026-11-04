@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Icon } from '@/lib/icons';
 import { Badge, Button, Card, PageHeader, PageShell } from '@/components/ui';
+import { notify } from '@/components/ui/toast';
 import { brandKit as defaultBrandKit } from '@/data/mock';
 
 interface BrandKitData {
@@ -30,7 +31,6 @@ export default function BrandKit() {
   const [isEditingVoice, setIsEditingVoice] = useState(false);
   const [newHookText, setNewHookText] = useState('');
   const [isAddingHook, setIsAddingHook] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Form states for voice
   const [formVoice, setFormVoice] = useState({
@@ -49,11 +49,6 @@ export default function BrandKit() {
     });
   }, [data]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
-
   const handleSaveVoice = () => {
     const next: BrandKitData = {
       ...data,
@@ -65,7 +60,7 @@ export default function BrandKit() {
     setData(next);
     localStorage.setItem('kontentos_brand_kit', JSON.stringify(next));
     setIsEditingVoice(false);
-    showToast('Brand voice profile saved successfully.');
+    notify.ok('Brand voice saved.');
   };
 
   const handleAddHook = () => {
@@ -78,7 +73,7 @@ export default function BrandKit() {
     localStorage.setItem('kontentos_brand_kit', JSON.stringify(next));
     setNewHookText('');
     setIsAddingHook(false);
-    showToast('New hook formula added.');
+    notify.ok('Hook added.');
   };
 
   const handleRemoveHook = (index: number) => {
@@ -88,7 +83,7 @@ export default function BrandKit() {
     };
     setData(next);
     localStorage.setItem('kontentos_brand_kit', JSON.stringify(next));
-    showToast('Hook formula removed.');
+    notify.ok('Hook removed.');
   };
 
   const handleColorChange = (index: number, newHex: string) => {
@@ -104,14 +99,6 @@ export default function BrandKit() {
 
   return (
     <PageShell className="animate-fade-in">
-      {/* Toast */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-[calc(100vw-3rem)] bg-ink text-surface px-4 py-2.5 rounded-btn shadow-lg text-[13px] font-medium flex items-center gap-2 animate-scale-up">
-          <Icon name="check_circle" size={16} className="text-success" />
-          {toastMessage}
-        </div>
-      )}
-
       <PageHeader
         eyebrow="Kit"
         icon="palette"

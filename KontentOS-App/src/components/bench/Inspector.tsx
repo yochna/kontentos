@@ -1,4 +1,5 @@
 import { Icon } from '@/lib/icons';
+import { Tooltip } from '@/components/ui/tooltip';
 import { buildLedger, DRAFT_STEP_STATION, STATION_BY_ID, type StationId } from '@/lib/bench';
 import type { ActiveDraft, PublishingRecord, ScheduledPost, Video } from '@/lib/types';
 import type { TimelineProject } from '@/lib/timeline';
@@ -78,9 +79,9 @@ function Dossier({
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-baseline gap-2">
             <dt className="w-14 shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-dim">{k}</dt>
-            <dd className="min-w-0 flex-1 truncate text-[12px] text-ink-muted" title={v}>
-              {v}
-            </dd>
+            <Tooltip content={v} side="left">
+              <dd className="min-w-0 flex-1 truncate text-[12px] text-ink-muted">{v}</dd>
+            </Tooltip>
           </div>
         ))}
       </dl>

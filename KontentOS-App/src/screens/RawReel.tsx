@@ -483,7 +483,7 @@ export default function RawReel() {
                           <span className="text-[14px] font-semibold text-ink">{p.name}</span>
                           {active && (
                             <span className="w-4 h-4 rounded-full bg-primary text-on-primary grid place-items-center text-[10px]">
-                              ✓
+                              <Icon name="check" size={11} />
                             </span>
                           )}
                         </div>

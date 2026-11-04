@@ -43,7 +43,7 @@
   --warning: #e8b93f;
   --danger: #e2593b;
 
-  --ring: rgba(240, 163, 60, 0.45);
+  --ring: var(--primary); /* focus: the safelight at full strength — 8.5:1 on the bench top */
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.55), 0 6px 18px rgba(0, 0, 0, 0.35);
   --shadow-2: 0 18px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
   --scrim: rgba(6, 8, 10, 0.74);
@@ -84,7 +84,7 @@
   --warning: #98701d;
   --danger: #c1452a;
 
-  --ring: rgba(163, 90, 18, 0.35);
+  --ring: var(--primary); /* 5.2:1 on paper — an amber wash at 35% was 2.2:1 and unreadable */
   --shadow-1: 0 1px 3px rgba(20, 26, 29, 0.06), 0 4px 12px rgba(20, 26, 29, 0.04);
   --shadow-2: 0 10px 28px rgba(20, 26, 29, 0.1), 0 2px 6px rgba(20, 26, 29, 0.05);
   --scrim: rgba(20, 26, 29, 0.34);
@@ -147,6 +147,20 @@
   ::before,
   ::after {
     border-color: var(--line);
+  }
+
+  /* The browser's default selection is a flat blue that belongs to no theme; the
+     caret in a dark field was nearly invisible. Both come off the safelight now —
+     the same lit-pair a primary button uses, so --on-primary is already tuned
+     against it in each theme. */
+  ::selection {
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+  input,
+  textarea,
+  [contenteditable='true'] {
+    caret-color: var(--primary);
   }
 }
 
@@ -224,9 +238,12 @@ h4 {
 }
 
 /* Reusable surface + focus helpers */
+/* Outlined, not a box-shadow ring: a shadow ring replaced the elevation shadow every
+   button carries, so a focused primary button lost its lift. `:focus-visible` only,
+   so a click never leaves a ring behind. */
 .kt-focus:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--app), 0 0 0 4px var(--ring);
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .kt-card {
@@ -536,9 +553,8 @@ input[type='range'] {
     from { transform: translateX(100%); }
     to { transform: translateX(0); }
   }
-  .kt-dialog { animation: ktDialogIn 300ms var(--kt-ease-out) both; }
   .kt-scrim { animation: ktScrimIn 200ms ease-out both; }
-  .kt-drawer { animation: ktDrawerIn 340ms var(--kt-ease-out) both; }
+  .kt-drawer { animation: ktDrawerIn 240ms var(--kt-ease-out) both; }
 
   /* --- loading shimmer ----------------------------------------------------- */
   @keyframes ktShimmer {
@@ -856,6 +872,136 @@ input[type='range'] {
   .kt-drop-card { animation: ktDropCard 280ms var(--kt-ease-spring) backwards; }
 }
 
+/* ==========================================================================
+   Primitive layer — the Radix-backed overlays
+   Every panel here is portaled to <body>, so it can no longer be clipped by the
+   scroll container it was opened from. Radix leaves a closing panel in the DOM
+   until its animation finishes and marks it data-state="closed", which is what
+   makes an exit animation possible at all — the old hand-rolled overlays just
+   vanished. Durations sit at the top of the 150-250ms product band for entrance
+   and below it on the way out, because leaving is not a task.
+   ========================================================================== */
+@layer components {
+  /* --- modal: the scrim lands first, then the panel ----------------------- */
+  .kt-overlay { animation: ktScrimIn 190ms ease-out both; }
+  .kt-dialog { animation: ktDialogIn 240ms var(--kt-ease-out) both; }
+
+  @keyframes ktScrimOut { to { opacity: 0; } }
+  @keyframes ktDialogOut { to { opacity: 0; transform: translateY(10px) scale(0.985); } }
+
+  .kt-overlay[data-state='closed'] { animation: ktScrimOut 150ms ease-in both; }
+  .kt-dialog[data-state='closed'] { animation: ktDialogOut 140ms ease-in both; }
+
+  /* --- drawer: the same trap, hinged on the right edge -------------------- */
+  @keyframes ktDrawerOut { to { transform: translateX(100%); } }
+  .kt-drawer[data-state='closed'] { animation: ktDrawerOut 180ms ease-in both; }
+
+  /* --- popover, menu, select list, tooltip -------------------------------- */
+  /* Radix's popper reports where it anchored the panel; scaling from that point
+     makes it grow out of its trigger instead of out of its own middle. */
+  .kt-pop {
+    transform-origin: var(--radix-popper-transform-origin, 50% 50%);
+    max-height: var(--radix-popper-available-height, unset);
+    animation: ktPopIn 150ms var(--kt-ease-out) both;
+  }
+  .kt-pop[data-state='closed'] { animation: ktPopOut 100ms ease-in both; }
+
+  @keyframes ktPopIn {
+    from { opacity: 0; transform: scale(0.96) translateY(-3px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes ktPopOut {
+    to { opacity: 0; transform: scale(0.98); }
+  }
+}
+
+/* ==========================================================================
+   Keyboard focus
+   77 call sites said `outline-none` and gave nothing back, so most of the bench
+   had no visible focus at all. This is the floor: anything reachable by Tab
+   gets a ring, and it is declared outside @layer so it outranks those
+   `outline-none` utilities rather than losing to them.
+   --ring used to be a 45% alpha wash (2.7:1 on the bench top — under the 3:1
+   non-text minimum). It is the safelight at full strength now: 8.5:1 on
+   graphite in dark, 5.2:1 on paper in Daylight.
+   ========================================================================== */
+
+:where(
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  summary,
+  [role='button'],
+  [role='tab'],
+  [tabindex]:not([tabindex='-1']),
+  [contenteditable='true']
+):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Roving-focus rows (menu items, options, palette rows) already light up with a
+   surface fill when they move; a ring on top of that is two indicators for one thing. */
+:where([role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'], [cmdk-item]):focus-visible {
+  outline: none;
+}
+
+/* ==========================================================================
+   Toasts
+   sonner injects its own stylesheet at runtime, after this one, so plain
+   `.kt-toast` rules would lose on equal specificity regardless of what they say.
+   Each rule below carries the toaster + toast attributes, which outranks it on
+   specificity rather than on luck about order.
+   ========================================================================== */
+[data-sonner-toaster] [data-sonner-toast].kt-toast {
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  line-height: 1.45;
+  padding: 11px 13px;
+  gap: 8px;
+  align-items: flex-start;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  color: var(--ink);
+  box-shadow: var(--shadow-2);
+}
+[data-sonner-toaster] [data-sonner-toast].kt-toast [data-title] {
+  font-weight: 600;
+  color: var(--ink);
+}
+[data-sonner-toaster] [data-sonner-toast].kt-toast [data-description] {
+  color: var(--ink-muted);
+}
+[data-sonner-toaster] [data-sonner-toast].kt-toast [data-icon] {
+  margin-top: 1px;
+  color: var(--ink-dim);
+}
+[data-sonner-toaster] [data-sonner-toast].kt-toast[data-type='success'] [data-icon] {
+  color: var(--success);
+}
+[data-sonner-toaster] [data-sonner-toast].kt-toast[data-type='error'] [data-icon] {
+  color: var(--danger);
+}
+[data-sonner-toaster] [data-sonner-toast].kt-toast [data-close-button] {
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+  color: var(--ink-muted);
+}
+[data-sonner-toaster] [data-sonner-toast].kt-toast [data-close-button]:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+/* sonner's own focus ring is black on black; use the bench ring instead. */
+[data-sonner-toaster] [data-sonner-toast].kt-toast:focus-visible,
+[data-sonner-toaster] [data-sonner-toast].kt-toast [data-close-button]:focus-visible {
+  box-shadow: var(--shadow-2);
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 /* Theme switching repaints every token at once; a view transition cross-fades
    that swap instead of snapping. Browsers without the API run the update directly. */
 ::view-transition-old(root),
@@ -885,6 +1031,8 @@ input[type='range'] {
   .kt-led--now,
   .kt-hero-in,
   .kt-dialog,
+  .kt-overlay,
+  .kt-pop,
   .kt-scrim,
   .kt-drawer,
   .kt-cut-tile,

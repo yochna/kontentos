@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import type { TransformHandleType } from '../../../../types/canvasScene';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
+import { Tooltip } from '@/components/ui/tooltip';
 import { computeResizeDelta } from '../../utils/canvasMath';
 
 interface Props {
@@ -177,19 +178,19 @@ export const TransformHandles: React.FC<Props> = ({ rect, accentColor = '#38bdf8
       )}
 
       {HANDLES.filter((entry) => !isLine || ['w', 'e'].includes(entry.handle)).map((entry) => (
-        <button
-          key={entry.handle}
-          type="button"
-          onPointerDown={(e) => begin(entry.handle, e)}
-          onPointerMove={move}
-          onPointerUp={end}
-          onPointerCancel={end}
-          className={`absolute w-2.5 h-2.5 rounded-[2px] bg-white border shadow-sm pointer-events-auto ${
-            entry.cursor
-          } ${activeHandle === entry.handle ? 'scale-150' : ''}`}
-          style={{ ...entry.style, borderColor: accentColor }}
-          title={`Resize ${entry.handle.toUpperCase()}`}
-        />
+        <Tooltip key={entry.handle} content={`Resize ${entry.handle.toUpperCase()}`} side="top" delay={0}>
+          <button
+            type="button"
+            onPointerDown={(e) => begin(entry.handle, e)}
+            onPointerMove={move}
+            onPointerUp={end}
+            onPointerCancel={end}
+            className={`absolute w-2.5 h-2.5 rounded-[2px] bg-white border shadow-sm pointer-events-auto ${
+              entry.cursor
+            } ${activeHandle === entry.handle ? 'scale-150' : ''}`}
+            style={{ ...entry.style, borderColor: accentColor }}
+          />
+        </Tooltip>
       ))}
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, useDismiss } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 
 interface SlideContent {
@@ -43,7 +44,6 @@ export const SlideRegenerateModal: React.FC<Props> = ({
   topic = '',
   onApplyRegeneration,
 }) => {
-  useDismiss(isOpen ? onClose : undefined);
   const [instruction, setInstruction] = useState('Make more concise');
   const [customText, setCustomText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -111,16 +111,8 @@ export const SlideRegenerateModal: React.FC<Props> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur-sm transition-opacity animate-in duration-150"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="w-full max-w-lg bg-surface border border-line rounded-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open={isOpen} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent size="md" hideClose className="gap-0 overflow-hidden p-0">
         {/* Header */}
         <div className="p-4 border-b border-line bg-surface-2/60 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -128,22 +120,20 @@ export const SlideRegenerateModal: React.FC<Props> = ({
               <Icon name="auto_awesome" size={18} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-ink">
+              <DialogTitle className="text-sm font-bold text-ink">
                 Regenerate Slide {slideIndex} of {totalSlides}
-              </h2>
+              </DialogTitle>
               <p className="text-[11px] text-ink-muted">
-                Rewrites with Gemini AI while preserving narrative flow and context continuity
+                Rewrites with the studio engine while preserving narrative flow and context continuity
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-ink-muted hover:text-ink p-1 rounded-btn hover:bg-surface-2 transition-colors cursor-pointer"
-            title="Close"
+          <DialogClose
+            aria-label="Close"
+            className="text-ink-muted hover:text-ink p-1 rounded-btn hover:bg-surface-2 transition-colors kt-focus"
           >
             <Icon name="close" size={18} />
-          </button>
+          </DialogClose>
         </div>
 
         {/* Body */}
@@ -253,7 +243,7 @@ export const SlideRegenerateModal: React.FC<Props> = ({
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

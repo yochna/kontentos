@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { notify } from '@/components/ui/toast';
 import type {
   CanvasClipboardItem,
   CanvasCustomElement,
@@ -111,7 +112,6 @@ export interface CanvasInteractionState {
   activeGuides: GuideLine[];
 
   clipboard: CanvasClipboardItem | null;
-  toast: string | null;
 
   past: CanvasSnapshot[];
   future: CanvasSnapshot[];
@@ -201,7 +201,7 @@ export interface CanvasInteractionActions {
   sendBackward: (id: CanvasElementId) => void;
   centerSelected: (axis: 'x' | 'y' | 'both') => void;
 
-  setToast: (message: string | null) => void;
+  setToast: (message: string | null, tone?: 'ok' | 'bad') => void;
 }
 
 export type CanvasInteractionStore = CanvasInteractionState & CanvasInteractionActions;
@@ -219,14 +219,11 @@ const initialState: CanvasInteractionState = {
   snapEnabled: true,
   activeGuides: [],
   clipboard: null,
-  toast: null,
   past: [],
   future: [],
   isRestoring: false,
   revision: 0,
 };
-
-let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Zustand store for the advanced canvas editor. Owns per-slide scene graphs,
@@ -782,7 +779,8 @@ export const useCanvasInteraction = create<CanvasInteractionStore>((set, get) =>
         selectedElementId: additions[0]?.id ?? current.selectedElementId,
         revision: current.revision + 1,
       }));
-      get().setToast(additions.length > 0 ? 'All elements duplicated' : 'Nothing to duplicate');
+      if (additions.length > 0) get().setToast('All elements duplicated');
+      else get().setToast('Nothing to duplicate', 'bad');
       return;
     }
 
@@ -983,18 +981,14 @@ export const useCanvasInteraction = create<CanvasInteractionStore>((set, get) =>
     );
   },
 
-  setToast: (message) => {
-    if (toastTimer) {
-      clearTimeout(toastTimer);
-      toastTimer = null;
-    }
-    set({ toast: message });
-    if (message) {
-      toastTimer = setTimeout(() => {
-        if (get().toast === message) set({ toast: null });
-        toastTimer = null;
-      }, 2200);
-    }
+  /**
+   * Twenty-five canvas edits reported themselves through a slate-and-cyan pill the rest of the
+   * app never uses. The store keeps saying things; only the place they are said from changed.
+   */
+  setToast: (message, tone = 'ok') => {
+    if (!message) return;
+    if (tone === 'bad') notify.bad(message);
+    else notify.ok(message);
   },
 }));
 

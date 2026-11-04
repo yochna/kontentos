@@ -45,7 +45,6 @@ export const CardCanvas: React.FC<CardCanvasProps> = ({
   const customElements = useCanvasInteraction(
     (s) => s.customElements[s.activeSlide] || EMPTY_CUSTOMS
   );
-  const toast = useCanvasInteraction((s) => s.toast);
   const selectElement = useCanvasInteraction((s) => s.selectElement);
   const clearSelection = useCanvasInteraction((s) => s.clearSelection);
   const addTextBox = useCanvasInteraction((s) => s.addTextBox);
@@ -62,11 +61,11 @@ export const CardCanvas: React.FC<CardCanvasProps> = ({
 
   const addImageFromFile = (file: File, centerX?: number, centerY?: number) => {
     if (!file.type.startsWith('image/')) {
-      setToast('Please choose an image file');
+      setToast('Please choose an image file', 'bad');
       return;
     }
     if (file.size > 6 * 1024 * 1024) {
-      setToast('Image must be under 6 MB');
+      setToast('Image must be under 6 MB', 'bad');
       return;
     }
     const reader = new FileReader();
@@ -221,16 +220,6 @@ export const CardCanvas: React.FC<CardCanvasProps> = ({
             />
           )}
 
-          {!isExporting && toast && (
-            <div
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[160] px-3 py-1.5 rounded-full bg-slate-950/95 border border-cyan-400/30 text-cyan-100 text-[10px] font-semibold shadow-2xl pointer-events-none"
-              data-canvas-ui="true"
-              data-export-exclude="true"
-              aria-live="polite"
-            >
-              {toast}
-            </div>
-          )}
         </CanvasExportContext.Provider>
       </div>
 

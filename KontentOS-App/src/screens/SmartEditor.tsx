@@ -1,6 +1,11 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, Card, IconButton, PageHeader, StatusPill } from '@/components/ui';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip } from '@/components/ui/tooltip';
+import { cn } from '@/lib/cn';
 import { ReelPreview, type ReelHandle } from '@/components/ReelPreview';
 import { ExportModal } from '@/components/ExportModal';
 import { useStore } from '@/lib/store';
@@ -71,6 +76,46 @@ const FONTS = [
   { id: 'Syne, sans-serif', label: 'Syne (Bold Impact)' },
   { id: 'JetBrains Mono, monospace', label: 'JetBrains Mono (Technical)' },
 ];
+
+const CAPTION_LANGUAGES = [
+  { value: 'English', label: 'English' },
+  { value: 'Spanish', label: 'Spanish (Español)' },
+  { value: 'French', label: 'French (Français)' },
+  { value: 'German', label: 'German (Deutsch)' },
+  { value: 'Hindi', label: 'Hindi (हिन्दी)' },
+  { value: 'Japanese', label: 'Japanese (日本語)' },
+  { value: 'Portuguese', label: 'Portuguese (Português)' },
+  { value: 'Chinese', label: 'Chinese (中文)' },
+];
+
+/** The same four faces are picked once globally and once per clip; only the trigger size differs. */
+function FontSelect({
+  id,
+  value,
+  onChange,
+  className,
+}: {
+  id?: string;
+  value: string;
+  onChange: (font: string) => void;
+  className?: string;
+}) {
+  const shown = FONTS.find((f) => f.id === value)?.label ?? value;
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger id={id} size="sm" className={cn('bg-surface-2 text-xs font-medium', className)}>
+        <span className="truncate">{shown}</span>
+      </SelectTrigger>
+      <SelectContent>
+        {FONTS.map((f) => (
+          <SelectItem key={f.id} value={f.id}>
+            {f.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 const ANIMATION_PRESETS: { id: CaptionAnimation; label: string; icon: string }[] = [
   { id: 'popIn', label: 'Word Pop', icon: 'auto_awesome' },
@@ -342,6 +387,9 @@ export default function SmartEditor() {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
+      // A panel in front of the timeline owns the keyboard: Delete while the shortcuts sheet is
+      // open must close the sheet, not cut the clip behind it.
+      if (showExportModal || showShortcutsModal || showApiKeyModal) return;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable || !project) return;
       const mod = e.metaKey || e.ctrlKey;
       const frameDuration = 1 / (project.projectMetadata.frameRate || 30);
@@ -422,7 +470,7 @@ export default function SmartEditor() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, time, duration, selectedIds, zoom, fps, playing, playbackSpeed]);
+  }, [project, time, duration, selectedIds, zoom, fps, playing, playbackSpeed, showExportModal, showShortcutsModal, showApiKeyModal]);
 
   const selectedClip = useMemo<TimelineClip | null>(() => {
     if (!project || selectedIds.length === 0) return null;
@@ -717,7 +765,7 @@ export default function SmartEditor() {
     applyEdit(() => res.project, { label: `Auto-insert ${res.insertedCount} B-Roll clips` });
     if (res.insertedCount > 0) {
       setBrollNotice(
-        `✨ Auto-matched ${res.insertedCount} B-Roll overlays to speech topics! (${res.matchedKeywords.slice(0, 4).join(', ')})`
+        `Auto-matched ${res.insertedCount} B-Roll overlays to speech topics! (${res.matchedKeywords.slice(0, 4).join(', ')})`
       );
     } else {
       setBrollNotice(
@@ -1052,20 +1100,20 @@ export default function SmartEditor() {
                   { id: '16:9', label: '16:9 Wide', icon: 'tv' },
                   { id: '4:5', label: '4:5 Portrait', icon: 'photo' },
                 ].map((ar) => (
-                  <button
-                    key={ar.id}
-                    type="button"
-                    onClick={() => handleSetAspectRatio(ar.id as TargetAspectRatio)}
-                    className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 transition-all ${
-                      (project.projectMetadata.targetAspectRatio || '9:16') === ar.id
-                        ? 'bg-primary text-on-primary shadow-xs'
-                        : 'text-ink-muted hover:text-ink hover:bg-surface-2'
-                    }`}
-                    title={`Switch canvas to ${ar.label}`}
-                  >
-                    <Icon name={ar.icon} size={12} />
-                    <span>{ar.id}</span>
-                  </button>
+                  <Tooltip key={ar.id} content={`Switch canvas to ${ar.label}`} side="bottom">
+                    <button
+                      type="button"
+                      onClick={() => handleSetAspectRatio(ar.id as TargetAspectRatio)}
+                      className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                        (project.projectMetadata.targetAspectRatio || '9:16') === ar.id
+                          ? 'bg-primary text-on-primary shadow-xs'
+                          : 'text-ink-muted hover:text-ink hover:bg-surface-2'
+                      }`}
+                    >
+                      <Icon name={ar.icon} size={12} />
+                      <span>{ar.id}</span>
+                    </button>
+                  </Tooltip>
                 ))}
               </div>
 
@@ -1360,954 +1408,960 @@ export default function SmartEditor() {
         {/* Right: Assistance & Inspector Rail */}
         <div className="space-y-4">
           {/* Tabs header */}
-          <div className="flex rounded-btn bg-surface-2 p-1 border border-line">
-            {[
-              { id: 'polish', label: 'Polish', icon: 'auto_awesome' },
-              { id: 'media', label: 'Footage', icon: 'video_library' },
-              { id: 'captions', label: 'Captions', icon: 'subtitles' },
-              { id: 'broll', label: 'B-Roll', icon: 'movie' },
-              { id: 'audio', label: 'Audio', icon: 'music_note' },
-              { id: 'inspector', label: 'Inspect', icon: 'tune' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 py-1.5 px-2 rounded-btn text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-surface text-ink shadow-sm'
-                    : 'text-ink-muted hover:text-ink'
-                }`}
-              >
-                <Icon name={tab.icon} size={14} />
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            ))}
-          </div>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+            <TabsList variant="pill" aria-label="Editor tools" className="w-full border border-line bg-surface-2 p-1">
+              {[
+                { id: 'polish', label: 'Polish', icon: 'auto_awesome' },
+                { id: 'media', label: 'Footage', icon: 'video_library' },
+                { id: 'captions', label: 'Captions', icon: 'subtitles' },
+                { id: 'broll', label: 'B-Roll', icon: 'movie' },
+                { id: 'audio', label: 'Audio', icon: 'music_note' },
+                { id: 'inspector', label: 'Inspect', icon: 'tune' },
+              ].map((tab) => (
+                <TabsTrigger key={tab.id} value={tab.id} className="flex-1 px-2 py-1.5">
+                  <Icon name={tab.icon} size={14} />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
           {/* Tab 1: AI Polish */}
-          {activeTab === 'polish' && (
-            <Card className="p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Icon name="auto_awesome" size={18} className="text-tertiary" />
-                <h2 className="font-semibold text-ink text-sm">Preset Auto-Reassembly</h2>
-              </div>
-              <p className="text-xs text-ink-muted leading-relaxed">
-                Re-compile the timeline EDL with a tuned preset rhythm.
-              </p>
+            <TabsContent value="polish">
+              <Card className="p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Icon name="auto_awesome" size={18} className="text-tertiary" />
+                  <h2 className="font-semibold text-ink text-sm">Preset Auto-Reassembly</h2>
+                </div>
+                <p className="text-xs text-ink-muted leading-relaxed">
+                  Re-compile the timeline EDL with a tuned preset rhythm.
+                </p>
 
-              <div className="grid grid-cols-1 gap-2">
-                {PRESETS.map((p) => {
-                  const active = presetId === p.id;
-                  return (
+                <div className="grid grid-cols-1 gap-2">
+                  {PRESETS.map((p) => {
+                    const active = presetId === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => setPresetId(p.id)}
+                        className={`text-left rounded-btn border p-2.5 flex items-center gap-2.5 transition-all kt-focus ${
+                          active
+                            ? 'border-primary bg-primary-soft ring-1 ring-primary/30'
+                            : 'border-line hover:border-line-strong bg-surface'
+                        }`}
+                      >
+                        <span
+                          className="grid place-items-center w-8 h-8 rounded-btn shrink-0"
+                          style={{ background: `var(--${p.accent}-soft)`, color: `var(--${p.accent})` }}
+                        >
+                          <Icon name={p.icon} size={17} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[13px] font-semibold text-ink truncate">{p.name}</span>
+                          <span className="block text-[11px] text-ink-dim truncate">{p.tagline}</span>
+                        </span>
+                        {active && <Icon name="check_circle" size={17} className="text-primary" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  className="w-full mt-2"
+                  icon={polishing ? 'autorenew' : 'bolt'}
+                  onClick={rePolish}
+                  disabled={!sourceVideo || polishing}
+                >
+                  {polishing ? 'Polishing timeline...' : 'Apply Preset Look'}
+                </Button>
+              </Card>
+            </TabsContent>
+
+          {/* Tab: Footage & Device Media Library */}
+            <TabsContent value="media">
+              <div className="space-y-4">
+                {/* Card 1: Upload from Device */}
+                <Card className="p-4 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon name="cloud_upload" size={18} className="text-primary" />
+                      <h2 className="font-semibold text-ink text-sm">Add Video from Device</h2>
+                    </div>
+                    {uploadingVideo && (
+                      <StatusPill tone="primary">Uploading {uploadProgress ?? 0}%</StatusPill>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-ink-muted leading-relaxed">
+                    Import video files directly from your computer to insert as video cuts or B-Roll cutaways.
+                  </p>
+
+                  {/* Upload Action Target Selector */}
+                  <div>
+                    <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider block mb-1.5">
+                      Insert Mode on Upload
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { id: 'playhead', label: 'At Playhead', desc: 'Insert at scrubber' },
+                        { id: 'append', label: 'Append End', desc: 'Add after timeline' },
+                        { id: 'broll', label: 'B-Roll Clip', desc: 'Overlay track' },
+                      ].map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setUploadActionTarget(m.id as any)}
+                          className={`p-2 rounded-btn border text-left transition-all ${
+                            uploadActionTarget === m.id
+                              ? 'border-primary bg-primary-soft text-ink shadow-xs ring-1 ring-primary/30'
+                              : 'border-line text-ink-muted hover:text-ink'
+                          }`}
+                        >
+                          <div className="text-xs font-semibold">{m.label}</div>
+                          <div className="text-[10px] text-ink-dim">{m.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Upload Drop Area */}
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-4 rounded-card border-2 border-dashed border-line hover:border-primary/60 bg-surface-2/40 hover:bg-surface-2/80 cursor-pointer text-center transition-all group"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform grid place-items-center mx-auto mb-2">
+                      <Icon name="upload_file" size={20} />
+                    </div>
+                    <div className="text-xs font-semibold text-ink">Choose video file from device</div>
+                    <div className="text-[10.5px] text-ink-dim mt-0.5">MP4, MOV, WebM, MKV up to 500MB</div>
+                  </div>
+
+                  {uploadProgress !== null && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-mono text-ink-dim">
+                        <span>Importing video...</span>
+                        <span>{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-surface-3 rounded-full h-1.5 overflow-hidden">
+                        <div className="bg-primary h-full transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {mediaNotice && (
+                    <div className="p-2.5 rounded-btn bg-surface-2/80 border border-line text-xs text-ink flex items-center justify-between">
+                      <span>{mediaNotice}</span>
+                      <button
+                        type="button"
+                        onClick={() => setMediaNotice(null)}
+                        className="text-ink-muted hover:text-ink text-[11px]"
+                        aria-label="Dismiss"
+                      >
+                        <Icon name="close" size={13} />
+                      </button>
+                    </div>
+                  )}
+                </Card>
+
+                {/* Card 2: Device Media Library */}
+                <Card className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon name="video_library" size={18} className="text-secondary" />
+                      <h2 className="font-semibold text-ink text-sm">Device Footage ({videos.length})</h2>
+                    </div>
+                    <span className="text-[11px] font-mono text-ink-dim">{fmtTime(time)}</span>
+                  </div>
+
+                  <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                    {videos.map((v) => {
+                      const isCurrentSource = sourceVideo?.id === v.id;
+                      return (
+                        <div
+                          key={v.id}
+                          className={`p-2.5 rounded-btn border bg-surface hover:border-line-strong transition-all flex flex-col gap-2 ${
+                            isCurrentSource ? 'border-primary/50 bg-primary-soft/20' : 'border-line'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-ink truncate flex items-center gap-1.5">
+                                <span>{v.title}</span>
+                                {isCurrentSource && (
+                                  <span className="px-1.5 py-0.5 rounded-full bg-primary text-[9px] text-on-primary font-bold tracking-tight">
+                                    Active Base
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10.5px] text-ink-dim flex items-center gap-2 mt-0.5">
+                                <span>{fmtTime(v.duration || 0)}</span>
+                                <span>·</span>
+                                <span>{v.status}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Action Buttons */}
+                          <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-line/60">
+                            <button
+                              type="button"
+                              onClick={() => handleInsertExistingVideo(v, 'playhead')}
+                              className="px-2 py-1 rounded-btn text-[11px] font-medium bg-surface-2 hover:bg-primary hover:text-on-primary text-ink transition-colors flex items-center gap-1"
+                              title="Insert this clip into video track at scrubber playhead"
+                            >
+                              <Icon name="add" size={12} />
+                              <span>At Playhead</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleInsertExistingVideo(v, 'append')}
+                              className="px-2 py-1 rounded-btn text-[11px] font-medium bg-surface-2 hover:bg-surface-3 text-ink-muted hover:text-ink transition-colors flex items-center gap-1"
+                              title="Append to the end of timeline"
+                            >
+                              <Icon name="playlist_add" size={12} />
+                              <span>Append</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleInsertExistingVideo(v, 'broll')}
+                              className="px-2 py-1 rounded-btn text-[11px] font-medium bg-surface-2 hover:bg-secondary hover:text-on-primary text-ink transition-colors flex items-center gap-1"
+                              title="Insert as B-Roll overlay at playhead"
+                            >
+                              <Icon name="layers" size={12} />
+                              <span>B-Roll</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleInsertExistingVideo(v, 'newProject')}
+                              className="px-2 py-1 rounded-btn text-[11px] font-medium bg-surface-2 hover:bg-tertiary hover:text-on-primary text-ink-muted hover:text-ink transition-colors flex items-center gap-1 ml-auto"
+                              title="Start new smart auto-edit project with this video"
+                            >
+                              <Icon name="auto_awesome" size={12} />
+                              <span>Re-Edit</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {videos.length === 0 && (
+                      <div className="py-6 text-center text-xs text-ink-muted">
+                        No video footage uploaded yet. Click above to import from your device.
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            </TabsContent>
+
+          {/* Tab 2: Visual Caption Styling Toolbar & AI Live STT */}
+            <TabsContent value="captions">
+              <div className="space-y-4">
+                {/* Card 1: AI Audio Transcription & Live Captions */}
+                <Card className="p-4 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon name="auto_awesome" size={18} className="text-primary" />
+                      <h2 className="font-semibold text-ink text-sm">AI Live Captions</h2>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <StatusPill tone={tClips.length > 0 ? 'primary' : 'neutral'}>
+                        {tClips.length > 0 ? `${tClips.length} cues` : 'No captions'}
+                      </StatusPill>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-ink-muted leading-relaxed">
+                    Transcribes audio dialogue with AI into word-level kinetic subtitle cues with aligned timeline timestamps.
+                  </p>
+
+                  {/* Feedback notification */}
+                  {captionNotice && (
+                    <div className="p-2.5 rounded-btn bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 text-emerald-800 dark:text-emerald-200 text-xs flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Icon name="check_circle" size={14} className="text-emerald-600 shrink-0" />
+                        <span className="truncate">{captionNotice}</span>
+                      </div>
+                      <button
+                        onClick={() => setCaptionNotice(null)}
+                        className="text-emerald-600 hover:text-emerald-800 dark:hover:text-emerald-100"
+                      >
+                        <Icon name="close" size={13} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Dialogue Language Selector */}
+                  <div>
+                    <label className="kt-eyebrow mb-1.5 block" htmlFor="caption-language">
+                      Audio Speech Language
+                    </label>
+                    <Select value={captionLang} onValueChange={setCaptionLang}>
+                      <SelectTrigger
+                        id="caption-language"
+                        size="sm"
+                        className="bg-surface-2 text-xs font-medium"
+                      >
+                        <span className="truncate">
+                          {CAPTION_LANGUAGES.find((l) => l.value === captionLang)?.label ?? captionLang}
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CAPTION_LANGUAGES.map((l) => (
+                          <SelectItem key={l.value} value={l.value}>
+                            {l.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Main Action Button */}
+                  <Button
+                    className="w-full"
+                    icon="auto_awesome" iconSpin={generatingCaptions}
+                    onClick={handleGenerateCaptions}
+                    disabled={generatingCaptions}
+                  >
+                    {generatingCaptions
+                      ? 'AI Transcribing & Syncing...'
+                      : tClips.length > 0
+                      ? 'Regenerate Live Captions'
+                      : 'Transcribe Audio & Generate Live Captions'}
+                  </Button>
+
+                  {/* Toggle Controls & Track Muting */}
+                  <div className="pt-2 border-t border-line flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 font-medium text-ink">
+                      <Icon
+                        name={isCaptionsActive ? 'closed_caption' : 'closed_caption_disabled'}
+                        size={15}
+                        className="text-primary"
+                      />
+                      <span>Live Display (CC)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleCaptions()}
+                        className={`px-2.5 py-1 rounded-btn text-xs font-semibold border transition-all ${
+                          isCaptionsActive
+                            ? 'bg-success text-on-primary border-success shadow-sm'
+                            : 'bg-surface-2 text-ink-muted border-line hover:text-ink'
+                        }`}
+                      >
+                        {isCaptionsActive ? 'CC On' : 'CC Off'}
+                      </button>
+                      {tClips.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearCaptions}
+                          className="text-danger hover:underline text-xs"
+                          title="Remove captions from timeline"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Card 2: Visual Caption Styling Toolbar */}
+                <Card className="p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon name="format_paint" size={18} className="text-tertiary" />
+                      <h2 className="font-semibold text-ink text-sm">Caption Typography & FX</h2>
+                    </div>
+                  </div>
+
+                  {/* Viral Preset Cards */}
+                  <div>
+                    <label className="kt-eyebrow block mb-2">Viral Style Presets</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {KINETIC_CAPTION_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => {
+                            applyEdit((p) => applyCaptionPresetToProject(p, preset.style));
+                            setCaptionFont(preset.style.fontFamily);
+                            if (preset.style.activeWordColorHex) setHighlightColor(preset.style.activeWordColorHex);
+                            setCaptionAnim(preset.style.animation);
+                            setCaptionPos(preset.style.position);
+                            setCaptionNotice(`Applied ${preset.name} kinetic style across all captions!`);
+                          }}
+                          className="p-2.5 rounded-card border border-line hover:border-primary/50 bg-surface-2/60 hover:bg-surface-2 text-left transition-all group"
+                        >
+                          <div className="flex items-center gap-1.5 font-semibold text-xs text-ink group-hover:text-primary transition-colors">
+                            <Icon name={preset.icon} size={15} className="text-primary" />
+                            <span className="truncate">{preset.name}</span>
+                          </div>
+                          <p className="text-[10.5px] text-ink-dim mt-0.5 line-clamp-1 leading-snug">
+                            {preset.tagline}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Font Family Selector */}
+                  <div>
+                    <label className="kt-eyebrow mb-1.5 block" htmlFor="caption-font">
+                      Font Style
+                    </label>
+                    <FontSelect
+                      id="caption-font"
+                      value={captionFont}
+                      onChange={(font) => {
+                        setCaptionFont(font);
+                        updateGlobalCaptionStyle({ fontFamily: font });
+                      }}
+                    />
+                  </div>
+
+                  {/* Highlight Color Picker */}
+                  <div>
+                    <label className="kt-eyebrow block mb-1.5">Word Highlight Accent</label>
+                    <div className="flex items-center gap-2">
+                      {HIGHLIGHT_COLORS.map((c) => (
+                        <Tooltip key={c.hex} content={c.label} side="top">
+                          <button
+                            type="button"
+                            aria-label={c.label}
+                            onClick={() => {
+                              setHighlightColor(c.hex);
+                              updateGlobalCaptionStyle({ activeWordColorHex: c.hex });
+                            }}
+                            className={`w-7 h-7 rounded-full border-2 transition-all ${
+                              highlightColor === c.hex ? 'border-ink scale-110 shadow-sm' : 'border-line'
+                            }`}
+                            style={{ backgroundColor: c.hex }}
+                          />
+                        </Tooltip>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Animation Preset */}
+                  <div>
+                    <label className="kt-eyebrow block mb-1.5">Kinetic Animation</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ANIMATION_PRESETS.map((a) => (
+                        <button
+                          key={a.id}
+                          onClick={() => {
+                            setCaptionAnim(a.id);
+                            updateGlobalCaptionStyle({ animation: a.id });
+                          }}
+                          className={`p-2 rounded-btn border text-left text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                            captionAnim === a.id
+                              ? 'border-primary bg-primary-soft text-primary font-semibold'
+                              : 'border-line hover:border-line-strong text-ink-muted'
+                          }`}
+                        >
+                          <Icon name={a.icon} size={15} />
+                          <span className="truncate">{a.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Position */}
+                  <div>
+                    <label className="kt-eyebrow block mb-1.5">Screen Position</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'top', label: 'Top' },
+                        { id: 'middle', label: 'Center Hook' },
+                        { id: 'bottom', label: 'Lower 3rd' },
+                      ].map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => {
+                            const pos = p.id as any;
+                            setCaptionPos(pos);
+                            updateGlobalCaptionStyle({ position: pos });
+                          }}
+                          className={`py-1.5 px-2 rounded-btn border text-xs font-medium transition-colors ${
+                            captionPos === p.id
+                              ? 'border-primary bg-primary-soft text-primary font-semibold'
+                              : 'border-line text-ink-muted hover:text-ink'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </TabsContent>
+
+          {/* Tab 3: BGM & Audio Studio */}
+            <TabsContent value="audio">
+              <div className="space-y-4">
+                {/* Card 1: Background Music Presets */}
+                <Card className="p-4 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon name="music_note" size={18} className="text-secondary" />
+                      <h2 className="font-semibold text-ink text-sm">Background Music (BGM)</h2>
+                    </div>
+                    {currentBgm && (
+                      <StatusPill tone="secondary">Active Beat</StatusPill>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-ink-muted leading-relaxed">
+                    Layer royalty-free soundtrack loops under your speech with intelligent voice ducking.
+                  </p>
+
+                  {/* BGM Preset Selection Grid */}
+                  <div className="grid grid-cols-1 gap-2">
+                    {/* None option */}
                     <button
-                      key={p.id}
-                      onClick={() => setPresetId(p.id)}
-                      className={`text-left rounded-btn border p-2.5 flex items-center gap-2.5 transition-all kt-focus ${
-                        active
+                      type="button"
+                      onClick={() => {
+                        setBgm(undefined);
+                        sfxEngine.stopBGM();
+                        setPreviewingBgm(null);
+                      }}
+                      className={`p-2.5 rounded-card border text-left flex items-center justify-between transition-all ${
+                        !currentBgm
                           ? 'border-primary bg-primary-soft ring-1 ring-primary/30'
                           : 'border-line hover:border-line-strong bg-surface'
                       }`}
                     >
-                      <span
-                        className="grid place-items-center w-8 h-8 rounded-btn shrink-0"
-                        style={{ background: `var(--${p.accent}-soft)`, color: `var(--${p.accent})` }}
-                      >
-                        <Icon name={p.icon} size={17} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[13px] font-semibold text-ink truncate">{p.name}</span>
-                        <span className="block text-[11px] text-ink-dim truncate">{p.tagline}</span>
-                      </span>
-                      {active && <Icon name="check_circle" size={17} className="text-primary" />}
+                      <div className="flex items-center gap-2">
+                        <Icon name="volume_off" size={16} className="text-ink-dim" />
+                        <div>
+                          <div className="text-xs font-semibold text-ink">No Background Music</div>
+                          <div className="text-[10px] text-ink-dim">Dialogue & SFX only</div>
+                        </div>
+                      </div>
+                      {!currentBgm && <Icon name="check_circle" size={16} className="text-primary" />}
                     </button>
-                  );
-                })}
-              </div>
 
-              <Button
-                className="w-full mt-2"
-                icon={polishing ? 'autorenew' : 'bolt'}
-                onClick={rePolish}
-                disabled={!sourceVideo || polishing}
-              >
-                {polishing ? 'Polishing timeline...' : 'Apply Preset Look'}
-              </Button>
-            </Card>
-          )}
-
-          {/* Tab: Footage & Device Media Library */}
-          {activeTab === 'media' && (
-            <div className="space-y-4">
-              {/* Card 1: Upload from Device */}
-              <Card className="p-4 space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon name="cloud_upload" size={18} className="text-primary" />
-                    <h2 className="font-semibold text-ink text-sm">Add Video from Device</h2>
-                  </div>
-                  {uploadingVideo && (
-                    <StatusPill tone="primary">Uploading {uploadProgress ?? 0}%</StatusPill>
-                  )}
-                </div>
-
-                <p className="text-xs text-ink-muted leading-relaxed">
-                  Import video files directly from your computer to insert as video cuts or B-Roll cutaways.
-                </p>
-
-                {/* Upload Action Target Selector */}
-                <div>
-                  <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider block mb-1.5">
-                    Insert Mode on Upload
-                  </span>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      { id: 'playhead', label: 'At Playhead', desc: 'Insert at scrubber' },
-                      { id: 'append', label: 'Append End', desc: 'Add after timeline' },
-                      { id: 'broll', label: 'B-Roll Clip', desc: 'Overlay track' },
-                    ].map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setUploadActionTarget(m.id as any)}
-                        className={`p-2 rounded-btn border text-left transition-all ${
-                          uploadActionTarget === m.id
-                            ? 'border-primary bg-primary-soft text-ink shadow-xs ring-1 ring-primary/30'
-                            : 'border-line text-ink-muted hover:text-ink'
-                        }`}
-                      >
-                        <div className="text-xs font-semibold">{m.label}</div>
-                        <div className="text-[10px] text-ink-dim">{m.desc}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Upload Drop Area */}
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-4 rounded-card border-2 border-dashed border-line hover:border-primary/60 bg-surface-2/40 hover:bg-surface-2/80 cursor-pointer text-center transition-all group"
-                >
-                  <div className="w-9 h-9 rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform grid place-items-center mx-auto mb-2">
-                    <Icon name="upload_file" size={20} />
-                  </div>
-                  <div className="text-xs font-semibold text-ink">Choose video file from device</div>
-                  <div className="text-[10.5px] text-ink-dim mt-0.5">MP4, MOV, WebM, MKV up to 500MB</div>
-                </div>
-
-                {uploadProgress !== null && (
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[11px] font-mono text-ink-dim">
-                      <span>Importing video...</span>
-                      <span>{uploadProgress}%</span>
-                    </div>
-                    <div className="w-full bg-surface-3 rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-primary h-full transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
-                    </div>
-                  </div>
-                )}
-
-                {mediaNotice && (
-                  <div className="p-2.5 rounded-btn bg-surface-2/80 border border-line text-xs text-ink flex items-center justify-between">
-                    <span>{mediaNotice}</span>
-                    <button
-                      type="button"
-                      onClick={() => setMediaNotice(null)}
-                      className="text-ink-muted hover:text-ink text-[11px]"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-              </Card>
-
-              {/* Card 2: Device Media Library */}
-              <Card className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon name="video_library" size={18} className="text-secondary" />
-                    <h2 className="font-semibold text-ink text-sm">Device Footage ({videos.length})</h2>
-                  </div>
-                  <span className="text-[11px] font-mono text-ink-dim">{fmtTime(time)}</span>
-                </div>
-
-                <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-                  {videos.map((v) => {
-                    const isCurrentSource = sourceVideo?.id === v.id;
-                    return (
-                      <div
-                        key={v.id}
-                        className={`p-2.5 rounded-btn border bg-surface hover:border-line-strong transition-all flex flex-col gap-2 ${
-                          isCurrentSource ? 'border-primary/50 bg-primary-soft/20' : 'border-line'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-xs font-semibold text-ink truncate flex items-center gap-1.5">
-                              <span>{v.title}</span>
-                              {isCurrentSource && (
-                                <span className="px-1.5 py-0.5 rounded-full bg-primary text-[9px] text-on-primary font-bold tracking-tight">
-                                  Active Base
+                    {BGM_TRACKS.map((p) => {
+                      const active = currentBgm === p.id;
+                      const isTesting = previewingBgm === p.id;
+                      return (
+                        <div
+                          key={p.id}
+                          className={`p-2.5 rounded-card border flex items-center justify-between transition-all ${
+                            active
+                              ? 'border-secondary bg-secondary-soft ring-1 ring-secondary/30'
+                              : 'border-line hover:border-line-strong bg-surface'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setBgm(p.id, p.url)}
+                            className="flex items-center gap-2.5 text-left flex-1 min-w-0"
+                          >
+                            <span className={`w-8 h-8 rounded-full grid place-items-center shrink-0 transition-colors ${
+                              isTesting
+                                ? 'bg-secondary text-on-primary animate-pulse'
+                                : active
+                                ? 'bg-secondary/20 text-secondary'
+                                : 'bg-surface-2 text-ink-muted'
+                            }`}>
+                              <Icon name={p.icon} size={16} />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-semibold text-ink truncate">{p.name}</span>
+                                <span className="text-[10px] text-ink-dim px-1.5 py-0.5 rounded bg-surface-2 border border-line font-mono shrink-0">
+                                  {p.duration}
                                 </span>
-                              )}
+                                <span className="text-[9.5px] text-secondary font-medium px-1 py-0.5 rounded bg-secondary/10 shrink-0">
+                                  {p.genre}
+                                </span>
+                              </div>
+                              <div className="text-[10.5px] text-ink-dim truncate mt-0.5">{p.mood}</div>
                             </div>
-                            <div className="text-[10.5px] text-ink-dim flex items-center gap-2 mt-0.5">
-                              <span>{fmtTime(v.duration || 0)}</span>
-                              <span>·</span>
-                              <span>{v.status}</span>
-                            </div>
+                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0 pl-2">
+                            <Tooltip content={isTesting ? 'Stop preview' : 'Listen to track'} side="left">
+                              <button
+                                type="button"
+                                onClick={() => handleTestBgm(p.id, p.url)}
+                                aria-label={isTesting ? 'Stop preview' : 'Listen to track'}
+                                className={`w-7 h-7 rounded-full border grid place-items-center text-xs transition-colors ${
+                                  isTesting
+                                    ? 'bg-secondary text-on-primary border-secondary shadow-sm ring-2 ring-secondary/30'
+                                    : 'border-line hover:border-line-strong text-ink-muted hover:text-ink hover:bg-surface-2'
+                                }`}
+                              >
+                                <Icon name={isTesting ? 'stop' : 'play_arrow'} size={15} />
+                              </button>
+                            </Tooltip>
+                            {active && <Icon name="check_circle" size={16} className="text-secondary" />}
                           </div>
                         </div>
-
-                        {/* Quick Action Buttons */}
-                        <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-line/60">
-                          <button
-                            type="button"
-                            onClick={() => handleInsertExistingVideo(v, 'playhead')}
-                            className="px-2 py-1 rounded-btn text-[11px] font-medium bg-surface-2 hover:bg-primary hover:text-on-primary text-ink transition-colors flex items-center gap-1"
-                            title="Insert this clip into video track at scrubber playhead"
-                          >
-                            <Icon name="add" size={12} />
-                            <span>At Playhead</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleInsertExistingVideo(v, 'append')}
-                            className="px-2 py-1 rounded-btn text-[11px] font-medium bg-surface-2 hover:bg-surface-3 text-ink-muted hover:text-ink transition-colors flex items-center gap-1"
-                            title="Append to the end of timeline"
-                          >
-                            <Icon name="playlist_add" size={12} />
-                            <span>Append</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleInsertExistingVideo(v, 'broll')}
-                            className="px-2 py-1 rounded-btn text-[11px] font-medium bg-surface-2 hover:bg-secondary hover:text-on-primary text-ink transition-colors flex items-center gap-1"
-                            title="Insert as B-Roll overlay at playhead"
-                          >
-                            <Icon name="layers" size={12} />
-                            <span>B-Roll</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleInsertExistingVideo(v, 'newProject')}
-                            className="px-2 py-1 rounded-btn text-[11px] font-medium bg-surface-2 hover:bg-tertiary hover:text-on-primary text-ink-muted hover:text-ink transition-colors flex items-center gap-1 ml-auto"
-                            title="Start new smart auto-edit project with this video"
-                          >
-                            <Icon name="auto_awesome" size={12} />
-                            <span>Re-Edit</span>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {videos.length === 0 && (
-                    <div className="py-6 text-center text-xs text-ink-muted">
-                      No video footage uploaded yet. Click above to import from your device.
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* Tab 2: Visual Caption Styling Toolbar & AI Live STT */}
-          {activeTab === 'captions' && (
-            <div className="space-y-4">
-              {/* Card 1: AI Audio Transcription & Live Captions */}
-              <Card className="p-4 space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon name="auto_awesome" size={18} className="text-primary" />
-                    <h2 className="font-semibold text-ink text-sm">AI Live Captions</h2>
+                      );
+                    })}
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <StatusPill tone={tClips.length > 0 ? 'primary' : 'neutral'}>
-                      {tClips.length > 0 ? `${tClips.length} cues` : 'No captions'}
-                    </StatusPill>
-                  </div>
-                </div>
 
-                <p className="text-xs text-ink-muted leading-relaxed">
-                  Transcribes audio dialogue with AI into word-level kinetic subtitle cues with aligned timeline timestamps.
-                </p>
-
-                {/* Feedback notification */}
-                {captionNotice && (
-                  <div className="p-2.5 rounded-btn bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 text-emerald-800 dark:text-emerald-200 text-xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Icon name="check_circle" size={14} className="text-emerald-600 shrink-0" />
-                      <span className="truncate">{captionNotice}</span>
-                    </div>
-                    <button
-                      onClick={() => setCaptionNotice(null)}
-                      className="text-emerald-600 hover:text-emerald-800 dark:hover:text-emerald-100"
-                    >
-                      <Icon name="close" size={13} />
-                    </button>
-                  </div>
-                )}
-
-                {/* Dialogue Language Selector */}
-                <div>
-                  <label className="kt-eyebrow block mb-1.5">Audio Speech Language</label>
-                  <select
-                    value={captionLang}
-                    onChange={(e) => setCaptionLang(e.target.value)}
-                    className="w-full p-2 rounded-btn bg-surface-2 border border-line text-xs font-medium text-ink focus:outline-none focus:border-primary"
-                  >
-                    <option value="English">English</option>
-                    <option value="Spanish">Spanish (Español)</option>
-                    <option value="French">French (Français)</option>
-                    <option value="German">German (Deutsch)</option>
-                    <option value="Hindi">Hindi (हिन्दी)</option>
-                    <option value="Japanese">Japanese (日本語)</option>
-                    <option value="Portuguese">Portuguese (Português)</option>
-                    <option value="Chinese">Chinese (中文)</option>
-                  </select>
-                </div>
-
-                {/* Main Action Button */}
-                <Button
-                  className="w-full"
-                  icon="auto_awesome" iconSpin={generatingCaptions}
-                  onClick={handleGenerateCaptions}
-                  disabled={generatingCaptions}
-                >
-                  {generatingCaptions
-                    ? 'AI Transcribing & Syncing...'
-                    : tClips.length > 0
-                    ? 'Regenerate Live Captions'
-                    : 'Transcribe Audio & Generate Live Captions'}
-                </Button>
-
-                {/* Toggle Controls & Track Muting */}
-                <div className="pt-2 border-t border-line flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5 font-medium text-ink">
-                    <Icon
-                      name={isCaptionsActive ? 'closed_caption' : 'closed_caption_disabled'}
-                      size={15}
-                      className="text-primary"
-                    />
-                    <span>Live Display (CC)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => toggleCaptions()}
-                      className={`px-2.5 py-1 rounded-btn text-xs font-semibold border transition-all ${
-                        isCaptionsActive
-                          ? 'bg-success text-on-primary border-success shadow-sm'
-                          : 'bg-surface-2 text-ink-muted border-line hover:text-ink'
-                      }`}
-                    >
-                      {isCaptionsActive ? 'CC On' : 'CC Off'}
-                    </button>
-                    {tClips.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleClearCaptions}
-                        className="text-danger hover:underline text-xs"
-                        title="Remove captions from timeline"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-
-              {/* Card 2: Visual Caption Styling Toolbar */}
-              <Card className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon name="format_paint" size={18} className="text-tertiary" />
-                    <h2 className="font-semibold text-ink text-sm">Caption Typography & FX</h2>
-                  </div>
-                </div>
-
-                {/* Viral Preset Cards */}
-                <div>
-                  <label className="kt-eyebrow block mb-2">Viral Style Presets</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {KINETIC_CAPTION_PRESETS.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          applyEdit((p) => applyCaptionPresetToProject(p, preset.style));
-                          setCaptionFont(preset.style.fontFamily);
-                          if (preset.style.activeWordColorHex) setHighlightColor(preset.style.activeWordColorHex);
-                          setCaptionAnim(preset.style.animation);
-                          setCaptionPos(preset.style.position);
-                          setCaptionNotice(`Applied ${preset.name} kinetic style across all captions!`);
-                        }}
-                        className="p-2.5 rounded-card border border-line hover:border-primary/50 bg-surface-2/60 hover:bg-surface-2 text-left transition-all group"
-                      >
-                        <div className="flex items-center gap-1.5 font-semibold text-xs text-ink group-hover:text-primary transition-colors">
-                          <Icon name={preset.icon} size={15} className="text-primary" />
-                          <span className="truncate">{preset.name}</span>
-                        </div>
-                        <p className="text-[10.5px] text-ink-dim mt-0.5 line-clamp-1 leading-snug">
-                          {preset.tagline}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Font Family Selector */}
-                <div>
-                  <label className="kt-eyebrow block mb-1.5">Font Style</label>
-                  <select
-                    value={captionFont}
-                    onChange={(e) => {
-                      const font = e.target.value;
-                      setCaptionFont(font);
-                      updateGlobalCaptionStyle({ fontFamily: font });
-                    }}
-                    className="w-full p-2 rounded-btn bg-surface-2 border border-line text-xs font-medium text-ink focus:outline-none focus:border-primary"
-                  >
-                    {FONTS.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Highlight Color Picker */}
-                <div>
-                  <label className="kt-eyebrow block mb-1.5">Word Highlight Accent</label>
-                  <div className="flex items-center gap-2">
-                    {HIGHLIGHT_COLORS.map((c) => (
-                      <button
-                        key={c.hex}
-                        onClick={() => {
-                          setHighlightColor(c.hex);
-                          updateGlobalCaptionStyle({ activeWordColorHex: c.hex });
-                        }}
-                        className={`w-7 h-7 rounded-full border-2 transition-all ${
-                          highlightColor === c.hex ? 'border-ink scale-110 shadow-sm' : 'border-line'
-                        }`}
-                        style={{ backgroundColor: c.hex }}
-                        title={c.label}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Animation Preset */}
-                <div>
-                  <label className="kt-eyebrow block mb-1.5">Kinetic Animation</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ANIMATION_PRESETS.map((a) => (
-                      <button
-                        key={a.id}
-                        onClick={() => {
-                          setCaptionAnim(a.id);
-                          updateGlobalCaptionStyle({ animation: a.id });
-                        }}
-                        className={`p-2 rounded-btn border text-left text-xs font-medium flex items-center gap-1.5 transition-colors ${
-                          captionAnim === a.id
-                            ? 'border-primary bg-primary-soft text-primary font-semibold'
-                            : 'border-line hover:border-line-strong text-ink-muted'
-                        }`}
-                      >
-                        <Icon name={a.icon} size={15} />
-                        <span className="truncate">{a.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Position */}
-                <div>
-                  <label className="kt-eyebrow block mb-1.5">Screen Position</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'top', label: 'Top' },
-                      { id: 'middle', label: 'Center Hook' },
-                      { id: 'bottom', label: 'Lower 3rd' },
-                    ].map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => {
-                          const pos = p.id as any;
-                          setCaptionPos(pos);
-                          updateGlobalCaptionStyle({ position: pos });
-                        }}
-                        className={`py-1.5 px-2 rounded-btn border text-xs font-medium transition-colors ${
-                          captionPos === p.id
-                            ? 'border-primary bg-primary-soft text-primary font-semibold'
-                            : 'border-line text-ink-muted hover:text-ink'
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* Tab 3: BGM & Audio Studio */}
-          {activeTab === 'audio' && (
-            <div className="space-y-4">
-              {/* Card 1: Background Music Presets */}
-              <Card className="p-4 space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon name="music_note" size={18} className="text-secondary" />
-                    <h2 className="font-semibold text-ink text-sm">Background Music (BGM)</h2>
-                  </div>
+                  {/* Volume & Ducking Controls when BGM is chosen */}
                   {currentBgm && (
-                    <StatusPill tone="secondary">Active Beat</StatusPill>
-                  )}
-                </div>
-
-                <p className="text-xs text-ink-muted leading-relaxed">
-                  Layer royalty-free soundtrack loops under your speech with intelligent voice ducking.
-                </p>
-
-                {/* BGM Preset Selection Grid */}
-                <div className="grid grid-cols-1 gap-2">
-                  {/* None option */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBgm(undefined);
-                      sfxEngine.stopBGM();
-                      setPreviewingBgm(null);
-                    }}
-                    className={`p-2.5 rounded-card border text-left flex items-center justify-between transition-all ${
-                      !currentBgm
-                        ? 'border-primary bg-primary-soft ring-1 ring-primary/30'
-                        : 'border-line hover:border-line-strong bg-surface'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon name="volume_off" size={16} className="text-ink-dim" />
+                    <div className="pt-3 border-t border-line space-y-3.5">
+                      {/* BGM Volume Slider */}
                       <div>
-                        <div className="text-xs font-semibold text-ink">No Background Music</div>
-                        <div className="text-[10px] text-ink-dim">Dialogue & SFX only</div>
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-semibold text-ink">Music Mix Level</span>
+                          <span className="font-mono text-ink-dim">{Math.round(currentBgmVol * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={currentBgmVol}
+                          onChange={(e) => setBgmVolume(Number(e.target.value))}
+                          className="w-full cursor-pointer accent-secondary"
+                        />
                       </div>
-                    </div>
-                    {!currentBgm && <Icon name="check_circle" size={16} className="text-primary" />}
-                  </button>
 
-                  {BGM_TRACKS.map((p) => {
-                    const active = currentBgm === p.id;
-                    const isTesting = previewingBgm === p.id;
-                    return (
-                      <div
-                        key={p.id}
-                        className={`p-2.5 rounded-card border flex items-center justify-between transition-all ${
-                          active
-                            ? 'border-secondary bg-secondary-soft ring-1 ring-secondary/30'
-                            : 'border-line hover:border-line-strong bg-surface'
-                        }`}
-                      >
+                      {/* Smart Voice Ducking Toggle */}
+                      <div className="p-3 rounded-card bg-surface-2/60 border border-line flex items-center justify-between">
+                        <div className="pr-3">
+                          <div className="text-xs font-semibold text-ink flex items-center gap-1.5">
+                            <Icon name="hearing" size={15} className="text-secondary" />
+                            <span>Smart Voice Ducking</span>
+                          </div>
+                          <p className="text-[11px] text-ink-dim mt-0.5 leading-snug">
+                            Ducks music volume down by 70% automatically whenever speech voiceover is active.
+                          </p>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => setBgm(p.id, p.url)}
-                          className="flex items-center gap-2.5 text-left flex-1 min-w-0"
-                        >
-                          <span className={`w-8 h-8 rounded-full grid place-items-center shrink-0 transition-colors ${
-                            isTesting
-                              ? 'bg-secondary text-on-primary animate-pulse'
-                              : active
-                              ? 'bg-secondary/20 text-secondary'
-                              : 'bg-surface-2 text-ink-muted'
-                          }`}>
-                            <Icon name={p.icon} size={16} />
-                          </span>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-semibold text-ink truncate">{p.name}</span>
-                              <span className="text-[10px] text-ink-dim px-1.5 py-0.5 rounded bg-surface-2 border border-line font-mono shrink-0">
-                                {p.duration}
-                              </span>
-                              <span className="text-[9.5px] text-secondary font-medium px-1 py-0.5 rounded bg-secondary/10 shrink-0">
-                                {p.genre}
-                              </span>
-                            </div>
-                            <div className="text-[10.5px] text-ink-dim truncate mt-0.5">{p.mood}</div>
-                          </div>
-                        </button>
-                        <div className="flex items-center gap-1.5 shrink-0 pl-2">
-                          <button
-                            type="button"
-                            onClick={() => handleTestBgm(p.id, p.url)}
-                            title={isTesting ? 'Stop preview' : 'Listen to track'}
-                            className={`w-7 h-7 rounded-full border grid place-items-center text-xs transition-colors ${
-                              isTesting
-                                ? 'bg-secondary text-on-primary border-secondary shadow-sm ring-2 ring-secondary/30'
-                                : 'border-line hover:border-line-strong text-ink-muted hover:text-ink hover:bg-surface-2'
-                            }`}
-                          >
-                            <Icon name={isTesting ? 'stop' : 'play_arrow'} size={15} />
-                          </button>
-                          {active && <Icon name="check_circle" size={16} className="text-secondary" />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Volume & Ducking Controls when BGM is chosen */}
-                {currentBgm && (
-                  <div className="pt-3 border-t border-line space-y-3.5">
-                    {/* BGM Volume Slider */}
-                    <div>
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="font-semibold text-ink">Music Mix Level</span>
-                        <span className="font-mono text-ink-dim">{Math.round(currentBgmVol * 100)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        value={currentBgmVol}
-                        onChange={(e) => setBgmVolume(Number(e.target.value))}
-                        className="w-full cursor-pointer accent-secondary"
-                      />
-                    </div>
-
-                    {/* Smart Voice Ducking Toggle */}
-                    <div className="p-3 rounded-card bg-surface-2/60 border border-line flex items-center justify-between">
-                      <div className="pr-3">
-                        <div className="text-xs font-semibold text-ink flex items-center gap-1.5">
-                          <Icon name="hearing" size={15} className="text-secondary" />
-                          <span>Smart Voice Ducking</span>
-                        </div>
-                        <p className="text-[11px] text-ink-dim mt-0.5 leading-snug">
-                          Ducks music volume down by 70% automatically whenever speech voiceover is active.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={toggleDucking}
-                        className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${
-                          isDucking ? 'bg-secondary' : 'bg-surface-3'
-                        }`}
-                      >
-                        <span
-                          className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${
-                            isDucking ? 'right-0.5' : 'left-0.5'
+                          onClick={toggleDucking}
+                          className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${
+                            isDucking ? 'bg-secondary' : 'bg-surface-3'
                           }`}
-                        />
-                      </button>
+                        >
+                          <span
+                            className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${
+                              isDucking ? 'right-0.5' : 'left-0.5'
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </Card>
+                  )}
+                </Card>
 
-              {/* Card 2: Quick-Insert SFX Triggers */}
-              <Card className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon name="volume_up" size={18} className="text-primary" />
-                    <h2 className="font-semibold text-ink text-sm">Insert SFX at Playhead</h2>
+                {/* Card 2: Quick-Insert SFX Triggers */}
+                <Card className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon name="volume_up" size={18} className="text-primary" />
+                      <h2 className="font-semibold text-ink text-sm">Insert SFX at Playhead</h2>
+                    </div>
+                    <span className="text-[11px] font-mono text-ink-dim">{fmtTime(time)}</span>
                   </div>
-                  <span className="text-[11px] font-mono text-ink-dim">{fmtTime(time)}</span>
-                </div>
-                <p className="text-xs text-ink-muted leading-relaxed">
-                  Click to drop a punchy viral sound effect cue onto the SFX track at current time.
-                </p>
+                  <p className="text-xs text-ink-muted leading-relaxed">
+                    Click to drop a punchy viral sound effect cue onto the SFX track at current time.
+                  </p>
 
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: 'vine_boom', label: 'Vine Boom', icon: 'bolt' },
-                    { id: 'cash_register', label: 'Cash Register', icon: 'payments' },
-                    { id: 'chime', label: 'Magic Chime', icon: 'auto_awesome' },
-                    { id: 'pop', label: 'UI Pop', icon: 'touch_app' },
-                    { id: 'whoosh', label: 'Fast Whoosh', icon: 'air' },
-                    { id: 'glitch', label: 'Cyber Glitch', icon: 'stream' },
-                  ].map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => addSfxAtPlayhead(s.id)}
-                      className="p-2 rounded-btn border border-line hover:border-primary/50 bg-surface-2/40 hover:bg-surface-2 text-left text-xs font-medium text-ink flex items-center gap-1.5 transition-colors group"
-                    >
-                      <Icon name={s.icon} size={14} className="text-primary group-hover:scale-110 transition-transform" />
-                      <span className="truncate">{s.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </Card>
-            </div>
-          )}
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'vine_boom', label: 'Vine Boom', icon: 'bolt' },
+                      { id: 'cash_register', label: 'Cash Register', icon: 'payments' },
+                      { id: 'chime', label: 'Magic Chime', icon: 'auto_awesome' },
+                      { id: 'pop', label: 'UI Pop', icon: 'touch_app' },
+                      { id: 'whoosh', label: 'Fast Whoosh', icon: 'air' },
+                      { id: 'glitch', label: 'Cyber Glitch', icon: 'stream' },
+                    ].map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => addSfxAtPlayhead(s.id)}
+                        className="p-2 rounded-btn border border-line hover:border-primary/50 bg-surface-2/40 hover:bg-surface-2 text-left text-xs font-medium text-ink flex items-center gap-1.5 transition-colors group"
+                      >
+                        <Icon name={s.icon} size={14} className="text-primary group-hover:scale-110 transition-transform" />
+                        <span className="truncate">{s.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            </TabsContent>
 
           {/* Tab: B-Roll & Visual Overlays */}
-          {activeTab === 'broll' && (
-            <div className="space-y-4">
-              {/* Card 1: AI Auto-Match Engine */}
-              <Card className="p-4 space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon name="movie" size={18} className="text-secondary" />
-                    <h2 className="font-semibold text-ink text-sm">B-Roll Auto-Insert Engine</h2>
+            <TabsContent value="broll">
+              <div className="space-y-4">
+                {/* Card 1: AI Auto-Match Engine */}
+                <Card className="p-4 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon name="movie" size={18} className="text-secondary" />
+                      <h2 className="font-semibold text-ink text-sm">B-Roll Auto-Insert Engine</h2>
+                    </div>
+                    <span className="text-[11px] font-mono text-ink-dim">
+                      {bClips.length} active on timeline
+                    </span>
                   </div>
-                  <span className="text-[11px] font-mono text-ink-dim">
-                    {bClips.length} active on timeline
-                  </span>
-                </div>
-                <p className="text-xs text-ink-muted leading-relaxed">
-                  Scans spoken speech keywords from live captions and automatically drops contextual video loops into the B-Roll overlay track.
-                </p>
+                  <p className="text-xs text-ink-muted leading-relaxed">
+                    Scans spoken speech keywords from live captions and automatically drops contextual video loops into the B-Roll overlay track.
+                  </p>
 
-                {/* Density Selection */}
-                <div>
-                  <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider block mb-1.5">
-                    Cutaway Rhythm
-                  </span>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      { id: 'light', label: 'Light', desc: 'Every 8s' },
-                      { id: 'medium', label: 'Balanced', desc: 'Every 5s' },
-                      { id: 'dense', label: 'Dense', desc: 'Every 3.5s' },
-                    ].map((d) => (
-                      <button
-                        key={d.id}
-                        type="button"
-                        onClick={() => setBrollDensity(d.id as any)}
-                        className={`p-2 rounded-btn border text-left transition-all ${
-                          brollDensity === d.id
-                            ? 'border-secondary bg-secondary/10 text-ink shadow-xs'
-                            : 'border-line text-ink-muted hover:text-ink'
-                        }`}
-                      >
-                        <div className="text-xs font-semibold">{d.label}</div>
-                        <div className="text-[10px] text-ink-dim">{d.desc}</div>
-                      </button>
-                    ))}
+                  {/* Density Selection */}
+                  <div>
+                    <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider block mb-1.5">
+                      Cutaway Rhythm
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { id: 'light', label: 'Light', desc: 'Every 8s' },
+                        { id: 'medium', label: 'Balanced', desc: 'Every 5s' },
+                        { id: 'dense', label: 'Dense', desc: 'Every 3.5s' },
+                      ].map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => setBrollDensity(d.id as any)}
+                          className={`p-2 rounded-btn border text-left transition-all ${
+                            brollDensity === d.id
+                              ? 'border-secondary bg-secondary/10 text-ink shadow-xs'
+                              : 'border-line text-ink-muted hover:text-ink'
+                          }`}
+                        >
+                          <div className="text-xs font-semibold">{d.label}</div>
+                          <div className="text-[10px] text-ink-dim">{d.desc}</div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2 pt-1 flex-wrap">
-                  <Button
-                    icon="auto_awesome"
-                    onClick={handleAutoMatchBroll}
-                    className="flex-1"
-                  >
-                    Auto-Match B-Roll
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    icon="upload_file"
-                    onClick={() => {
-                      setUploadActionTarget('broll');
-                      fileInputRef.current?.click();
-                    }}
-                    title="Upload video from your device as B-Roll overlay"
-                  >
-                    Upload Custom
-                  </Button>
-                  {bClips.length > 0 && (
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
                     <Button
-                      variant="ghost"
-                      icon="delete_sweep"
-                      onClick={handleClearBroll}
-                      title="Clear all B-roll clips from timeline"
+                      icon="auto_awesome"
+                      onClick={handleAutoMatchBroll}
+                      className="flex-1"
                     >
-                      Clear
+                      Auto-Match B-Roll
                     </Button>
-                  )}
-                </div>
-
-                {/* Status Notice Banner */}
-                {brollNotice && (
-                  <div className="p-2.5 rounded-btn bg-surface-2/80 border border-line text-xs text-ink flex items-center justify-between">
-                    <span>{brollNotice}</span>
-                    <button
-                      type="button"
-                      onClick={() => setBrollNotice(null)}
-                      className="text-ink-muted hover:text-ink text-[11px]"
+                    <Button
+                      variant="secondary"
+                      icon="upload_file"
+                      onClick={() => {
+                        setUploadActionTarget('broll');
+                        fileInputRef.current?.click();
+                      }}
+                      title="Upload video from your device as B-Roll overlay"
                     >
-                      ✕
-                    </button>
+                      Upload Custom
+                    </Button>
+                    {bClips.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        icon="delete_sweep"
+                        onClick={handleClearBroll}
+                        title="Clear all B-roll clips from timeline"
+                      >
+                        Clear
+                      </Button>
+                    )}
                   </div>
-                )}
-              </Card>
 
-              {/* Card 2: Curated Stock Footage Library */}
-              <Card className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon name="video_library" size={18} className="text-primary" />
-                    <h2 className="font-semibold text-ink text-sm">Stock Footage Library</h2>
-                  </div>
-                  <span className="text-[11px] font-mono text-ink-dim">{fmtTime(time)}</span>
-                </div>
-
-                {/* Search & Category Pills */}
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={brollSearch}
-                    onChange={(e) => setBrollSearch(e.target.value)}
-                    placeholder="Search footage (e.g. code, crypto, coffee, city)..."
-                    className="w-full px-3 py-1.5 rounded-btn border border-line bg-surface text-xs text-ink placeholder:text-ink-muted kt-focus"
-                  />
-
-                  <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs no-scrollbar">
-                    {[
-                      { id: 'all', label: 'All' },
-                      { id: 'tech', label: 'Tech & AI' },
-                      { id: 'finance', label: 'Finance' },
-                      { id: 'urban', label: 'Urban' },
-                      { id: 'lifestyle', label: 'Lifestyle' },
-                      { id: 'energy', label: 'Viral Speed' },
-                    ].map((c) => (
+                  {/* Status Notice Banner */}
+                  {brollNotice && (
+                    <div className="p-2.5 rounded-btn bg-surface-2/80 border border-line text-xs text-ink flex items-center justify-between">
+                      <span>{brollNotice}</span>
                       <button
-                        key={c.id}
                         type="button"
-                        onClick={() => setBrollCategory(c.id)}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-medium shrink-0 transition-colors ${
-                          brollCategory === c.id
-                            ? 'bg-ink text-app'
-                            : 'bg-surface-2 text-ink-muted hover:text-ink'
-                        }`}
+                        onClick={() => setBrollNotice(null)}
+                        className="text-ink-muted hover:text-ink text-[11px]"
+                        aria-label="Dismiss"
                       >
-                        {c.label}
+                        <Icon name="close" size={13} />
                       </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Grid of B-Roll Cards */}
-                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-                  {filteredBroll.map((asset) => {
-                    const isPreviewing = previewingBrollVideo === asset.id;
-                    return (
-                      <div
-                        key={asset.id}
-                        className="p-2.5 rounded-btn border border-line bg-surface hover:border-line-strong transition-all flex flex-col gap-2"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-xs font-semibold text-ink truncate flex items-center gap-1.5">
-                              <span>{asset.title}</span>
-                              <span className="px-1.5 py-0.5 rounded-full bg-surface-2 text-[9px] text-ink-dim uppercase font-bold tracking-tight">
-                                {asset.tag}
-                              </span>
-                            </div>
-                            <div className="text-[10.5px] text-ink-muted truncate mt-0.5">
-                              {asset.keywords.slice(0, 4).join(', ')}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setPreviewingBrollVideo(isPreviewing ? null : asset.id)}
-                              className={`p-1.5 rounded-btn border text-xs transition-colors ${
-                                isPreviewing
-                                  ? 'bg-secondary text-on-primary border-secondary'
-                                  : 'border-line hover:border-line-strong text-ink-muted hover:text-ink'
-                              }`}
-                              title={isPreviewing ? 'Close video preview' : 'Preview video loop'}
-                            >
-                              <Icon name={isPreviewing ? 'visibility_off' : 'visibility'} size={14} />
-                            </button>
-                            <Button
-                              size="sm"
-                              icon="add"
-                              onClick={() => handleInsertBroll(asset.id)}
-                              title="Drop onto B-roll overlay track at playhead"
-                            >
-                              Drop
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Inline Video Preview when opened */}
-                        {isPreviewing && (
-                          <div className="rounded-md overflow-hidden aspect-video bg-black relative border border-line mt-1">
-                            <video
-                              src={asset.videoUrl}
-                              autoPlay
-                              loop
-                              muted
-                              playsInline
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {filteredBroll.length === 0 && (
-                    <div className="py-6 text-center text-xs text-ink-muted">
-                      No footage matches "{brollSearch}". Try searching for code, money, city, or ocean.
                     </div>
                   )}
-                </div>
-              </Card>
-            </div>
-          )}
+                </Card>
+
+                {/* Card 2: Curated Stock Footage Library */}
+                <Card className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon name="video_library" size={18} className="text-primary" />
+                      <h2 className="font-semibold text-ink text-sm">Stock Footage Library</h2>
+                    </div>
+                    <span className="text-[11px] font-mono text-ink-dim">{fmtTime(time)}</span>
+                  </div>
+
+                  {/* Search & Category Pills */}
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={brollSearch}
+                      onChange={(e) => setBrollSearch(e.target.value)}
+                      placeholder="Search footage (e.g. code, crypto, coffee, city)..."
+                      className="w-full px-3 py-1.5 rounded-btn border border-line bg-surface text-xs text-ink placeholder:text-ink-muted kt-focus"
+                    />
+
+                    <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs no-scrollbar">
+                      {[
+                        { id: 'all', label: 'All' },
+                        { id: 'tech', label: 'Tech & AI' },
+                        { id: 'finance', label: 'Finance' },
+                        { id: 'urban', label: 'Urban' },
+                        { id: 'lifestyle', label: 'Lifestyle' },
+                        { id: 'energy', label: 'Viral Speed' },
+                      ].map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setBrollCategory(c.id)}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-medium shrink-0 transition-colors ${
+                            brollCategory === c.id
+                              ? 'bg-ink text-app'
+                              : 'bg-surface-2 text-ink-muted hover:text-ink'
+                          }`}
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Grid of B-Roll Cards */}
+                  <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                    {filteredBroll.map((asset) => {
+                      const isPreviewing = previewingBrollVideo === asset.id;
+                      return (
+                        <div
+                          key={asset.id}
+                          className="p-2.5 rounded-btn border border-line bg-surface hover:border-line-strong transition-all flex flex-col gap-2"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-ink truncate flex items-center gap-1.5">
+                                <span>{asset.title}</span>
+                                <span className="px-1.5 py-0.5 rounded-full bg-surface-2 text-[9px] text-ink-dim uppercase font-bold tracking-tight">
+                                  {asset.tag}
+                                </span>
+                              </div>
+                              <div className="text-[10.5px] text-ink-muted truncate mt-0.5">
+                                {asset.keywords.slice(0, 4).join(', ')}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Tooltip
+                                content={isPreviewing ? 'Close video preview' : 'Preview video loop'}
+                                side="left"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewingBrollVideo(isPreviewing ? null : asset.id)}
+                                  aria-label={isPreviewing ? 'Close video preview' : 'Preview video loop'}
+                                  className={`p-1.5 rounded-btn border text-xs transition-colors ${
+                                    isPreviewing
+                                      ? 'bg-secondary text-on-primary border-secondary'
+                                      : 'border-line hover:border-line-strong text-ink-muted hover:text-ink'
+                                  }`}
+                                >
+                                  <Icon name={isPreviewing ? 'visibility_off' : 'visibility'} size={14} />
+                                </button>
+                              </Tooltip>
+                              <Button
+                                size="sm"
+                                icon="add"
+                                onClick={() => handleInsertBroll(asset.id)}
+                                title="Drop onto B-roll overlay track at playhead"
+                              >
+                                Drop
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Inline Video Preview when opened */}
+                          {isPreviewing && (
+                            <div className="rounded-md overflow-hidden aspect-video bg-black relative border border-line mt-1">
+                              <video
+                                src={asset.videoUrl}
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {filteredBroll.length === 0 && (
+                      <div className="py-6 text-center text-xs text-ink-muted">
+                        No footage matches "{brollSearch}". Try searching for code, money, city, or ocean.
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            </TabsContent>
 
           {/* Tab: Inspector */}
-          {activeTab === 'inspector' && (
-            <Card className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-ink text-sm">Clip Inspector</h2>
-                {selectedIds.length > 1 && (
-                  <StatusPill tone="primary">{selectedIds.length} clips selected</StatusPill>
-                )}
-              </div>
-
-              {selectedIds.length > 1 && (
-                <div className="p-2.5 rounded-card bg-primary-soft border border-primary/20 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-                    <Icon name="select_all" size={16} className="text-primary" />
-                    <span>Multi-Selection Group</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="text-danger hover:bg-danger/10 text-xs py-1 px-2"
-                      onClick={doDelete}
-                    >
-                      Delete All ({selectedIds.length})
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-xs py-1 px-2"
-                      onClick={() => setSelectedIds([])}
-                    >
-                      Deselect
-                    </Button>
-                  </div>
+            <TabsContent value="inspector">
+              <Card className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-semibold text-ink text-sm">Clip Inspector</h2>
+                  {selectedIds.length > 1 && (
+                    <StatusPill tone="primary">{selectedIds.length} clips selected</StatusPill>
+                  )}
                 </div>
-              )}
 
-              {selectedClip ? (
-                <SelectedPanel
-                  clip={selectedClip}
-                  onTrim={doTrim}
-                  onDelete={doDelete}
-                  onSplit={doSplit}
-                  time={time}
-                  onUpdateTextClip={handleUpdateTextClip}
-                  onUpdateWord={handleUpdateWord}
-                  onUpdateVideoClip={handleUpdateVideoClip}
-                  onUpdateSFXClip={handleUpdateSFXClip}
-                />
-              ) : (
-                <p className="text-xs text-ink-muted py-6 text-center">
-                  Select any clip on the multi-track timeline to inspect and trim in/out boundaries.
-                </p>
-              )}
-            </Card>
-          )}
+                {selectedIds.length > 1 && (
+                  <div className="p-2.5 rounded-card bg-primary-soft border border-primary/20 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+                      <Icon name="select_all" size={16} className="text-primary" />
+                      <span>Multi-Selection Group</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="text-danger hover:bg-danger/10 text-xs py-1 px-2"
+                        onClick={doDelete}
+                      >
+                        Delete All ({selectedIds.length})
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs py-1 px-2"
+                        onClick={() => setSelectedIds([])}
+                      >
+                        Deselect
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {selectedClip ? (
+                  <SelectedPanel
+                    clip={selectedClip}
+                    onTrim={doTrim}
+                    onDelete={doDelete}
+                    onSplit={doSplit}
+                    time={time}
+                    onUpdateTextClip={handleUpdateTextClip}
+                    onUpdateWord={handleUpdateWord}
+                    onUpdateVideoClip={handleUpdateVideoClip}
+                    onUpdateSFXClip={handleUpdateSFXClip}
+                  />
+                ) : (
+                  <p className="text-xs text-ink-muted py-6 text-center">
+                    Select any clip on the multi-track timeline to inspect and trim in/out boundaries.
+                  </p>
+                )}
+              </Card>
+            </TabsContent>
+          </Tabs>
 
           {/* Finish & Handoff Card */}
           <Card className="p-4 space-y-3">
@@ -2422,52 +2476,60 @@ function Header({
 
           {/* Undo / Redo Control Cluster with Step Badges */}
           <div className="flex items-center gap-1 bg-surface-2/80 p-0.5 rounded-lg border border-line">
-            <button
-              type="button"
-              onClick={onUndo}
-              disabled={!canUndo}
-              className={`h-8 px-2.5 rounded-btn flex items-center gap-1.5 text-xs font-medium transition-all ${
-                canUndo
-                  ? 'hover:bg-surface-3 text-ink cursor-pointer active:scale-95'
-                  : 'opacity-40 text-ink-dim cursor-not-allowed'
-              }`}
-              title={
+            <Tooltip
+              content={
                 canUndo
                   ? `Undo: ${undoLabel || 'Action'} (Ctrl+Z) [${historyCount?.past || 0} steps]`
                   : 'Nothing to undo'
               }
+              side="bottom"
             >
-              <Icon name="undo" size={15} />
-              <span>Undo</span>
-              {historyCount && historyCount.past > 0 && (
-                <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1 rounded-full">
-                  {historyCount.past}
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={onRedo}
-              disabled={!canRedo}
-              className={`h-8 px-2.5 rounded-btn flex items-center gap-1.5 text-xs font-medium transition-all ${
-                canRedo
-                  ? 'hover:bg-surface-3 text-ink cursor-pointer active:scale-95'
-                  : 'opacity-40 text-ink-dim cursor-not-allowed'
-              }`}
-              title={
+              <button
+                type="button"
+                onClick={onUndo}
+                disabled={!canUndo}
+                className={`h-8 px-2.5 rounded-btn flex items-center gap-1.5 text-xs font-medium transition-all ${
+                  canUndo
+                    ? 'hover:bg-surface-3 text-ink cursor-pointer active:scale-95'
+                    : 'opacity-40 text-ink-dim cursor-not-allowed'
+                }`}
+              >
+                <Icon name="undo" size={15} />
+                <span>Undo</span>
+                {historyCount && historyCount.past > 0 && (
+                  <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1 rounded-full">
+                    {historyCount.past}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
+            <Tooltip
+              content={
                 canRedo
                   ? `Redo: ${redoLabel || 'Action'} (Ctrl+Shift+Z / Ctrl+Y) [${historyCount?.future || 0} steps]`
                   : 'Nothing to redo'
               }
+              side="bottom"
             >
-              <Icon name="redo" size={15} />
-              <span>Redo</span>
-              {historyCount && historyCount.future > 0 && (
-                <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1 rounded-full">
-                  {historyCount.future}
-                </span>
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={onRedo}
+                disabled={!canRedo}
+                className={`h-8 px-2.5 rounded-btn flex items-center gap-1.5 text-xs font-medium transition-all ${
+                  canRedo
+                    ? 'hover:bg-surface-3 text-ink cursor-pointer active:scale-95'
+                    : 'opacity-40 text-ink-dim cursor-not-allowed'
+                }`}
+              >
+                <Icon name="redo" size={15} />
+                <span>Redo</span>
+                {historyCount && historyCount.future > 0 && (
+                  <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1 rounded-full">
+                    {historyCount.future}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
           </div>
 
           <Button variant="secondary" icon="download" onClick={onExport}>
@@ -2506,24 +2568,30 @@ function GutterTrackHeader({
         <span className="truncate">{track.name}</span>
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <button
-          onClick={onToggleMute}
-          title={track.isMuted ? 'Unmute track' : 'Mute track'}
-          className={`w-5 h-5 rounded grid place-items-center text-[10px] ${
-            track.isMuted ? 'bg-danger text-on-primary' : 'text-ink-dim hover:text-ink'
-          }`}
-        >
-          <Icon name={track.isMuted ? 'volume_off' : 'volume_up'} size={12} />
-        </button>
-        <button
-          onClick={onToggleLock}
-          title={track.isLocked ? 'Unlock track' : 'Lock track'}
-          className={`w-5 h-5 rounded grid place-items-center text-[10px] ${
-            track.isLocked ? 'bg-ink text-app' : 'text-ink-dim hover:text-ink'
-          }`}
-        >
-          <Icon name={track.isLocked ? 'lock' : 'lock_open'} size={12} />
-        </button>
+        <Tooltip content={track.isMuted ? 'Unmute track' : 'Mute track'} side="left" delay={0}>
+          <button
+            type="button"
+            onClick={onToggleMute}
+            aria-label={track.isMuted ? 'Unmute track' : 'Mute track'}
+            className={`w-5 h-5 rounded grid place-items-center text-[10px] ${
+              track.isMuted ? 'bg-danger text-on-primary' : 'text-ink-dim hover:text-ink'
+            }`}
+          >
+            <Icon name={track.isMuted ? 'volume_off' : 'volume_up'} size={12} />
+          </button>
+        </Tooltip>
+        <Tooltip content={track.isLocked ? 'Unlock track' : 'Lock track'} side="left" delay={0}>
+          <button
+            type="button"
+            onClick={onToggleLock}
+            aria-label={track.isLocked ? 'Unlock track' : 'Lock track'}
+            className={`w-5 h-5 rounded grid place-items-center text-[10px] ${
+              track.isLocked ? 'bg-ink text-app' : 'text-ink-dim hover:text-ink'
+            }`}
+          >
+            <Icon name={track.isLocked ? 'lock' : 'lock_open'} size={12} />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );
@@ -2781,7 +2849,6 @@ function ClipBlock({
       {clip.type === 'video' && (clip as VideoClip).transition?.type && (clip as VideoClip).transition?.type !== 'none' && (
         <span
           className="absolute -top-2 left-1 z-30 px-1 py-0.5 rounded bg-amber-500 text-black text-[9px] font-black tracking-tight uppercase shadow-xs flex items-center gap-0.5 pointer-events-none"
-          title={`Transition: ${(clip as VideoClip).transition!.type}`}
         >
           <Icon name={(clip as VideoClip).transition!.type === 'flash' ? 'bolt' : 'auto_awesome_motion'} size={9} />
           <span>{(clip as VideoClip).transition!.type}</span>
@@ -2833,19 +2900,21 @@ function ToolBtn({
   danger?: boolean;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={label}
-      className={`inline-flex items-center gap-1.5 rounded-btn px-3 py-1.5 text-[12.5px] font-semibold border transition-all kt-focus disabled:opacity-35 disabled:cursor-not-allowed ${
-        danger
-          ? 'border-danger/30 text-danger hover:bg-danger/10'
-          : 'border-line text-ink-muted hover:text-ink hover:bg-surface-2'
-      }`}
-    >
-      <Icon name={icon} size={16} />
-      <span className="hidden sm:inline">{label}</span>
-    </button>
+    <Tooltip content={label} side="top">
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        className={`inline-flex items-center gap-1.5 rounded-btn px-3 py-1.5 text-[12.5px] font-semibold border transition-all kt-focus disabled:opacity-35 disabled:cursor-not-allowed ${
+          danger
+            ? 'border-danger/30 text-danger hover:bg-danger/10'
+            : 'border-line text-ink-muted hover:text-ink hover:bg-surface-2'
+        }`}
+      >
+        <Icon name={icon} size={16} />
+        <span className="hidden sm:inline">{label}</span>
+      </button>
+    </Tooltip>
   );
 }
 
@@ -3005,20 +3074,25 @@ function SelectedPanel({
                         </button>
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingWordIdx(idx);
-                          setEditingWordVal(w.word);
-                        }}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface border border-line text-xs font-medium text-ink hover:border-primary hover:text-primary transition-all group"
-                        title={`Starts at ${w.start.toFixed(2)}s, ends at ${w.end.toFixed(2)}s`}
+                      <Tooltip
+                        content={`Starts at ${w.start.toFixed(2)}s, ends at ${w.end.toFixed(2)}s`}
+                        side="top"
+                        delay={0}
                       >
-                        <span>{w.word}</span>
-                        <span className="text-[9px] text-ink-dim font-mono opacity-60 group-hover:opacity-100">
-                          {w.start.toFixed(1)}s
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingWordIdx(idx);
+                            setEditingWordVal(w.word);
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface border border-line text-xs font-medium text-ink hover:border-primary hover:text-primary transition-all group"
+                        >
+                          <span>{w.word}</span>
+                          <span className="text-[9px] text-ink-dim font-mono opacity-60 group-hover:opacity-100">
+                            {w.start.toFixed(1)}s
+                          </span>
+                        </button>
+                      </Tooltip>
                     )}
                   </div>
                 ))}
@@ -3032,19 +3106,11 @@ function SelectedPanel({
               <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">
                 Font Family
               </span>
-              <select
+              <FontSelect
                 value={textClip.style.fontFamily}
-                onChange={(e) =>
-                  onUpdateTextClip(clip.id, textClip.content, { fontFamily: e.target.value })
-                }
-                className="rounded-btn border border-line bg-surface-2 px-2 py-1 text-xs font-medium text-ink outline-none focus:border-primary"
-              >
-                {FONTS.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(font) => onUpdateTextClip(clip.id, textClip.content, { fontFamily: font })}
+                className="ml-3 w-auto min-w-[9.5rem] shrink-0"
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -3104,20 +3170,21 @@ function SelectedPanel({
               </span>
               <div className="flex items-center gap-1.5">
                 {HIGHLIGHT_COLORS.map((c) => (
-                  <button
-                    key={c.hex}
-                    type="button"
-                    onClick={() =>
-                      onUpdateTextClip(clip.id, textClip.content, { activeWordColorHex: c.hex })
-                    }
-                    style={{ backgroundColor: c.hex }}
-                    title={c.label}
-                    className={`w-5 h-5 rounded-full border transition-all ${
-                      textClip.style.activeWordColorHex === c.hex
-                        ? 'border-ink scale-110 shadow-sm'
-                        : 'border-white/30 hover:scale-105'
-                    }`}
-                  />
+                  <Tooltip key={c.hex} content={c.label} side="top">
+                    <button
+                      type="button"
+                      aria-label={c.label}
+                      onClick={() =>
+                        onUpdateTextClip(clip.id, textClip.content, { activeWordColorHex: c.hex })
+                      }
+                      style={{ backgroundColor: c.hex }}
+                      className={`w-5 h-5 rounded-full border transition-all ${
+                        textClip.style.activeWordColorHex === c.hex
+                          ? 'border-ink scale-110 shadow-sm'
+                          : 'border-white/30 hover:scale-105'
+                      }`}
+                    />
+                  </Tooltip>
                 ))}
               </div>
             </div>
@@ -3278,27 +3345,27 @@ function SelectedPanel({
                 { id: 'wipeleft', label: 'Wipe', icon: 'swipe_left' },
                 { id: 'fadeblack', label: 'Black', icon: 'brightness_medium' },
               ].map((tr) => (
-                <button
-                  key={tr.id}
-                  type="button"
-                  onClick={() =>
-                    onUpdateVideoClip(clip.id, {
-                      transition: {
-                        type: tr.id as TransitionType,
-                        durationSec: videoClip.transition?.durationSec || 0.3,
-                      },
-                    })
-                  }
-                  title={tr.label}
-                  className={`py-1.5 px-1 rounded-btn text-[10px] font-medium border flex flex-col items-center justify-center gap-0.5 transition-all ${
-                    (videoClip.transition?.type || 'none') === tr.id
-                      ? 'border-primary bg-primary text-on-primary font-semibold shadow-xs'
-                      : 'border-line text-ink-muted hover:text-ink hover:bg-surface-2'
-                  }`}
-                >
-                  <Icon name={tr.icon} size={14} />
-                  <span className="truncate">{tr.label}</span>
-                </button>
+                <Tooltip key={tr.id} content={`${tr.label} transition`} side="top">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateVideoClip(clip.id, {
+                        transition: {
+                          type: tr.id as TransitionType,
+                          durationSec: videoClip.transition?.durationSec || 0.3,
+                        },
+                      })
+                    }
+                    className={`py-1.5 px-1 rounded-btn text-[10px] font-medium border flex flex-col items-center justify-center gap-0.5 transition-all ${
+                      (videoClip.transition?.type || 'none') === tr.id
+                        ? 'border-primary bg-primary text-on-primary font-semibold shadow-xs'
+                        : 'border-line text-ink-muted hover:text-ink hover:bg-surface-2'
+                    }`}
+                  >
+                    <Icon name={tr.icon} size={14} />
+                    <span className="truncate">{tr.label}</span>
+                  </button>
+                </Tooltip>
               ))}
             </div>
 
@@ -3489,38 +3556,35 @@ function ShortcutsModal({ onClose }: { onClose: () => void }) {
   ];
 
   return (
-    <>
-      <div className="kt-scrim fixed inset-0 z-50 bg-[var(--scrim)]" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md p-6 kt-dialog">
-          <div className="flex items-center justify-between pb-3 border-b border-line mb-4">
-            <div className="flex items-center gap-2">
-              <Icon name="keyboard" size={20} className="text-primary" />
-              <h3 className="font-semibold text-base text-ink">Editor Pro Shortcuts</h3>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent size="sm" hideClose className="p-6">
+        <div className="flex items-center justify-between pb-3 border-b border-line mb-4">
+          <div className="flex items-center gap-2">
+            <Icon name="keyboard" size={20} className="text-primary" />
+            <DialogTitle className="font-semibold text-base text-ink">Editor Pro Shortcuts</DialogTitle>
+          </div>
+          <DialogClose aria-label="Close shortcuts" className="kt-focus text-ink-muted hover:text-ink">
+            <Icon name="close" size={18} />
+          </DialogClose>
+        </div>
+        <div className="space-y-2">
+          {shortcuts.map((s) => (
+            <div
+              key={s.key}
+              className="flex items-center justify-between p-2 rounded-btn bg-surface-2/60 text-xs"
+            >
+              <span className="text-ink-muted">{s.label}</span>
+              <Key>{s.key}</Key>
             </div>
-            <button onClick={onClose} className="text-ink-muted hover:text-ink">
-              <Icon name="close" size={18} />
-            </button>
-          </div>
-          <div className="space-y-2">
-            {shortcuts.map((s) => (
-              <div
-                key={s.key}
-                className="flex items-center justify-between p-2 rounded-btn bg-surface-2/60 text-xs"
-              >
-                <span className="text-ink-muted">{s.label}</span>
-                <Key>{s.key}</Key>
-              </div>
-            ))}
-          </div>
-          <div className="mt-5 pt-3 border-t border-line flex justify-end">
-            <Button variant="secondary" size="sm" onClick={onClose}>
-              Close
-            </Button>
-          </div>
-        </Card>
-      </div>
-    </>
+          ))}
+        </div>
+        <div className="mt-5 pt-3 border-t border-line flex justify-end">
+          <Button variant="secondary" size="sm" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -3547,68 +3611,64 @@ function GeminiKeyModal({
 }) {
 
   return (
-    <>
-      <div
-        className="fixed inset-0 z-50 bg-[var(--scrim)] backdrop-blur-sm animate-fade-in"
-        onClick={onClose}
-      />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <Card className="pointer-events-auto w-full max-w-md p-6 bg-surface border border-line shadow-[var(--shadow-2)] space-y-4 animate-scale-in">
-          <div className="flex items-center justify-between pb-3 border-b border-line">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-success/10 border border-success/20 flex items-center justify-center text-success">
-                <Icon name="auto_awesome" size={18} />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-ink">AI Live Captions & Speech Sync</h3>
-                <p className="text-[11.5px] text-ink-muted">Automatic Free Mode & Google Gemini Multimodal</p>
-              </div>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent size="sm" hideClose className="space-y-4 p-6">
+        <div className="flex items-center justify-between pb-3 border-b border-line">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-success/10 border border-success/20 flex items-center justify-center text-success">
+              <Icon name="auto_awesome" size={18} />
             </div>
-            <IconButton name="close" label="Close" onClick={onClose} />
-          </div>
-
-          {/* Instant Free Automatic Mode */}
-          <div className="rounded-btn bg-success/10 border border-success/20 p-3.5 flex items-center justify-between">
-            <div className="min-w-0 pr-3">
-              <p className="text-[12.5px] font-bold text-ink flex items-center gap-1.5 text-success">
-                <Icon name="bolt" size={15} />
-                Instant Free Mode (No Key Needed)
-              </p>
-              <p className="text-[11.5px] text-ink-muted mt-0.5 leading-snug">
-                Generate synchronized kinetic captions for this video instantly with zero setup or API key.
-              </p>
+            <div>
+              <DialogTitle className="text-sm font-bold text-ink">AI Live Captions & Speech Sync</DialogTitle>
+              <p className="text-[11.5px] text-ink-muted">Auto-Sync needs no key; word-accurate timing runs on the studio engine</p>
             </div>
-            <Button
-              size="sm"
-              type="button"
-              className="bg-success hover:bg-success/90 text-on-primary shrink-0"
-              onClick={async () => {
-                onAutoGenerate?.();
-              }}
-            >
-              Auto-Sync
-            </Button>
           </div>
+          <DialogClose aria-label="Close" className="kt-focus text-ink-muted hover:text-ink">
+            <Icon name="close" size={18} />
+          </DialogClose>
+        </div>
 
-          <div className="rounded-btn border border-line bg-surface-2 p-3.5">
-            <p className="text-[12.5px] font-bold text-ink flex items-center gap-1.5 mb-1">
-              <Icon name="lock" size={15} />
-              Word-accurate timing runs on the studio's own engine
+        {/* Instant Free Automatic Mode */}
+        <div className="rounded-btn bg-success/10 border border-success/20 p-3.5 flex items-center justify-between">
+          <div className="min-w-0 pr-3">
+            <p className="text-[12.5px] font-bold text-ink flex items-center gap-1.5 text-success">
+              <Icon name="bolt" size={15} />
+              Instant Free Mode (No Key Needed)
             </p>
-            <p className="text-[11.5px] text-ink-muted leading-snug">
-              The model key belongs to the deployment, so it is never kept on this device and never
-              travels with your clips. Whoever runs this workspace sets it once; until then Auto-Sync
-              times the captions from the speech cadence you can edit by hand.
+            <p className="text-[11.5px] text-ink-muted mt-0.5 leading-snug">
+              Generate synchronized kinetic captions for this video instantly with zero setup or API key.
             </p>
           </div>
+          <Button
+            size="sm"
+            type="button"
+            className="bg-success hover:bg-success/90 text-on-primary shrink-0"
+            onClick={async () => {
+              onAutoGenerate?.();
+            }}
+          >
+            Auto-Sync
+          </Button>
+        </div>
 
-          <div className="flex items-center justify-end pt-1 border-t border-line">
-            <Button variant="ghost" onClick={onClose} type="button">
-              Close
-            </Button>
-          </div>
-        </Card>
-      </div>
-    </>
+        <div className="rounded-btn border border-line bg-surface-2 p-3.5">
+          <p className="text-[12.5px] font-bold text-ink flex items-center gap-1.5 mb-1">
+            <Icon name="lock" size={15} />
+            Word-accurate timing runs on the studio's own engine
+          </p>
+          <p className="text-[11.5px] text-ink-muted leading-snug">
+            The model key belongs to the deployment, so it is never kept on this device and never
+            travels with your clips. Whoever runs this workspace sets it once; until then Auto-Sync
+            times the captions from the speech cadence you can edit by hand.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-end pt-1 border-t border-line">
+          <Button variant="ghost" onClick={onClose} type="button">
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

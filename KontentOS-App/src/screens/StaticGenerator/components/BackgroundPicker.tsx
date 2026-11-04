@@ -4,8 +4,10 @@ import { BackgroundPreset } from '../../../types/staticCard';
 import { CURATED_STOCK_PHOTOS } from '../../../data/curatedStockPhotos';
 import { Icon } from '@/lib/icons';
 import { Button } from '@/components/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStore } from '@/lib/store';
 import { getSafeImageUrl } from '@/lib/images';
+import { Tooltip } from '@/components/ui/tooltip';
 
 interface Props {
   currentUrl: string;
@@ -164,63 +166,55 @@ export const BackgroundPicker: React.FC<Props> = ({
     }));
 
   return (
-    <div className="space-y-3">
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => setActiveTab(v as typeof activeTab)}
+      className="space-y-3"
+    >
       <div className="flex items-center justify-between">
         <label className="text-[13px] font-semibold text-ink flex items-center gap-1.5">
           <Icon name="image" size={16} className="text-primary" />
           <span>Background Photo & Atmosphere</span>
         </label>
-        <div className="flex items-center gap-1 bg-surface-2 p-0.5 rounded-btn border border-line text-xs">
-          <button
-            type="button"
-            onClick={() => setActiveTab('stock')}
-            className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer flex items-center gap-1 ${
-              activeTab === 'stock'
-                ? 'bg-primary text-on-primary shadow-sm'
-                : 'text-ink-muted hover:text-ink'
-            }`}
+        <TabsList
+          variant="pill"
+          aria-label="Background source"
+          className="gap-1 rounded-btn border border-line bg-surface-2 p-0.5 text-xs"
+        >
+          <TabsTrigger
+            variant="pill"
+            value="stock"
+            className="gap-1 rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:shadow-sm data-[state=active]:text-on-primary"
           >
             <Icon name="search" size={13} />
             <span>Search Stock</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('presets')}
-            className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-              activeTab === 'presets'
-                ? 'bg-primary text-on-primary shadow-sm'
-                : 'text-ink-muted hover:text-ink'
-            }`}
+          </TabsTrigger>
+          <TabsTrigger
+            variant="pill"
+            value="presets"
+            className="rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:shadow-sm data-[state=active]:text-on-primary"
           >
             Presets
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('storage')}
-            className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-              activeTab === 'storage'
-                ? 'bg-primary text-on-primary shadow-sm'
-                : 'text-ink-muted hover:text-ink'
-            }`}
+          </TabsTrigger>
+          <TabsTrigger
+            variant="pill"
+            value="storage"
+            className="rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:shadow-sm data-[state=active]:text-on-primary"
           >
             Upload
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('library')}
-            className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-              activeTab === 'library'
-                ? 'bg-primary text-on-primary shadow-sm'
-                : 'text-ink-muted hover:text-ink'
-            }`}
+          </TabsTrigger>
+          <TabsTrigger
+            variant="pill"
+            value="library"
+            className="rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:shadow-sm data-[state=active]:text-on-primary"
           >
             Studio Media
-          </button>
-        </div>
+          </TabsTrigger>
+        </TabsList>
       </div>
 
       {/* Tab 0: In-App Stock Photography Search (Task 2.2.2) */}
-      {activeTab === 'stock' && (
+      <TabsContent value="stock" className="mt-0">
         <div className="space-y-3">
           {/* Search Input Form */}
           <form onSubmit={handleStockSearchSubmit} className="flex gap-1.5">
@@ -305,41 +299,41 @@ export const BackgroundPicker: React.FC<Props> = ({
                 const thumbSrc = photo.thumbUrl || photo.previewUrl || photo.url;
 
                 return (
-                  <button
-                    key={photo.id}
-                    type="button"
-                    onClick={() => handleSelectStock(photo)}
-                    className={`relative aspect-square rounded-btn overflow-hidden border transition-all cursor-pointer group text-left bg-surface-2 ${
-                      isSelected
-                        ? 'ring-2 ring-primary border-primary shadow-md'
-                        : 'border-line hover:border-line-strong hover:shadow-sm'
-                    }`}
-                    title={photo.description ? `${photo.description} (by ${photo.photographer?.name})` : `Photo by ${photo.photographer?.name}`}
-                  >
-                    <img
-                      src={thumbSrc}
-                      alt={photo.description || `Photo by ${photo.photographer?.name}`}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                      loading="lazy"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        if (photo.url && target.src !== photo.url) {
-                          target.src = photo.url;
-                        }
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-1.5 pointer-events-none">
-                      <span className="text-[10px] text-white/90 font-medium truncate leading-tight flex items-center gap-1">
-                        <Icon name="photo_camera" size={11} className="shrink-0 opacity-75" />
-                        <span className="truncate">{photo.photographer?.name}</span>
-                      </span>
-                    </div>
-                    {isSelected && (
-                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-primary text-on-primary flex items-center justify-center shadow z-10">
-                        <Icon name="check" size={12} />
+                  <Tooltip key={photo.id} content={photo.description ? `${photo.description} (by ${photo.photographer?.name})` : `Photo by ${photo.photographer?.name}`}>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectStock(photo)}
+                      className={`relative aspect-square rounded-btn overflow-hidden border transition-all cursor-pointer group text-left bg-surface-2 ${
+                        isSelected
+                          ? 'ring-2 ring-primary border-primary shadow-md'
+                          : 'border-line hover:border-line-strong hover:shadow-sm'
+                      }`}
+                    >
+                      <img
+                        src={thumbSrc}
+                        alt={photo.description || `Photo by ${photo.photographer?.name}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        loading="lazy"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (photo.url && target.src !== photo.url) {
+                            target.src = photo.url;
+                          }
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-1.5 pointer-events-none">
+                        <span className="text-[10px] text-white/90 font-medium truncate leading-tight flex items-center gap-1">
+                          <Icon name="photo_camera" size={11} className="shrink-0 opacity-75" />
+                          <span className="truncate">{photo.photographer?.name}</span>
+                        </span>
                       </div>
-                    )}
-                  </button>
+                      {isSelected && (
+                        <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-primary text-on-primary flex items-center justify-center shadow z-10">
+                          <Icon name="check" size={12} />
+                        </div>
+                      )}
+                    </button>
+                  </Tooltip>
                 );
               })}
             </div>
@@ -358,10 +352,10 @@ export const BackgroundPicker: React.FC<Props> = ({
             )}
           </div>
         </div>
-      )}
+      </TabsContent>
 
       {/* Tab 1: Storage / Local Device Upload */}
-      {activeTab === 'storage' && (
+      <TabsContent value="storage" className="mt-0">
         <div className="space-y-2.5">
           <input
             ref={fileInputRef}
@@ -413,10 +407,10 @@ export const BackgroundPicker: React.FC<Props> = ({
             </Button>
           </div>
         </div>
-      )}
+      </TabsContent>
 
       {/* Tab 2: Studio Library Media */}
-      {activeTab === 'library' && (
+      <TabsContent value="library" className="mt-0">
         <div className="space-y-2">
           {libraryAssets.length === 0 ? (
             <div className="p-4 rounded-card bg-surface-2/60 border border-line text-center text-xs text-ink-muted">
@@ -450,10 +444,10 @@ export const BackgroundPicker: React.FC<Props> = ({
             </div>
           )}
         </div>
-      )}
+      </TabsContent>
 
       {/* Tab 3: Preset Grid */}
-      {activeTab === 'presets' && (
+      <TabsContent value="presets" className="mt-0">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {BACKGROUND_PRESETS.map((preset) => {
             const isSelected =
@@ -470,7 +464,6 @@ export const BackgroundPicker: React.FC<Props> = ({
                     ? 'ring-2 ring-primary border-primary shadow-md'
                     : 'border-line hover:border-line-strong hover:shadow-sm'
                 }`}
-                title={`${preset.name} - ${preset.subtitle}`}
               >
                 {preset.url ? (
                   <img
@@ -506,7 +499,7 @@ export const BackgroundPicker: React.FC<Props> = ({
             );
           })}
         </div>
-      )}
+      </TabsContent>
 
       {/* Sliders: Dimming & Blur */}
       <div className="pt-1 grid grid-cols-2 gap-3 bg-surface-2/60 p-3 rounded-card border border-line">
@@ -542,6 +535,6 @@ export const BackgroundPicker: React.FC<Props> = ({
           />
         </div>
       </div>
-    </div>
+    </Tabs>
   );
 };

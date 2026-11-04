@@ -16,7 +16,7 @@ interface FormatOption {
 const FORMAT_OPTIONS: FormatOption[] = [
   { id: 'instagram-overlay', label: 'Instagram Overlay', iconName: 'photo_camera' },
   { id: 'linkedin-split', label: 'LinkedIn Split', iconName: 'view_column' },
-  { id: 'tweet-card', label: '𝕏 Tweet Card', iconName: 'tag' },
+  { id: 'tweet-card', label: 'Tweet Card', iconName: 'tag' },
   { id: 'carousel-slide', label: 'Carousel Slide', iconName: 'view_carousel' },
   { id: 'editorial-quote', label: 'Editorial Quote', iconName: 'format_quote' },
 ];

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, useDismiss } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { platformSpec } from '@/lib/platforms';
 import type { ScheduledPost } from '@/lib/types';
 
@@ -18,7 +19,6 @@ export function MarkPostedDialog({
   onClose: () => void;
   onConfirm: (id: string, postUrl: string) => Promise<void> | void;
 }) {
-  useDismiss(post ? onClose : undefined);
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +30,6 @@ export function MarkPostedDialog({
     if (post) {
       setUrl(post.post_url || '');
       setError('');
-      inputRef.current?.focus();
     }
   }, [post]);
 
@@ -51,19 +50,23 @@ export function MarkPostedDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur-sm animate-fade-in"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Mark ${post.video_title || 'this post'} as posted`}
-    >
-      <div className="w-full max-w-[440px] bg-surface rounded-card border border-line shadow-xl overflow-hidden animate-scale-up">
+    <Dialog open={!!post} onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
+      <DialogContent
+        size="sm"
+        hideClose
+        className="gap-0 overflow-hidden p-0"
+        /* The link field is the task; Radix would otherwise land the caret on the close button. */
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          inputRef.current?.focus();
+        }}
+      >
         <div className="flex items-start justify-between gap-3 border-b border-line bg-surface-2/40 px-5 py-4">
           <div className="min-w-0">
             <span className="kt-eyebrow block">Out · Ledger</span>
-            <h3 className="mt-1 truncate font-semibold text-ink text-[15px]">
+            <DialogTitle className="mt-1 truncate font-semibold text-ink text-[15px]">
               {post.video_title || 'Untitled post'}
-            </h3>
+            </DialogTitle>
             <p className="mt-0.5 text-[12px] text-ink-muted">
               {spec.label} ·{' '}
               {new Date(post.scheduled_at).toLocaleString([], {
@@ -74,9 +77,9 @@ export function MarkPostedDialog({
               })}
             </p>
           </div>
-          <button onClick={onClose} className="shrink-0 text-ink-dim hover:text-ink kt-focus" aria-label="Close">
+          <DialogClose className="shrink-0 text-ink-dim hover:text-ink kt-focus" aria-label="Close">
             <Icon name="close" size={18} />
-          </button>
+          </DialogClose>
         </div>
 
         <div className="space-y-3 px-5 py-4">
@@ -133,7 +136,7 @@ export function MarkPostedDialog({
             Save link and mark posted
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

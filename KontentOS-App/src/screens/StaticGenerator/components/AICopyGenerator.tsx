@@ -47,7 +47,7 @@ export const AICopyGenerator: React.FC<Props> = ({ format, onGenerated, onDeckGe
         setSuccessNotice(
           result.fallback
             ? 'No engine answered — that is the card skeleton, not generated copy. Every bracket is yours.'
-            : '✓ Fresh copy synthesized with Gemini AI!'
+            : 'Fresh copy synthesized with Gemini AI!'
         );
         setTimeout(() => setSuccessNotice(null), 3500);
       } else {
@@ -85,7 +85,7 @@ export const AICopyGenerator: React.FC<Props> = ({ format, onGenerated, onDeckGe
           slides: result.slides,
           socialCaption: result.socialCaption || '',
         });
-        setSuccessNotice(`✓ Full ${result.slides.length}-slide carousel synthesized & loaded into Stepper!`);
+        setSuccessNotice(`Full ${result.slides.length}-slide carousel synthesized & loaded into Stepper!`);
         setTimeout(() => setSuccessNotice(null), 4000);
       } else {
         throw new Error('Failed to generate carousel deck from AI engine.');
@@ -218,7 +218,7 @@ export const AICopyGenerator: React.FC<Props> = ({ format, onGenerated, onDeckGe
                   <span>Synthesizing {slideCount}-Slide Narrative Arc...</span>
                 </>
               ) : (
-                <span>✨ Generate Full Carousel Story Deck ({slideCount} Slides)</span>
+                <span>Generate Full Carousel Story Deck ({slideCount} Slides)</span>
               )}
             </Button>
 

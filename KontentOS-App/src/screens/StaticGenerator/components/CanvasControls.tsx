@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui';
 import { Icon } from '@/lib/icons';
+import { Tooltip } from '@/components/ui/tooltip';
 
 interface Props {
   isExporting: boolean;
@@ -204,24 +205,25 @@ const DockButton: React.FC<{
   tone?: 'default' | 'warning';
   onClick?: () => void;
 }> = ({ icon, label, title, active = false, disabled = false, tone = 'default', onClick }) => (
-  <button
-    type="button"
-    title={title || label}
-    disabled={disabled}
-    onClick={onClick}
-    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
-      disabled
-        ? 'text-ink-dim/40 cursor-not-allowed'
-        : tone === 'warning'
-        ? 'bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
-        : active
-        ? 'bg-primary/15 border border-primary/30 text-primary'
-        : 'text-ink-muted hover:bg-surface hover:text-ink'
-    }`}
-  >
-    <Icon name={icon} size={14} />
-    <span>{label}</span>
-  </button>
+  <Tooltip content={title || label}>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
+        disabled
+          ? 'text-ink-dim/40 cursor-not-allowed'
+          : tone === 'warning'
+          ? 'bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
+          : active
+          ? 'bg-primary/15 border border-primary/30 text-primary'
+          : 'text-ink-muted hover:bg-surface hover:text-ink'
+      }`}
+    >
+      <Icon name={icon} size={14} />
+      <span>{label}</span>
+    </button>
+  </Tooltip>
 );
 
 const DockIcon: React.FC<{
@@ -230,19 +232,21 @@ const DockIcon: React.FC<{
   disabled?: boolean;
   onClick?: () => void;
 }> = ({ icon, title, disabled = false, onClick }) => (
-  <button
-    type="button"
-    title={title}
-    disabled={disabled}
-    onClick={onClick}
-    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
-      disabled
-        ? 'text-ink-dim/40 cursor-not-allowed'
-        : 'text-ink-muted hover:bg-surface hover:text-ink'
-    }`}
-  >
-    <Icon name={icon} size={15} />
-  </button>
+  <Tooltip content={title}>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={title}
+      className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+        disabled
+          ? 'text-ink-dim/40 cursor-not-allowed'
+          : 'text-ink-muted hover:bg-surface hover:text-ink'
+      }`}
+    >
+      <Icon name={icon} size={15} />
+    </button>
+  </Tooltip>
 );
 
 const DockDivider: React.FC = () => <span className="w-px h-5 bg-line mx-0.5" />;

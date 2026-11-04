@@ -30,7 +30,7 @@ export const SafeZoneOverlay: React.FC<Props> = ({ aspectRatio }) => {
 
             <div className="absolute top-2 right-3">
               <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-primary bg-black/70 px-2 py-0.5 rounded-full border border-primary/40 shadow-sm">
-                ✓ IG Feed 1:1 Safe Zone
+                IG Feed 1:1 Safe Zone
               </span>
             </div>
           </div>

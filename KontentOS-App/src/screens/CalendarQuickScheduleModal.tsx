@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, Badge, useDismiss } from '@/components/ui';
+import { Button, Card, Eyebrow, Badge } from '@/components/ui';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useStore } from '@/lib/store';
 import type { SocialPlatform } from '@/lib/types';
 
@@ -27,7 +28,6 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
   defaultDate,
   onEventCreated,
 }) => {
-  useDismiss(isOpen ? onClose : undefined);
   const { schedulePost } = useStore();
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
@@ -147,17 +147,8 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur-sm animate-in duration-200"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="calendar-modal-title"
-    >
-      <div
-        className="w-full max-w-lg bg-surface border border-line rounded-card shadow-[var(--shadow-2)] overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent size="md" hideClose className="flex flex-col gap-0 overflow-hidden p-0">
         {/* Header */}
         <div className="p-5 border-b border-line bg-surface/90 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -165,21 +156,20 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
               <Icon name="event_available" size={22} />
             </div>
             <div>
-              <h2 id="calendar-modal-title" className="text-base font-bold text-ink">
+              <DialogTitle className="text-base font-bold text-ink">
                 Schedule Calendar Drop
-              </h2>
+              </DialogTitle>
               <p className="text-xs text-ink-muted">
                 Add a scheduled post directly to this calendar date
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors cursor-pointer"
+          <DialogClose
+            aria-label="Close schedule dialog"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors kt-focus"
           >
             <Icon name="close" size={18} />
-          </button>
+          </DialogClose>
         </div>
 
         {/* Form Body */}
@@ -375,7 +365,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

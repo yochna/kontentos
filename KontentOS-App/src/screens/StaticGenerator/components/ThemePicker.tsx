@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { THEME_CONFIGS, getActiveTheme } from '../../../data/staticCardPresets';
 import { ColorTheme, FontStyle, CardMode } from '../../../types/staticCard';
 import { Icon } from '@/lib/icons';
+import { Tooltip } from '@/components/ui/tooltip';
 import { TypographyPicker } from './TypographyPicker';
 
 interface Props {
@@ -70,7 +71,7 @@ export const ThemePicker: React.FC<Props> = ({
                   : 'text-ink-muted hover:text-ink'
               }`}
             >
-              <span>🌙 Dark</span>
+              <span className="flex items-center gap-1"><Icon name="dark_mode" size={14} /> Dark</span>
             </button>
             <button
               type="button"
@@ -86,7 +87,7 @@ export const ThemePicker: React.FC<Props> = ({
                   : 'text-ink-muted hover:text-ink'
               }`}
             >
-              <span>☀️ Light</span>
+              <span className="flex items-center gap-1"><Icon name="light_mode" size={14} /> Light</span>
             </button>
           </div>
         )}
@@ -140,34 +141,34 @@ export const ThemePicker: React.FC<Props> = ({
           {filteredThemes.map((t) => {
             const isSelected = currentTheme === t.id;
             return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => onSelectTheme(t.id as ColorTheme)}
-                title={t.description || t.name}
-                className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-primary text-on-primary border-primary shadow-[var(--shadow-1)] ring-1 ring-primary/40 font-bold'
-                    : 'bg-surface hover:bg-surface-2 text-ink border-line hover:border-line-strong'
-                }`}
-              >
-                {/* Mini Color Swatch with Backdrop & Accent Core */}
-                <span
-                  className="relative w-3.5 h-3.5 rounded-full border border-white/20 shadow-inner flex items-center justify-center overflow-hidden"
-                  style={{ backgroundColor: t.cardBg }}
+              <Tooltip key={t.id} content={t.description || t.name}>
+                <button
+                  type="button"
+                  onClick={() => onSelectTheme(t.id as ColorTheme)}
+                  className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-primary text-on-primary border-primary shadow-[var(--shadow-1)] ring-1 ring-primary/40 font-bold'
+                      : 'bg-surface hover:bg-surface-2 text-ink border-line hover:border-line-strong'
+                  }`}
                 >
+                  {/* Mini Color Swatch with Backdrop & Accent Core */}
                   <span
-                    className="w-1.5 h-1.5 rounded-full shadow-xs"
-                    style={{ backgroundColor: t.accent }}
-                  />
-                </span>
-                <span>{t.name}</span>
-                {t.collection === 'craft' && !isSelected && (
-                  <span className="text-[9px] text-primary font-bold px-1 py-0.2 bg-primary/10 rounded-full">
-                    Craft
+                    className="relative w-3.5 h-3.5 rounded-full border border-white/20 shadow-inner flex items-center justify-center overflow-hidden"
+                    style={{ backgroundColor: t.cardBg }}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shadow-xs"
+                      style={{ backgroundColor: t.accent }}
+                    />
                   </span>
-                )}
-              </button>
+                  <span>{t.name}</span>
+                  {t.collection === 'craft' && !isSelected && (
+                    <span className="text-[9px] text-primary font-bold px-1 py-0.2 bg-primary/10 rounded-full">
+                      Craft
+                    </span>
+                  )}
+                </button>
+              </Tooltip>
             );
           })}
         </div>
@@ -199,18 +200,18 @@ export const ThemePicker: React.FC<Props> = ({
             {POPULAR_ACCENTS.map((swatch) => {
               const isActive = customAccent === swatch.hex;
               return (
-                <button
-                  key={swatch.hex}
-                  type="button"
-                  onClick={() => onSelectCustomAccent(swatch.hex)}
-                  title={swatch.label}
-                  className={`w-6 h-6 rounded-full border transition-all cursor-pointer flex items-center justify-center ${
-                    isActive ? 'ring-2 ring-primary ring-offset-2 scale-110' : 'border-white/20 hover:scale-105'
-                  }`}
-                  style={{ backgroundColor: swatch.hex }}
-                >
-                  {isActive && <span className="text-[10px] text-black font-bold">✓</span>}
-                </button>
+                <Tooltip key={swatch.hex} content={swatch.label}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectCustomAccent(swatch.hex)}
+                    className={`w-6 h-6 rounded-full border transition-all cursor-pointer flex items-center justify-center ${
+                      isActive ? 'ring-2 ring-primary ring-offset-2 scale-110' : 'border-white/20 hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: swatch.hex }}
+                  >
+                    {isActive && <span className="text-[10px] text-black font-bold"><Icon name="check" size={11} className="text-black" /></span>}
+                  </button>
+                </Tooltip>
               );
             })}
 

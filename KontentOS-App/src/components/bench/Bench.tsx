@@ -6,6 +6,7 @@ import { lastStation, rememberStation, selectCut, useSelectedCutId } from '@/lib
 import { useStore } from '@/lib/store';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui';
+import { notify } from '@/components/ui/toast';
 import type { Theme } from '@/lib/theme';
 import { Spine } from './Spine';
 import { CutRail } from './CutRail';
@@ -111,6 +112,16 @@ export function Bench({
   }, [notice]);
 
   /**
+   * One message, two places: the toast is where the app says everything else, and the dock's LED
+   * keeps the last thing that went wrong readable after the toast has gone.
+   */
+  const flag = useCallback((message: string, kind: 'bad' | 'info' = 'bad') => {
+    setNotice(message);
+    if (kind === 'bad') notify.bad(message);
+    else notify.info(message);
+  }, []);
+
+  /**
    * Hopping to a clip-shaped station hands it the lit cut, so the rail stays the one place a
    * creator says which cut is being worked on.
    */
@@ -135,24 +146,24 @@ export function Bench({
         selectCut(video.id);
         goTo('raw-reel', { videoId: video.id });
       } else {
-        setNotice('Intake failed — the file never reached the workspace.');
+        flag('Intake failed — the file never reached the workspace.');
       }
     },
-    [store, goTo]
+    [store, goTo, flag]
   );
 
   const dropFiles = useCallback(
     (files: File[]) => {
       const clips = files.filter((f) => f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(f.name));
       if (!clips.length) {
-        setNotice('That is not footage — the bench only takes video files.');
+        flag('That is not footage — the bench only takes video files.');
         return;
       }
       // Five at once is already a shoot day; more than that would flood the upload queue.
       clips.slice(0, 5).forEach(intake);
-      if (clips.length > 5) setNotice(`Intaking the first 5 of ${clips.length} files.`);
+      if (clips.length > 5) flag(`Intaking the first 5 of ${clips.length} files.`, 'info');
     },
-    [intake]
+    [intake, flag]
   );
 
   const signOut = useCallback(async () => {
@@ -224,15 +235,6 @@ export function Bench({
                 </div>
               </Suspense>
             </div>
-
-            {notice && (
-              <div className="pointer-events-none absolute bottom-3 left-1/2 z-30 -translate-x-1/2">
-                <div className="kt-shake pointer-events-auto flex items-center gap-2 rounded-[6px] border border-danger/40 bg-surface px-3 py-2 shadow-[var(--shadow-2)]">
-                  <Icon name="error" size={15} className="shrink-0 text-danger" />
-                  <span className="text-[12px] text-ink">{notice}</span>
-                </div>
-              </div>
-            )}
           </main>
 
           <Inspector

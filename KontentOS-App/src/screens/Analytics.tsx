@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { AnimatedNumber, Button, Card, PageHeader, PageShell, Progress, Reveal, StatusPill, Thumb } from '@/components/ui';
+import { notify } from '@/components/ui/toast';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useStore } from '@/lib/store';
 import { navigate, type ScreenId } from '@/lib/nav';
 import type { ScheduledPost, SocialPlatform } from '@/lib/types';
@@ -66,7 +68,6 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 export default function Analytics() {
   const { videos, scheduled, history, user, loading } = useStore();
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
-  const [exportNotice, setExportNotice] = useState<string | null>(null);
 
   const range = useMemo(() => {
     const days = RANGE_DAYS[timeRange];
@@ -354,21 +355,13 @@ export default function Analytics() {
     a.download = `KontentOS_Activity_${timeRange}_${Date.now()}.md`;
     a.click();
     URL.revokeObjectURL(url);
-    setExportNotice('Activity report exported.');
-    setTimeout(() => setExportNotice(null), 3000);
+    notify.ok('Activity report exported.');
   };
 
   const isEmptyAccount = videos.length === 0 && scheduled.length === 0 && history.length === 0;
 
   return (
     <PageShell className="animate-fade-in">
-      {exportNotice && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-[calc(100vw-3rem)] bg-ink text-surface px-4 py-2.5 rounded-btn shadow-lg text-[13px] font-medium flex items-center gap-2 animate-scale-up">
-          <Icon name="check_circle" size={16} className="text-success" />
-          {exportNotice}
-        </div>
-      )}
-
       <PageHeader
         eyebrow="Read · Pulse"
         icon="equalizer"
@@ -376,20 +369,25 @@ export default function Analytics() {
         description="Everything on this page is counted from your own workspace — uploads, captions, schedules and publish records. No platform metrics are connected yet."
         actions={
           <>
-            <div className="flex items-center rounded-btn border border-line bg-surface p-1 shadow-xs">
-              {(['7d', '30d', '90d', 'all'] as TimeRange[]).map((t) => (
-                <button
-                  type="button"
-                  key={t}
-                  onClick={() => setTimeRange(t)}
-                  className={`px-3 py-1 text-[12px] font-semibold rounded-btn transition-colors ${
-                    timeRange === t ? 'bg-primary text-on-primary shadow-xs' : 'text-ink-muted hover:text-ink'
-                  }`}
-                >
-                  {t === '7d' ? '7 Days' : t === '30d' ? '30 Days' : t === '90d' ? '90 Days' : 'All Time'}
-                </button>
+            <ToggleGroup
+              variant="solid"
+              aria-label="Report time range"
+              value={timeRange}
+              onValueChange={(v) => v && setTimeRange(v as TimeRange)}
+            >
+              {(
+                [
+                  ['7d', '7 Days'],
+                  ['30d', '30 Days'],
+                  ['90d', '90 Days'],
+                  ['all', 'All Time'],
+                ] as [TimeRange, string][]
+              ).map(([t, label]) => (
+                <ToggleGroupItem variant="solid" key={t} value={t}>
+                  {label}
+                </ToggleGroupItem>
               ))}
-            </div>
+            </ToggleGroup>
 
             <Button variant="secondary" icon="download" onClick={handleExportData} disabled={isEmptyAccount}>
               Export Report

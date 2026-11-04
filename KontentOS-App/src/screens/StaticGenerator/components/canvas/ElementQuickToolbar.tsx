@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Icon } from '@/lib/icons';
+import { Tooltip } from '@/components/ui/tooltip';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 
 interface Props {
@@ -165,14 +166,14 @@ export const ElementQuickToolbar: React.FC<Props> = ({ rect }) => {
         {showColors && (
           <div className="absolute top-9 left-1/2 -translate-x-1/2 grid grid-cols-5 gap-1.5 p-2 rounded-lg bg-slate-900 border border-white/20 shadow-2xl z-[80]">
             {COLORS.map((color) => (
-              <button
-                key={color}
-                type="button"
-                onClick={() => applyColor(color)}
-                className="w-5 h-5 rounded border border-white/25 hover:scale-110 transition-transform"
-                style={{ background: color }}
-                title={color}
-              />
+              <Tooltip key={color} content={color} delay={0}>
+                <button
+                  type="button"
+                  onClick={() => applyColor(color)}
+                  className="w-5 h-5 rounded border border-white/25 hover:scale-110 transition-transform"
+                  style={{ background: color }}
+                />
+              </Tooltip>
             ))}
             <input
               type="color"
@@ -283,20 +284,22 @@ const ToolButton: React.FC<{
   active?: boolean;
   danger?: boolean;
 }> = ({ icon, title, onClick, active = false, danger = false }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    title={title}
-    className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-      danger
-        ? 'text-rose-300 hover:bg-rose-500/20'
-        : active
-        ? 'bg-cyan-500/25 text-cyan-200'
-        : 'text-slate-200 hover:bg-white/10'
-    }`}
-  >
-    <Icon name={icon} size={14} />
-  </button>
+  <Tooltip content={title}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={title}
+      className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
+        danger
+          ? 'text-rose-300 hover:bg-rose-500/20'
+          : active
+          ? 'bg-cyan-500/25 text-cyan-200'
+          : 'text-slate-200 hover:bg-white/10'
+      }`}
+    >
+      <Icon name={icon} size={14} />
+    </button>
+  </Tooltip>
 );
 
 export default ElementQuickToolbar;

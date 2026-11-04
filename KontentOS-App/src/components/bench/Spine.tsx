@@ -1,4 +1,5 @@
 import { Icon } from '@/lib/icons';
+import { Tooltip } from '@/components/ui/tooltip';
 import { PHASES, STATION_BY_ID, UTILITY_STATIONS, type StationId } from '@/lib/bench';
 import { useDisplayProfile } from '@/lib/store';
 
@@ -40,17 +41,18 @@ export function Spine({
         {UTILITY_STATIONS.map((s) => (
           <StationKey key={s.id} id={s.id} active={station === s.id} onStation={onStation} />
         ))}
-        <button
-          type="button"
-          onClick={() => onStation('settings')}
-          title={profile.name}
-          aria-label={`Room settings for ${profile.name}`}
-          className="mt-1 grid h-9 w-full place-items-center kt-focus"
-        >
-          <span className="grid h-7 w-7 place-items-center rounded-full border border-line-strong bg-surface-3 font-display text-[12px] font-bold text-ink-muted">
-            {profile.initials || '·'}
-          </span>
-        </button>
+        <Tooltip content={profile.name} side="right">
+          <button
+            type="button"
+            onClick={() => onStation('settings')}
+            aria-label={`Room settings for ${profile.name}`}
+            className="mt-1 grid h-9 w-full place-items-center kt-focus"
+          >
+            <span className="grid h-7 w-7 place-items-center rounded-full border border-line-strong bg-surface-3 font-display text-[12px] font-bold text-ink-muted">
+              {profile.initials || '·'}
+            </span>
+          </button>
+        </Tooltip>
       </div>
     </aside>
   );
@@ -67,18 +69,27 @@ function StationKey({
 }) {
   const meta = STATION_BY_ID[id];
   return (
-    <button
-      type="button"
-      onClick={() => onStation(id)}
-      data-active={active}
-      title={`${meta.label} — ${meta.hint}`}
-      aria-current={active ? 'page' : undefined}
-      className={`kt-key flex h-[54px] w-full flex-col items-center justify-center gap-1 pl-[2px] kt-focus ${
-        active ? 'bg-surface-2 text-ink' : 'text-ink-dim hover:bg-surface-2/60 hover:text-ink-muted'
-      }`}
+    <Tooltip
+      content={
+        <>
+          <span className="font-semibold">{meta.label}</span>
+          <span className="text-ink-muted"> — {meta.hint}</span>
+        </>
+      }
+      side="right"
     >
-      <Icon name={meta.icon} size={19} weight={active ? 600 : 400} fill={active ? 1 : 0} />
-      <span className="font-mono text-[9px] uppercase tracking-[0.12em]">{meta.label}</span>
-    </button>
+      <button
+        type="button"
+        onClick={() => onStation(id)}
+        data-active={active}
+        aria-current={active ? 'page' : undefined}
+        className={`kt-key flex h-[54px] w-full flex-col items-center justify-center gap-1 pl-[2px] kt-focus ${
+          active ? 'bg-surface-2 text-ink' : 'text-ink-dim hover:bg-surface-2/60 hover:text-ink-muted'
+        }`}
+      >
+        <Icon name={meta.icon} size={19} weight={active ? 600 : 400} fill={active ? 1 : 0} />
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em]">{meta.label}</span>
+      </button>
+    </Tooltip>
   );
 }

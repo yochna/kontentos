@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
+import { Tooltip } from '@/components/ui/tooltip';
 import { escapeHtml, isRichHtml, sanitizeRichText } from '../../utils/richText';
 
 export interface InlineTextStylePatch {
@@ -170,18 +171,18 @@ export const InlineTextEditor: React.FC<Props> = ({
           {showColors && (
             <div className="absolute top-8 left-0 z-[90] grid grid-cols-5 gap-1.5 p-2 rounded-lg bg-slate-900 border border-white/20 shadow-2xl">
               {COLORS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onPointerDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    applyStyle({ color });
-                    setShowColors(false);
-                  }}
-                  className="w-5 h-5 rounded border border-white/25"
-                  style={{ background: color }}
-                  title={color}
-                />
+                <Tooltip key={color} content={color}>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      applyStyle({ color });
+                      setShowColors(false);
+                    }}
+                    className="w-5 h-5 rounded border border-white/25"
+                    style={{ background: color }}
+                  />
+                </Tooltip>
               ))}
               <input
                 type="color"

@@ -1,6 +1,9 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/components/ui';
+import { notify } from '@/components/ui/toast';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { channels as initialChannels } from '@/data/mock';
 import { useStore, useDisplayProfile } from '@/lib/store';
 import { useNavPayload } from '@/lib/nav';
@@ -196,8 +199,15 @@ export default function PublishSchedule() {
   const [slot, setSlot] = useState<string>(() => getFormattedSlotDate(1, 9.25));
   const [busy, setBusy] = useState(false);
   const [generatingCopy, setGeneratingCopy] = useState(false);
-  const [flash, setFlash] = useState<{ tone: 'ok' | 'err'; msg: string } | null>(null);
   const [ledgerPost, setLedgerPost] = useState<ScheduledPost | null>(null);
+
+  /**
+   * The ship station had its own in-page banner with eighteen call sites, its own dismiss button and
+   * its own colours, and it stayed up until someone noticed it. Same two tones now go where every
+   * other answer in the app goes.
+   */
+  const flash = (m: { tone: 'ok' | 'err'; msg: string }) =>
+    m.tone === 'ok' ? notify.ok(m.msg) : notify.bad(m.msg);
 
   // "Edit in Composer" from the Calendar deep-links here with the row to change. The composer
   // otherwise always creates new posts, so that id has to survive until save.
@@ -334,7 +344,6 @@ export default function PublishSchedule() {
   const handleRegenerateCopy = async () => {
     if (!selectedVideo) return;
     setGeneratingCopy(true);
-    setFlash(null);
     try {
       const res = await fetch('/api/caption/generate-all', {
         method: 'POST',
@@ -383,7 +392,7 @@ export default function PublishSchedule() {
             hashtags: data.data.facebook?.hashtags || copyBundle.facebook.hashtags,
           },
         });
-        setFlash({ tone: 'ok', msg: '✓ Gemini AI generated fresh platform-tailored copy for all channels!' });
+        flash({ tone: 'ok', msg: 'Copy rewritten for every selected channel.' });
       } else {
         throw new Error(data?.error || 'AI copy generation failed');
       }
@@ -392,7 +401,9 @@ export default function PublishSchedule() {
       const hook = activeDraft?.idea?.hook;
       const generated = generateMultiPlatformCopy(title, hook);
       setCopyBundle(generated);
-      setFlash({ tone: 'ok', msg: 'Generated fresh multi-platform copy tailored for each destination!' });
+      // Templates, not the engine: saying "AI wrote this" when the model never answered is how
+      // this app lost trust in the first place.
+      flash({ tone: 'ok', msg: 'Filled from the title templates — the engine did not answer.' });
     } finally {
       setGeneratingCopy(false);
     }
@@ -418,13 +429,12 @@ export default function PublishSchedule() {
   };
 
   const handleScheduleDispatch = async (whenIso?: string) => {
-    setFlash(null);
     if (!selectedVideo) {
-      setFlash({ tone: 'err', msg: 'Please select or upload a video clip first.' });
+      flash({ tone: 'err', msg: 'Please select or upload a video clip first.' });
       return;
     }
     if (activeChannels.length === 0) {
-      setFlash({ tone: 'err', msg: 'Select at least one publishing destination.' });
+      flash({ tone: 'err', msg: 'Select at least one publishing destination.' });
       return;
     }
 
@@ -433,7 +443,7 @@ export default function PublishSchedule() {
 
     const breach = findBreach(platforms);
     if (breach) {
-      setFlash({
+      flash({
         tone: 'err',
         msg: `${platformSpec(breach.platform).label} rejects that copy: ${breach.verdict.notes[0]}`,
       });
@@ -451,7 +461,7 @@ export default function PublishSchedule() {
           hashtags: copyBundle.instagram.hashtags,
           scheduledAt: slot ? new Date(slot).toISOString() : undefined,
         });
-        setFlash(
+        flash(
           res.ok
             ? { tone: 'ok', msg: res.message || 'Updated the scheduled post.' }
             : { tone: 'err', msg: res.message || 'Could not update the scheduled post.' },
@@ -473,7 +483,7 @@ export default function PublishSchedule() {
       });
 
       if (!res.ok) {
-        setFlash({ tone: 'err', msg: res.message || 'Scheduling failed.' });
+        flash({ tone: 'err', msg: res.message || 'Scheduling failed.' });
         return;
       }
 
@@ -482,15 +492,15 @@ export default function PublishSchedule() {
       const created = res.posts || [];
       if (whenIso && created.length === 1) {
         setLedgerPost(created[0]);
-        setFlash({ tone: 'ok', msg: 'Queued for right now. Paste its live link to close the record.' });
+        flash({ tone: 'ok', msg: 'Queued for right now. Paste its live link to close the record.' });
       } else {
-        setFlash({
+        flash({
           tone: 'ok',
           msg: `Queued on ${platforms.length} platform${platforms.length > 1 ? 's' : ''}. Post ${platforms.length > 1 ? 'them' : 'it'} yourself, then mark each one posted on the Calendar — KontentOS does not publish for you.`,
         });
       }
     } catch (err: any) {
-      setFlash({ tone: 'err', msg: err?.message || 'Failed to schedule post.' });
+      flash({ tone: 'err', msg: err?.message || 'Failed to schedule post.' });
     } finally {
       setBusy(false);
     }
@@ -499,12 +509,12 @@ export default function PublishSchedule() {
   const openComposers = () => {
     const { platforms } = dispatchPayload();
     if (!platforms.length) {
-      setFlash({ tone: 'err', msg: 'Select at least one publishing destination first.' });
+      flash({ tone: 'err', msg: 'Select at least one publishing destination first.' });
       return;
     }
     const spec = platformSpec(platforms[0]);
     window.open(spec.composerUrl, '_blank', 'noopener,noreferrer');
-    setFlash({
+    flash({
       tone: 'ok',
       msg: `Opened the ${spec.label} composer. Post the clip there, then paste its link back on the Calendar.`,
     });
@@ -516,7 +526,7 @@ export default function PublishSchedule() {
       selectedVideo?.title || activeDraft?.title || 'Reel_Post',
       selectedVideo?.file_url,
     );
-    setFlash({ tone: 'ok', msg: 'Downloaded complete multi-platform manual-assist bundle (.txt)!' });
+    flash({ tone: 'ok', msg: 'Manual-assist bundle downloaded.' });
   };
 
   return (
@@ -538,29 +548,6 @@ export default function PublishSchedule() {
         }
         className="mb-6"
       />
-
-      {/* Flash Alert Message */}
-      {flash && (
-        <div
-          className={`mb-5 flex items-center justify-between rounded-card border px-4 py-3 text-[13.5px] kt-dialog ${
-            flash.tone === 'ok'
-              ? 'border-primary/40 bg-primary-soft text-ink'
-              : 'border-danger/40 bg-danger/10 text-ink'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <Icon
-              name={flash.tone === 'ok' ? 'check_circle' : 'error'}
-              size={18}
-              className={flash.tone === 'ok' ? 'text-primary' : 'text-danger'}
-            />
-            <span>{flash.msg}</span>
-          </div>
-          <button onClick={() => setFlash(null)} className="text-ink-dim hover:text-ink">
-            <Icon name="close" size={16} />
-          </button>
-        </div>
-      )}
 
       {/* Editing an existing Calendar row instead of creating a new dispatch */}
       {editingPost && (
@@ -607,17 +594,28 @@ export default function PublishSchedule() {
                 </div>
               </div>
             ) : (
-              <select
+              <Select
                 value={selectedVideo?.id ?? ''}
-                onChange={(e) => setVideoId(e.target.value)}
-                className="w-full rounded-btn border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary font-medium"
+                onValueChange={setVideoId}
               >
-                {readyVideos.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.title} ({Math.round(v.duration || 0)}s)
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  aria-label="Source composition"
+                  className="bg-surface-2 px-3.5 py-2.5 text-sm font-medium"
+                >
+                  <span className="truncate">
+                    {selectedVideo
+                      ? `${selectedVideo.title} (${Math.round(selectedVideo.duration || 0)}s)`
+                      : 'Choose a clip'}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  {readyVideos.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.title} ({Math.round(v.duration || 0)}s)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </Card>
 
@@ -725,27 +723,33 @@ export default function PublishSchedule() {
             </div>
 
             {/* Platform Sub-Tabs */}
-            <div className="flex rounded-btn bg-surface-2 p-1 border border-line mb-3 overflow-x-auto">
-              {[
-                { id: 'instagram', label: 'Instagram' },
-                { id: 'youtube', label: 'YouTube' },
-                { id: 'tiktok', label: 'TikTok' },
-                { id: 'linkedin', label: 'LinkedIn' },
-                { id: 'x', label: 'X / Thread' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setPreviewPlatform(tab.id as any)}
-                  className={`flex-1 py-1.5 px-3 rounded-btn text-xs font-semibold whitespace-nowrap transition-all ${
-                    previewPlatform === tab.id
-                      ? 'bg-surface text-ink shadow-2xs'
-                      : 'text-ink-muted hover:text-ink'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              value={previewPlatform}
+              onValueChange={(v) => setPreviewPlatform(v as typeof previewPlatform)}
+              className="contents"
+            >
+              <TabsList
+                variant="pill"
+                aria-label="Copy by destination"
+                className="mb-3 overflow-x-auto border border-line bg-surface-2 p-1"
+              >
+                {[
+                  { id: 'instagram', label: 'Instagram' },
+                  { id: 'youtube', label: 'YouTube' },
+                  { id: 'tiktok', label: 'TikTok' },
+                  { id: 'linkedin', label: 'LinkedIn' },
+                  { id: 'x', label: 'X / Thread' },
+                ].map((tab) => (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    variant="pill"
+                    className="px-3 py-1.5 whitespace-nowrap"
+                  >
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
             {/* What the destination will actually accept, measured against the copy in the tab */}
             {(() => {
@@ -804,128 +808,129 @@ export default function PublishSchedule() {
             })()}
 
             {/* Tabbed Content Editors */}
-            {previewPlatform === 'instagram' && (
-              <div className="space-y-3">
-                <textarea
-                  rows={5}
-                  value={copyBundle.instagram.caption}
-                  onChange={(e) =>
-                    setCopyBundle((prev) => ({
-                      ...prev,
-                      instagram: { ...prev.instagram, caption: e.target.value },
-                    }))
-                  }
-                  className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-sans leading-relaxed"
-                />
-                <HashtagEditor
-                  platform="instagram"
-                  tags={copyBundle.instagram.hashtags}
-                  onChange={(hashtags) =>
-                    setCopyBundle((prev) => ({ ...prev, instagram: { ...prev.instagram, hashtags } }))
-                  }
-                />
-              </div>
-            )}
-
-            {previewPlatform === 'youtube' && (
-              <div className="space-y-3">
-                <div>
-                  <label className="kt-eyebrow block mb-1">Shorts Title (Under 60 chars)</label>
-                  <input
-                    type="text"
-                    value={copyBundle.youtube.title}
+              <TabsContent value="instagram" className="mt-0">
+                <div className="space-y-3">
+                  <textarea
+                    rows={5}
+                    value={copyBundle.instagram.caption}
                     onChange={(e) =>
                       setCopyBundle((prev) => ({
                         ...prev,
-                        youtube: { ...prev.youtube, title: e.target.value },
+                        instagram: { ...prev.instagram, caption: e.target.value },
                       }))
                     }
-                    className="w-full rounded-btn border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-primary font-semibold"
+                    className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13.5px] text-ink outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-sans leading-relaxed"
+                  />
+                  <HashtagEditor
+                    platform="instagram"
+                    tags={copyBundle.instagram.hashtags}
+                    onChange={(hashtags) =>
+                      setCopyBundle((prev) => ({ ...prev, instagram: { ...prev.instagram, hashtags } }))
+                    }
                   />
                 </div>
-                <div>
-                  <label className="kt-eyebrow block mb-1">Description with Timestamps</label>
+              </TabsContent>
+
+              <TabsContent value="youtube" className="mt-0">
+                <div className="space-y-3">
+                  <div>
+                    <label className="kt-eyebrow block mb-1">Shorts Title (Under 60 chars)</label>
+                    <input
+                      type="text"
+                      value={copyBundle.youtube.title}
+                      onChange={(e) =>
+                        setCopyBundle((prev) => ({
+                          ...prev,
+                          youtube: { ...prev.youtube, title: e.target.value },
+                        }))
+                      }
+                      className="w-full rounded-btn border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-primary font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="kt-eyebrow block mb-1">Description with Timestamps</label>
+                    <textarea
+                      rows={4}
+                      value={copyBundle.youtube.description}
+                      onChange={(e) =>
+                        setCopyBundle((prev) => ({
+                          ...prev,
+                          youtube: { ...prev.youtube, description: e.target.value },
+                        }))
+                      }
+                      className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13px] text-ink outline-none focus:border-primary font-mono text-xs"
+                    />
+                  </div>
+                  <HashtagEditor
+                    platform="youtube"
+                    tags={copyBundle.youtube.tags}
+                    onChange={(tags) => setCopyBundle((prev) => ({ ...prev, youtube: { ...prev.youtube, tags } }))}
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="tiktok" className="mt-0">
+                <div className="space-y-3">
                   <textarea
                     rows={4}
-                    value={copyBundle.youtube.description}
+                    value={copyBundle.tiktok.caption}
                     onChange={(e) =>
                       setCopyBundle((prev) => ({
                         ...prev,
-                        youtube: { ...prev.youtube, description: e.target.value },
+                        tiktok: { ...prev.tiktok, caption: e.target.value },
                       }))
                     }
-                    className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13px] text-ink outline-none focus:border-primary font-mono text-xs"
+                    className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13.5px] text-ink outline-none focus:border-primary font-sans leading-relaxed"
+                  />
+                  <HashtagEditor
+                    platform="tiktok"
+                    tags={copyBundle.tiktok.hashtags}
+                    onChange={(hashtags) =>
+                      setCopyBundle((prev) => ({ ...prev, tiktok: { ...prev.tiktok, hashtags } }))
+                    }
                   />
                 </div>
-                <HashtagEditor
-                  platform="youtube"
-                  tags={copyBundle.youtube.tags}
-                  onChange={(tags) => setCopyBundle((prev) => ({ ...prev, youtube: { ...prev.youtube, tags } }))}
-                />
-              </div>
-            )}
+              </TabsContent>
 
-            {previewPlatform === 'tiktok' && (
-              <div className="space-y-3">
-                <textarea
-                  rows={4}
-                  value={copyBundle.tiktok.caption}
-                  onChange={(e) =>
-                    setCopyBundle((prev) => ({
-                      ...prev,
-                      tiktok: { ...prev.tiktok, caption: e.target.value },
-                    }))
-                  }
-                  className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13.5px] text-ink outline-none focus:border-primary font-sans leading-relaxed"
-                />
-                <HashtagEditor
-                  platform="tiktok"
-                  tags={copyBundle.tiktok.hashtags}
-                  onChange={(hashtags) =>
-                    setCopyBundle((prev) => ({ ...prev, tiktok: { ...prev.tiktok, hashtags } }))
-                  }
-                />
-              </div>
-            )}
+              <TabsContent value="linkedin" className="mt-0">
+                <div className="space-y-3">
+                  <textarea
+                    rows={6}
+                    value={copyBundle.linkedin.postText}
+                    onChange={(e) =>
+                      setCopyBundle((prev) => ({
+                        ...prev,
+                        linkedin: { ...prev.linkedin, postText: e.target.value },
+                      }))
+                    }
+                    className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13.5px] text-ink outline-none focus:border-primary font-sans leading-relaxed"
+                  />
+                  <HashtagEditor
+                    platform="linkedin"
+                    tags={copyBundle.linkedin.hashtags}
+                    onChange={(hashtags) =>
+                      setCopyBundle((prev) => ({ ...prev, linkedin: { ...prev.linkedin, hashtags } }))
+                    }
+                  />
+                </div>
+              </TabsContent>
 
-            {previewPlatform === 'linkedin' && (
-              <div className="space-y-3">
-                <textarea
-                  rows={6}
-                  value={copyBundle.linkedin.postText}
-                  onChange={(e) =>
-                    setCopyBundle((prev) => ({
-                      ...prev,
-                      linkedin: { ...prev.linkedin, postText: e.target.value },
-                    }))
-                  }
-                  className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13.5px] text-ink outline-none focus:border-primary font-sans leading-relaxed"
-                />
-                <HashtagEditor
-                  platform="linkedin"
-                  tags={copyBundle.linkedin.hashtags}
-                  onChange={(hashtags) =>
-                    setCopyBundle((prev) => ({ ...prev, linkedin: { ...prev.linkedin, hashtags } }))
-                  }
-                />
-              </div>
-            )}
-
-            {previewPlatform === 'x' && (
-              <div className="space-y-2">
-                <label className="kt-eyebrow block">5-Tweet Thread Preview</label>
-                {copyBundle.x.thread.map((tweet, i) => (
-                  <div key={i} className="p-3 bg-surface-2 rounded-btn border border-line text-xs text-ink leading-relaxed">
-                    {tweet}
-                  </div>
-                ))}
-                <HashtagEditor
-                  platform="x"
-                  tags={copyBundle.x.hashtags}
-                  onChange={(hashtags) => setCopyBundle((prev) => ({ ...prev, x: { ...prev.x, hashtags } }))}
-                />
-              </div>
-            )}
+              <TabsContent value="x" className="mt-0">
+                <div className="space-y-2">
+                  <label className="kt-eyebrow block">5-Tweet Thread Preview</label>
+                  {copyBundle.x.thread.map((tweet, i) => (
+                    <div key={i} className="p-3 bg-surface-2 rounded-btn border border-line text-xs text-ink leading-relaxed">
+                      {tweet}
+                    </div>
+                  ))}
+                  <HashtagEditor
+                    platform="x"
+                    tags={copyBundle.x.hashtags}
+                    onChange={(hashtags) => setCopyBundle((prev) => ({ ...prev, x: { ...prev.x, hashtags } }))}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
           </Card>
         </div>
 
@@ -1135,7 +1140,7 @@ export default function PublishSchedule() {
           const res = await publishNow(id, postUrl ? { postUrl } : undefined);
           if (!res.ok) throw new Error(res.message || 'Could not record that post.');
           setLedgerPost(null);
-          setFlash({ tone: 'ok', msg: 'Recorded as posted. Analytics now has its live link.' });
+          flash({ tone: 'ok', msg: 'Recorded as posted. Analytics now has its live link.' });
         }}
       />
     </PageShell>

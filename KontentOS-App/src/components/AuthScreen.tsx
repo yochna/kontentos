@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '@/lib/api';
 import { Icon } from '@/lib/icons';
 import { Button } from '@/components/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { User } from '@/lib/types';
 
 type Mode = 'signin' | 'signup';
@@ -60,66 +61,70 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (user: User) => void })
           </div>
         </div>
 
-        <div className="mb-5 grid grid-cols-2 gap-1 rounded-btn bg-surface-2/60 p-1">
-          {(['signin', 'signup'] as Mode[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => switchMode(m)}
-              className={`rounded-btn px-3 py-1.5 text-[12.5px] font-semibold transition-all duration-200 ease-out ${
-                mode === m ? 'bg-surface text-ink shadow-xs' : 'text-ink-dim hover:text-ink'
-              }`}
-            >
-              {m === 'signin' ? 'Sign in' : 'Create account'}
-            </button>
-          ))}
-        </div>
-
-        {/* key={mode} remounts the field group, so switching tabs replays the entrance. */}
-        <form key={mode} onSubmit={handleSubmit} className="kt-stagger--fade space-y-3">
-          <Field
-            id="account-email"
-            label="Email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={setEmail}
-            autoFocus
-          />
-          {isSignup && (
-            <Field
-              id="account-name"
-              label="What should the studio call you?"
-              type="text"
-              autoComplete="name"
-              value={fullName}
-              onChange={setFullName}
-            />
-          )}
-          <Field
-            id="account-password"
-            label="Password"
-            type="password"
-            autoComplete={isSignup ? 'new-password' : 'current-password'}
-            value={password}
-            onChange={setPassword}
-          />
-          {error && (
-            <p key={error} className="kt-shake flex items-start gap-1.5 text-[12.5px] font-semibold text-danger">
-              <Icon name="error_outline" size={15} className="mt-px shrink-0" />
-              {error}
-            </p>
-          )}
-          <Button
-            type="submit"
-            icon={isSignup ? 'person_add' : 'login'}
-            iconSpin={busy}
-            disabled={!canSubmit}
-            className="w-full justify-center"
+        <Tabs value={mode} onValueChange={(v) => switchMode(v as Mode)} className="contents">
+          <TabsList
+            variant="pill"
+            aria-label="Account access"
+            className="mb-5 grid grid-cols-2 gap-1 rounded-btn bg-surface-2/60 p-1"
           >
-            {busy ? 'Please wait…' : isSignup ? 'Create my studio' : 'Sign in'}
-          </Button>
-        </form>
+            <TabsTrigger variant="pill" value="signin" className="px-3 py-1.5 duration-200 ease-out">
+              Sign in
+            </TabsTrigger>
+            <TabsTrigger variant="pill" value="signup" className="px-3 py-1.5 duration-200 ease-out">
+              Create account
+            </TabsTrigger>
+          </TabsList>
+
+          {/* One panel whose fields change with the tab, so the content is keyed on the mode rather
+              than split into two near-identical blocks. */}
+          <TabsContent value={mode} className="mt-0">
+            {/* key={mode} remounts the field group, so switching tabs replays the entrance. */}
+            <form key={mode} onSubmit={handleSubmit} className="kt-stagger--fade space-y-3">
+              <Field
+                id="account-email"
+                label="Email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={setEmail}
+                autoFocus
+              />
+              {isSignup && (
+                <Field
+                  id="account-name"
+                  label="What should the studio call you?"
+                  type="text"
+                  autoComplete="name"
+                  value={fullName}
+                  onChange={setFullName}
+                />
+              )}
+              <Field
+                id="account-password"
+                label="Password"
+                type="password"
+                autoComplete={isSignup ? 'new-password' : 'current-password'}
+                value={password}
+                onChange={setPassword}
+              />
+              {error && (
+                <p key={error} className="kt-shake flex items-start gap-1.5 text-[12.5px] font-semibold text-danger">
+                  <Icon name="error_outline" size={15} className="mt-px shrink-0" />
+                  {error}
+                </p>
+              )}
+              <Button
+                type="submit"
+                icon={isSignup ? 'person_add' : 'login'}
+                iconSpin={busy}
+                disabled={!canSubmit}
+                className="w-full justify-center"
+              >
+                {busy ? 'Please wait…' : isSignup ? 'Create my studio' : 'Sign in'}
+              </Button>
+            </form>
+          </TabsContent>
+        </Tabs>
 
         <p className="mt-4 text-[11.5px] leading-relaxed text-ink-dim">
           {isSignup

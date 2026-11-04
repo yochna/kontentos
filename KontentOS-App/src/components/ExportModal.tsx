@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, Progress, StatusPill, useDismiss } from '@/components/ui';
+import { Button, Eyebrow, Progress, StatusPill } from '@/components/ui';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import type { TargetAspectRatio, TimelineProject, VideoClip, TextClip } from '@/lib/timeline';
 import {
   activeBrollClipAt,
@@ -26,7 +28,6 @@ interface ExportModalProps {
 }
 
 export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublish }: ExportModalProps) {
-  useDismiss(onClose);
   const [resolution, setResolution] = useState<TargetAspectRatio>(
     project.projectMetadata.targetAspectRatio || '9:16'
   );
@@ -681,256 +682,259 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
   };
 
   return (
-    <>
-      <div className="kt-scrim fixed inset-0 z-50 bg-[var(--scrim)] backdrop-blur-sm" onClick={!rendering ? onClose : undefined} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-xl p-6 shadow-[var(--shadow-2)] kt-dialog max-h-[90vh] flex flex-col">
-          {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-line shrink-0">
-            <div className="flex items-center gap-2.5">
-              <span className="w-9 h-9 rounded-btn bg-primary-soft text-primary grid place-items-center">
-                <Icon name="movie_filter" size={20} />
-              </span>
-              <div>
-                <Eyebrow icon="download">Studio Render</Eyebrow>
-                <h3 className="font-semibold text-base text-ink">Export Composition</h3>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      {/* An encode that is 60% through must not be lost to a stray Escape key or a click outside. */}
+      <DialogContent
+        hideClose
+        className="max-w-xl flex flex-col gap-0 overflow-hidden p-6"
+        onEscapeKeyDown={(e) => rendering && e.preventDefault()}
+        onInteractOutside={(e) => rendering && e.preventDefault()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-line shrink-0">
+          <div className="flex items-center gap-2.5">
+            <span className="w-9 h-9 rounded-btn bg-primary-soft text-primary grid place-items-center">
+              <Icon name="movie_filter" size={20} />
+            </span>
+            <div>
+              <Eyebrow icon="download">Studio Render</Eyebrow>
+              <DialogTitle className="font-semibold text-base text-ink">Export Composition</DialogTitle>
+            </div>
+          </div>
+          {!rendering && (
+            <DialogClose
+              className="w-8 h-8 rounded-btn text-ink-muted hover:text-ink hover:bg-surface-2 grid place-items-center transition-colors kt-focus"
+              aria-label="Close export"
+            >
+              <Icon name="close" size={18} />
+            </DialogClose>
+          )}
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto py-4 space-y-5">
+          {/* Project Summary Card */}
+          <div className="bg-surface-2 p-3.5 rounded-card border border-line flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold text-sm text-ink truncate max-w-xs sm:max-w-sm">
+                {project.projectMetadata.title || 'Untitled Composition'}
+              </h4>
+              <div className="flex items-center gap-2 text-xs text-ink-dim mt-0.5">
+                <span>Duration: {fmtTime(duration)}</span>
+                <span>·</span>
+                <span>{clips.length} video cuts</span>
               </div>
             </div>
-            {!rendering && (
-              <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-btn text-ink-muted hover:text-ink hover:bg-surface-2 grid place-items-center transition-colors"
-              >
-                <Icon name="close" size={18} />
-              </button>
-            )}
+            <StatusPill tone="tertiary">1080p H.264</StatusPill>
           </div>
 
-          {/* Content Area */}
-          <div className="flex-1 overflow-y-auto py-4 space-y-5">
-            {/* Project Summary Card */}
-            <div className="bg-surface-2 p-3.5 rounded-card border border-line flex items-center justify-between">
-              <div>
-                <h4 className="font-semibold text-sm text-ink truncate max-w-xs sm:max-w-sm">
-                  {project.projectMetadata.title || 'Untitled Composition'}
-                </h4>
-                <div className="flex items-center gap-2 text-xs text-ink-dim mt-0.5">
-                  <span>Duration: {fmtTime(duration)}</span>
-                  <span>·</span>
-                  <span>{clips.length} video cuts</span>
+          {/* Error Message if any */}
+          {errorMsg && (
+            <div className="p-3.5 bg-danger/10 border border-danger/25 rounded-btn text-danger text-xs flex items-start gap-2">
+              <Icon name="error" size={16} className="shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <strong>Render notice:</strong> {errorMsg}
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={handleDirectDownloadSource}
+                    className="underline font-semibold rounded px-0.5 transition-colors hover:bg-danger/15"
+                  >
+                    Click here to download source master directly →
+                  </button>
                 </div>
               </div>
-              <StatusPill tone="tertiary">1080p H.264</StatusPill>
             </div>
+          )}
 
-            {/* Error Message if any */}
-            {errorMsg && (
-              <div className="p-3.5 bg-danger/10 border border-danger/25 rounded-btn text-danger text-xs flex items-start gap-2">
-                <Icon name="error" size={16} className="shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <strong>Render notice:</strong> {errorMsg}
-                  <div className="mt-2">
+          {!renderedBlobUrl ? (
+            <>
+              {/* Resolution Picker */}
+              <div>
+                <label className="kt-eyebrow block mb-2">Aspect Ratio & Resolution</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: '9:16', label: '9:16 Reel', sub: '1080 × 1920', icon: 'stay_current_portrait' },
+                    { id: '1:1', label: '1:1 Square', sub: '1080 × 1080', icon: 'crop_square' },
+                    { id: '4:5', label: '4:5 Portrait', sub: '1080 × 1350', icon: 'photo' },
+                    { id: '16:9', label: '16:9 Wide', sub: '1920 × 1080', icon: 'desktop_windows' },
+                  ].map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      disabled={rendering}
+                      onClick={() => setResolution(r.id as any)}
+                      className={`p-2.5 rounded-card border text-left transition-all ${
+                        resolution === r.id
+                          ? 'border-primary bg-primary-soft ring-2 ring-primary/25 shadow-sm'
+                          : 'border-line hover:border-line-strong bg-surface'
+                      }`}
+                    >
+                      <Icon name={r.icon} size={16} className="text-primary mb-1" />
+                      <div className="text-xs font-semibold text-ink">{r.label}</div>
+                      <div className="text-[10px] text-ink-dim mt-0.5">{r.sub}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Encoding Options */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="kt-eyebrow block mb-1.5" htmlFor="export-fps">Frame Rate</label>
+                  <Select value={String(fps)} disabled={rendering} onValueChange={(v) => setFps(Number(v) as 30 | 60)}>
+                    <SelectTrigger id="export-fps" size="sm" className="bg-surface-2 text-xs font-medium">
+                      <span className="truncate">{fps === 60 ? '60 fps (Ultra Smooth)' : '30 fps (Standard Web)'}</span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30">30 fps (Standard Web)</SelectItem>
+                      <SelectItem value="60">60 fps (Ultra Smooth)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="kt-eyebrow block mb-1.5" htmlFor="export-quality">Quality Profile</label>
+                  <Select value={quality} disabled={rendering} onValueChange={(v) => setQuality(v as 'standard' | 'high')}>
+                    <SelectTrigger id="export-quality" size="sm" className="bg-surface-2 text-xs font-medium">
+                      <span className="truncate">{quality === 'high' ? 'High Fidelity Studio (8 Mbps)' : 'Balanced (4.5 Mbps)'}</span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">Balanced (4.5 Mbps)</SelectItem>
+                      <SelectItem value="high">High Fidelity Studio (8 Mbps)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Live Real-Time Rendering Progress & Preview */}
+              {rendering && (
+                <div className="p-4 rounded-card bg-surface-2 border border-line space-y-3.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-ink flex items-center gap-1.5">
+                      <span className="kt-spin">
+                        <Icon name="autorenew" size={14} className="text-primary" />
+                      </span>
+                      {stageMsg}
+                    </span>
+                    <span className="font-mono tabular-nums text-primary font-bold">
+                      {Math.round(progress * 100)}%
+                    </span>
+                  </div>
+
+                  {/* Striped while rendering, and re-timed to 150ms so the bar never trails the real encode. */}
+                  <Progress
+                    value={Math.max(4, progress * 100)}
+                    live
+                    trackClassName="h-2 bg-surface-3"
+                    barClassName="bg-primary duration-150!"
+                  />
+
+                  {/* Live Preview Monitor */}
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="max-w-[140px] mx-auto aspect-[9/16] bg-black rounded-lg overflow-hidden border border-line relative shadow-sm">
+                      <canvas
+                        ref={previewCanvasRef}
+                        width={270}
+                        height={480}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-ink-dim pt-1 border-t border-line/50">
                     <button
                       type="button"
-                      onClick={handleDirectDownloadSource}
-                      className="underline font-semibold rounded px-0.5 transition-colors hover:bg-danger/15"
+                      onClick={() => setPreviewAudio(!previewAudio)}
+                      className="flex items-center gap-1 text-primary hover:underline font-medium"
                     >
-                      Click here to download source master directly →
+                      <Icon name={previewAudio ? 'volume_up' : 'volume_off'} size={14} />
+                      <span>{previewAudio ? 'Speaker Preview (On)' : 'Mute Speaker Preview (Recording Audio is Active)'}</span>
                     </button>
+                    <span className="font-mono">{Math.round(progress * duration)}s / {Math.round(duration)}s</span>
                   </div>
                 </div>
+              )}
+            </>
+          ) : (
+            /* Success Complete Banner */
+            <div className="p-6 text-center bg-surface-2 rounded-card border border-line space-y-4">
+              <div className="w-12 h-12 rounded-full bg-tertiary/15 text-tertiary grid place-items-center mx-auto">
+                <Icon name="check_circle" size={28} />
               </div>
-            )}
-
-            {!renderedBlobUrl ? (
-              <>
-                {/* Resolution Picker */}
-                <div>
-                  <label className="kt-eyebrow block mb-2">Aspect Ratio & Resolution</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {[
-                      { id: '9:16', label: '9:16 Reel', sub: '1080 × 1920', icon: 'stay_current_portrait' },
-                      { id: '1:1', label: '1:1 Square', sub: '1080 × 1080', icon: 'crop_square' },
-                      { id: '4:5', label: '4:5 Portrait', sub: '1080 × 1350', icon: 'photo' },
-                      { id: '16:9', label: '16:9 Wide', sub: '1920 × 1080', icon: 'desktop_windows' },
-                    ].map((r) => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        disabled={rendering}
-                        onClick={() => setResolution(r.id as any)}
-                        className={`p-2.5 rounded-card border text-left transition-all ${
-                          resolution === r.id
-                            ? 'border-primary bg-primary-soft ring-2 ring-primary/25 shadow-sm'
-                            : 'border-line hover:border-line-strong bg-surface'
-                        }`}
-                      >
-                        <Icon name={r.icon} size={16} className="text-primary mb-1" />
-                        <div className="text-xs font-semibold text-ink">{r.label}</div>
-                        <div className="text-[10px] text-ink-dim mt-0.5">{r.sub}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Encoding Options */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="kt-eyebrow block mb-1.5">Frame Rate</label>
-                    <select
-                      value={fps}
-                      disabled={rendering}
-                      onChange={(e) => setFps(Number(e.target.value) as any)}
-                      className="w-full p-2.5 rounded-btn bg-surface-2 border border-line text-xs font-medium text-ink focus:outline-none focus:border-primary"
-                    >
-                      <option value={30}>30 fps (Standard Web)</option>
-                      <option value={60}>60 fps (Ultra Smooth)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="kt-eyebrow block mb-1.5">Quality Profile</label>
-                    <select
-                      value={quality}
-                      disabled={rendering}
-                      onChange={(e) => setQuality(e.target.value as any)}
-                      className="w-full p-2.5 rounded-btn bg-surface-2 border border-line text-xs font-medium text-ink focus:outline-none focus:border-primary"
-                    >
-                      <option value="standard">Balanced (4.5 Mbps)</option>
-                      <option value="high">High Fidelity Studio (8 Mbps)</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Live Real-Time Rendering Progress & Preview */}
-                {rendering && (
-                  <div className="p-4 rounded-card bg-surface-2 border border-line space-y-3.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-ink flex items-center gap-1.5">
-                        <span className="kt-spin">
-                          <Icon name="autorenew" size={14} className="text-primary" />
-                        </span>
-                        {stageMsg}
-                      </span>
-                      <span className="font-mono tabular-nums text-primary font-bold">
-                        {Math.round(progress * 100)}%
-                      </span>
-                    </div>
-
-                    {/* Striped while rendering, and re-timed to 150ms so the bar never trails the real encode. */}
-                    <Progress
-                      value={Math.max(4, progress * 100)}
-                      live
-                      trackClassName="h-2 bg-surface-3"
-                      barClassName="bg-primary duration-150!"
-                    />
-
-                    {/* Live Preview Monitor */}
-                    <div className="flex items-center justify-between pt-1">
-                      <div className="max-w-[140px] mx-auto aspect-[9/16] bg-black rounded-lg overflow-hidden border border-line relative shadow-sm">
-                        <canvas
-                          ref={previewCanvasRef}
-                          width={270}
-                          height={480}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-ink-dim pt-1 border-t border-line/50">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewAudio(!previewAudio)}
-                        className="flex items-center gap-1 text-primary hover:underline font-medium"
-                      >
-                        <Icon name={previewAudio ? 'volume_up' : 'volume_off'} size={14} />
-                        <span>{previewAudio ? 'Speaker Preview (On)' : 'Mute Speaker Preview (Recording Audio is Active)'}</span>
-                      </button>
-                      <span className="font-mono">{Math.round(progress * duration)}s / {Math.round(duration)}s</span>
-                    </div>
-                  </div>
+              <div>
+                <h4 className="font-semibold text-base text-ink">Video Exported Successfully!</h4>
+                <p className="text-xs text-ink-muted mt-1">
+                  Your composition with burned-in kinetic subtitles, punch zooms, and synchronized audio is ready for download.
+                </p>
+                {renderedSize && (
+                  <span className="inline-block mt-2 text-[11px] font-mono font-medium text-ink-dim bg-surface px-2.5 py-1 rounded-full border border-line">
+                    File size: {(renderedSize / (1024 * 1024)).toFixed(2)} MB
+                  </span>
                 )}
-              </>
-            ) : (
-              /* Success Complete Banner */
-              <div className="p-6 text-center bg-surface-2 rounded-card border border-line space-y-4">
-                <div className="w-12 h-12 rounded-full bg-tertiary/15 text-tertiary grid place-items-center mx-auto">
-                  <Icon name="check_circle" size={28} />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-base text-ink">Video Exported Successfully!</h4>
-                  <p className="text-xs text-ink-muted mt-1">
-                    Your composition with burned-in kinetic subtitles, punch zooms, and synchronized audio is ready for download.
-                  </p>
-                  {renderedSize && (
-                    <span className="inline-block mt-2 text-[11px] font-mono font-medium text-ink-dim bg-surface px-2.5 py-1 rounded-full border border-line">
-                      File size: {(renderedSize / (1024 * 1024)).toFixed(2)} MB
-                    </span>
-                  )}
-                </div>
-
-                {/* Video Preview Player */}
-                <div className="max-w-[240px] mx-auto rounded-card overflow-hidden border border-line bg-black aspect-[9/16]">
-                  <video
-                    src={renderedBlobUrl}
-                    controls
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
-                  <Button icon="download" onClick={handleDownload} className="w-full">
-                    Download MP4
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    icon="schedule_send"
-                    onClick={() => {
-                      transferredRef.current = true;
-                      const exported = renderedBlobUrl
-                        ? { videoUrl: renderedBlobUrl, byteLength: renderedSize || undefined }
-                        : undefined;
-                      onClose();
-                      onSendToPublish(exported);
-                    }}
-                    className="w-full"
-                  >
-                    Send to Publish
-                  </Button>
-                </div>
               </div>
-            )}
-          </div>
 
-          {/* Footer Actions */}
-          {!renderedBlobUrl && (
-            <div className="pt-4 border-t border-line shrink-0 flex items-center justify-between gap-2">
-              <Button
-                variant="ghost"
-                icon="file_download"
-                onClick={handleDirectDownloadSource}
-                disabled={rendering}
-                title="Download original master video file without re-rendering"
-              >
-                Direct Download Source
-              </Button>
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" onClick={onClose} disabled={rendering}>
-                  Cancel
+              {/* Video Preview Player */}
+              <div className="max-w-[240px] mx-auto rounded-card overflow-hidden border border-line bg-black aspect-[9/16]">
+                <video
+                  src={renderedBlobUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                <Button icon="download" onClick={handleDownload} className="w-full">
+                  Download MP4
                 </Button>
                 <Button
-                  icon="bolt" iconSpin={rendering}
-                  onClick={handleStartExport}
-                  disabled={rendering}
+                  variant="secondary"
+                  icon="schedule_send"
+                  onClick={() => {
+                    transferredRef.current = true;
+                    const exported = renderedBlobUrl
+                      ? { videoUrl: renderedBlobUrl, byteLength: renderedSize || undefined }
+                      : undefined;
+                    onClose();
+                    onSendToPublish(exported);
+                  }}
+                  className="w-full"
                 >
-                  {rendering ? 'Rendering Video...' : 'Start Render'}
+                  Send to Publish
                 </Button>
               </div>
             </div>
           )}
-        </Card>
-      </div>
-    </>
+        </div>
+
+        {/* Footer Actions */}
+        {!renderedBlobUrl && (
+          <div className="pt-4 border-t border-line shrink-0 flex items-center justify-between gap-2">
+            <Button
+              variant="ghost"
+              icon="file_download"
+              onClick={handleDirectDownloadSource}
+              disabled={rendering}
+              title="Download original master video file without re-rendering"
+            >
+              Direct Download Source
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={onClose} disabled={rendering}>
+                Cancel
+              </Button>
+              <Button
+                icon="bolt" iconSpin={rendering}
+                onClick={handleStartExport}
+                disabled={rendering}
+              >
+                {rendering ? 'Rendering Video...' : 'Start Render'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

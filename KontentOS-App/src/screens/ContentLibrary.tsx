@@ -1,6 +1,17 @@
 ﻿import { useMemo, useRef, useState, useEffect } from 'react';
 import { Icon } from '@/lib/icons';
-import { AnimatedNumber, Button, Card, PageHeader, PageShell, Progress, Reveal, StatusPill, Badge, useDismiss } from '@/components/ui';
+import { AnimatedNumber, Button, Card, PageHeader, PageShell, Progress, Reveal, StatusPill, Badge } from '@/components/ui';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { notify } from '@/components/ui/toast';
 import { useNavPayload } from '@/lib/nav';
 import { useStore } from '@/lib/store';
 import { ingestFeatures } from '@/data/mock';
@@ -8,6 +19,10 @@ import { getPreset } from '@/lib/timeline';
 import { api } from '@/lib/api';
 import type { Video } from '@/lib/types';
 import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { Tooltip } from '@/components/ui/tooltip';
+
+const SUBTITLE_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Hindi', 'Japanese'];
 
 const fmtBytes = (n: number) => {
   if (!n) return '0 B';
@@ -60,9 +75,11 @@ export default function ContentLibrary() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentFile, setCurrentFile] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [inspectVideo, setInspectVideo] = useState<Video | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  // One dialog for both delete affordances — the row's trash icon and the inspector's footer —
+  // so a clip is never deleted by two different questions.
+  const [pendingDelete, setPendingDelete] = useState<Video | null>(null);
   // Deep link from the topbar search: land on the clip the creator typed for.
   const navSearch = useNavPayload<{ searchQuery?: string }>('content-library')?.searchQuery;
   useEffect(() => {
@@ -83,7 +100,6 @@ export default function ContentLibrary() {
 
   async function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
-    setError(null);
     const list = Array.from(files);
 
     for (let i = 0; i < list.length; i++) {
@@ -94,10 +110,10 @@ export default function ContentLibrary() {
       try {
         const created = await uploadVideo(file, (pct) => setProgress(pct));
         if (!created) {
-          setError(`Upload failed for ${file.name}. Ensure backend is active.`);
+          notify.bad(`Upload failed for ${file.name} — the clip never reached the workspace.`);
         }
       } catch (err: any) {
-        setError(`Upload error: ${err?.message || 'Failed'}`);
+        notify.bad(`Upload of ${file.name} stopped: ${err?.message || 'no answer from the server'}`);
       }
     }
 
@@ -113,6 +129,16 @@ export default function ContentLibrary() {
   const handleOpenInSmartEditor = async (video: Video) => {
     await runAutoEdit(video, getPreset('fast'));
     navigate('smart-editor');
+  };
+
+  const removeClip = async (video: Video) => {
+    const res = await deleteVideo(video.id);
+    if (!res.ok) {
+      notify.bad(res.message || `“${video.title}” is still in the vault — the server refused the delete.`);
+      return;
+    }
+    notify.ok(`“${video.title}” deleted.`);
+    if (inspectVideo?.id === video.id) setInspectVideo(null);
   };
 
   return (
@@ -236,19 +262,6 @@ export default function ContentLibrary() {
         </div>
       )}
 
-      {/* Error Alert */}
-      {error && (
-        <div className="mb-6 flex items-center justify-between rounded-card border border-danger/30 bg-danger/10 px-4 py-3 text-xs text-danger">
-          <div className="flex items-center gap-2">
-            <Icon name="error" size={17} className="shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button onClick={() => setError(null)} className="text-danger hover:underline">
-            Dismiss
-          </button>
-        </div>
-      )}
-
       {/* Main Grid: Assets Shelf + Ingest Dropzone */}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
         {/* Left Column: Search & Videos Grid */}
@@ -346,33 +359,35 @@ export default function ContentLibrary() {
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-1">
                           <StatusPill tone={STATUS_TONE[v.status] || 'neutral'} pulse={v.status === 'processing' || v.status === 'uploading'}>
-                        {v.status}
-                      </StatusPill>
+                            {v.status}
+                          </StatusPill>
                           <div className="flex items-center gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenInRawStudio(v);
-                              }}
-                              title="Open in Raw Studio"
-                              className="w-7 h-7 rounded-btn hover:bg-surface-2 grid place-items-center text-ink-muted hover:text-primary transition-colors"
-                            >
-                              <Icon name="movie" size={15} />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm(`Delete "${v.title}" from library?`)) {
-                                  void deleteVideo(v.id).then((res) => {
-                                    if (!res.ok) setError(res.message || 'The server did not delete this clip.');
-                                  });
-                                }
-                              }}
-                              title="Delete clip"
-                              className="w-7 h-7 rounded-btn hover:bg-danger/10 grid place-items-center text-ink-dim hover:text-danger transition-colors"
-                            >
-                              <Icon name="delete" size={15} />
-                            </button>
+                            <Tooltip side="left" content="Open in Raw Studio">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenInRawStudio(v);
+                                }}
+                                aria-label={`Open ${v.title} in Raw Studio`}
+                                className="w-7 h-7 rounded-btn hover:bg-surface-2 grid place-items-center text-ink-muted hover:text-primary transition-colors kt-focus"
+                              >
+                                <Icon name="movie" size={15} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip side="left" content="Delete clip">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPendingDelete(v);
+                                }}
+                                aria-label={`Delete ${v.title}`}
+                                className="w-7 h-7 rounded-btn hover:bg-danger/10 grid place-items-center text-ink-dim hover:text-danger transition-colors kt-focus"
+                              >
+                                <Icon name="delete" size={15} />
+                              </button>
+                            </Tooltip>
                           </div>
                         </div>
 
@@ -449,7 +464,7 @@ export default function ContentLibrary() {
             // The inspector only repeats the new name once the row carries it; otherwise the
             // creator is shown a rename that the next load takes back.
             if (res.ok) setInspectVideo((prev) => (prev ? { ...prev, title: newTitle } : null));
-            else setError(res.message || 'The server did not take this rename.');
+            else notify.bad(res.message || 'The rename did not reach the server.');
           }}
           onOpenRawStudio={() => {
             setInspectVideo(null);
@@ -459,19 +474,32 @@ export default function ContentLibrary() {
             setInspectVideo(null);
             handleOpenInSmartEditor(inspectVideo);
           }}
-          onDelete={() => {
-            if (confirm(`Are you sure you want to delete "${inspectVideo.title}"?`)) {
-              void deleteVideo(inspectVideo.id).then((res) => {
-                if (!res.ok) {
-                  setError(res.message || 'The server did not delete this clip.');
-                  return;
-                }
-                setInspectVideo(null);
-              });
-            }
-          }}
+          onDelete={() => setPendingDelete(inspectVideo)}
         />
       )}
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(next) => { if (!next) setPendingDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogTitle>Delete “{pendingDelete?.title}”?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Its file, its captions and every cut made from it go with it. This workspace has no
+            recycle bin — the only way back is the file on your phone or camera.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              asChild
+              onClick={() => {
+                if (pendingDelete) void removeClip(pendingDelete);
+              }}
+            >
+              <Button variant="secondary" icon="delete" className="border-danger/50 text-danger hover:bg-danger/10">
+                Delete for good
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageShell>
   );
 }
@@ -491,7 +519,6 @@ function VideoDetailModal({
   onOpenSmartEditor: () => void;
   onDelete: () => void;
 }) {
-  useDismiss(onClose);
   const { relinkMedia } = useStore();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(video.title);
@@ -587,76 +614,80 @@ function VideoDetailModal({
   };
 
   return (
-    <>
-      <div className="kt-scrim fixed inset-0 z-50 bg-[var(--scrim)]" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl p-6 shadow-[var(--shadow-2)] kt-dialog max-h-[90vh] flex flex-col">
-          {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-line shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="w-8 h-8 rounded-btn bg-primary-soft text-primary grid place-items-center shrink-0">
-                <Icon name="smart_display" size={18} />
-              </span>
-              <div className="min-w-0">
-                {editingTitle ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={titleVal}
-                      onChange={(e) => setTitleVal(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle()}
-                      autoFocus
-                      className="px-2 py-1 text-sm font-semibold rounded border border-line bg-surface text-ink"
-                    />
-                    <Button size="sm" onClick={handleSaveTitle}>
-                      Save
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-base text-ink truncate">{video.title}</h3>
-                    <button
-                      onClick={() => setEditingTitle(true)}
-                      className="text-ink-dim hover:text-ink text-xs"
-                      title="Edit title"
-                    >
-                      <Icon name="edit" size={14} />
-                    </button>
-                  </div>
-                )}
-                <div className="text-xs text-ink-dim font-mono">ID: {video.id}</div>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              aria-label="Close video details"
-              className="kt-focus text-ink-muted hover:text-ink"
-            >
-              <Icon name="close" size={18} />
-            </button>
-          </div>
-
-          {/* Modal Body */}
-          <div className="flex-1 overflow-y-auto py-4 space-y-5">
-            {/* Embedded Video Player with Live CC Overlay */}
-            <div className="aspect-video rounded-card bg-black overflow-hidden relative shadow-inner group">
-              {media.offline ? (
-                <OfflinePlate onRelink={async (file) => !!(await relinkMedia(video.id, file))} />
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent size="lg" hideClose className="flex flex-col gap-0 overflow-hidden p-6">
+        {/* The visible heading is swapped for an input while the title is being edited, so the
+            panel's accessible name comes from this one instead. */}
+        <DialogTitle className="sr-only">Details for {video.title}</DialogTitle>
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-line shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-8 h-8 rounded-btn bg-primary-soft text-primary grid place-items-center shrink-0">
+              <Icon name="smart_display" size={18} />
+            </span>
+            <div className="min-w-0">
+              {editingTitle ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={titleVal}
+                    onChange={(e) => setTitleVal(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle()}
+                    autoFocus
+                    className="px-2 py-1 text-sm font-semibold rounded border border-line bg-surface text-ink"
+                  />
+                  <Button size="sm" onClick={handleSaveTitle}>
+                    Save
+                  </Button>
+                </div>
               ) : (
-                <video
-                  ref={videoElRef}
-                  src={video.file_url}
-                  crossOrigin="anonymous"
-                  controls
-                  playsInline
-                  onError={media.onError}
-                  onLoadedData={media.onLoadedData}
-                  onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-                  className="w-full h-full object-contain block"
-                />
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-base text-ink truncate">{video.title}</h3>
+                  <button
+                    onClick={() => setEditingTitle(true)}
+                    className="text-ink-dim hover:text-ink text-xs"
+                    title="Edit title"
+                  >
+                    <Icon name="edit" size={14} />
+                  </button>
+                </div>
               )}
+              <div className="text-xs text-ink-dim font-mono">ID: {video.id}</div>
+            </div>
+          </div>
+          <DialogClose
+            className="kt-focus shrink-0 text-ink-muted transition-colors duration-150 hover:text-ink"
+            aria-label="Close video details"
+          >
+            <Icon name="close" size={18} />
+          </DialogClose>
+        </div>
 
-              {/* Live CC Toggle Button on Player */}
+        {/* Modal Body */}
+        <div className="flex-1 overflow-y-auto py-4 space-y-5">
+          {/* Embedded Video Player with Live CC Overlay */}
+          <div className="aspect-video rounded-card bg-black overflow-hidden relative shadow-inner group">
+            {media.offline ? (
+              <OfflinePlate onRelink={async (file) => !!(await relinkMedia(video.id, file))} />
+            ) : (
+              <video
+                ref={videoElRef}
+                src={video.file_url}
+                crossOrigin="anonymous"
+                controls
+                playsInline
+                onError={media.onError}
+                onLoadedData={media.onLoadedData}
+                onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+                className="w-full h-full object-contain block"
+              />
+            )}
+
+            {/* Live CC Toggle Button on Player */}
+            <Tooltip
+              side="bottom"
+              content={showPlayerCaptions ? 'Live CC active (click to hide)' : 'Live CC hidden (click to show)'}
+            >
               <button
                 type="button"
                 onClick={() => setShowPlayerCaptions((c) => !c)}
@@ -665,160 +696,163 @@ function VideoDetailModal({
                     ? 'bg-emerald-600 text-white border-emerald-400'
                     : 'bg-black/60 text-white/70 border-white/20 hover:text-white'
                 }`}
-                title={showPlayerCaptions ? 'Live CC active (click to hide)' : 'Live CC hidden (click to show)'}
               >
                 CC {showPlayerCaptions ? 'ON' : 'OFF'}
               </button>
+            </Tooltip>
 
-              {/* Synchronized Live Caption Floating Overlay */}
-              {showPlayerCaptions && activeSegment && (
-                <div className="pointer-events-none absolute bottom-8 inset-x-6 flex justify-center z-20">
-                  <span className="px-3.5 py-1.5 rounded-lg bg-black/85 backdrop-blur text-white text-xs sm:text-sm font-bold tracking-wide shadow-2xl border border-white/20 text-center animate-pulse max-w-[90%]">
-                    {activeSegment.text}
-                  </span>
-                </div>
-              )}
+            {/* Synchronized Live Caption Floating Overlay */}
+            {showPlayerCaptions && activeSegment && (
+              <div className="pointer-events-none absolute bottom-8 inset-x-6 flex justify-center z-20">
+                <span className="px-3.5 py-1.5 rounded-lg bg-black/85 backdrop-blur text-white text-xs sm:text-sm font-bold tracking-wide shadow-2xl border border-white/20 text-center animate-pulse max-w-[90%]">
+                  {activeSegment.text}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Technical Metadata Matrix */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-surface-2 p-3.5 rounded-card border border-line text-xs">
+            <div>
+              <div className="text-ink-dim">Duration</div>
+              <div className="font-mono font-semibold text-ink mt-0.5">{fmtDuration(video.duration)}</div>
             </div>
-
-            {/* Technical Metadata Matrix */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-surface-2 p-3.5 rounded-card border border-line text-xs">
-              <div>
-                <div className="text-ink-dim">Duration</div>
-                <div className="font-mono font-semibold text-ink mt-0.5">{fmtDuration(video.duration)}</div>
-              </div>
-              <div>
-                <div className="text-ink-dim">File Size</div>
-                <div className="font-mono font-semibold text-ink mt-0.5">{fmtBytes(video.file_size || 0)}</div>
-              </div>
-              <div>
-                <div className="text-ink-dim">Aspect Ratio</div>
-                <div className="font-semibold text-ink mt-0.5">{video.aspect_ratio || '9:16 Vertical'}</div>
-              </div>
-              <div>
-                <div className="text-ink-dim">Ingested Date</div>
-                <div className="font-semibold text-ink mt-0.5">
-                  {new Date(video.created_at).toLocaleDateString()}
-                </div>
+            <div>
+              <div className="text-ink-dim">File Size</div>
+              <div className="font-mono font-semibold text-ink mt-0.5">{fmtBytes(video.file_size || 0)}</div>
+            </div>
+            <div>
+              <div className="text-ink-dim">Aspect Ratio</div>
+              <div className="font-semibold text-ink mt-0.5">{video.aspect_ratio || '9:16 Vertical'}</div>
+            </div>
+            <div>
+              <div className="text-ink-dim">Ingested Date</div>
+              <div className="font-semibold text-ink mt-0.5">
+                {new Date(video.created_at).toLocaleDateString()}
               </div>
             </div>
+          </div>
 
-            {/* Speech Transcription & Audio Highlights Panel */}
-            <div className="space-y-3 p-4 rounded-card bg-surface-2/60 border border-line">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <Icon name="closed_caption" size={17} className="text-primary" />
-                  <label className="kt-eyebrow text-xs text-ink font-semibold">
-                    AI Speech-to-Text Live Captions
-                  </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={subLang}
-                    onChange={(e) => setSubLang(e.target.value)}
-                    className="p-1.5 rounded-btn bg-surface border border-line text-[11px] font-medium text-ink"
-                  >
-                    <option value="English">English</option>
-                    <option value="Spanish">Spanish</option>
-                    <option value="French">French</option>
-                    <option value="German">German</option>
-                    <option value="Hindi">Hindi</option>
-                    <option value="Japanese">Japanese</option>
-                  </select>
-                  <Button
+          {/* Speech Transcription & Audio Highlights Panel */}
+          <div className="space-y-3 p-4 rounded-card bg-surface-2/60 border border-line">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Icon name="closed_caption" size={17} className="text-primary" />
+                <label className="kt-eyebrow text-xs text-ink font-semibold">
+                  AI Speech-to-Text Live Captions
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={subLang} onValueChange={setSubLang}>
+                  <SelectTrigger
+                    aria-label="Transcription language"
                     size="sm"
-                    icon="auto_awesome" iconSpin={loadingSubs}
-                    onClick={handleTranscribe}
-                    disabled={loadingSubs}
+                    className="w-auto min-w-[8.5rem] text-[11px] font-medium"
                   >
-                    {loadingSubs ? 'Transcribing…' : subtitles ? 'Re-transcribe' : 'Generate Live Captions'}
-                  </Button>
+                    <span className="truncate">{subLang}</span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUBTITLE_LANGUAGES.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {l}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  icon="auto_awesome" iconSpin={loadingSubs}
+                  onClick={handleTranscribe}
+                  disabled={loadingSubs}
+                >
+                  {loadingSubs ? 'Transcribing…' : subtitles ? 'Re-transcribe' : 'Generate Live Captions'}
+                </Button>
+              </div>
+            </div>
+
+            {subtitles && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] text-ink-dim">Caption file for this take:</span>
+                <Button size="sm" variant="secondary" icon="download" onClick={() => handleCaptionDownload('srt')}>
+                  .srt
+                </Button>
+                <Button size="sm" variant="secondary" icon="download" onClick={() => handleCaptionDownload('vtt')}>
+                  .vtt
+                </Button>
+              </div>
+            )}
+
+            {/* Status Message */}
+            {subMsg && (
+              <div
+                className={`p-2 text-xs rounded border ${
+                  subMsg.ok
+                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
+                    : 'bg-danger/10 text-danger border-danger/30'
+                }`}
+              >
+                {subMsg.text}
+              </div>
+            )}
+
+            {/* Segmented Timeline List */}
+            {subtitles?.segments && subtitles.segments.length > 0 ? (
+              <div className="space-y-2">
+                <div className="text-xs text-ink-muted">
+                  Click any timestamp chip to jump player playback to that spoken line:
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                  {subtitles.segments.map((seg: any, idx: number) => {
+                    const stSec = parseSec(seg.start);
+                    const isCurrent = activeSegment?.id === seg.id;
+                    return (
+                      <div
+                        key={seg.id || idx}
+                        onClick={() => handleSeek(stSec)}
+                        className={`p-2 rounded-btn border text-xs flex items-start gap-2.5 cursor-pointer transition-all ${
+                          isCurrent
+                            ? 'border-primary bg-primary-soft text-ink font-medium shadow-sm'
+                            : 'border-line bg-surface hover:border-line-strong text-ink-muted hover:text-ink'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-surface-2 border border-line shrink-0 text-primary font-bold hover:bg-primary hover:text-on-primary transition-colors"
+                          title="Jump video to this offset"
+                        >
+                          {String(seg.start).replace(',', '.').slice(0, 8)}
+                        </button>
+                        <span className="flex-1 min-w-0 leading-relaxed">{seg.text}</span>
+                        {isCurrent && <Icon name="volume_up" size={14} className="text-primary shrink-0 mt-0.5" />}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-
-              {subtitles && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] text-ink-dim">Caption file for this take:</span>
-                  <Button size="sm" variant="secondary" icon="download" onClick={() => handleCaptionDownload('srt')}>
-                    .srt
-                  </Button>
-                  <Button size="sm" variant="secondary" icon="download" onClick={() => handleCaptionDownload('vtt')}>
-                    .vtt
-                  </Button>
-                </div>
-              )}
-
-              {/* Status Message */}
-              {subMsg && (
-                <div
-                  className={`p-2 text-xs rounded border ${
-                    subMsg.ok
-                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
-                      : 'bg-danger/10 text-danger border-danger/30'
-                  }`}
-                >
-                  {subMsg.text}
-                </div>
-              )}
-
-              {/* Segmented Timeline List */}
-              {subtitles?.segments && subtitles.segments.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="text-xs text-ink-muted">
-                    Click any timestamp chip to jump player playback to that spoken line:
-                  </div>
-                  <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                    {subtitles.segments.map((seg: any, idx: number) => {
-                      const stSec = parseSec(seg.start);
-                      const isCurrent = activeSegment?.id === seg.id;
-                      return (
-                        <div
-                          key={seg.id || idx}
-                          onClick={() => handleSeek(stSec)}
-                          className={`p-2 rounded-btn border text-xs flex items-start gap-2.5 cursor-pointer transition-all ${
-                            isCurrent
-                              ? 'border-primary bg-primary-soft text-ink font-medium shadow-sm'
-                              : 'border-line bg-surface hover:border-line-strong text-ink-muted hover:text-ink'
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-surface-2 border border-line shrink-0 text-primary font-bold hover:bg-primary hover:text-on-primary transition-colors"
-                            title="Jump video to this offset"
-                          >
-                            {String(seg.start).replace(',', '.').slice(0, 8)}
-                          </button>
-                          <span className="flex-1 min-w-0 leading-relaxed">{seg.text}</span>
-                          {isCurrent && <Icon name="volume_up" size={14} className="text-primary shrink-0 mt-0.5" />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 text-center text-xs text-ink-muted bg-surface rounded-btn border border-line">
-                  <Icon name="graphic_eq" size={24} className="mx-auto text-ink-dim mb-1" />
-                  No speech subtitles generated yet. Click "Generate Live Captions" to transcribe audio and compute matching timestamps.
-                </div>
-              )}
-            </div>
+            ) : (
+              <div className="p-4 text-center text-xs text-ink-muted bg-surface rounded-btn border border-line">
+                <Icon name="graphic_eq" size={24} className="mx-auto text-ink-dim mb-1" />
+                No speech subtitles generated yet. Click "Generate Live Captions" to transcribe audio and compute matching timestamps.
+              </div>
+            )}
           </div>
+        </div>
 
-          {/* Footer Routing Actions */}
-          <div className="pt-4 border-t border-line shrink-0 flex flex-wrap items-center justify-between gap-2">
-            <Button variant="secondary" icon="delete" onClick={onDelete} className="text-danger">
-              Delete
+        {/* Footer Routing Actions */}
+        <div className="pt-4 border-t border-line shrink-0 flex flex-wrap items-center justify-between gap-2">
+          <Button variant="secondary" icon="delete" onClick={onDelete} className="text-danger">
+            Delete
+          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" icon="content_cut" onClick={onOpenSmartEditor}>
+              Cut on the bench
             </Button>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" icon="content_cut" onClick={onOpenSmartEditor}>
-                Cut on the bench
-              </Button>
-              <Button icon="play_circle" onClick={onOpenRawStudio}>
-                Open in Intake
-              </Button>
-            </div>
+            <Button icon="play_circle" onClick={onOpenRawStudio}>
+              Open in Intake
+            </Button>
           </div>
-        </Card>
-      </div>
-    </>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

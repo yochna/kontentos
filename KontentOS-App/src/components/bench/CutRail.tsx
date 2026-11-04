@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip } from '@/components/ui/tooltip';
 import {
   buildLedger,
   formatDuration,
@@ -92,22 +94,18 @@ export function CutRail({
         <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-ink-dim">
           On the bench
         </span>
-        <div
-          role="group"
+        <ToggleGroup
+          variant="none"
+          value={filter}
+          onValueChange={(v) => setFilter((v || 'all') as Filter)}
           aria-label="Filter the bench by ledger stage"
           className="kt-chipstrip flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
         >
-          <Chip label="all" count={cuts.length} active={filter === 'all'} onClick={() => setFilter('all')} />
+          <Chip label="all" count={cuts.length} value="all" />
           {LEDGER_STAGES.map((stage) => (
-            <Chip
-              key={stage}
-              label={stage}
-              count={counts.get(stage) ?? 0}
-              active={filter === stage}
-              onClick={() => setFilter(stage)}
-            />
+            <Chip key={stage} label={stage} count={counts.get(stage) ?? 0} value={stage} />
           ))}
-        </div>
+        </ToggleGroup>
         {selected && (
           <button
             type="button"
@@ -213,31 +211,16 @@ export function CutRail({
   );
 }
 
-function Chip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
+function Chip({ label, count, value }: { label: string; count: number; value: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`kt-focus shrink-0 rounded-[4px] border px-1.5 py-[3px] font-mono text-[9.5px] uppercase tracking-[0.1em] transition-colors ${
-        active
-          ? 'border-primary bg-primary-soft text-primary'
-          : 'border-line text-ink-dim hover:border-line-strong hover:text-ink-muted'
-      }`}
+    <ToggleGroupItem
+      variant="none"
+      value={value}
+      className="kt-focus group shrink-0 rounded-[4px] border border-line px-1.5 py-[3px] font-mono text-[9.5px] uppercase tracking-[0.1em] text-ink-dim transition-colors hover:border-line-strong hover:text-ink-muted data-[state=on]:border-primary data-[state=on]:bg-primary-soft data-[state=on]:text-primary"
     >
       {label}
-      <span className={`ml-1 ${active ? 'text-primary' : 'text-ink-dim/70'}`}>{count}</span>
-    </button>
+      <span className="ml-1 text-ink-dim/70 group-data-[state=on]:text-primary">{count}</span>
+    </ToggleGroupItem>
   );
 }
 
@@ -258,60 +241,77 @@ function CutTile({
   selected: boolean;
   onSelect: (id: string | null) => void;
 }) {
-  return (
-    <button
-      type="button"
-      data-cut={video.id}
-      data-selected={selected}
-      aria-pressed={selected}
-      onClick={() => onSelect(selected ? null : video.id)}
-      style={{ ['--kt-fill' as string]: fill.toFixed(2), ['--kt-i' as string]: String(index) }}
-      title={`${video.title} — ${steps.map((s) => `${s.label}: ${s.detail}`).join(' · ')}`}
-      className={`kt-cut-tile group w-[92px] shrink-0 overflow-hidden rounded-[6px] border bg-surface-2/50 p-1.5 text-left kt-focus ${
-        selected ? 'border-primary' : 'border-line'
-      }`}
-    >
-      {/* Safelight: fires when this tile becomes the lit cut, then stops owning the surface. */}
-      <span aria-hidden className="kt-safelight pointer-events-none absolute inset-0 overflow-hidden" />
+  const ledger = (
+    <div>
+      <div className="mb-1 font-semibold text-ink">{video.title}</div>
+      <dl className="space-y-0.5">
+        {steps.map((s) => (
+          <div key={s.label} className="flex items-baseline gap-2">
+            <dt className="shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-ink-dim">{s.label}</dt>
+            <dd className={s.state === 'next' ? 'min-w-0 truncate text-ink-dim' : 'min-w-0 truncate text-ink-muted'}>
+              {s.detail}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
 
-      {/* Contact print, not a preview: the strip has to leave the stage room to breathe, so the
-          frame is cropped to the middle of the reel instead of showing all of it. */}
-      <div className="relative aspect-[3/4] overflow-hidden rounded-[4px] bg-surface-3">
-        {video.thumbnail_url ? (
-          <img
-            src={video.thumbnail_url}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover opacity-85 transition-opacity duration-200 group-hover:opacity-100"
-          />
-        ) : (
-          <span className="grid h-full place-items-center text-ink-dim">
-            <Icon name={video.status === 'ready' ? 'movie' : 'hourglass_top'} size={20} />
+  return (
+    <Tooltip content={ledger} side="top" delay={250}>
+      <button
+        type="button"
+        data-cut={video.id}
+        data-selected={selected}
+        aria-pressed={selected}
+        onClick={() => onSelect(selected ? null : video.id)}
+        style={{ ['--kt-fill' as string]: fill.toFixed(2), ['--kt-i' as string]: String(index) }}
+        className={`kt-cut-tile group w-[92px] shrink-0 overflow-hidden rounded-[6px] border bg-surface-2/50 p-1.5 text-left kt-focus ${
+          selected ? 'border-primary' : 'border-line'
+        }`}
+      >
+        {/* Safelight: fires when this tile becomes the lit cut, then stops owning the surface. */}
+        <span aria-hidden className="kt-safelight pointer-events-none absolute inset-0 overflow-hidden" />
+
+        {/* Contact print, not a preview: the strip has to leave the stage room to breathe, so the
+            frame is cropped to the middle of the reel instead of showing all of it. */}
+        <div className="relative aspect-[3/4] overflow-hidden rounded-[4px] bg-surface-3">
+          {video.thumbnail_url ? (
+            <img
+              src={video.thumbnail_url}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover opacity-85 transition-opacity duration-200 group-hover:opacity-100"
+            />
+          ) : (
+            <span className="grid h-full place-items-center text-ink-dim">
+              <Icon name={video.status === 'ready' ? 'movie' : 'hourglass_top'} size={20} />
+            </span>
+          )}
+          <span className="absolute bottom-1 left-1 rounded-[3px] bg-black/65 px-1 font-mono text-[9px] leading-tight text-white/90">
+            {formatDuration(video.duration)}
+          </span>
+        </div>
+
+        <div className="mt-1.5 truncate text-[11px] font-semibold leading-tight text-ink">{video.title}</div>
+
+        <div className="mt-1.5 flex items-center gap-[3px]" aria-hidden>
+          {steps.map((s) => (
+            <span
+              key={s.label}
+              className={`h-[3px] flex-1 rounded-full ${
+                s.state === 'done' ? 'bg-primary/80' : s.state === 'now' ? 'kt-led--now bg-tertiary' : 'bg-surface-3'
+              }`}
+            />
+          ))}
+        </div>
+
+        {stage && (
+          <span className="mt-1 block truncate font-mono text-[8.5px] uppercase tracking-[0.1em] text-ink-dim">
+            {stage}
           </span>
         )}
-        <span className="absolute bottom-1 left-1 rounded-[3px] bg-black/65 px-1 font-mono text-[9px] leading-tight text-white/90">
-          {formatDuration(video.duration)}
-        </span>
-      </div>
-
-      <div className="mt-1.5 truncate text-[11px] font-semibold leading-tight text-ink">{video.title}</div>
-
-      <div className="mt-1.5 flex items-center gap-[3px]" aria-hidden>
-        {steps.map((s) => (
-          <span
-            key={s.label}
-            className={`h-[3px] flex-1 rounded-full ${
-              s.state === 'done' ? 'bg-primary/80' : s.state === 'now' ? 'kt-led--now bg-tertiary' : 'bg-surface-3'
-            }`}
-          />
-        ))}
-      </div>
-
-      {stage && (
-        <span className="mt-1 block truncate font-mono text-[8.5px] uppercase tracking-[0.1em] text-ink-dim">
-          {stage}
-        </span>
-      )}
-    </button>
+      </button>
+    </Tooltip>
   );
 }

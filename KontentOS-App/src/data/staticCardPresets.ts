@@ -340,32 +340,32 @@ export const LAYER_STYLE_PRESET_META: Record<
 > = {
   'default-glow': {
     label: 'Studio Balanced',
-    icon: '✨',
+    icon: 'auto_awesome',
     description: 'Balanced floating depth with subtle ambient accent glow',
   },
   'cyber-neon': {
     label: 'Cyber Neon',
-    icon: '⚡',
+    icon: 'bolt',
     description: 'High-energy electric aura with radiant border glow & neon headlines',
   },
   'frosted-glass': {
     label: 'Frosted Glass',
-    icon: '🪟',
+    icon: 'blur_on',
     description: 'Deep Gaussian backdrop blur with ultra-smooth specular reflections',
   },
   'editorial-depth': {
     label: 'Editorial Depth',
-    icon: '🏛️',
+    icon: 'layers',
     description: 'Multi-tiered cinematic drop shadow with clean, high-contrast borders',
   },
   'clean-minimal': {
     label: 'Clean Minimal',
-    icon: '📐',
+    icon: 'description',
     description: 'Flat modern print finish with zero glow and crisp 1px borders',
   },
   custom: {
     label: 'Custom Styles',
-    icon: '🎛️',
+    icon: 'tune',
     description: 'Fine-tuned user-defined elevation, glass blur, and glow parameters',
   },
 };

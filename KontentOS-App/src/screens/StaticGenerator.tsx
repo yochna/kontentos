@@ -36,6 +36,8 @@ import { useCardExporter } from './StaticGenerator/hooks/useCardExporter';
 import { useCanvasInteraction } from './StaticGenerator/hooks/useCanvasInteraction';
 import { getCanvasBounds } from './StaticGenerator/utils/canvasMath';
 import { Button, Card, Eyebrow } from '@/components/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip } from '@/components/ui/tooltip';
 import { Icon } from '@/lib/icons';
 import { useStore, useDisplayProfile } from '@/lib/store';
 import { navigate } from '@/lib/nav';
@@ -728,33 +730,37 @@ export default function StaticGenerator() {
             <div className="rounded-card bg-surface-2/60 border border-line p-4 sm:p-6 min-h-[460px] flex items-center justify-center relative overflow-hidden">
               {/* Floating Quick Indicators & Toggles */}
               <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setShowSafeZones((prev) => !prev)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-md transition-all cursor-pointer ${
-                    showSafeZones
-                      ? 'bg-primary text-on-primary border-primary shadow-sm ring-1 ring-primary/40'
-                      : 'bg-surface/80 hover:bg-surface text-ink-muted hover:text-ink border-line'
-                  }`}
-                  title="Toggle Instagram and LinkedIn platform safe zones & crop boundaries"
-                >
-                  <span className="text-[12px]">📐</span>
-                  <span>{showSafeZones ? 'Safe Zones: On' : 'Safe Zones'}</span>
-                </button>
+                <Tooltip content="Show the Instagram and LinkedIn safe zones and crop boundaries" side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setShowSafeZones((prev) => !prev)}
+                    aria-pressed={showSafeZones}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-md transition-all cursor-pointer ${
+                      showSafeZones
+                        ? 'bg-primary text-on-primary border-primary shadow-sm ring-1 ring-primary/40'
+                        : 'bg-surface/80 hover:bg-surface text-ink-muted hover:text-ink border-line'
+                    }`}
+                  >
+                    <Icon name="crop_free" size={15} />
+                    <span>{showSafeZones ? 'Safe Zones: On' : 'Safe Zones'}</span>
+                  </button>
+                </Tooltip>
 
-                <button
-                  type="button"
-                  onClick={() => setShowGrid((prev) => !prev)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-md transition-all cursor-pointer ${
-                    showGrid
-                      ? 'bg-primary text-on-primary border-primary shadow-sm ring-1 ring-primary/40'
-                      : 'bg-surface/80 hover:bg-surface text-ink-muted hover:text-ink border-line'
-                  }`}
-                  title="Toggle 3×3 Rule-of-Thirds alignment grid (Press G)"
-                >
-                  <span className="text-[12px]">⊞</span>
-                  <span>{showGrid ? 'Grid: On' : 'Grid (G)'}</span>
-                </button>
+                <Tooltip content="Show the 3×3 rule-of-thirds grid — or press G" side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setShowGrid((prev) => !prev)}
+                    aria-pressed={showGrid}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-md transition-all cursor-pointer ${
+                      showGrid
+                        ? 'bg-primary text-on-primary border-primary shadow-sm ring-1 ring-primary/40'
+                        : 'bg-surface/80 hover:bg-surface text-ink-muted hover:text-ink border-line'
+                    }`}
+                  >
+                    <Icon name="grid_on" size={15} />
+                    <span>{showGrid ? 'Grid: On' : 'Grid (G)'}</span>
+                  </button>
+                </Tooltip>
               </div>
 
               <CardCanvas
@@ -862,129 +868,132 @@ export default function StaticGenerator() {
               </div>
             </div>
 
-            {/* Horizontal Tool Selection Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-              {STUDIO_SECTIONS.map((sec) => {
-                const isActive = activeSection === sec.id;
-                return (
-                  <button
-                    key={sec.id}
-                    type="button"
-                    onClick={() => setActiveSection(sec.id)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer select-none shrink-0 ${
-                      isActive
-                        ? 'bg-primary text-on-primary shadow-sm font-semibold ring-1 ring-primary/30'
-                        : 'bg-surface text-ink-muted border border-line hover:text-ink hover:bg-surface-2 hover:border-line-strong'
-                    }`}
-                    title={`${sec.label}: ${sec.description}`}
-                  >
-                    <Icon name={sec.icon} size={15} />
-                    <span>{sec.shortLabel}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <Tabs
+              value={activeSection}
+              onValueChange={(v) => setActiveSection(v as StudioSection)}
+              className="space-y-4"
+            >
+              {/* Horizontal Tool Selection Pills */}
+              <TabsList
+                variant="pill"
+                aria-label="Studio tools"
+                className="-mx-1 gap-1.5 overflow-x-auto rounded-none bg-transparent p-0 px-1 pb-1 scrollbar-none"
+              >
+                {STUDIO_SECTIONS.map((sec) => (
+                  <Tooltip key={sec.id} content={`${sec.label}: ${sec.description}`}>
+                    <TabsTrigger
+                      variant="pill"
+                      value={sec.id}
+                      className="shrink-0 select-none rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-muted transition-all data-[state=inactive]:hover:bg-surface-2 data-[state=inactive]:hover:border-line-strong data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:font-semibold data-[state=active]:shadow-sm data-[state=active]:text-on-primary data-[state=active]:ring-1 data-[state=active]:ring-primary/30"
+                    >
+                      <Icon name={sec.icon} size={15} />
+                      <span>{sec.shortLabel}</span>
+                    </TabsTrigger>
+                  </Tooltip>
+                ))}
+              </TabsList>
 
-            {/* Feature Viewport - Renders ONLY the selected tool */}
-            <div className="min-h-[320px]">
-              {activeSection === 'content' && (
-                <div className="space-y-4 animate-in fade-in duration-150">
-                  <CopyEditor
-                    headline={state.headline}
-                    supportingText={state.supportingText}
-                    textSizeAdjust={state.textSizeAdjust ?? 0}
-                    onHeadlineChange={handleHeadlineChange}
-                    onSupportingTextChange={handleSupportingTextChange}
-                    onTextSizeAdjustChange={(textSizeAdjust) => setState((prev) => ({ ...prev, textSizeAdjust }))}
-                    onOpenRegenerate={() => setIsRegenerateModalOpen(true)}
-                    hasUndo={lastSlideUndo?.slideId === currentActiveSlide.id}
-                    onUndo={handleUndoSlide}
-                    onDismissUndo={() => setLastSlideUndo(null)}
-                  />
-                </div>
-              )}
+              {/* Feature Viewport - Renders ONLY the selected tool */}
+              <div className="min-h-[320px]">
+                <TabsContent value="content" className="mt-0">
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <CopyEditor
+                      headline={state.headline}
+                      supportingText={state.supportingText}
+                      textSizeAdjust={state.textSizeAdjust ?? 0}
+                      onHeadlineChange={handleHeadlineChange}
+                      onSupportingTextChange={handleSupportingTextChange}
+                      onTextSizeAdjustChange={(textSizeAdjust) => setState((prev) => ({ ...prev, textSizeAdjust }))}
+                      onOpenRegenerate={() => setIsRegenerateModalOpen(true)}
+                      hasUndo={lastSlideUndo?.slideId === currentActiveSlide.id}
+                      onUndo={handleUndoSlide}
+                      onDismissUndo={() => setLastSlideUndo(null)}
+                    />
+                  </div>
+                </TabsContent>
 
-              {activeSection === 'typography' && (
-                <div className="space-y-4 animate-in fade-in duration-150">
-                  <TypographyPicker
-                    fontStyle={state.fontStyle}
-                    onSelectFont={handleFontChange}
-                    textSizeAdjust={state.textSizeAdjust ?? 0}
-                    onTextSizeAdjustChange={(textSizeAdjust) => setState((prev) => ({ ...prev, textSizeAdjust }))}
-                  />
-                </div>
-              )}
+                <TabsContent value="typography" className="mt-0">
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <TypographyPicker
+                      fontStyle={state.fontStyle}
+                      onSelectFont={handleFontChange}
+                      textSizeAdjust={state.textSizeAdjust ?? 0}
+                      onTextSizeAdjustChange={(textSizeAdjust) => setState((prev) => ({ ...prev, textSizeAdjust }))}
+                    />
+                  </div>
+                </TabsContent>
 
-              {activeSection === 'theme' && (
-                <div className="space-y-4 animate-in fade-in duration-150">
-                  <ThemePicker
-                    currentTheme={state.theme}
-                    fontStyle={state.fontStyle}
-                    cardMode={state.cardMode || 'dark'}
-                    customAccent={state.customAccent}
-                    onSelectTheme={handleThemeChange}
-                    onSelectFont={handleFontChange}
-                    onSelectMode={handleCardModeChange}
-                    onSelectCustomAccent={handleCustomAccentChange}
-                  />
-                </div>
-              )}
+                <TabsContent value="theme" className="mt-0">
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <ThemePicker
+                      currentTheme={state.theme}
+                      fontStyle={state.fontStyle}
+                      cardMode={state.cardMode || 'dark'}
+                      customAccent={state.customAccent}
+                      onSelectTheme={handleThemeChange}
+                      onSelectFont={handleFontChange}
+                      onSelectMode={handleCardModeChange}
+                      onSelectCustomAccent={handleCustomAccentChange}
+                    />
+                  </div>
+                </TabsContent>
 
-              {activeSection === 'styles' && (
-                <div className="space-y-4 animate-in fade-in duration-150">
-                  <LayerStylesControl
-                    layerStyles={state.layerStyles}
-                    activeAccent={THEME_CONFIGS[state.theme]?.accent || '#00e5ff'}
-                    onChange={handleLayerStylesChange}
-                  />
-                </div>
-              )}
+                <TabsContent value="styles" className="mt-0">
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <LayerStylesControl
+                      layerStyles={state.layerStyles}
+                      activeAccent={THEME_CONFIGS[state.theme]?.accent || '#00e5ff'}
+                      onChange={handleLayerStylesChange}
+                    />
+                  </div>
+                </TabsContent>
 
-              {activeSection === 'ai' && (
-                <div className="space-y-4 animate-in fade-in duration-150">
-                  <AICopyGenerator
-                    format={state.format}
-                    onGenerated={handleAiGenerated}
-                    onDeckGenerated={handleDeckGenerated}
-                  />
-                </div>
-              )}
+                <TabsContent value="ai" className="mt-0">
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <AICopyGenerator
+                      format={state.format}
+                      onGenerated={handleAiGenerated}
+                      onDeckGenerated={handleDeckGenerated}
+                    />
+                  </div>
+                </TabsContent>
 
-              {activeSection === 'background' && (
-                <div className="space-y-4 animate-in fade-in duration-150">
-                  <BackgroundPicker
-                    currentUrl={state.backgroundUrl}
-                    overlayDarkness={state.overlayDarkness}
-                    blurAmount={state.blurAmount}
-                    onSelectPreset={handleSelectPreset}
-                    onCustomUpload={handleCustomUpload}
-                    onSelectStockPhoto={handleSelectStockPhoto}
-                    onUpdateOverlay={(overlayDarkness) => setState((prev) => ({ ...prev, overlayDarkness }))}
-                    onUpdateBlur={(blurAmount) => setState((prev) => ({ ...prev, blurAmount }))}
-                  />
-                </div>
-              )}
+                <TabsContent value="background" className="mt-0">
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <BackgroundPicker
+                      currentUrl={state.backgroundUrl}
+                      overlayDarkness={state.overlayDarkness}
+                      blurAmount={state.blurAmount}
+                      onSelectPreset={handleSelectPreset}
+                      onCustomUpload={handleCustomUpload}
+                      onSelectStockPhoto={handleSelectStockPhoto}
+                      onUpdateOverlay={(overlayDarkness) => setState((prev) => ({ ...prev, overlayDarkness }))}
+                      onUpdateBlur={(blurAmount) => setState((prev) => ({ ...prev, blurAmount }))}
+                    />
+                  </div>
+                </TabsContent>
 
-              {activeSection === 'aspect' && (
-                <div className="space-y-4 animate-in fade-in duration-150">
-                  <AspectRatioSelector
-                    currentRatio={state.aspectRatio}
-                    onSelectRatio={handleRatioChange}
-                  />
-                </div>
-              )}
+                <TabsContent value="aspect" className="mt-0">
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <AspectRatioSelector
+                      currentRatio={state.aspectRatio}
+                      onSelectRatio={handleRatioChange}
+                    />
+                  </div>
+                </TabsContent>
 
-              {activeSection === 'branding' && (
-                <div className="space-y-4 animate-in fade-in duration-150">
-                  <CreatorProfileSection
-                    creator={state.creator}
-                    showCreatorBadge={state.showCreatorBadge}
-                    onToggleBadge={(show) => setState((prev) => ({ ...prev, showCreatorBadge: show }))}
-                    onChange={handleCreatorChange}
-                  />
-                </div>
-              )}
-            </div>
+                <TabsContent value="branding" className="mt-0">
+                  <div className="space-y-4 animate-in fade-in duration-150">
+                    <CreatorProfileSection
+                      creator={state.creator}
+                      showCreatorBadge={state.showCreatorBadge}
+                      onToggleBadge={(show) => setState((prev) => ({ ...prev, showCreatorBadge: show }))}
+                      onChange={handleCreatorChange}
+                    />
+                  </div>
+                </TabsContent>
+              </div>
+            </Tabs>
 
             {/* Persistent Actions & Stepper Footer */}
             <div className="pt-2 border-t border-line space-y-3">

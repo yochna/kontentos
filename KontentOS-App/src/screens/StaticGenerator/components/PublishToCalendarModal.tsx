@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, Badge, StatusPill, useDismiss } from '@/components/ui';
+import { Button, Card, Eyebrow, Badge, StatusPill } from '@/components/ui';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { StaticCardState } from '../../../types/staticCard';
 import { useStore } from '@/lib/store';
 import { navigate } from '@/lib/nav';
@@ -30,7 +31,6 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
   state,
   canvasRef,
 }) => {
-  useDismiss(isOpen ? onClose : undefined);
   const { schedulePost } = useStore();
   const [isPublishing, setIsPublishing] = useState(false);
   const [successInfo, setSuccessInfo] = useState<{
@@ -245,17 +245,8 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur-sm animate-in duration-200"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="calendar-export-title"
-    >
-      <div
-        className="w-full max-w-2xl bg-surface border border-line rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent size="lg" hideClose className="flex flex-col gap-0 overflow-hidden p-0">
         {/* Header */}
         <div className="p-5 border-b border-line bg-surface/90 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -264,9 +255,9 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 id="calendar-export-title" className="text-base font-bold text-ink">
+                <DialogTitle className="text-base font-bold text-ink">
                   Export to Calendar
-                </h2>
+                </DialogTitle>
                 <Badge tone="primary">
                   {isCarousel ? `${slides.length} Carousel Slides` : 'Static Post'}
                 </Badge>
@@ -276,13 +267,12 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors cursor-pointer"
+          <DialogClose
+            aria-label="Close export dialog"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors kt-focus"
           >
             <Icon name="close" size={18} />
-          </button>
+          </DialogClose>
         </div>
 
         {/* Modal Body */}
@@ -601,7 +591,7 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

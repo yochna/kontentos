@@ -55,7 +55,7 @@ export function useCardExporter() {
       link.href = dataUrl;
       link.click();
 
-      setStatusMessage('✓ High-res graphic downloaded!');
+      setStatusMessage('High-res graphic downloaded!');
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err: any) {
       console.error('Failed to export high-res PNG:', err);
@@ -85,7 +85,7 @@ export function useCardExporter() {
               'image/png': blob,
             }),
           ]);
-          setStatusMessage('✓ Image copied to clipboard!');
+          setStatusMessage('Image copied to clipboard!');
           setTimeout(() => setStatusMessage(null), 3000);
           return;
         } catch (clipErr) {
@@ -96,7 +96,7 @@ export function useCardExporter() {
       // Fallback: Copy post copy & hashtags
       const textToCopy = `${state.headline}\n\n${state.supportingText}\n\n${state.socialCaption || ''}`;
       await navigator.clipboard.writeText(textToCopy);
-      setStatusMessage('✓ Caption & post copy copied to clipboard!');
+      setStatusMessage('Caption & post copy copied to clipboard!');
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err) {
       console.error('Failed to copy to clipboard:', err);
@@ -109,7 +109,7 @@ export function useCardExporter() {
     try {
       const textToCopy = `${state.headline}\n\n${state.supportingText}\n\n${state.socialCaption || ''}`;
       await navigator.clipboard.writeText(textToCopy);
-      setStatusMessage('✓ Post copy & caption copied!');
+      setStatusMessage('Post copy & caption copied!');
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (err) {
       console.error('Failed to copy text to clipboard:', err);
@@ -184,7 +184,7 @@ export function useCardExporter() {
       await switchToSlide(originalSlide);
       await waitForPaint();
       setStatusMessage(
-        `✓ Exported ${exported} of ${slides.length} slides — allow "multiple downloads" if the browser asked.`,
+        `Exported ${exported} of ${slides.length} slides — allow "multiple downloads" if the browser asked.`,
       );
       setTimeout(() => setStatusMessage(null), 4000);
     } catch (err: any) {
@@ -290,7 +290,7 @@ export function useCardExporter() {
       const filename = generateExportFilename(brand, topic, 1, slides.length, 'pdf');
       doc.save(filename);
 
-      setStatusMessage(`✓ LinkedIn PDF (${slides.length} pages) downloaded!`);
+      setStatusMessage(`LinkedIn PDF (${slides.length} pages) downloaded!`);
       setTimeout(() => setStatusMessage(null), 4000);
     } catch (err: any) {
       console.error('Failed to export LinkedIn PDF:', err);

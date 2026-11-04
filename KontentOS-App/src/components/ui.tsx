@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ButtonHTMLAttributes, CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { Icon } from '@/lib/icons';
+import { Tooltip } from '@/components/ui/tooltip';
 import { thumbGradient } from '@/data/mock';
 
 /* ----------------------------- motion helpers ----------------------------- */
@@ -151,45 +152,6 @@ export function AnimatedNumber({ text, duration = 900 }: { text: string; duratio
   return <span>{shown}</span>;
 }
 
-/* ------------------------------- useDismiss ------------------------------- */
-
-// Stacked modals must not fight over the body style, so the lock is refcounted.
-let scrollLocks = 0;
-let savedBodyOverflow = '';
-
-/**
- * Closes a modal on Escape and freezes background scrolling while it is open.
- * Call it unconditionally at the top of every modal/drawer component.
- */
-export function useDismiss(onClose: (() => void) | undefined) {
-  // The callback is usually an inline arrow, so keep it in a ref: depending on it directly would
-  // tear down and rebuild the listener on every render.
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-
-  useEffect(() => {
-    if (!onClose) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        closeRef.current?.();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    if (scrollLocks === 0) {
-      savedBodyOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-    }
-    scrollLocks++;
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      scrollLocks = Math.max(0, scrollLocks - 1);
-      if (scrollLocks === 0) document.body.style.overflow = savedBodyOverflow;
-    };
-    // Mounted once per dialog; presence of onClose is the only thing that gates it.
-  }, [!!onClose]);
-}
-
 /* ---------------------------------- Button ---------------------------------- */
 
 type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'soft';
@@ -217,6 +179,7 @@ export function Button({
   children,
   className = '',
   type = 'button',
+  title,
   ...rest
 }: {
   variant?: BtnVariant;
@@ -226,12 +189,15 @@ export function Button({
   children?: ReactNode;
 } & ButtonHTMLAttributes<HTMLButtonElement>) {
   const { iconSpin, ...html } = rest as { iconSpin?: boolean } & typeof rest;
-  return (
+  const button = (
     <button type={type} className={`${btnBase} ${btnVariants[variant]} ${btnSizes[size]} ${className}`} {...html}>
       {icon && <Icon name={icon} size={size === 'sm' ? 16 : 18} className={iconSpin ? 'kt-spin' : ''} />}
       {children}
     </button>
   );
+  // A `title` on a button with a visible label is an explanation, not a name, so it is the one
+  // place where a tooltip earns its keep — same prop, rendered by this app instead of the browser.
+  return title ? <Tooltip content={title}>{button}</Tooltip> : button;
 }
 
 export function IconButton({
@@ -243,15 +209,16 @@ export function IconButton({
   ...rest
 }: { name: string; label: string; size?: number } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button
-      type={type}
-      aria-label={label}
-      title={label}
-      className={`inline-flex items-center justify-center w-9 h-9 rounded-btn text-ink-muted hover:text-ink hover:bg-surface-2 transition-all duration-150 ease-out active:scale-[0.92] kt-focus ${className}`}
-      {...rest}
-    >
-      <Icon name={name} size={size} />
-    </button>
+    <Tooltip content={label}>
+      <button
+        type={type}
+        aria-label={label}
+        className={`inline-flex items-center justify-center w-9 h-9 rounded-btn text-ink-muted hover:text-ink hover:bg-surface-2 transition-all duration-150 ease-out active:scale-[0.92] kt-focus ${className}`}
+        {...rest}
+      >
+        <Icon name={name} size={size} />
+      </button>
+    </Tooltip>
   );
 }
 

@@ -1,6 +1,9 @@
 ﻿import { useEffect, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { AnimatedNumber, Badge, Button, Card, Chip, Eyebrow, PageShell, Progress, Reveal, Thumb, useDismiss } from '@/components/ui';
+import { AnimatedNumber, Badge, Button, Card, Chip, Eyebrow, PageShell, Progress, Reveal, Thumb } from '@/components/ui';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty';
+import { Tooltip } from '@/components/ui/tooltip';
 import { unsplashPhoto } from '@/lib/images';
 import { type Idea } from '@/data/mock';
 import { generateScaffoldIdeas } from '@/lib/ideasEngine';
@@ -325,22 +328,23 @@ export default function Ideas() {
                 </Card>
 
                 {/* Direct quick bookmark button on card corner */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleSaved(idea);
-                  }}
-                  title={saved ? 'Remove from saved' : 'Save archetype'}
-                  aria-label={saved ? 'Remove from saved' : 'Save archetype'}
-                  className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur transition-all ${
-                    saved
-                      ? 'bg-primary text-on-primary shadow-sm'
-                      : 'bg-black/40 text-white/80 hover:bg-black/60 hover:text-white'
-                  }`}
-                >
-                  <Icon name="bookmark" size={15} fill={saved ? 1 : 0} />
-                </button>
+                <Tooltip side="left" content={saved ? 'Remove from saved' : 'Save archetype'}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSaved(idea);
+                    }}
+                    aria-label={saved ? 'Remove from saved' : 'Save archetype'}
+                    className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur transition-all ${
+                      saved
+                        ? 'bg-primary text-on-primary shadow-sm'
+                        : 'bg-black/40 text-white/80 hover:bg-black/60 hover:text-white'
+                    }`}
+                  >
+                    <Icon name="bookmark" size={15} fill={saved ? 1 : 0} />
+                  </button>
+                </Tooltip>
               </div>
                 </Reveal>
             );
@@ -391,13 +395,11 @@ function BlueprintDrawer({
   onStartProduction: () => void;
   onClose: () => void;
 }) {
-  useDismiss(onClose);
   const b = idea.blueprint;
 
   return (
-    <>
-      <div className="kt-scrim fixed inset-0 z-40 bg-[var(--scrim)]" onClick={onClose} />
-      <aside className="kt-drawer fixed right-0 top-0 z-50 h-screen w-full max-w-[460px] bg-surface border-l border-line shadow-[var(--shadow-2)] flex flex-col">
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent placement="right" hideClose className="w-[min(460px,100vw)]">
         <div className="h-16 px-5 flex items-center justify-between border-b border-line shrink-0">
           <div className="flex items-center gap-2">
             <span className="grid place-items-center w-8 h-8 rounded-btn bg-primary-soft text-primary">
@@ -405,16 +407,15 @@ function BlueprintDrawer({
             </span>
             <div>
               <div className="kt-eyebrow">Active Blueprint</div>
-              <div className="text-sm font-semibold text-ink">Production Roadmap</div>
+              <DialogTitle className="text-sm font-semibold text-ink">Production Roadmap</DialogTitle>
             </div>
           </div>
-          <button
-            onClick={onClose}
+          <DialogClose
             aria-label="Close blueprint"
             className="grid place-items-center w-9 h-9 rounded-btn text-ink-muted hover:bg-surface-2 kt-focus"
           >
             <Icon name="close" size={20} />
-          </button>
+          </DialogClose>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
@@ -428,14 +429,14 @@ function BlueprintDrawer({
               </h3>
             </div>
           </div>
-
+  
           <section>
             <div className="kt-eyebrow mb-1.5">Why this works</div>
             <p className="text-[13.5px] text-ink-muted leading-relaxed bg-surface-2/60 p-3 rounded-btn border border-line">
               {b.why}
             </p>
           </section>
-
+  
           <section>
             <div className="kt-eyebrow mb-2">Suggested formats</div>
             <div className="flex flex-wrap gap-2">
@@ -449,7 +450,7 @@ function BlueprintDrawer({
               ))}
             </div>
           </section>
-
+  
           <section>
             <div className="flex items-center justify-between mb-2">
               <div className="kt-eyebrow">Opening hook formula</div>
@@ -461,7 +462,7 @@ function BlueprintDrawer({
               <p className="font-display text-[16.5px] leading-snug text-ink italic">{b.hook}</p>
             </div>
           </section>
-
+  
           <section>
             <div className="kt-eyebrow mb-2">Beat-by-beat outline</div>
             <div className="kt-stagger space-y-3">
@@ -484,7 +485,7 @@ function BlueprintDrawer({
             </div>
           </section>
         </div>
-
+  
         <div className="p-4 border-t border-line shrink-0 flex gap-2 bg-surface">
           <Button
             variant="secondary"
@@ -498,8 +499,8 @@ function BlueprintDrawer({
             Start production
           </Button>
         </div>
-      </aside>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -512,61 +513,59 @@ function TranscriptPickerModal({
   onSelect: (title: string) => void;
   onClose: () => void;
 }) {
-  useDismiss(onClose);
   return (
-    <>
-      <div className="kt-scrim fixed inset-0 z-40 bg-[var(--scrim)]" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md p-6 kt-dialog">
-          <div className="flex items-center justify-between pb-3 border-b border-line mb-4">
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-btn bg-primary-soft text-primary grid place-items-center">
-                <Icon name="upload_file" size={18} />
-              </span>
-              <h3 className="font-semibold text-base text-ink">Select Video Transcript</h3>
-            </div>
-            <button
-              onClick={onClose}
-              aria-label="Close transcript picker"
-              className="kt-focus text-ink-muted hover:text-ink"
-            >
-              <Icon name="close" size={18} />
-            </button>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent size="sm" hideClose className="p-6">
+        <div className="flex items-center justify-between pb-3 border-b border-line mb-4">
+          <div className="flex items-center gap-2">
+            <span className="w-8 h-8 rounded-btn bg-primary-soft text-primary grid place-items-center">
+              <Icon name="upload_file" size={18} />
+            </span>
+            <DialogTitle className="font-semibold text-base text-ink">Select Video Transcript</DialogTitle>
           </div>
-          <p className="text-xs text-ink-muted mb-4">
-            Choose an ingested video from your studio library to extract fresh viral angles and hooks from its transcript.
-          </p>
+          <DialogClose
+            aria-label="Close transcript picker"
+            className="kt-focus text-ink-muted hover:text-ink"
+          >
+            <Icon name="close" size={18} />
+          </DialogClose>
+        </div>
+        <p className="text-xs text-ink-muted mb-4">
+          Choose an ingested video from your studio library to extract fresh viral angles and hooks from its transcript.
+        </p>
 
-          {videos.length === 0 ? (
-            <div className="py-6 text-center text-ink-muted text-sm bg-surface-2 rounded-btn">
-              No uploaded clips found in library yet. Ingest a raw clip in Raw Studio to extract angles from it!
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {videos.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => onSelect(v.title)}
-                  className="w-full text-left p-3 rounded-btn border border-line bg-surface hover:bg-surface-2 flex items-center justify-between transition-colors group"
-                >
-                  <div className="min-w-0 pr-2">
-                    <div className="text-sm font-medium text-ink truncate group-hover:text-primary">{v.title}</div>
-                    <div className="text-[11px] text-ink-dim">Duration: {Math.round(v.duration || 0)}s</div>
-                  </div>
-                  <Icon name="auto_awesome" size={16} className="text-primary shrink-0" />
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-4 pt-3 border-t border-line flex justify-end">
-            <Button variant="secondary" onClick={onClose}>
-              Cancel
-            </Button>
+        {videos.length === 0 ? (
+          <EmptyState
+            compact
+            icon="upload_file"
+            title="No clips to read yet"
+            body="Ingest a raw clip into the studio and its transcript shows up here."
+          />
+        ) : (
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {videos.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => onSelect(v.title)}
+                className="w-full text-left p-3 rounded-btn border border-line bg-surface hover:bg-surface-2 flex items-center justify-between transition-colors group kt-focus"
+              >
+                <div className="min-w-0 pr-2">
+                  <div className="text-sm font-medium text-ink truncate group-hover:text-primary">{v.title}</div>
+                  <div className="text-[11px] text-ink-dim">Duration: {Math.round(v.duration || 0)}s</div>
+                </div>
+                <Icon name="auto_awesome" size={16} className="text-primary shrink-0" />
+              </button>
+            ))}
           </div>
-        </Card>
-      </div>
-    </>
+        )}
+
+        <div className="mt-4 pt-3 border-t border-line flex justify-end">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

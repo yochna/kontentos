@@ -1,6 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { Toaster } from '@/components/ui/toast';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import './index.css';
 
 // Lazy stations are separate chunks with build-specific names. After a deploy an already-open tab
@@ -14,6 +16,11 @@ window.addEventListener('vite:preloadError', () => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <TooltipProvider delayDuration={350} skipDelayDuration={300}>
+      <App />
+      {/* Outside App on purpose: the toast that reports a station failing to load must not live
+          inside the tree that just failed. */}
+      <Toaster />
+    </TooltipProvider>
   </StrictMode>,
 );

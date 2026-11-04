@@ -1,7 +1,18 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useMemo } from 'react';
 import { Icon } from '@/lib/icons';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
-import { getCanvasBounds } from '../../utils/canvasMath';
 
 interface Props {
   x: number;
@@ -18,8 +29,14 @@ const QUICK_SHAPES = [
   { type: 'quote', icon: 'format_quote', label: 'Quote' },
 ];
 
+/**
+ * The canvas's right-click menu was a div positioned from the click, with its own outside-click and
+ * Escape listeners and a hand-rolled focus story. Radix's menu already does the trap, the roving
+ * highlight, the typeahead and the collision flip — this only has to say where it opens and what is in it.
+ * It opens below the cursor on purpose: Radix only shifts a menu across its side axis, so `side="right"`
+ * let a 218px menu hang off the left edge of a 390px phone instead of clamping inside it.
+ */
 export const CanvasContextMenu: React.FC<Props> = ({ x, y, onClose, onAddImage }) => {
-  const menuRef = useRef<HTMLDivElement>(null);
   const selectedId = useCanvasInteraction((s) => s.selectedElementId);
   const activeSlide = useCanvasInteraction((s) => s.activeSlide);
   const scenes = useCanvasInteraction((s) => s.scenes);
@@ -45,204 +62,133 @@ export const CanvasContextMenu: React.FC<Props> = ({ x, y, onClose, onAddImage }
 
   const transform = selectedId ? (scenes[activeSlide] || {})[selectedId] : undefined;
   const custom = useMemo(
-    () => (selectedId ? (customElements[activeSlide] || []).find((entry) => entry.id === selectedId) : undefined),
-    [customElements, activeSlide, selectedId]
+    () =>
+      selectedId ? (customElements[activeSlide] || []).find((entry) => entry.id === selectedId) : undefined,
+    [customElements, activeSlide, selectedId],
   );
   const hasSelection = !!selectedId;
   const canEditText = hasSelection && (custom?.kind === 'text' || custom?.kind === 'badge');
 
-  useEffect(() => {
-    const close = (event: Event) => {
-      if (menuRef.current?.contains(event.target as Node)) return;
-      onClose();
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('pointerdown', close, true);
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('resize', close);
-    return () => {
-      window.removeEventListener('pointerdown', close, true);
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('resize', close);
-    };
-  }, [onClose]);
-
-  const bounds = getCanvasBounds();
-  const left = Math.max(6, Math.min(x, Math.max(6, bounds.width - 230)));
-  const top = Math.max(6, Math.min(y, Math.max(6, bounds.height - 430)));
-
-  const run = (action: () => void) => {
-    action();
-    onClose();
-  };
+  const addShapeAt = (shape: (typeof QUICK_SHAPES)[number]) =>
+    addShape(
+      {
+        shapeType: shape.type,
+        fill: '#38bdf8',
+        defaultWidth: shape.type === 'bar' ? 160 : 120,
+        defaultHeight: shape.type === 'bar' ? 10 : 120,
+      },
+      x,
+      y,
+    );
 
   return (
-    <div
-      ref={menuRef}
-      className="absolute z-[150] w-[218px] max-h-[420px] overflow-y-auto rounded-xl border border-white/15 bg-slate-950/95 text-slate-200 shadow-2xl backdrop-blur-xl p-1.5 pointer-events-auto"
-      style={{ left, top }}
-      data-canvas-ui="true"
-      data-canvas-no-drag="true"
-      onPointerDown={(event) => event.stopPropagation()}
-      onContextMenu={(event) => event.preventDefault()}
-    >
-      <div className="px-2.5 pt-1 pb-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
-        Insert element
-      </div>
-      <MenuItem
-        icon="title"
-        label="Text box"
-        hint="T"
-        onClick={() => run(() => addTextBox(x, y))}
-      />
-      <MenuItem
-        icon="image"
-        label="Image / upload"
-        onClick={() => run(onAddImage)}
-      />
-      <div className="px-1.5 pb-2 pt-1 flex items-center gap-1">
-        {QUICK_SHAPES.map((shape) => (
-          <button
-            key={shape.type}
-            type="button"
-            title={shape.label}
-            onClick={() =>
-              run(() =>
-                addShape(
-                  {
-                    shapeType: shape.type,
-                    fill: shape.type === 'bar' ? '#38bdf8' : '#38bdf8',
-                    defaultWidth: shape.type === 'bar' ? 160 : 120,
-                    defaultHeight: shape.type === 'bar' ? 10 : 120,
-                  },
-                  x,
-                  y
-                )
-              )
-            }
-            className="w-8 h-8 rounded-md flex items-center justify-center text-slate-300 hover:bg-white/10 hover:text-cyan-300"
-          >
-            <Icon name={shape.icon} size={16} />
-          </button>
-        ))}
-      </div>
+    <DropdownMenu open onOpenChange={(next) => !next && onClose()}>
+      {/* Radix gives this version of the menu no virtual anchor, so the click point becomes a
+          zero-size trigger and the popper measures it — which also replaces the hand-rolled
+          viewport clamping this menu used to do with its collision handling. */}
+      <DropdownMenuTrigger asChild>
+        <span aria-hidden style={{ position: 'absolute', left: x, top: y, width: 0, height: 0 }} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="bottom" sideOffset={2} className="w-[218px]">
+        <DropdownMenuLabel>Insert element</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => addTextBox(x, y)}>
+          <Icon name="title" size={14} /> Text box
+          <DropdownMenuShortcut>T</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onAddImage}>
+          <Icon name="image" size={14} /> Image / upload
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Icon name="category" size={14} /> Shape
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-[11rem]">
+            {QUICK_SHAPES.map((shape) => (
+              <DropdownMenuItem key={shape.type} onSelect={() => addShapeAt(shape)}>
+                <Icon name={shape.icon} size={14} /> {shape.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
 
-      <div className="h-px bg-white/10 my-1" />
+        <DropdownMenuSeparator />
 
-      {hasSelection ? (
-        <>
-          <div className="px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">
-            {custom?.kind || 'Template'} element
-          </div>
-          {canEditText && (
-            <MenuItem
-              icon="edit"
-              label="Edit text"
-              hint="Enter"
-              onClick={() => run(() => setEditingElement(selectedId))}
-            />
-          )}
-          <MenuItem
-            icon="content_copy"
-            label="Copy"
-            hint="Ctrl+C"
-            onClick={() => run(copySelectedElement)}
-          />
-          <MenuItem
-            icon="content_paste"
-            label="Paste"
-            hint="Ctrl+V"
-            disabled={!clipboard}
-            onClick={() => run(() => pasteClipboard())}
-          />
-          <MenuItem
-            icon="library_add"
-            label="Duplicate"
-            hint="Ctrl+D"
-            onClick={() => run(() => duplicateElement())}
-          />
-          <div className="h-px bg-white/10 my-1" />
-          <MenuItem icon="flip_to_front" label="Bring to front" onClick={() => run(() => bringToFront(selectedId))} />
-          <MenuItem icon="file_upload" label="Bring forward" onClick={() => run(() => bringForward(selectedId))} />
-          <MenuItem icon="file_download" label="Send backward" onClick={() => run(() => sendBackward(selectedId))} />
-          <MenuItem icon="flip_to_back" label="Send to back" onClick={() => run(() => sendToBack(selectedId))} />
-          <div className="h-px bg-white/10 my-1" />
-          <MenuItem
-            icon="align_horizontal_center"
-            label="Center horizontally"
-            onClick={() => run(() => centerSelected('x'))}
-          />
-          <MenuItem
-            icon="align_vertical_center"
-            label="Center vertically"
-            onClick={() => run(() => centerSelected('y'))}
-          />
-          <MenuItem icon="center_focus_strong" label="Center on canvas" onClick={() => run(() => centerSelected('both'))} />
-          <MenuItem
-            icon={transform?.isLocked ? 'lock' : 'lock_open'}
-            label={transform?.isLocked ? 'Unlock' : 'Lock'}
-            onClick={() => run(() => toggleLock(selectedId))}
-          />
-          <MenuItem
-            icon={transform?.isHidden ? 'visibility' : 'visibility_off'}
-            label={transform?.isHidden ? 'Show' : 'Hide'}
-            onClick={() => run(() => toggleHidden(selectedId))}
-          />
-          <MenuItem
-            icon="restart_alt"
-            label="Reset element"
-            onClick={() => run(() => resetElement(selectedId))}
-          />
-          <MenuItem
-            icon="delete"
-            label="Delete"
-            hint="Del"
-            danger
-            onClick={() => run(() => deleteElement(selectedId))}
-          />
-        </>
-      ) : (
-        <>
-          <MenuItem
-            icon="content_paste"
-            label="Paste here"
-            disabled={!clipboard}
-            onClick={() => run(() => pasteClipboard())}
-          />
-          <MenuItem icon="copy_all" label="Copy all layers" onClick={() => run(copyAllElements)} />
-          <MenuItem icon="restart_alt" label="Reset slide layout" onClick={() => run(resetSlide)} />
-        </>
-      )}
-    </div>
+        {hasSelection ? (
+          <>
+            <DropdownMenuLabel>{custom?.kind || 'Template'} element</DropdownMenuLabel>
+            {canEditText && (
+              <DropdownMenuItem onSelect={() => setEditingElement(selectedId)}>
+                <Icon name="edit" size={14} /> Edit text
+                <DropdownMenuShortcut>Enter</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={copySelectedElement}>
+              <Icon name="content_copy" size={14} /> Copy
+              <DropdownMenuShortcut>Ctrl+C</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!clipboard} onSelect={() => pasteClipboard()}>
+              <Icon name="content_paste" size={14} /> Paste
+              <DropdownMenuShortcut>Ctrl+V</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => duplicateElement()}>
+              <Icon name="library_add" size={14} /> Duplicate
+              <DropdownMenuShortcut>Ctrl+D</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => bringToFront(selectedId)}>
+              <Icon name="flip_to_front" size={14} /> Bring to front
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => bringForward(selectedId)}>
+              <Icon name="file_upload" size={14} /> Bring forward
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => sendBackward(selectedId)}>
+              <Icon name="file_download" size={14} /> Send backward
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => sendToBack(selectedId)}>
+              <Icon name="flip_to_back" size={14} /> Send to back
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => centerSelected('x')}>
+              <Icon name="align_horizontal_center" size={14} /> Center horizontally
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => centerSelected('y')}>
+              <Icon name="align_vertical_center" size={14} /> Center vertically
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => centerSelected('both')}>
+              <Icon name="center_focus_strong" size={14} /> Center on canvas
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => toggleLock(selectedId)}>
+              <Icon name={transform?.isLocked ? 'lock' : 'lock_open'} size={14} />
+              {transform?.isLocked ? 'Unlock' : 'Lock'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => toggleHidden(selectedId)}>
+              <Icon name={transform?.isHidden ? 'visibility' : 'visibility_off'} size={14} />
+              {transform?.isHidden ? 'Show' : 'Hide'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => resetElement(selectedId)}>
+              <Icon name="restart_alt" size={14} /> Reset element
+            </DropdownMenuItem>
+            <DropdownMenuItem tone="danger" onSelect={() => deleteElement(selectedId)}>
+              <Icon name="delete" size={14} /> Delete
+              <DropdownMenuShortcut>Del</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <>
+            <DropdownMenuItem disabled={!clipboard} onSelect={() => pasteClipboard()}>
+              <Icon name="content_paste" size={14} /> Paste here
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={copyAllElements}>
+              <Icon name="copy_all" size={14} /> Copy all layers
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={resetSlide}>
+              <Icon name="restart_alt" size={14} /> Reset slide layout
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
-
-const MenuItem: React.FC<{
-  icon: string;
-  label: string;
-  hint?: string;
-  danger?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}> = ({ icon, label, hint, danger = false, disabled = false, onClick }) => (
-  <button
-    type="button"
-    disabled={disabled}
-    onClick={onClick}
-    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-colors ${
-      disabled
-        ? 'text-slate-600 cursor-not-allowed'
-        : danger
-        ? 'text-rose-300 hover:bg-rose-500/15'
-        : 'text-slate-200 hover:bg-white/10'
-    }`}
-  >
-    <Icon name={icon} size={14} />
-    <span className="flex-1 text-left">{label}</span>
-    {hint && <span className="text-[8px] text-slate-500 font-mono">{hint}</span>}
-  </button>
-);
 
 export default CanvasContextMenu;

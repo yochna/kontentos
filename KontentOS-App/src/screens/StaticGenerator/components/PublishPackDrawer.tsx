@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, Card, Eyebrow, IconButton, Badge } from '@/components/ui';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StaticCardState } from '../../../types/staticCard';
 import { generateAccessibleAltText } from '../utils/altTextGenerator';
 
@@ -76,17 +78,8 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end bg-[var(--scrim)] backdrop-blur-sm transition-opacity animate-in duration-200"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="publish-pack-title"
-    >
-      <div
-        className="w-full sm:max-w-xl h-full bg-surface border-l border-line flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-right duration-250"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent placement="right" hideClose className="w-full sm:max-w-xl">
         {/* Drawer Header */}
         <div className="p-5 border-b border-line bg-surface/90 backdrop-blur-md flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -95,9 +88,9 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 id="publish-pack-title" className="text-base font-bold text-ink">
+                <DialogTitle className="text-base font-bold text-ink">
                   Publish Pack
-                </h2>
+                </DialogTitle>
                 <Badge tone="primary">Ready to Post</Badge>
               </div>
               <p className="text-xs text-ink-muted">
@@ -141,7 +134,7 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
             <div className="flex items-center gap-2.5">
               <Icon name={copiedKey === 'master' ? 'check_circle' : 'content_copy'} size={18} />
               <span className="text-sm">
-                {copiedKey === 'master' ? '✓ Complete Post Copied to Clipboard!' : 'Copy All as Complete Post'}
+                {copiedKey === 'master' ? 'Complete Post Copied to Clipboard!' : 'Copy All as Complete Post'}
               </span>
             </div>
             <span className="text-xs bg-ink/10 dark:bg-white/10 px-2 py-0.5 rounded-full font-mono">
@@ -150,29 +143,32 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
           </button>
         </div>
 
-        {/* Tab Filter Navigation */}
-        <div className="flex items-center gap-1.5 px-5 py-2.5 border-b border-line bg-surface shrink-0 overflow-x-auto">
-          {[
-            { id: 'all', label: 'All Cards', icon: 'dashboard' },
-            { id: 'copy', label: 'Hook & Body', icon: 'title' },
-            { id: 'caption', label: 'Caption & Tags', icon: 'chat' },
-            { id: 'alt-text', label: 'Accessibility Alt-Text', icon: 'visibility' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id as TabKey)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                activeTab === tab.id
-                  ? 'bg-primary-soft text-primary border border-primary/30'
-                  : 'text-ink-muted hover:text-ink hover:bg-surface-2'
-              }`}
-            >
-              <Icon name={tab.icon} size={15} />
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
+        {/* Tab Filter Navigation — the asset cards below are many-to-many with the tabs ('all' reuses
+            every card), so they stay driven by activeTab instead of TabsContent. */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="contents">
+          <TabsList
+            variant="pill"
+            aria-label="Publish pack views"
+            className="w-full shrink-0 gap-1.5 overflow-x-auto rounded-none border-b border-line bg-surface px-5 py-2.5"
+          >
+            {[
+              { id: 'all', label: 'All Cards', icon: 'dashboard' },
+              { id: 'copy', label: 'Hook & Body', icon: 'title' },
+              { id: 'caption', label: 'Caption & Tags', icon: 'chat' },
+              { id: 'alt-text', label: 'Accessibility Alt-Text', icon: 'visibility' },
+            ].map((tab) => (
+              <TabsTrigger
+                key={tab.id}
+                variant="pill"
+                value={tab.id}
+                className="rounded-lg border border-transparent px-3 py-1.5 text-xs data-[state=inactive]:hover:bg-surface-2 data-[state=active]:border-primary/30 data-[state=active]:bg-primary-soft data-[state=active]:shadow-none data-[state=active]:text-primary"
+              >
+                <Icon name={tab.icon} size={15} />
+                <span>{tab.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         {/* Scrollable Asset Cards Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -335,7 +331,7 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
             Done
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

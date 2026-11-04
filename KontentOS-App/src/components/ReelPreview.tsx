@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
+import { Tooltip } from '@/components/ui/tooltip';
 import {
   activeBrollClipAt,
   activeCaptionAt,
@@ -781,74 +782,79 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
       {/* Top-Right Player Controls (Live CC + Audio Mute) */}
       <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
         {/* Live CC Toggle / AI Generator Button */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (generatingCaptions) return;
-            if (!hasCaptions && onGenerateCaptions) {
-              onGenerateCaptions();
-            } else if (onToggleCaptions) {
-              onToggleCaptions(!isCCActive);
-            } else {
-              setLocalCaptionsVisible((v) => !v);
-            }
-          }}
-          disabled={generatingCaptions}
-          className={`h-8 px-2.5 rounded-full backdrop-blur flex items-center gap-1 border text-xs font-semibold transition-all shadow-md ${
-            isCCActive
-              ? 'bg-emerald-600 text-white border-emerald-400/60 shadow-emerald-900/30'
-              : hasCaptions
-              ? 'bg-black/60 text-white/80 border-white/20 hover:text-white hover:bg-black/80'
-              : 'bg-black/60 text-white/70 border-white/20 hover:text-white hover:border-emerald-500/50'
-          } ${generatingCaptions ? 'opacity-60 cursor-wait' : 'hover:scale-105 active:scale-95'}`}
-          title={
+        <Tooltip
+          side="bottom"
+          content={
             generatingCaptions
               ? 'Generating AI Captions...'
               : hasCaptions
-              ? (isCCActive ? 'Hide Live Captions (CC)' : 'Show Live Captions (CC)')
+              ? isCCActive
+                ? 'Hide Live Captions (CC)'
+                : 'Show Live Captions (CC)'
               : 'Generate AI Live Captions from Audio'
           }
-          aria-label={
-            hasCaptions
-              ? (isCCActive ? 'Hide Live Captions' : 'Show Live Captions')
-              : 'Generate AI Live Captions'
-          }
         >
-          <Icon
-            name={generatingCaptions ? 'hourglass_top' : isCCActive ? 'closed_caption' : 'closed_caption_disabled'}
-            size={15}
-          />
-          <span className="text-[11px] tracking-wide">
-            {generatingCaptions ? 'Generating...' : hasCaptions ? 'CC' : 'Auto CC'}
-          </span>
-          {!hasCaptions && !generatingCaptions && (
-            <Icon name="auto_awesome" size={11} className="text-amber-300 ml-0.5" />
-          )}
-        </button>
-
-        {/* Mute / Unmute Audio Toggle */}
-        {activeSource && (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              if (onToggleVideoMute) {
-                onToggleVideoMute();
+              if (generatingCaptions) return;
+              if (!hasCaptions && onGenerateCaptions) {
+                onGenerateCaptions();
+              } else if (onToggleCaptions) {
+                onToggleCaptions(!isCCActive);
               } else {
-                setLocalMuted((m) => !m);
+                setLocalCaptionsVisible((v) => !v);
               }
             }}
-            className={`w-8 h-8 rounded-full backdrop-blur text-white/90 hover:text-white flex items-center justify-center border transition-all hover:scale-105 shadow-md ${
-              isAudioMuted
-                ? 'bg-rose-950/80 border-rose-500/50 text-rose-300'
-                : 'bg-black/60 border-white/20'
-            }`}
-            title={isAudioMuted ? 'Unmute video audio' : 'Mute video audio'}
-            aria-label={isAudioMuted ? 'Unmute video audio' : 'Mute video audio'}
+            disabled={generatingCaptions}
+            className={`h-8 px-2.5 rounded-full backdrop-blur flex items-center gap-1 border text-xs font-semibold transition-all shadow-md ${
+              isCCActive
+                ? 'bg-emerald-600 text-white border-emerald-400/60 shadow-emerald-900/30'
+                : hasCaptions
+                ? 'bg-black/60 text-white/80 border-white/20 hover:text-white hover:bg-black/80'
+                : 'bg-black/60 text-white/70 border-white/20 hover:text-white hover:border-emerald-500/50'
+            } ${generatingCaptions ? 'opacity-60 cursor-wait' : 'hover:scale-105 active:scale-95'}`}
+            aria-label={
+              hasCaptions ? (isCCActive ? 'Hide Live Captions' : 'Show Live Captions') : 'Generate AI Live Captions'
+            }
           >
-            <Icon name={isAudioMuted ? 'volume_off' : 'volume_up'} size={16} />
+            <Icon
+              name={generatingCaptions ? 'hourglass_top' : isCCActive ? 'closed_caption' : 'closed_caption_disabled'}
+              size={15}
+            />
+            <span className="text-[11px] tracking-wide">
+              {generatingCaptions ? 'Generating...' : hasCaptions ? 'CC' : 'Auto CC'}
+            </span>
+            {!hasCaptions && !generatingCaptions && (
+              <Icon name="auto_awesome" size={11} className="text-amber-300 ml-0.5" />
+            )}
           </button>
+        </Tooltip>
+
+        {/* Mute / Unmute Audio Toggle */}
+        {activeSource && (
+          <Tooltip side="bottom" content={isAudioMuted ? 'Unmute video audio' : 'Mute video audio'}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onToggleVideoMute) {
+                  onToggleVideoMute();
+                } else {
+                  setLocalMuted((m) => !m);
+                }
+              }}
+              className={`w-8 h-8 rounded-full backdrop-blur text-white/90 hover:text-white flex items-center justify-center border transition-all hover:scale-105 shadow-md ${
+                isAudioMuted
+                  ? 'bg-rose-950/80 border-rose-500/50 text-rose-300'
+                  : 'bg-black/60 border-white/20'
+              }`}
+              aria-label={isAudioMuted ? 'Unmute video audio' : 'Mute video audio'}
+            >
+              <Icon name={isAudioMuted ? 'volume_off' : 'volume_up'} size={16} />
+            </button>
+          </Tooltip>
         )}
       </div>
 

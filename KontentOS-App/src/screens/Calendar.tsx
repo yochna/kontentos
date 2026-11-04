@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, PageHeader, PageShell, StatusPill, useDismiss } from '@/components/ui';
+import { Button, Card, PageHeader, PageShell, StatusPill } from '@/components/ui';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { notify } from '@/components/ui/toast';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip } from '@/components/ui/tooltip';
 import { useStore } from '@/lib/store';
 import { navigate } from '@/lib/nav';
 import type { ScheduledPost, SocialPlatform } from '@/lib/types';
@@ -75,13 +79,8 @@ export default function Calendar() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate());
-  // A queue row that the server refused to delete must not look deleted.
-  const [queueNotice, setQueueNotice] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
   const [activePostModal, setActivePostModal] = useState<ScheduledPost | null>(null);
-  const closePostModal = activePostModal ? () => setActivePostModal(null) : undefined;
-  useDismiss(closePostModal);
 
   // The only way a post becomes "published" is the creator recording it by hand.
   const [postedTarget, setPostedTarget] = useState<ScheduledPost | null>(null);
@@ -125,7 +124,7 @@ export default function Calendar() {
   const removeFromQueue = useCallback(
     (id: string) => {
       void deleteScheduled(id).then((res) => {
-        if (!res.ok) setQueueNotice(res.message || 'That post is still scheduled.');
+        if (!res.ok) notify.bad(res.message || 'That post is still scheduled.');
       });
     },
     [deleteScheduled],
@@ -203,27 +202,29 @@ export default function Calendar() {
         actions={
           <>
             <div className="flex items-center rounded-btn border border-line bg-surface shadow-xs">
-              <button
-                type="button"
-                onClick={prevMonth}
-                aria-label="Previous month"
-                className="p-2 hover:bg-surface-2 text-ink-muted hover:text-ink transition-colors rounded-l-btn kt-focus"
-                title="Previous Month"
-              >
-                <Icon name="chevron_left" size={18} />
-              </button>
+              <Tooltip side="bottom" content="Previous month">
+                <button
+                  type="button"
+                  onClick={prevMonth}
+                  aria-label="Previous month"
+                  className="p-2 hover:bg-surface-2 text-ink-muted hover:text-ink transition-colors rounded-l-btn kt-focus"
+                >
+                  <Icon name="chevron_left" size={18} />
+                </button>
+              </Tooltip>
               <span className="text-[13.5px] font-semibold text-ink px-3 min-w-[140px] text-center">
                 {MONTH_NAMES[month]} {year}
               </span>
-              <button
-                type="button"
-                onClick={nextMonth}
-                aria-label="Next month"
-                className="p-2 hover:bg-surface-2 text-ink-muted hover:text-ink transition-colors rounded-r-btn kt-focus"
-                title="Next Month"
-              >
-                <Icon name="chevron_right" size={18} />
-              </button>
+              <Tooltip side="bottom" content="Next month">
+                <button
+                  type="button"
+                  onClick={nextMonth}
+                  aria-label="Next month"
+                  className="p-2 hover:bg-surface-2 text-ink-muted hover:text-ink transition-colors rounded-r-btn kt-focus"
+                >
+                  <Icon name="chevron_right" size={18} />
+                </button>
+              </Tooltip>
             </div>
 
             <Button size="sm" variant="soft" onClick={jumpToToday}>
@@ -238,55 +239,49 @@ export default function Calendar() {
         className="mb-6"
       />
 
-      {queueNotice && (
-        <div className="mb-6 flex items-center justify-between gap-3 rounded-card border border-danger/30 bg-danger/10 px-4 py-2.5 text-[12.5px] text-danger">
-          <span className="flex items-center gap-2">
-            <Icon name="error_outline" size={16} className="shrink-0" />
-            {queueNotice}
-          </span>
-          <button onClick={() => setQueueNotice(null)} className="shrink-0 hover:underline kt-focus">
-            Dismiss
-          </button>
-        </div>
-      )}
-
       {/* Platform Filter Bar & Quick Stats */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-3 bg-surface border border-line rounded-card mb-6">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[12px] font-semibold text-ink-dim uppercase tracking-wider mr-2">
+        <ToggleGroup
+          variant="none"
+          aria-label="Filter the schedule by platform"
+          value={filterPlatform}
+          onValueChange={(v) => setFilterPlatform(v || 'all')}
+          className="flex flex-wrap items-center gap-1.5"
+        >
+          <span className="mr-2 text-[12px] font-semibold uppercase tracking-wider text-ink-dim">
             Filter:
           </span>
-          <button
-            onClick={() => setFilterPlatform('all')}
-            className={`px-2.5 py-1 text-[12px] font-semibold rounded-btn transition-colors ${
-              filterPlatform === 'all'
-                ? 'bg-primary text-on-primary shadow-xs'
-                : 'bg-surface-2 text-ink-muted hover:text-ink'
+          <ToggleGroupItem
+            variant="none"
+            value="all"
+            className={`rounded-btn border border-line bg-surface-2 px-2.5 py-1 text-[12px] font-semibold text-ink-muted data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-on-primary ${
+              filterPlatform === 'all' ? '' : 'hover:border-line-strong hover:text-ink'
             }`}
           >
             All Platforms ({scheduled.length})
-          </button>
+          </ToggleGroupItem>
           {(Object.keys(PLATFORM_CONFIG) as SocialPlatform[]).map((plat) => {
             const count = scheduled.filter((p) => p.platform === plat).length;
             if (count === 0 && filterPlatform !== plat) return null;
             const cfg = PLATFORM_CONFIG[plat];
             const active = filterPlatform === plat;
             return (
-              <button
+              <ToggleGroupItem
+                variant="none"
                 key={plat}
-                onClick={() => setFilterPlatform(active ? 'all' : plat)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] font-medium rounded-btn transition-colors border ${
+                value={plat}
+                className={`gap-1.5 rounded-btn border px-2.5 py-1 text-[12px] font-medium data-[state=on]:font-semibold ${
                   active
-                    ? `${cfg.bg} ${cfg.color} ${cfg.border} font-semibold`
-                    : 'bg-surface text-ink-muted border-line hover:border-line-strong'
+                    ? `${cfg.bg} ${cfg.color} ${cfg.border}`
+                    : 'bg-surface text-ink-muted border-line hover:border-line-strong hover:text-ink'
                 }`}
               >
                 <Icon name={cfg.icon} size={14} />
                 {cfg.label} ({count})
-              </button>
+              </ToggleGroupItem>
             );
           })}
-        </div>
+        </ToggleGroup>
 
         <div className="flex items-center gap-4 text-[12.5px] text-ink-muted">
           <span className="flex items-center gap-1.5">
@@ -389,28 +384,35 @@ export default function Calendar() {
                       const plat = (ev.platform || 'instagram') as SocialPlatform;
                       const cfg = PLATFORM_CONFIG[plat] || PLATFORM_CONFIG.instagram;
                       return (
-                        <div
+                        <Tooltip
                           key={ev.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActivePostModal(ev);
-                          }}
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
+                          side="top"
+                          content={`${new Date(ev.scheduled_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })} — ${ev.video_title}`}
+                        >
+                          <div
+                            onClick={(e) => {
                               e.stopPropagation();
                               setActivePostModal(ev);
-                            }
-                          }}
-                          className={`kt-focus flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium border leading-tight truncate transition-transform hover:scale-[1.02] ${cfg.bg} ${cfg.color} ${cfg.border}`}
-                          title={`${new Date(ev.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${ev.video_title}`}
-                        >
-                          <Icon name={cfg.icon} size={12} className="shrink-0" />
-                          <span className="truncate flex-1">
-                            {ev.video_title || 'Untitled drop'}
-                          </span>
-                        </div>
+                            }}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setActivePostModal(ev);
+                              }
+                            }}
+                            className={`kt-focus flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium border leading-tight truncate transition-transform hover:scale-[1.02] ${cfg.bg} ${cfg.color} ${cfg.border}`}
+                          >
+                            <Icon name={cfg.icon} size={12} className="shrink-0" />
+                            <span className="truncate flex-1">
+                              {ev.video_title || 'Untitled drop'}
+                            </span>
+                          </div>
+                        </Tooltip>
                       );
                     })}
                     {evs.length > 2 && (
@@ -562,8 +564,8 @@ export default function Calendar() {
 
       {/* Post Detail & Inspector Modal */}
       {activePostModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-[560px] bg-surface rounded-card border border-line shadow-xl overflow-hidden animate-scale-up">
+        <Dialog open onOpenChange={(next) => { if (!next) setActivePostModal(null); }}>
+          <DialogContent size="lg" hideClose className="max-w-[560px] p-0 gap-0 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-surface-2/40">
               <div className="flex items-center gap-2.5">
                 {(() => {
@@ -578,19 +580,19 @@ export default function Calendar() {
                   );
                 })()}
                 <div>
-                  <h3 className="text-[15px] font-bold text-ink">Scheduled Dispatch</h3>
+                  <DialogTitle className="text-[15px] font-bold text-ink">Scheduled Dispatch</DialogTitle>
                   <span className="text-[12px] text-ink-dim">
                     {PLATFORM_CONFIG[activePostModal.platform as SocialPlatform]?.label ||
                       activePostModal.platform}
                   </span>
                 </div>
               </div>
-              <button
-                onClick={() => setActivePostModal(null)}
+              <DialogClose
+                aria-label="Close post details"
                 className="w-8 h-8 rounded-full grid place-items-center text-ink-dim hover:text-ink hover:bg-surface transition-colors kt-focus"
               >
                 <Icon name="close" size={18} />
-              </button>
+              </DialogClose>
             </div>
 
             <div className="p-6 space-y-4">
@@ -685,7 +687,7 @@ export default function Calendar() {
               <button
                 onClick={() => {
                   void deleteScheduled(activePostModal.id).then((res) => {
-                    if (!res.ok) setQueueNotice(res.message || 'That post is still scheduled.');
+                    if (!res.ok) notify.bad(res.message || 'That post is still scheduled.');
                     else setActivePostModal(null);
                   });
                 }}
@@ -723,8 +725,8 @@ export default function Calendar() {
                 </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* The single write path of the publishing ledger */}

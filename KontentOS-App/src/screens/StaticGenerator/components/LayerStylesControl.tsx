@@ -13,6 +13,7 @@ import {
   LAYER_STYLE_PRESET_META,
 } from '../../../data/staticCardPresets';
 import { Icon } from '@/lib/icons';
+import { Tooltip } from '@/components/ui/tooltip';
 
 interface Props {
   layerStyles?: LayerStyleConfig;
@@ -115,22 +116,22 @@ export const LayerStylesControl: React.FC<Props> = ({
             const meta = LAYER_STYLE_PRESET_META[p];
             const isSelected = currentPreset === p;
             return (
-              <button
-                key={p}
-                type="button"
-                onClick={() => handleSelectPreset(p)}
-                title={meta.description}
-                className={`py-1.5 px-2 rounded-btn text-left border transition-all cursor-pointer flex flex-col gap-0.5 ${
-                  isSelected
-                    ? 'bg-primary text-on-primary border-primary shadow-xs ring-1 ring-primary/40 font-bold'
-                    : 'bg-surface-2 hover:bg-surface text-ink border-line hover:border-line-strong'
-                }`}
-              >
-                <div className="flex items-center gap-1 text-[11px]">
-                  <span>{meta.icon}</span>
-                  <span className="truncate">{meta.label}</span>
-                </div>
-              </button>
+              <Tooltip key={p} content={meta.description}>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset(p)}
+                  className={`py-1.5 px-2 rounded-btn text-left border transition-all cursor-pointer flex flex-col gap-0.5 ${
+                    isSelected
+                      ? 'bg-primary text-on-primary border-primary shadow-xs ring-1 ring-primary/40 font-bold'
+                      : 'bg-surface-2 hover:bg-surface text-ink border-line hover:border-line-strong'
+                  }`}
+                >
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <Icon name={meta.icon} size={13} className="shrink-0" />
+                    <span className="truncate">{meta.label}</span>
+                  </div>
+                </button>
+              </Tooltip>
             );
           })}
         </div>
