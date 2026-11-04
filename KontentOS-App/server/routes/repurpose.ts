@@ -1,8 +1,8 @@
 import express from 'express';
-import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { PLATFORMS } from '../../src/lib/platforms.js';
 import * as db from '../db.js';
+import * as mediaStore from '../mediaStore.js';
 import * as store from '../repurposeStore.js';
 import { buildRepurposeJob, type TranscriptSegment } from '../repurposeEngine.js';
 import { safeMessage } from '../errorText.js';
@@ -172,25 +172,26 @@ const cutLimiter = rateLimit({
   message: { error: 'The server has cut enough shorts for now. Wait a few minutes and try again.' },
 });
 
-async function filePresent(filePath: string | null): Promise<boolean> {
-  if (!filePath) return false;
-  try {
-    const stat = await fs.promises.stat(filePath);
-    return stat.isFile() && stat.size > 0;
-  } catch {
-    return false;
-  }
-}
-
 /** The row is the job, so the encode has to write its own ending. */
-async function settleCutRow(videoId: string, userId: string, outcome: { ok: true; bytes: number } | { ok: false }): Promise<void> {
+async function settleCutRow(
+  videoId: string,
+  userId: string,
+  fileUrl: string,
+  outPath: string,
+  outcome: { ok: true; bytes: number } | { ok: false }
+): Promise<void> {
+  let bytes = outcome.ok ? outcome.bytes : 0;
+  if (outcome.ok) {
+    // With a bucket configured this is where the cut stops being a file in a container. The row is
+    // only allowed to say `ready` once the bytes are somewhere the next redeploy cannot reach.
+    try {
+      await mediaStore.persistClip(outPath, fileUrl);
+    } catch {
+      bytes = 0;
+    }
+  }
   try {
-    await db.updateVideoStatus(
-      videoId,
-      outcome.ok ? 'ready' : 'failed',
-      { file_size: outcome.ok ? outcome.bytes : 0 },
-      userId
-    );
+    await db.updateVideoStatus(videoId, bytes > 0 ? 'ready' : 'failed', { file_size: bytes }, userId);
   } catch {
     // The row stays `processing`, and the read below reports it as the failure it is.
   }
@@ -212,13 +213,15 @@ router.post('/jobs/:jobId/clips/:clipId/cut', cutLimiter, async (req, res) => {
     if (!source) {
       return res.status(404).json({ error: 'The recording this job was written from is not in your vault.' });
     }
-    const srcPath = clipPathOnDisk(source.file_url);
-    if (!srcPath) {
+    if (!mediaStore.localClipPath(source.file_url)) {
       return res
         .status(422)
         .json({ error: 'That recording is not a file this server reads from, so nothing can be cut from it here.' });
     }
-    if (!(await filePresent(srcPath))) {
+    // ffmpeg reads a file, not an object, so a clip held in the bucket is pulled down first. Either
+    // way, bytes that exist nowhere this server can reach are the same refusal.
+    const srcPath = await mediaStore.ensureLocalCopy(source.file_url);
+    if (!srcPath) {
       return res.status(422).json({
         error: 'The recording is on your list but its file is not on this server, so it cannot be cut here. Cut it in your browser instead, or re-upload the take.',
       });
@@ -263,7 +266,7 @@ router.post('/jobs/:jobId/clips/:clipId/cut', cutLimiter, async (req, res) => {
       span: planned.span,
       srcPath,
       outPath,
-      settle: (outcome) => void settleCutRow(videoId, req.userId, outcome),
+      settle: (outcome) => void settleCutRow(videoId, req.userId, fileUrl, outPath, outcome),
     });
 
     res.status(202).json({
@@ -280,7 +283,7 @@ router.get('/cuts/:videoId', async (req, res) => {
     const video = await db.getVideo(req.params.videoId, req.userId);
     if (!video) return res.status(404).json({ error: 'Clip not found.' });
 
-    const mediaAvailable = await filePresent(clipPathOnDisk(video.file_url));
+    const mediaAvailable = await mediaStore.hasClipBytes(video.file_url);
     const live = inFlight(video.id);
 
     if (video.status === 'processing' && !live) {

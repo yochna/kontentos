@@ -4,7 +4,8 @@ services:
     runtime: docker
     # The free plan has no persistent disk, so the local JSON store and /uploads are wiped on
     # every redeploy or sleep. Set MONGODB_URI (e.g. a MongoDB Atlas free cluster) to keep the
-    # records; uploaded video files still need a disk or object storage.
+    # records; the clip bytes need the MEDIA_* bucket keys below. Without them the Vault says out
+    # loud that its footage is not durable.
     plan: free
     rootDir: .
     healthCheckPath: /api/health
@@ -26,3 +27,22 @@ services:
       # indexes are created by the app on first boot, so no manual schema step is needed.
       - key: MONGODB_URI
         sync: false   # e.g. mongodb+srv://user:pass@cluster0.xxxxx.mongodb.net/kontentos
+      # Where the clip bytes live. MONGODB_URI keeps the rows; it cannot keep a 2 GB file, and the
+      # free plan's disk is erased on every redeploy and on sleep. All four keys are needed at once
+      # — a partial set is refused and the app keeps reporting the disk, never a false "durable".
+      # Any S3-compatible store works: Cloudflare R2, Backblaze B2, AWS S3.
+      - key: MEDIA_ENDPOINT
+        sync: false   # e.g. https://<account-id>.r2.cloudflarestorage.com
+      - key: MEDIA_BUCKET
+        sync: false   # e.g. kontentos-clips
+      - key: MEDIA_ACCESS_KEY_ID
+        sync: false
+      - key: MEDIA_SECRET_ACCESS_KEY
+        sync: false
+      # Optional. R2 and B2 both accept the default; AWS S3 needs the real region, e.g. us-east-1.
+      - key: MEDIA_REGION
+        sync: false
+      # Optional. Path-style addressing is on for non-AWS endpoints and off for amazonaws.com;
+      # set it to true or false only to override that.
+      - key: MEDIA_PATH_STYLE
+        sync: false

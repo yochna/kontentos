@@ -33,3 +33,14 @@ export function isPlainJson(value: unknown, depth = 0): boolean {
   }
   return true;
 }
+
+/**
+ * One path segment, a clip id this app minted, and a video extension. It cannot match a nested
+ * path, the `.chunks` scratch folder or anything with traversal in it, so a name that fails it never
+ * reaches the disk or a bucket key. The /uploads gate and the media store both read it from here.
+ */
+const CLIP_FILE = /^vid_[A-Za-z0-9_-]{6,}\.(mp4|mov|webm|m4v|mkv)$/i;
+
+export function isClipFileName(fileName: unknown): boolean {
+  return typeof fileName === 'string' && CLIP_FILE.test(fileName);
+}

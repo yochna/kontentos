@@ -54,6 +54,7 @@ export default function ContentLibrary() {
     navigate,
     online,
     loading,
+    dbStatus,
   } = useStore();
 
   const [busy, setBusy] = useState(false);
@@ -147,6 +148,26 @@ export default function ContentLibrary() {
         }
         className="mb-6"
       />
+
+      {/* A surviving record says nothing about its file. When the bytes sit on a disk the host wipes,
+          the vault has to say so before anybody trusts it with a month of footage. */}
+      {dbStatus?.media && !dbStatus.media.durable && (
+        <div
+          role="status"
+          className="mb-6 flex items-start gap-3 rounded-card border border-danger/40 bg-danger/10 px-4 py-3"
+        >
+          <Icon name="no_photography" size={18} className="mt-0.5 shrink-0 text-danger" />
+          <div className="min-w-0">
+            <div className="text-[12.5px] font-semibold text-ink">Media is not durable here</div>
+            <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-muted">
+              {dbStatus.media.note} Download anything you still need before the service next restarts —{' '}
+              {dbStatus.provider === 'mongodb'
+                ? 'the records, captions and queue stay; the footage does not.'
+                : 'nothing on this workspace survives it, records included.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Storage & Vault Statistics Banner */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

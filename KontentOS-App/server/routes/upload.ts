@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { once } from 'node:events';
 import * as db from '../db.js';
+import * as mediaStore from '../mediaStore.js';
 import type { Video } from '../../src/types.js';
 import { safeMessage } from '../errorText.js';
 
@@ -314,9 +315,15 @@ router.post('/complete', async (req, res) => {
     activeSessions.delete(session.uploadId);
 
     const fileStats = fs.statSync(finalFilePath);
-    // The assembled clip stays in this container's uploads directory; only its record is
-    // durable when MONGODB_URI is set. See the storage note in /api/db/status.
+    // The assembled clip is written to the media store — this container's uploads folder for a local
+    // server, the bucket when one is configured. Only then does the row claim it: a record that
+    // points at bytes nobody stored is the exact failure this whole path exists to avoid.
     const publicUrl = `/uploads/${finalFileName}`;
+    try {
+      await mediaStore.persistClip(finalFilePath, publicUrl);
+    } catch (err: any) {
+      return res.status(502).json({ error: safeMessage(err, 'The clip could not be written to media storage.') });
+    }
 
     let video: Video;
     if (existing) {
@@ -400,6 +407,11 @@ router.post('/direct', async (req, res) => {
 
     const fileStats = fs.statSync(finalFilePath);
     const publicUrl = `/uploads/${finalFileName}`;
+    try {
+      await mediaStore.persistClip(finalFilePath, publicUrl);
+    } catch (err: any) {
+      return res.status(502).json({ error: safeMessage(err, 'The clip could not be written to media storage.') });
+    }
 
     let video: Video;
     if (existing) {

@@ -12,14 +12,9 @@
  */
 import type { NextFunction, Request, Response } from 'express';
 import * as db from './db.js';
+import * as mediaStore from './mediaStore.js';
+import { isClipFileName } from './safeId.js';
 import { safeMessage } from './errorText.js';
-
-/**
- * One path segment, a clip id this app minted, and a video extension. It cannot match a nested
- * path, the .chunks scratch folder, or anything with traversal in it, so a request that fails it
- * never reaches the disk.
- */
-const CLIP_FILE = /^vid_[A-Za-z0-9_-]{6,}\.(mp4|mov|webm|m4v|mkv)$/i;
 
 const OWNER_CACHE_MS = 60 * 1000;
 const MAX_OWNER_ENTRIES = 1000;
@@ -28,7 +23,7 @@ const MAX_OWNER_ENTRIES = 1000;
 const owners = new Map<string, { userId: string; expiresAt: number }>();
 
 export function clipIdForFile(fileName: string): string | null {
-  if (!CLIP_FILE.test(fileName)) return null;
+  if (!isClipFileName(fileName)) return null;
   return fileName.slice(0, fileName.lastIndexOf('.'));
 }
 
@@ -67,4 +62,29 @@ export function uploadAccessGate(req: Request, res: Response, next: NextFunction
       return res.status(503).json({ error: safeMessage(err, 'Storage is unavailable.') });
     }
   })();
+}
+
+/**
+ * Runs after express.static has handed the request on, which means the file is not on this disk.
+ * With a bucket configured that is normal — the object is the clip, and the container was redeployed
+ * — so the bytes are streamed from the store with the caller's Range header passed through, because
+ * a <video> element that cannot seek is not a player. With no bucket there is nowhere else to look,
+ * and the answer stays the same 404 the gate gives for any clip this account cannot read.
+ */
+export function bucketMediaFallback(req: Request, res: Response) {
+  void (async () => {
+    const fileUrl = `/uploads/${decodeURIComponent((req.path || '').replace(/^\/+/, ''))}`;
+    const read = await mediaStore.readBucketClip(fileUrl, req.headers.range);
+    if (!read) {
+      return res.status(404).json({ error: 'No clip by that name is on your account.' });
+    }
+    res.status(read.status);
+    for (const [key, value] of Object.entries(read.headers)) res.setHeader(key, value);
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    read.body.on('error', () => res.destroy());
+    read.body.pipe(res);
+  })().catch(() => {
+    if (res.headersSent) return res.destroy();
+    res.status(503).json({ error: 'Media storage is unavailable.' });
+  });
 }

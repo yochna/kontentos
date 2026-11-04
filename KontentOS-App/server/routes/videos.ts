@@ -1,12 +1,9 @@
 import express from 'express';
-import fs from 'fs';
-import path from 'path';
 import * as db from '../db.js';
+import * as mediaStore from '../mediaStore.js';
 import { safeMessage } from '../errorText.js';
 
 const router = express.Router();
-
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
 /** The states a clip row may carry — the same four the bench draws badges for. */
 const VIDEO_STATUSES: string[] = ['uploading', 'processing', 'ready', 'failed'];
@@ -22,12 +19,9 @@ async function mediaExists(fileUrl?: string): Promise<boolean> {
   if (!fileUrl) return false;
   // Remote or in-browser sources (https, data:, blob:) are not files this server can stat.
   if (!fileUrl.startsWith('/uploads/')) return true;
-  try {
-    await fs.promises.access(path.join(UPLOADS_DIR, path.basename(fileUrl)));
-    return true;
-  } catch {
-    return false;
-  }
+  // The store, not the folder: with a bucket configured the bytes are in the object and the local
+  // copy is only a cache that the next redeploy takes away.
+  return mediaStore.hasClipBytes(fileUrl);
 }
 
 // Every query below is filtered by req.userId, which the auth gate has already verified.

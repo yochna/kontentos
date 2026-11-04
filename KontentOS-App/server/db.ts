@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { promisify } from 'util';
 import type { Video, Subtitle, Caption, PublishingRecord, User, VideoStatus, SocialPlatform, ScheduledPost } from '../src/types.js';
 import { asId, isPlainJson } from './safeId.js';
+import { removeBucketClip } from './mediaStore.js';
 
 // promisify picks the 3-argument scrypt overload; the options form needs its own signature.
 const scryptAsync = promisify(crypto.scrypt) as unknown as (
@@ -858,7 +859,8 @@ export async function updateVideoStatus(
 }
 
 // Uploaded clips live in the /uploads directory served by server.ts. Deleting the record but
-// not the file leaves a clip nothing can reference behind, on a disk that is already scarce.
+// not the file leaves a clip nothing can reference behind, on a disk that is already scarce — and
+// when the bytes are in a bucket, the object is what keeps costing money after the row is gone.
 export function removeUploadedVideoFile(fileUrl: string | undefined): void {
   if (!fileUrl || !fileUrl.startsWith('/uploads/')) return;
   // basename() neutralises any traversal a stored URL might carry.
@@ -870,6 +872,12 @@ export function removeUploadedVideoFile(fileUrl: string | undefined): void {
   } catch (err: any) {
     console.warn('Could not remove the stored clip for a deleted video:', err?.message);
   }
+  // The unlink above is synchronous on purpose: a caller that has already deleted the row must not
+  // be able to finish before the file it just pointed at is gone. The object cannot be, so it goes
+  // on its own way and reports itself — nothing awaits it, and a leftover key has no url to be read.
+  void removeBucketClip(fileUrl).catch((err: any) => {
+    console.warn('Could not remove the stored clip object for a deleted video:', String(err?.message || err).slice(0, 160));
+  });
 }
 
 export async function deleteVideo(id: string, userId: string): Promise<boolean> {

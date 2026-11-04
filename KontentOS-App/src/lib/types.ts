@@ -90,6 +90,11 @@ export interface DbStatus {
   provider: 'mongodb' | 'local_persistent_json';
   connected: boolean;
   isolated?: boolean;
+  /**
+   * Where the clip *bytes* live. A database can hold the row for a file the disk no longer has, so
+   * this is reported separately from `provider` and the app must not infer one from the other.
+   */
+  media?: { provider: 'local' | 'bucket'; durable: boolean; note: string };
   video_count: number;
 }
 

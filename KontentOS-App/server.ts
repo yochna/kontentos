@@ -35,7 +35,8 @@ import editorRouter from './server/routes/editor.js';
 import repurposeRouter from './server/routes/repurpose.js';
 import staticCardAiRouter from './server/routes/staticCardAi.js';
 import { safeMessage } from './server/errorText.js';
-import { uploadAccessGate } from './server/mediaAccess.js';
+import { bucketMediaFallback, uploadAccessGate } from './server/mediaAccess.js';
+import * as mediaStore from './server/mediaStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const appRoot = path.dirname(__filename);
@@ -202,6 +203,9 @@ async function createApp() {
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       },
     }),
+    // Nothing on this disk: with a bucket configured that is normal, and the object is the clip.
+    // A container that has been redeployed still plays every clip whose bytes outlived it.
+    bucketMediaFallback
   );
 
   // Serve royalty-free B-Roll video loops with CORP and Range headers
@@ -474,6 +478,9 @@ async function createApp() {
         connected,
         // The JSON store keeps data only inside this container, so nothing is shared or durable.
         isolated: !connected,
+        // Records and bytes are separate questions: Mongo can keep the row for a file that a
+        // redeploy has already deleted, and only the second of them has an object store as an answer.
+        media: mediaStore.mediaStatus(),
         video_count: await db.countVideos(req.userId),
       });
     } catch (err: any) {
@@ -602,6 +609,11 @@ async function createApp() {
             video.file_url && video.file_url.startsWith('/uploads/') ? path.join(appRoot, video.file_url) : null,
             video.file_name ? path.join(uploadsDir, video.file_name) : null,
           ].filter(Boolean) as string[];
+
+          // With a bucket configured the clip has no file here at all, and the engine reads bytes,
+          // not objects: this pulls it down the same way a cut does.
+          const staged = await mediaStore.ensureLocalCopy(video.file_url);
+          if (staged) candidates.unshift(staged);
 
           for (const cand of candidates) {
             if (fs.existsSync(cand)) {
@@ -1052,7 +1064,24 @@ Output valid JSON:
     console.log(`\n  KontentOS Cutting Room — standalone`);
     console.log(`  ▸ App + API : http://localhost:${PORT}`);
     console.log(`  ▸ Data       : ${db.isMongoConnected() ? 'MongoDB' : `${db.localDataDir()}  (isolated from the original app)`}`);
-    console.log(`  ▸ Uploads    : ${uploadsDir}\n`);
+    console.log(`  ▸ Uploads    : ${uploadsDir}`);
+    console.log(`  ▸ Media      : ${mediaStore.mediaStatus().note}`);
+    if (mediaStore.provider() === 'local' && !mediaStore.bytesAreDurable()) {
+      console.log(
+        `\n  ⚠️  Clip bytes live on this container's disk: a redeploy or a free-tier sleep erases every clip\n` +
+          `      and every server cut. Any S3-compatible bucket (Cloudflare R2,\n` +
+          `      Backblaze B2, S3) holds them durably — set MEDIA_ENDPOINT, MEDIA_BUCKET,\n` +
+          `      MEDIA_ACCESS_KEY_ID and MEDIA_SECRET_ACCESS_KEY.\n`,
+      );
+    } else if (mediaStore.provider() === 'local' && mediaStore.missingBucketKeys().length < 4) {
+      // Half a bucket configuration is the dangerous one: it looks like the app chose the disk.
+      console.log(
+        `\n  ⚠️  The media bucket is incomplete (${mediaStore.missingBucketKeys().join(', ')} not set).\n` +
+          `      Clip bytes are going to this container's disk instead.\n`,
+      );
+    } else {
+      console.log('');
+    }
     if (!db.isMongoConnected() && IS_PROD) {
       console.log(
         '  ⚠️  MONGODB_URI is not set: uploads, schedules and history live only in this container and\n' +
