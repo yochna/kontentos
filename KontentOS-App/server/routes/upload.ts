@@ -2,6 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { once } from 'node:events';
 import * as db from '../db.js';
 import type { Video } from '../../src/types.js';
 import { safeMessage } from '../errorText.js';
@@ -280,20 +281,33 @@ router.post('/complete', async (req, res) => {
     const finalFilePath = path.join(UPLOADS_DIR, finalFileName);
 
     const writeStream = fs.createWriteStream(finalFilePath);
+    // A stream failure has to reject this request, not leave it waiting for a 'drain' that never
+    // arrives. The trailing catch keeps it handled while nothing is awaiting it.
+    const streamBroke = new Promise<never>((_resolve, reject) => writeStream.once('error', reject));
+    streamBroke.catch(() => {});
 
-    for (let i = 0; i < session.totalChunks; i++) {
-      const chunkPath = path.join(sessionDir, `chunk_${i}`);
-      if (fs.existsSync(chunkPath)) {
-        const chunkBuf = fs.readFileSync(chunkPath);
-        writeStream.write(chunkBuf);
+    try {
+      for (let i = 0; i < session.totalChunks; i++) {
+        const chunkPath = path.join(sessionDir, `chunk_${i}`);
+        if (!fs.existsSync(chunkPath)) continue;
+        // One chunk at a time, paused when the pipe is full. Pulling every chunk into memory and
+        // writing it synchronously blocked the event loop for the whole assembly, so a large clip
+        // froze every other creator's request with it.
+        for await (const slice of fs.createReadStream(chunkPath)) {
+          if (!writeStream.write(slice as Buffer)) {
+            await Promise.race([once(writeStream, 'drain'), streamBroke]);
+          }
+        }
       }
+      writeStream.end();
+      await Promise.race([once(writeStream, 'finish'), streamBroke]);
+    } catch (err) {
+      writeStream.destroy();
+      // A half-assembled file at a real clip's url is worse than no file: keep both the chunks and
+      // the record intact so /complete can be retried, and leave nothing behind to serve.
+      fs.rmSync(finalFilePath, { force: true });
+      throw err;
     }
-    writeStream.end();
-
-    await new Promise<void>((resolve, reject) => {
-      writeStream.on('finish', () => resolve());
-      writeStream.on('error', (err) => reject(err));
-    });
 
     // Cleanup chunks
     fs.rmSync(sessionDir, { recursive: true, force: true });

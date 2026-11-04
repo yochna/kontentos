@@ -144,6 +144,17 @@ async function createApp() {
   const uploadUrlencoded = express.urlencoded({ extended: true, limit: '15mb' });
   const apiJson = express.json({ limit: '4mb' });
   const apiUrlencoded = express.urlencoded({ extended: true, limit: '4mb' });
+
+  // Session cookie is read on every request; only /api/auth and /api/health work without it.
+  // This runs BEFORE the body parsers on purpose: reading a cookie needs no body, and a caller who
+  // cannot name a creator should not be able to make this server buffer up to 15 MB of footage
+  // first. Preflight is answered further up, so OPTIONS never reaches this gate.
+  app.use(attachSession);
+  app.use('/api', (req, res, next) => {
+    if (req.path === '/health' || req.path.startsWith('/auth/')) return next();
+    return requireUser(req, res, next);
+  });
+
   app.use((req, res, next) => {
     const isUpload = req.path === '/api/upload' || req.path.startsWith('/api/upload/');
     if (isUpload) return uploadJson(req, res, (err) => (err ? next(err) : uploadUrlencoded(req, res, next)));
@@ -164,17 +175,10 @@ async function createApp() {
     next(err);
   });
 
-  // Session cookie is read on every request; only /api/auth and /api/health work without it.
-  app.use(attachSession);
-
   app.use('/api/auth', createAuthRouter());
 
   // Everything else under /api belongs to a signed-in creator, and req.userId scopes every
-  // query below to their own rows.
-  app.use('/api', (req, res, next) => {
-    if (req.path === '/health' || req.path.startsWith('/auth/')) return next();
-    return requireUser(req, res, next);
-  });
+  // query below to their own rows. The gate already ran ahead of the body parsers.
 
   // Serve media uploaded by THIS app instance with explicit CORP and Accept-Ranges.
   // Signed-in only: a clip's URL used to be enough to read anyone's footage.

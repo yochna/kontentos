@@ -1050,7 +1050,9 @@ async function getCaptionById(id: string): Promise<Caption | null> {
   if (!captionId) return null;
   const m = await mongoModels();
   if (m) return plain<Caption>(await m.caption.findOne({ id: captionId }).lean());
-  return loadLocalStore().captions.find((c) => c.id === id) || null;
+  // Match on the normalised id, the same value the Mongo branch and the write path use. Comparing
+  // the raw argument here would let a lookup succeed on one storage engine and miss on the other.
+  return loadLocalStore().captions.find((c) => c.id === captionId) || null;
 }
 
 export async function recordPublish(

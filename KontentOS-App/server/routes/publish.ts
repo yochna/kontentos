@@ -320,11 +320,13 @@ router.post('/schedule/:id/crosspost', async (req, res) => {
     const baseTime = new Date(existing.scheduled_at).getTime();
     const staggerMs = Math.max(0, Number(staggerMinutes) || 0) * 60 * 1000;
     const createdPosts: (ScheduledPost | null)[] = [];
+    const attempted: string[] = [];
     const userId = req.userId;
 
     for (let i = 0; i < targetPlatforms.length; i++) {
       const plat = targetPlatforms[i];
       if (plat === existing.platform) continue; // Skip source platform
+      attempted.push(plat);
 
       const platCaption = Object.prototype.hasOwnProperty.call(customCaptions, plat)
         ? customCaptions[plat]
@@ -347,12 +349,29 @@ router.post('/schedule/:id/crosspost', async (req, res) => {
       createdPosts.push(newPost);
     }
 
+    // Same contract as /schedule: createScheduledPost answers null when the clip behind this
+    // post is not the caller's row, and the creator must not be told a cross-post landed when
+    // every write was refused.
+    if (attempted.length === 0) {
+      return res.status(400).json({ error: 'That post already targets those platforms.' });
+    }
+    if (createdPosts.every((post) => post === null)) {
+      return res.status(409).json({
+        error: 'That clip is not in your vault, so nothing could be queued against it.',
+      });
+    }
+    const written = createdPosts.filter((post) => post !== null);
+    const notQueued = attempted.filter((_p, i) => createdPosts[i] === null).map((p) => String(p).toUpperCase());
+
     res.json({
       success: true,
-      data: createdPosts,
-      total: createdPosts.length,
+      data: written,
+      total: written.length,
       crossPostGroupId,
-      message: `✨ Successfully cross-posted to ${createdPosts.length} additional platforms!`,
+      message:
+        notQueued.length > 0
+          ? `⚠️ ${written.length} of ${attempted.length} platforms queued — ${notQueued.join(', ')} were not.`
+          : `✨ Cross-posted to ${written.length} additional platform${written.length === 1 ? '' : 's'}.`,
     });
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err, 'Could not complete that. Please try again.') });
