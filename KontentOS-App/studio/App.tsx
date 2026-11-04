@@ -191,6 +191,8 @@ export function App() {
               })
             }
             onBack={() => navTo('#/')}
+            onStarted={(next) => setJobs((prev) => [next, ...prev])}
+            onOpen={(id) => navTo(`#/job/${id}`)}
           />
         )}
         {route.name === 'shelf' && <ShelfScreen jobs={jobs} onOpen={(id) => navTo(`#/job/${id}`)} />}

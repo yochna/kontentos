@@ -3,6 +3,8 @@
  * uses, so nothing here can drift out of step with the bench's larger client.
  */
 
+import type { CaptionCue } from './captions';
+
 export type ClipStatus = 'draft' | 'saved' | 'shipped';
 
 export interface ClipBeat {
@@ -139,7 +141,7 @@ export const studioApi = {
     return d.data || [];
   },
 
-  async subtitles(videoId: string): Promise<{ transcript: string; segments: unknown[] } | null> {
+  async subtitles(videoId: string): Promise<{ transcript: string; segments: CaptionCue[] } | null> {
     try {
       interface SubtitleBody {
         transcript?: string;
@@ -154,7 +156,9 @@ export const studioApi = {
       // `transcript` made every recorded clip look uncaptioned and blocked the Studio's whole intake.
       const transcript = (body.transcript || body.transcript_text || '').trim();
       if (!transcript && !body.segments?.length) return null;
-      return { transcript, segments: body.segments || [] };
+      // Anything malformed in the stored rows is dropped by spanCaptions, which reads the times
+      // itself and skips a cue it cannot place on the clock.
+      return { transcript, segments: (body.segments || []) as CaptionCue[] };
     } catch {
       return null;
     }

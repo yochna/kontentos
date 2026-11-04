@@ -26,6 +26,24 @@ const STATUS_TONE: Record<Video['status'], string> = {
   failed: 'neutral',
 };
 
+const fileBase = (title: string) =>
+  (title || 'captions').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'captions';
+
+/**
+ * The saved subtitle row already holds the server's own `.srt` and `.vtt` text; this writes it out
+ * verbatim so the file that drops onto the video is the one the player and the editor both used.
+ */
+function saveCaptionFile(text: string, fileName: string, mime: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: `${mime};charset=utf-8` }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export default function ContentLibrary() {
   const {
     videos,
@@ -495,6 +513,20 @@ function VideoDetailModal({
     }
   };
 
+  const handleCaptionDownload = (kind: 'srt' | 'vtt') => {
+    const text = (kind === 'srt' ? subtitles?.srt_content : subtitles?.vtt_content) || '';
+    if (!text.trim()) {
+      setSubMsg({
+        text: `This recording has no .${kind} file on the server yet. Press Re-transcribe to build one.`,
+        ok: false,
+      });
+      return;
+    }
+    const name = `${fileBase(video.title)}.${kind}`;
+    saveCaptionFile(text, name, 'text/plain');
+    setSubMsg({ text: `Saved ${name} with ${subtitles?.segments?.length || 0} cues.`, ok: true });
+  };
+
   const parseSec = (t: string | number) => {
     if (typeof t === 'number') return t;
     if (!t) return 0;
@@ -675,6 +707,18 @@ function VideoDetailModal({
                   </Button>
                 </div>
               </div>
+
+              {subtitles && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] text-ink-dim">Caption file for this take:</span>
+                  <Button size="sm" variant="secondary" icon="download" onClick={() => handleCaptionDownload('srt')}>
+                    .srt
+                  </Button>
+                  <Button size="sm" variant="secondary" icon="download" onClick={() => handleCaptionDownload('vtt')}>
+                    .vtt
+                  </Button>
+                </div>
+              )}
 
               {/* Status Message */}
               {subMsg && (

@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { studioApi, type RepurposeClip, type RepurposeJob, type VideoRecord } from '../lib/api';
 import { checkCaption, PLATFORMS, platformSpec } from '@/lib/platforms';
+import { copyModel, readAiPrefs } from '@/lib/prefs';
+import { copyVoice, voiceTone } from '@/lib/brandKit';
 import { notify } from '../lib/notify';
 import { packFor } from '../lib/pack';
 import { cutSpan, resolveSpan, type CutProgress } from '../lib/cut';
+import { downloadTextFile, spanCaptions, type CaptionCue } from '../lib/captions';
 import { Button, Label, Timecode } from '../components/atoms';
 
 type Edits = Pick<RepurposeClip, 'title' | 'hook' | 'caption' | 'cardHeadline' | 'platform'>;
@@ -43,12 +46,17 @@ export function CutScreen({
   onJob,
   onBack,
   onDirtyChange,
+  onStarted,
+  onOpen,
 }: {
   job: RepurposeJob | null;
   jobId: string;
   onJob: (job: RepurposeJob) => void;
   onBack: () => void;
   onDirtyChange: (count: number) => void;
+  /** A re-pull makes a second job, so the parent has to take it into the list and open it. */
+  onStarted: (job: RepurposeJob) => void;
+  onOpen: (id: string) => void;
 }) {
   const [live, setLive] = useState<RepurposeJob | null>(job);
   const [missing, setMissing] = useState(false);
@@ -66,6 +74,14 @@ export function CutScreen({
   // Every finished cut hands back an object URL; they are revoked together when this job closes,
   // so a long session does not pin a stack of decoded clips in memory.
   const cutUrls = useRef<Set<string>>(new Set());
+  // The recording's timed cues, read once and reused for every short's caption file.
+  const cueCache = useRef<{ videoId: string; cues: CaptionCue[] } | null>(null);
+  const [captionBusy, setCaptionBusy] = useState('');
+  // What the caption button has to say about itself: a span with no speech in it is a real answer,
+  // and an empty .srt file is not.
+  const [captionNote, setCaptionNote] = useState<Record<string, string>>({});
+  const [repullTone, setRepullTone] = useState('');
+  const [repulling, setRepulling] = useState(false);
 
   useEffect(() => {
     const urls = cutUrls.current;
@@ -263,6 +279,84 @@ export function CutScreen({
       const message = err instanceof Error ? err.message : 'The browser cut could not be completed.';
       settle({ phase: 'failed', message });
       notify(message, 'bad');
+    }
+  };
+
+  const cuesForJob = async (): Promise<CaptionCue[] | null> => {
+    const videoId = current?.videoId || '';
+    if (!videoId) return null;
+    if (cueCache.current?.videoId === videoId) return cueCache.current.cues;
+    const subs = await studioApi.subtitles(videoId);
+    const cues = subs?.segments || [];
+    cueCache.current = { videoId, cues };
+    return cues;
+  };
+
+  /**
+   * The words of one short as a caption file that lines up with the cut: cue times rebased to the
+   * span, so the sidecar drops straight onto the MP4 this screen renders.
+   */
+  const downloadCaptions = async (clip: RepurposeClip) => {
+    if (captionBusy) return;
+    setCaptionBusy(clip.id);
+    setCaptionNote((prev) => ({ ...prev, [clip.id]: '' }));
+    try {
+      const cues = await cuesForJob();
+      if (!cues?.length) {
+        const why = current?.videoId
+          ? 'This recording has no timed cues on the server yet. Transcribe it on the bench and the caption file will follow.'
+          : 'This job came from pasted words, which carry no timing — there is nothing to stamp a caption file with.';
+        setCaptionNote((prev) => ({ ...prev, [clip.id]: why }));
+        notify(why, 'bad');
+        return;
+      }
+      const srt = spanCaptions(cues, clip.start, clip.end);
+      if (!srt) {
+        const why = `No cue speaks between ${clip.startLabel} and ${clip.endLabel}, so this short has no captions to export.`;
+        setCaptionNote((prev) => ({ ...prev, [clip.id]: why }));
+        notify(why, 'bad');
+        return;
+      }
+      const cueCount = srt.split('\n\n').filter((block) => block.trim()).length;
+      downloadTextFile(srt, `${slug(clip.title)}.srt`, 'text/plain');
+      notify(`${cueCount} caption lines saved as ${slug(clip.title)}.srt — timed from ${clip.startLabel} of the recording.`, 'ok');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'The caption file could not be built.';
+      setCaptionNote((prev) => ({ ...prev, [clip.id]: message }));
+      notify(message, 'bad');
+    } finally {
+      setCaptionBusy('');
+    }
+  };
+
+  /**
+   * The words of this job are already stored, so a second opinion costs one more request: the same
+   * transcript goes back through the engine with a different tone and lands as its own job.
+   */
+  const repull = async () => {
+    if (!current || repulling) return;
+    const tone = repullTone.trim() || voiceTone();
+    setRepulling(true);
+    try {
+      const next = await studioApi.startJob({
+        title: current.title,
+        transcript: current.transcript,
+        videoId: current.videoId,
+        sourceKind: current.sourceKind,
+        clipCount: current.clips.length,
+        platform: current.clips[0]?.platform || 'instagram',
+        tone,
+        context: copyVoice(),
+        temperature: readAiPrefs().temperature,
+        model: copyModel(),
+      });
+      onStarted(next);
+      notify(`A second take wrote ${next.clips.length} shorts${tone ? ` as ${tone}` : ''}.`, 'ok');
+      onOpen(next.id);
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'The second take could not be written.', 'bad');
+    } finally {
+      setRepulling(false);
     }
   };
 
@@ -521,6 +615,9 @@ export function CutScreen({
                     >
                       {cuts[clip.id]?.phase === 'working' ? 'Cutting…' : 'Cut this span'}
                     </Button>
+                    <Button kind="quiet" onClick={() => void downloadCaptions(clip)} disabled={!!captionBusy}>
+                      {captionBusy === clip.id ? 'Reading cues…' : 'Captions (.srt)'}
+                    </Button>
                     <a
                       href={spec.composerUrl}
                       target="_blank"
@@ -534,6 +631,10 @@ export function CutScreen({
                       <span className="meta-label ml-auto text-moss">kept on the shelf</span>
                     )}
                   </footer>
+
+                  {captionNote[clip.id] && (
+                    <p className="mt-3 text-[12.5px] leading-relaxed text-clay">{captionNote[clip.id]}</p>
+                  )}
 
                   {(() => {
                     const state = cuts[clip.id];
@@ -626,6 +727,33 @@ export function CutScreen({
             );
           })}
         </div>
+
+        <section className="mt-8 rounded-card border border-rule bg-white p-5 sm:p-6">
+          <p className="meta-label">Out · Another take</p>
+          <h2 className="mt-1.5 font-display text-[20px] leading-snug tracking-[-0.015em] text-ink">
+            Send these words through the engine again
+          </h2>
+          <p className="mt-2 max-w-[58ch] text-[13.5px] leading-relaxed text-ink-soft">
+            The transcript this job was written from is kept, so a different voice costs one more pass and
+            nothing more. It comes back as its own job — the {current.clips.length} shorts above stay exactly
+            as they are.
+          </p>
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <div className="min-w-[220px] flex-1">
+              <Label htmlFor="st-repull-tone">Voice for the second take</Label>
+              <input
+                id="st-repull-tone"
+                value={repullTone}
+                onChange={(e) => setRepullTone(e.target.value)}
+                placeholder={voiceTone() || 'wry, first person, no hype'}
+                className="mt-1.5 w-full rounded-[8px] border border-rule bg-white px-3 py-2 text-[14px] text-ink placeholder:text-ink-faint focus:border-moss focus:outline-none focus:ring-2 focus:ring-moss/15"
+              />
+            </div>
+            <Button kind="outline" onClick={() => void repull()} disabled={repulling}>
+              {repulling ? 'Writing the second take…' : 'Re-pull in another voice'}
+            </Button>
+          </div>
+        </section>
       </div>
     </div>
   );
