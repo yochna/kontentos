@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
-# KontentOS production image.
+# KontentOS production image. THE ONE RENDER BUILDS: render.yaml sets runtime: docker with
+# rootDir: ., so this file is the deploy. KontentOS-App/Dockerfile is the same image built from
+# inside the app directory; change both together or delete one.
 # - Build stage runs "npm run check" (client + server tsc --noEmit, then vite build).
 #   If type-checking or the bundle fails, the image build FAILS (no placeholder page ships).
 # - Runtime stage serves dist/ from server.ts (NODE_ENV=production); Vite is not loaded.
@@ -20,6 +22,13 @@ FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4111
+# ffmpeg is the server-side span-cut: POST /api/repurpose/jobs/:id/clips/:id/cut reads a clip's
+# timecode span and writes a real MP4 with it. Without this layer that route answers 503 ("no cut
+# engine installed") and every Studio cut falls back to the browser. Only the runtime stage needs
+# the binary — in the build stage the suite self-skips the real-file tests when ffmpeg is absent.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 COPY KontentOS-App/package.json KontentOS-App/package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=build /app/dist ./dist

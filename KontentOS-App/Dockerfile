@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1
-# KontentOS production image.
+# KontentOS production image, built from inside the app directory.
+# Render does NOT build this one: render.yaml uses runtime: docker with rootDir: ., so the deploy
+# comes from ../Dockerfile. Keep the two in sync (or delete this one) — an ffmpeg/apt change made
+# only here never reaches production.
 # - Build stage runs "npm run check" (tsc --noEmit for the client AND the server, then
 #   vite build). If type-checking or the bundle fails, the image build FAILS
 #   (no placeholder page is shipped).
