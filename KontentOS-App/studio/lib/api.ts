@@ -44,6 +44,22 @@ export interface RepurposeJob {
   clips: RepurposeClip[];
 }
 
+export interface ServerCutSpan {
+  start: number;
+  duration: number;
+  shortOfSpan: boolean;
+}
+
+export type ServerCutState = 'encoding' | 'ready' | 'failed';
+
+export interface ServerCutStatus {
+  status: ServerCutState;
+  /** Null while the encode has not reported a frame time yet. */
+  fraction: number | null;
+  reason?: string;
+  video?: VideoRecord;
+}
+
 export interface SessionUser {
   id: string;
   email: string;
@@ -205,6 +221,24 @@ export const studioApi = {
 
   async deleteJob(id: string): Promise<void> {
     await del(`/api/repurpose/jobs/${encodeURIComponent(id)}`);
+  },
+
+  /**
+   * Asks the server to cut this short's span out of the recording it was written from. The reply is
+   * not the file — it is a clip row marked `processing`, because an encode on a shared CPU takes
+   * longer than any request should hold a connection open.
+   */
+  async startServerCut(jobId: string, clipId: string): Promise<{ video: VideoRecord; span: ServerCutSpan }> {
+    const d = await post<{ data: { video: VideoRecord; span: ServerCutSpan } }>(
+      `/api/repurpose/jobs/${encodeURIComponent(jobId)}/clips/${encodeURIComponent(clipId)}/cut`,
+      {}
+    );
+    return d.data;
+  },
+
+  async cutStatus(videoId: string): Promise<ServerCutStatus> {
+    const d = await get<{ data: ServerCutStatus }>(`/api/repurpose/cuts/${encodeURIComponent(videoId)}`);
+    return d.data;
   },
 
   /**

@@ -28,6 +28,19 @@ type CutState =
     }
   | { phase: 'failed'; message: string };
 
+/**
+ * Where one short's server cut has got to. The encode runs out of this tab's sight, so the only way
+ * to know is to keep reading the clip row the cut created.
+ */
+type ServerCut =
+  | { phase: 'running'; fraction: number | null }
+  | { phase: 'ready'; fileUrl: string; bytes: number; seconds: number }
+  | { phase: 'failed'; message: string };
+
+/** The server kills an encode at 10 minutes, so watching for longer than that plus a lap is pointless. */
+const SERVER_WATCH_MS = 11 * 60 * 1000;
+const SERVER_POLL_MS = 1500;
+
 const baseOf = (clip: RepurposeClip): Edits => ({
   title: clip.title,
   hook: clip.hook,
@@ -65,6 +78,8 @@ export function CutScreen({
   const [copiedId, setCopiedId] = useState('');
   const [focused, setFocused] = useState('');
   const [cuts, setCuts] = useState<Record<string, CutState>>({});
+  const [serverCuts, setServerCuts] = useState<Record<string, ServerCut>>({});
+  const serverTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [source, setSource] = useState<{ checked: boolean; video: VideoRecord | null; offline: boolean }>({
     checked: false,
     video: null,
@@ -88,6 +103,15 @@ export function CutScreen({
     return () => {
       for (const url of urls) URL.revokeObjectURL(url);
       urls.clear();
+    };
+  }, [jobId]);
+
+  // A closed job stops the watching, not the encode — the server finishes the file either way and
+  // the clip row is in the vault when it lands.
+  useEffect(() => {
+    return () => {
+      for (const timer of Object.values(serverTimers.current)) clearTimeout(timer);
+      serverTimers.current = {};
     };
   }, [jobId]);
 
@@ -278,6 +302,71 @@ export function CutScreen({
     } catch (err) {
       const message = err instanceof Error ? err.message : 'The browser cut could not be completed.';
       settle({ phase: 'failed', message });
+      notify(message, 'bad');
+    }
+  };
+
+  /** Reads the clip row until the encode is over. The row, not a socket, carries the answer. */
+  const watchServerCut = (clipId: string, videoId: string, stopAfter: number) => {
+    const timer = setTimeout(async () => {
+      try {
+        const cut = await studioApi.cutStatus(videoId);
+        if (cut.status === 'encoding') {
+          if (Date.now() > stopAfter) {
+            setServerCuts((prev) => ({
+              ...prev,
+              [clipId]: { phase: 'failed', message: 'The server is still working on this cut. It will show in your vault when it lands.' },
+            }));
+            return;
+          }
+          setServerCuts((prev) => ({ ...prev, [clipId]: { phase: 'running', fraction: cut.fraction ?? null } }));
+          watchServerCut(clipId, videoId, stopAfter);
+          return;
+        }
+        if (cut.status === 'ready' && cut.video?.file_url) {
+          const landed: ServerCut = {
+            phase: 'ready',
+            fileUrl: cut.video.file_url,
+            bytes: Number(cut.video.file_size) || 0,
+            seconds: Number(cut.video.duration) || 0,
+          };
+          setServerCuts((prev) => ({ ...prev, [clipId]: landed }));
+          notify('The server cut is in your vault — it plays below and is queued from the bench.', 'ok');
+          return;
+        }
+        setServerCuts((prev) => ({
+          ...prev,
+          [clipId]: { phase: 'failed', message: cut.reason || 'The server could not finish this cut.' },
+        }));
+      } catch (err) {
+        setServerCuts((prev) => ({
+          ...prev,
+          [clipId]: {
+            phase: 'failed',
+            message: err instanceof Error ? err.message : 'The server stopped answering about this cut.',
+          },
+        }));
+      }
+    }, SERVER_POLL_MS);
+    serverTimers.current[clipId] = timer;
+  };
+
+  const runServerCut = async (clip: RepurposeClip) => {
+    if (!current) return;
+    if (serverCuts[clip.id]?.phase === 'running') return;
+    setServerCuts((prev) => ({ ...prev, [clip.id]: { phase: 'running', fraction: null } }));
+    try {
+      const { video, span } = await studioApi.startServerCut(current.id, clip.id);
+      notify(
+        span.shortOfSpan
+          ? `The recording ends before this span does, so the server is cutting ${span.duration.toFixed(1)}s from ${clip.startLabel}.`
+          : `The server is cutting ${span.duration.toFixed(1)}s from ${clip.startLabel} straight into your vault.`,
+        'ok'
+      );
+      watchServerCut(clip.id, video.id, Date.now() + SERVER_WATCH_MS);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'The server would not take this cut.';
+      setServerCuts((prev) => ({ ...prev, [clip.id]: { phase: 'failed', message } }));
       notify(message, 'bad');
     }
   };
@@ -589,7 +678,7 @@ export function CutScreen({
                       />
                       <p className="mt-2 text-[13px] leading-relaxed text-ink-faint">
                         {source.video && !source.offline
-                          ? 'Cut this span below to render the short from your own source. The file stays in this browser until you save it to your vault.'
+                          ? 'Two ways to make this short: cut it in this tab, which keeps the work on your machine, or send the span to the server, which writes the file straight into your vault.'
                           : 'The Studio writes words. Cut the span above in the bench to make the visual.'}
                       </p>
                     </div>
@@ -613,7 +702,14 @@ export function CutScreen({
                       onClick={() => void runCut(clip)}
                       disabled={!!cutBlocker() || cuts[clip.id]?.phase === 'working'}
                     >
-                      {cuts[clip.id]?.phase === 'working' ? 'Cutting…' : 'Cut this span'}
+                      {cuts[clip.id]?.phase === 'working' ? 'Cutting here…' : 'Cut in this tab'}
+                    </Button>
+                    <Button
+                      kind="outline"
+                      onClick={() => void runServerCut(clip)}
+                      disabled={!!cutBlocker() || serverCuts[clip.id]?.phase === 'running'}
+                    >
+                      {serverCuts[clip.id]?.phase === 'running' ? 'Cutting on the server…' : 'Cut on the server'}
                     </Button>
                     <Button kind="quiet" onClick={() => void downloadCaptions(clip)} disabled={!!captionBusy}>
                       {captionBusy === clip.id ? 'Reading cues…' : 'Captions (.srt)'}
@@ -713,6 +809,75 @@ export function CutScreen({
                             <a
                               href={state.url}
                               download={`${slug(clip.title)}.mp4`}
+                              className="meta-label text-ink-soft underline-offset-4 hover:text-moss hover:underline"
+                            >
+                              Download MP4
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {(() => {
+                    const cut = serverCuts[clip.id];
+                    if (!cut) return null;
+                    if (cut.phase === 'running') {
+                      const pct = cut.fraction === null ? null : Math.round(cut.fraction * 100);
+                      return (
+                        <div className="mt-3 border-t border-rule pt-3">
+                          <p className="text-[13px] text-ink-soft">
+                            {pct === null ? 'The server is starting the encode…' : `Encoded ${pct}% of this span.`}
+                          </p>
+                          <span className="mt-2 block h-[3px] w-full overflow-hidden rounded-pill bg-paper-3">
+                            <span
+                              className={
+                                pct === null
+                                  ? 'block h-full w-[30%] animate-pulse bg-moss/50'
+                                  : 'block h-full bg-moss transition-[width] duration-300'
+                              }
+                              style={pct === null ? undefined : { width: `${Math.max(2, pct)}%` }}
+                            />
+                          </span>
+                          <p className="mt-2 text-[12.5px] leading-relaxed text-ink-faint">
+                            Your source never leaves this server and nothing is downloaded here while it runs —
+                            the file is written straight into your vault. Keep working; this panel is only watching.
+                          </p>
+                        </div>
+                      );
+                    }
+                    if (cut.phase === 'failed') {
+                      return (
+                        <p className="mt-3 border-t border-rule pt-3 text-[13px] leading-relaxed text-clay">
+                          {cut.message}
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="mt-4 flex flex-wrap gap-4 border-t border-rule pt-4">
+                        <video
+                          src={cut.fileUrl}
+                          controls
+                          playsInline
+                          className="h-[220px] w-auto max-w-full rounded-[8px] border border-rule bg-ink"
+                        />
+                        <div className="min-w-[200px] flex-1">
+                          <p className="meta-label text-ink-soft">
+                            {cut.bytes > 0 ? `${(cut.bytes / 1024 / 1024).toFixed(1)} MB · ` : ''}
+                            {cut.seconds > 0 ? `${cut.seconds.toFixed(1)}s` : 'Cut'} from {clip.startLabel} · on
+                            the server
+                          </p>
+                          <div className="mt-2.5 flex flex-wrap items-center gap-3">
+                            <a
+                              href="/"
+                              className="meta-label text-moss underline-offset-4 hover:underline"
+                              title="The bench is where a saved clip gets queued"
+                            >
+                              In your vault · open the bench
+                            </a>
+                            <a
+                              href={cut.fileUrl}
+                              download={`${slug(clip.title)}-server-cut.mp4`}
                               className="meta-label text-ink-soft underline-offset-4 hover:text-moss hover:underline"
                             >
                               Download MP4

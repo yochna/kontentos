@@ -21,6 +21,12 @@ FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4111
+# ffmpeg is the server-side span-cut: /api/repurpose reads a clip's timecode span and writes a real
+# MP4 with it. Only the runtime stage needs the binary — the build stage runs the suite, and the
+# cut tests skip themselves when no ffmpeg is installed, so a missing binary never fails a deploy.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=build /app/dist ./dist
