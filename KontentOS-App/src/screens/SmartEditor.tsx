@@ -3,6 +3,7 @@ import { Icon } from '@/lib/icons';
 import { Button, Card, IconButton, PageHeader, StatusPill } from '@/components/ui';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
@@ -1329,15 +1330,15 @@ export default function SmartEditor() {
 
               <div className="flex items-center gap-2 text-ink-muted pl-2 border-l border-line">
                 <Icon name="zoom_out" size={16} />
-                <input
-                  type="range"
+                <Slider
+                  value={zoom}
                   min={16}
                   max={160}
                   step={4}
-                  value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="w-24 sm:w-32 cursor-pointer"
-                  aria-label="Timeline zoom"
+                  onValueChange={setZoom}
+                  label="Timeline zoom"
+                  formatValue={(v) => `${v} pixels per second`}
+                  className="w-24 sm:w-32 flex-none"
                 />
                 <Icon name="zoom_in" size={16} />
               </div>
@@ -2098,14 +2099,15 @@ export default function SmartEditor() {
                           <span className="font-semibold text-ink">Music Mix Level</span>
                           <span className="font-mono text-ink-dim">{Math.round(currentBgmVol * 100)}%</span>
                         </div>
-                        <input
-                          type="range"
+                        <Slider
+                          value={currentBgmVol}
                           min={0}
                           max={1}
                           step={0.05}
-                          value={currentBgmVol}
-                          onChange={(e) => setBgmVolume(Number(e.target.value))}
-                          className="w-full cursor-pointer accent-secondary"
+                          onValueChange={setBgmVolume}
+                          label="Music mix level"
+                          tone="secondary"
+                          formatValue={(v) => `${Math.round(v * 100)} percent`}
                         />
                       </div>
 

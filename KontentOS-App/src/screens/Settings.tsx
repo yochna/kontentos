@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, Card, PageHeader, PageShell, StatusPill } from '@/components/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { settingsSections } from '@/data/mock';
@@ -490,14 +491,14 @@ export default function Settings() {
                           : 'Wild & Contrarian'}
                       </span>
                     </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
+                    <Slider
                       value={temperature}
-                      onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                      className="w-full accent-primary cursor-pointer"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      onValueChange={setTemperature}
+                      label="Creativity / temperature"
+                      formatValue={(v) => (v <= 0.3 ? 'Precise and direct' : v <= 0.7 ? 'Balanced creator' : 'Wild and contrarian')}
                     />
                   </div>
                 </div>

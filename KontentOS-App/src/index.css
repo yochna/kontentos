@@ -260,11 +260,6 @@ h4 {
   color: var(--ink-dim);
 }
 
-/* Range slider (timeline zoom, etc.) */
-input[type='range'] {
-  accent-color: var(--primary);
-}
-
 @keyframes ktSpin { to { transform: rotate(360deg); } }
 .kt-spin { display: inline-flex; animation: ktSpin 900ms linear infinite; }
 

@@ -4,6 +4,8 @@ import { Icon } from '@/lib/icons';
 import { Tooltip } from '@/components/ui/tooltip';
 import { thumbGradient } from '@/data/mock';
 
+export { Progress } from './ui/progress';
+
 /* ----------------------------- motion helpers ----------------------------- */
 
 export function prefersReducedMotion(): boolean {
@@ -486,46 +488,3 @@ export function Thumb({
   );
 }
 
-/* --------------------------------- Progress --------------------------------- */
-
-export function Progress({
-  value,
-  live = false,
-  trackClassName = 'h-1.5 bg-surface-3',
-  barClassName = 'bg-primary',
-}: {
-  value: number;
-  live?: boolean;
-  trackClassName?: string;
-  barClassName?: string;
-}) {
-  const barRef = useRef<HTMLDivElement>(null);
-
-  // Grow from zero on mount. The reflow read gives the transition a committed start value;
-  // later `value` changes arrive as a plain inline-style update and animate on their own.
-  useEffect(() => {
-    const el = barRef.current;
-    if (!el) return;
-    const target = `${value}%`;
-    el.style.width = '0%';
-    void el.offsetWidth;
-    el.style.width = target;
-    // Mount-only: re-running would rewind a bar that is already tracking real progress.
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <div className={`${trackClassName} w-full rounded-full overflow-hidden`}>
-      <div
-        ref={barRef}
-        className={`kt-bar h-full rounded-full ${barClassName}${live ? ' kt-bar--live' : ''}`}
-        style={{ width: `${value}%` }}
-      />
-    </div>
-  );
-}
-
-/* --------------------------------- Divider ---------------------------------- */
-
-export function Divider({ className = '' }: { className?: string }) {
-  return <div className={`h-px w-full bg-line ${className}`} />;
-}

@@ -1,16 +1,24 @@
 // KontentOS — Editorial Studio · idea imagery.
 //
-// Each idea card is pinned to a SPECIFIC, hand-verified Unsplash photo id that
-// was chosen for that card's exact topic (see `imageId` on each idea in
-// data/mock.ts). The URL is built deterministically from that id, so the image
-// is always contextual to its card — never a random or keyword-guessed pull.
-//
-// Unsplash's per-photo `/download` endpoint accepts sizing params, so we request
-// a lightly-compressed, cropped asset (~100–250KB) instead of the multi-MB original.
+// Every idea card is pinned to one photo from the curated stock library, chosen for that card's
+// topic. The library is the single source: id, alt and URL all come off the same record, so an
+// idea can never ship an alt that describes a different picture than the one its card renders.
 
-/** Build a cropped, optimized Unsplash image URL for a given photo id. */
-export function unsplashPhoto(id: string, w = 1200, h = 675): string {
-  return `https://unsplash.com/photos/${id}/download?force=true&w=${w}&h=${h}&fit=crop&q=80`;
+import { CURATED_STOCK_PHOTOS } from '@/data/curatedStockPhotos';
+
+export interface IdeaPhoto {
+  id: string;
+  alt: string;
+  /** The 800px crop, for the one card shown large. */
+  url: string;
+  /** The 400px crop, for the grid — six of these is a page's worth of bytes saved. */
+  thumbUrl: string;
+}
+
+/** Resolve a card's `imageId` onto its library record. An unknown id yields no photo, not a guess. */
+export function ideaPhoto(id: string): IdeaPhoto {
+  const photo = CURATED_STOCK_PHOTOS.find((p) => p.id === id);
+  return { id, alt: photo?.description ?? '', url: photo?.previewUrl ?? '', thumbUrl: photo?.thumbUrl ?? '' };
 }
 
 /**

@@ -826,6 +826,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                   <Progress
                     value={Math.max(4, progress * 100)}
                     live
+                    label="Render"
                     trackClassName="h-2 bg-surface-3"
                     barClassName="bg-primary duration-150!"
                   />

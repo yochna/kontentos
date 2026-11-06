@@ -685,6 +685,7 @@ export default function Analytics() {
                           </div>
                           <Progress
                             value={(n / max) * 100}
+                            label={`${tag} share of scheduled posts`}
                             trackClassName="h-2 bg-surface-2 border border-line/40"
                             barClassName="bg-tertiary"
                           />

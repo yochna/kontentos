@@ -3,6 +3,7 @@ import { FontStyle, TypographyCategory, TypographyBundle } from '../../../types/
 import { TYPOGRAPHY_BUNDLES, getTypographyBundle } from '../../../data/staticCardPresets';
 import { Icon } from '@/lib/icons';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Slider } from '@/components/ui/slider';
 
 interface Props {
   fontStyle: FontStyle;
@@ -160,14 +161,14 @@ export const TypographyPicker: React.FC<Props> = ({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-mono text-ink-dim">-2</span>
-            <input
-              type="range"
-              min="-2"
-              max="2"
-              step="0.5"
+            <Slider
               value={textSizeAdjust}
-              onChange={(e) => onTextSizeAdjustChange(parseFloat(e.target.value))}
-              className="flex-1 accent-primary cursor-pointer h-1.5 bg-surface-3 rounded-lg"
+              min={-2}
+              max={2}
+              step={0.5}
+              onValueChange={onTextSizeAdjustChange}
+              label="Optical scaling fine-tune"
+              formatValue={(v) => `${v > 0 ? `+${v}` : v} sizes`}
             />
             <span className="text-[11px] font-mono text-ink-dim">+2</span>
           </div>

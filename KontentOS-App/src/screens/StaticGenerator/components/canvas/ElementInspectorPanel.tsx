@@ -4,6 +4,7 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { Label } from '@/components/ui/field';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import type { CanvasCustomElement } from '../../../../types/canvasScene';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 import { VectorShapesSection } from './VectorShapesSection';
@@ -760,15 +761,15 @@ const SliderField: React.FC<{
         {suffix}
       </span>
     </div>
-    <input
-      type="range"
+    <Slider
+      value={value}
       min={min}
       max={max}
       step={step}
-      value={value}
+      onValueChange={onChange}
       onPointerDown={onStart}
-      onChange={(event) => onChange(Number(event.target.value))}
-      className="w-full accent-primary cursor-pointer"
+      label={label}
+      formatValue={(v) => `${v}${suffix}`}
     />
   </div>
 );

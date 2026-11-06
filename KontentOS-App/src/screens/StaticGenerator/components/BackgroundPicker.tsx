@@ -7,6 +7,7 @@ import { Button } from '@/components/ui';
 import { Input } from '@/components/ui/field';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Slider } from '@/components/ui/slider';
 import { useStore } from '@/lib/store';
 import { getSafeImageUrl } from '@/lib/images';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -519,14 +520,14 @@ export const BackgroundPicker: React.FC<Props> = ({
             <span>Dim Overlay</span>
             <span className="font-mono text-ink font-semibold">{Math.round(overlayDarkness * 100)}%</span>
           </div>
-          <input
-            type="range"
-            min="0.1"
-            max="0.9"
-            step="0.05"
+          <Slider
             value={overlayDarkness}
-            onChange={(e) => onUpdateOverlay(parseFloat(e.target.value))}
-            className="w-full accent-primary h-1.5 bg-surface-3 rounded-lg cursor-pointer"
+            min={0.1}
+            max={0.9}
+            step={0.05}
+            onValueChange={onUpdateOverlay}
+            label="Dim overlay"
+            formatValue={(v) => `${Math.round(v * 100)} percent`}
           />
         </div>
 
@@ -535,14 +536,14 @@ export const BackgroundPicker: React.FC<Props> = ({
             <span>Atmospheric Blur</span>
             <span className="font-mono text-ink font-semibold">{blurAmount}px</span>
           </div>
-          <input
-            type="range"
-            min="0"
-            max="16"
-            step="1"
+          <Slider
             value={blurAmount}
-            onChange={(e) => onUpdateBlur(parseInt(e.target.value, 10))}
-            className="w-full accent-primary h-1.5 bg-surface-3 rounded-lg cursor-pointer"
+            min={0}
+            max={16}
+            step={1}
+            onValueChange={onUpdateBlur}
+            label="Atmospheric blur"
+            formatValue={(v) => `${v} pixels`}
           />
         </div>
       </div>

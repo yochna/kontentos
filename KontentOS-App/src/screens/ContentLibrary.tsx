@@ -257,7 +257,7 @@ export default function ContentLibrary() {
             </div>
           </div>
           <div className="w-32 shrink-0">
-            <Progress value={progress} live />
+            <Progress value={progress} live label="Upload" />
           </div>
         </div>
       )}

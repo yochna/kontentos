@@ -1,17 +1,18 @@
 import type { Idea } from '@/data/mock';
+import { ideaPhoto } from './images';
 
 // What the Ideas station offers when no model answered: structures worth filling, not copy. No hook
 // is written for the creator, no audience number is claimed, and nothing here has been scored — the
 // brackets are the deliverable.
 
-const CURATED_IMAGES = [
-  { id: 'eGGFZ5X2LnA', alt: 'Macro of an AI processor chip on a circuit board' },
-  { id: 'Wpnoqo2plFA', alt: 'Close-up of a spreadsheet full of figures on a screen' },
-  { id: 'DqmXihYx5UE', alt: 'Videographer operating a cinema camera on a film set' },
-  { id: 'qC2n6RQU4Vw', alt: 'Design team collaborating over wireframe sketches and sticky notes' },
-  { id: 'qwtCeJ5cLYs', alt: 'Analytics dashboard showing CTR, cost-per-conversion and quality-score metrics' },
-  { id: '1tCQcTjLoRQ', alt: 'Vintage handwritten journal with an old photograph and pressed flowers' },
-];
+/**
+ * One photo per scaffold card, read out of the curated library instead of typed in by hand. The ids
+ * this list used to carry were `unsplash.com/photos/<slug>/download` links: that endpoint now answers
+ * 401 behind a bot check and was never in the CSP's img-src either, so all six cards rendered as
+ * empty wells. Taking id and alt from the same library record is what keeps a card from describing a
+ * picture it is not showing.
+ */
+const CURATED_IMAGES = ['curated-ws-3', 'curated-ws-4', 'curated-ws-1', 'curated-neon-2', 'curated-life-3', 'curated-life-4'].map(ideaPhoto);
 
 const SCAFFOLD = 'Scaffold · fill the brackets';
 

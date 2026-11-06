@@ -4,7 +4,7 @@ import { AnimatedNumber, Badge, Button, Card, Chip, Eyebrow, PageShell, Progress
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty';
 import { Tooltip } from '@/components/ui/tooltip';
-import { unsplashPhoto } from '@/lib/images';
+import { ideaPhoto } from '@/lib/images';
 import { type Idea } from '@/data/mock';
 import { generateScaffoldIdeas } from '@/lib/ideasEngine';
 import { useStore } from '@/lib/store';
@@ -286,8 +286,11 @@ export default function Ideas() {
                 >
                   <Thumb k={idea.thumb} aspect="aspect-[16/9]">
                     <IdeaImage id={idea.imageId} alt={idea.imageAlt} />
-                    <span className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/10" />
-                    <span className="absolute top-2 left-2">
+                    {/* Both chips live at the dark end of the scrim. A tinted badge is built for dark
+                        chrome, and on the bright top of a photo its text measured under 2:1 — the
+                        same reason the hero card below already keeps its badge at the bottom. */}
+                    <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                    <span className="absolute bottom-2 left-2">
                       <Badge tone={idea.categoryTone}>{idea.category}</Badge>
                     </span>
                     <span className="absolute bottom-2 right-2 text-[11px] font-bold text-white/95 bg-black/70 rounded-full px-2 py-0.5 flex items-center gap-1">
@@ -308,6 +311,7 @@ export default function Ideas() {
                             <div className="w-16">
                               <Progress
                                 value={idea.blueprint.hookScore}
+                                label="Hook score"
                                 barClassName={idea.blueprint.hookScore >= 90 ? 'bg-tertiary' : 'bg-primary'}
                               />
                             </div>
@@ -569,12 +573,17 @@ function TranscriptPickerModal({
 }
 
 function IdeaImage({ id, alt, eager }: { id: string; alt: string; eager?: boolean }) {
+  const photo = ideaPhoto(id);
+  const src = eager ? photo.url : photo.thumbUrl;
   const [ok, setOk] = useState(true);
-  if (!ok) return null;
+  // An id the library does not know has no picture to show, so the card renders its gradient
+  // rather than a broken-image well. The library's own caption wins over the stored alt: the two
+  // were written for different photos whenever an idea predates the current library.
+  if (!src || !ok) return null;
   return (
     <img
-      src={unsplashPhoto(id)}
-      alt={alt}
+      src={src}
+      alt={photo.alt || alt}
       loading={eager ? 'eager' : 'lazy'}
       decoding="async"
       onError={() => setOk(false)}

@@ -16,7 +16,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts', 'server/**/*.test.ts', 'studio/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts', 'studio/**/*.test.ts'],
     env: {
       MONGODB_URI: '',
       NODE_ENV: 'test',

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Tooltip } from '@/components/ui/tooltip';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import {
   DropdownMenu,
   DropdownMenuAnchor,
@@ -362,25 +362,36 @@ function CutTile({
   onSelect: (id: string | null) => void;
   onMenu: (x: number, y: number) => void;
 }) {
-  const ledger = (
-    <div>
-      <div className="mb-1 font-semibold text-ink">{video.title}</div>
-      <dl className="space-y-0.5">
-        {steps.map((s) => (
-          <div key={s.label} className="flex items-baseline gap-2">
-            <dt className="shrink-0 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim">{s.label}</dt>
-            <dd className={s.state === 'next' ? 'min-w-0 truncate text-ink-dim' : 'min-w-0 truncate text-ink-muted'}>
-              {s.detail}
-            </dd>
-          </div>
-        ))}
-      </dl>
+  const preview = (
+    <div className="flex w-max max-w-[268px] gap-3">
+      {/* The rail itself is a 92px contact print, which is why two uploads off the same phone never
+          look different. The card is where the frame is actually big enough to read — and when the
+          clip has no frame to show, saying so with an absent column beats an empty grey well. */}
+      {video.thumbnail_url && (
+        <div className="relative aspect-[9/16] w-[86px] shrink-0 overflow-hidden rounded-[4px] bg-surface-3">
+          <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-semibold text-ink">{video.title}</div>
+        <dl className="mt-1 space-y-0.5">
+          {steps.map((s) => (
+            <div key={s.label} className="flex items-baseline gap-2">
+              <dt className="shrink-0 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim">{s.label}</dt>
+              <dd className={s.state === 'next' ? 'min-w-0 truncate text-ink-dim' : 'min-w-0 truncate text-ink-muted'}>
+                {s.detail}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
     </div>
   );
 
   return (
-    <Tooltip content={ledger} side="top" delay={250}>
-      <button
+    <HoverCard openDelay={220} closeDelay={90}>
+      <HoverCardTrigger asChild>
+        <button
         type="button"
         data-cut={video.id}
         data-selected={selected}
@@ -445,7 +456,11 @@ function CutTile({
             {stage}
           </span>
         )}
-      </button>
-    </Tooltip>
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent side="bottom" align="start" className="w-auto">
+        {preview}
+      </HoverCardContent>
+    </HoverCard>
   );
 }
