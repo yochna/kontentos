@@ -3,6 +3,7 @@ import { Icon } from '@/lib/icons';
 import { Button, Eyebrow, Progress, StatusPill } from '@/components/ui';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { fmtBytes } from '@/lib/bench';
 import type { TargetAspectRatio, TimelineProject, VideoClip, TextClip } from '@/lib/timeline';
 import {
   activeBrollClipAt,
@@ -730,7 +731,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
 
           {/* Error Message if any */}
           {errorMsg && (
-            <div className="p-3.5 bg-danger/10 border border-danger/25 rounded-btn text-danger text-xs flex items-start gap-2">
+            <div className="p-3.5 bg-danger/10 border border-danger/25 rounded-btn text-danger-ink text-xs flex items-start gap-2">
               <Icon name="error" size={16} className="shrink-0 mt-0.5" />
               <div className="flex-1">
                 <strong>Render notice:</strong> {errorMsg}
@@ -766,13 +767,13 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                       onClick={() => setResolution(r.id as any)}
                       className={`p-2.5 rounded-card border text-left transition-all ${
                         resolution === r.id
-                          ? 'border-primary bg-primary-soft ring-2 ring-primary/25 shadow-sm'
+                          ? 'border-primary bg-primary-soft ring-2 ring-primary/25'
                           : 'border-line hover:border-line-strong bg-surface'
                       }`}
                     >
                       <Icon name={r.icon} size={16} className="text-primary mb-1" />
                       <div className="text-xs font-semibold text-ink">{r.label}</div>
-                      <div className="text-[10px] text-ink-dim mt-0.5">{r.sub}</div>
+                      <div className="text-[11px] text-ink-dim mt-0.5">{r.sub}</div>
                     </button>
                   ))}
                 </div>
@@ -796,7 +797,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                   <label className="kt-eyebrow block mb-1.5" htmlFor="export-quality">Quality Profile</label>
                   <Select value={quality} disabled={rendering} onValueChange={(v) => setQuality(v as 'standard' | 'high')}>
                     <SelectTrigger id="export-quality" size="sm" className="bg-surface-2 text-xs font-medium">
-                      <span className="truncate">{quality === 'high' ? 'High Fidelity Studio (8 Mbps)' : 'Balanced (4.5 Mbps)'}</span>
+                      <span className="truncate">{quality ==='high' ? 'High Fidelity Studio (8 Mbps)' : 'Balanced (4.5 Mbps)'}</span>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="standard">Balanced (4.5 Mbps)</SelectItem>
@@ -831,7 +832,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
 
                   {/* Live Preview Monitor */}
                   <div className="flex items-center justify-between pt-1">
-                    <div className="max-w-[140px] mx-auto aspect-[9/16] bg-black rounded-lg overflow-hidden border border-line relative shadow-sm">
+                    <div className="max-w-[140px] mx-auto aspect-[9/16] bg-black rounded-lg overflow-hidden border border-line relative">
                       <canvas
                         ref={previewCanvasRef}
                         width={270}
@@ -858,7 +859,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
           ) : (
             /* Success Complete Banner */
             <div className="p-6 text-center bg-surface-2 rounded-card border border-line space-y-4">
-              <div className="w-12 h-12 rounded-full bg-tertiary/15 text-tertiary grid place-items-center mx-auto">
+              <div className="w-12 h-12 rounded-full bg-tertiary/15 text-danger-ink grid place-items-center mx-auto">
                 <Icon name="check_circle" size={28} />
               </div>
               <div>
@@ -868,7 +869,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                 </p>
                 {renderedSize && (
                   <span className="inline-block mt-2 text-[11px] font-mono font-medium text-ink-dim bg-surface px-2.5 py-1 rounded-full border border-line">
-                    File size: {(renderedSize / (1024 * 1024)).toFixed(2)} MB
+                    File size: {fmtBytes(renderedSize)}
                   </span>
                 )}
               </div>

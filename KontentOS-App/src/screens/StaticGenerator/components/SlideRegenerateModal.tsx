@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button } from '@/components/ui';
+import { Input } from '@/components/ui/field';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
+import { copyVoice, voiceTone } from '@/lib/brandKit';
+import { copyModel } from '@/lib/prefs';
 
 interface SlideContent {
   headline: string;
@@ -25,12 +29,11 @@ interface Props {
 }
 
 const QUICK_INSTRUCTIONS = [
-  'Make more concise',
-  'Add concrete example',
-  'Strengthen hook',
-  'Make more tactical',
-  'Add metric or number',
-  'Sharpen contrast',
+  'Say it in fewer words',
+  'Give the step, not the moral',
+  'Sharper claim',
+  'Plainer language',
+  'Use the number I gave you',
 ];
 
 export const SlideRegenerateModal: React.FC<Props> = ({
@@ -44,7 +47,7 @@ export const SlideRegenerateModal: React.FC<Props> = ({
   topic = '',
   onApplyRegeneration,
 }) => {
-  const [instruction, setInstruction] = useState('Make more concise');
+  const [instruction, setInstruction] = useState(QUICK_INSTRUCTIONS[0]);
   const [customText, setCustomText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -85,6 +88,9 @@ export const SlideRegenerateModal: React.FC<Props> = ({
           : null,
         topic,
         instruction: activeInstruction,
+        tone: voiceTone(),
+        context: copyVoice(),
+        model: copyModel(),
       });
 
       if (result && (result.headline || result.supportingText)) {
@@ -100,11 +106,11 @@ export const SlideRegenerateModal: React.FC<Props> = ({
         );
         onClose();
       } else {
-        setErrorMsg('Could not regenerate slide. Please try again.');
+        setErrorMsg('The copy engine sent back nothing readable.');
       }
     } catch (err: any) {
       console.error('Failed to regenerate slide:', err);
-      setErrorMsg(err?.message || 'Error communicating with Gemini AI.');
+      setErrorMsg(err?.message || 'The copy engine did not answer.');
     } finally {
       setIsLoading(false);
     }
@@ -114,17 +120,15 @@ export const SlideRegenerateModal: React.FC<Props> = ({
     <Dialog open={isOpen} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent size="md" hideClose className="gap-0 overflow-hidden p-0">
         {/* Header */}
-        <div className="p-4 border-b border-line bg-surface-2/60 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary-soft text-primary flex items-center justify-center">
-              <Icon name="auto_awesome" size={18} />
-            </div>
-            <div>
-              <DialogTitle className="text-sm font-bold text-ink">
-                Regenerate Slide {slideIndex} of {totalSlides}
+        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Icon name="refresh" size={17} className="shrink-0 text-ink-muted" />
+            <div className="min-w-0">
+              <DialogTitle className="text-[13px] font-semibold text-ink">
+                Rewrite slide {slideIndex} of {totalSlides}
               </DialogTitle>
-              <p className="text-[11px] text-ink-muted">
-                Rewrites with the studio engine while preserving narrative flow and context continuity
+              <p className="truncate text-[11px] text-ink-muted">
+                The engine sees this slide and its two neighbours, then writes a replacement.
               </p>
             </div>
           </div>
@@ -139,9 +143,9 @@ export const SlideRegenerateModal: React.FC<Props> = ({
         {/* Body */}
         <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
           {/* Narrative Context Flow Previews */}
-          <div className="p-3 bg-surface-2/60 rounded-btn border border-line/70 space-y-2 text-xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-ink-dim block">
-              Carousel Story Arc Continuity
+          <div className="space-y-2 rounded-btn border border-line bg-surface-2/60 p-3 text-xs">
+            <span className="kt-eyebrow block text-ink-dim">
+              What sits either side of it
             </span>
 
             {/* Preceding slide context */}
@@ -167,50 +171,47 @@ export const SlideRegenerateModal: React.FC<Props> = ({
             )}
           </div>
 
-          {/* Quick Instruction Prompt Chips */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-ink flex items-center gap-1.5">
-              <Icon name="tips_and_updates" size={14} className="text-primary" />
-              <span>Quick Revision Instruction:</span>
+          {/* What to change: a preset, or the creator's own words */}
+          <div className="space-y-2">
+            <label
+              id="kt-slide-instruction-label"
+              htmlFor="kt-slide-instruction"
+              className="flex items-center gap-1.5 text-[13px] font-semibold text-ink"
+            >
+              <Icon name="chat_bubble_outline" size={14} className="text-primary" />
+              <span>Say what to change</span>
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {QUICK_INSTRUCTIONS.map((chip) => {
-                const isSelected = !customText && instruction === chip;
-                return (
-                  <button
-                    key={chip}
-                    type="button"
-                    onClick={() => handleSelectQuickChip(chip)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-primary text-on-primary font-semibold shadow-xs'
-                        : 'bg-surface-2 text-ink-muted hover:text-ink hover:bg-surface-3 border border-line'
-                    }`}
-                  >
-                    {chip}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Custom Instruction Input */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-ink-muted">
-              Or specify custom directions:
-            </label>
-            <input
+            <ToggleGroup
+              value={customText.trim() ? '' : instruction}
+              onValueChange={(next) => next && handleSelectQuickChip(next)}
+              aria-labelledby="kt-slide-instruction-label"
+              variant="solid"
+              className="flex-wrap"
+            >
+              {QUICK_INSTRUCTIONS.map((chip) => (
+                <ToggleGroupItem
+                  key={chip}
+                  value={chip}
+                  variant="solid"
+                  className="rounded-full px-2.5 py-1 text-[12px] font-medium"
+                >
+                  <span>{chip}</span>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            <Input
+              id="kt-slide-instruction"
               type="text"
               value={customText}
               onChange={(e) => setCustomText(e.target.value)}
-              placeholder="e.g. Turn into a 3-step checklist, strengthen counter-intuitive contrast..."
-              className="w-full bg-surface-2 border border-line rounded-btn px-3 py-2 text-xs text-ink placeholder:text-ink-dim focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+              placeholder="Or write it: e.g. keep the number, cut the second sentence"
+              className="text-xs"
             />
           </div>
 
           {/* Error Message */}
           {errorMsg && (
-            <div className="p-2.5 rounded-btn bg-danger/10 text-danger text-xs flex items-center gap-2">
+            <div className="p-2.5 rounded-btn bg-danger/10 text-danger-ink text-xs flex items-center gap-2">
               <Icon name="error" size={14} />
               <span>{errorMsg}</span>
             </div>
@@ -218,11 +219,11 @@ export const SlideRegenerateModal: React.FC<Props> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3.5 border-t border-line bg-surface-2/40 flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 border-t border-line bg-surface-2/40 p-3.5">
           <span className="text-[11px] text-ink-dim">
-            Includes 1-click Undo safeguard
+            The rewrite lands on the panel with an Undo next to it.
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Button
               variant="secondary"
               size="sm"
@@ -234,12 +235,12 @@ export const SlideRegenerateModal: React.FC<Props> = ({
             <Button
               variant="primary"
               size="sm"
-              icon={isLoading ? 'progress_activity' : 'auto_awesome'}
+              icon={isLoading ? 'progress_activity' : 'refresh'}
+              iconSpin={isLoading}
               onClick={handleRegenerate}
               disabled={isLoading}
-              className={isLoading ? 'opacity-80' : ''}
             >
-              {isLoading ? 'Rewriting with AI...' : 'Regenerate Slide'}
+              {isLoading ? 'Rewriting...' : 'Rewrite it'}
             </Button>
           </div>
         </div>

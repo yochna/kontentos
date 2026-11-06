@@ -13,16 +13,17 @@ export function cleanTextForAlt(text?: string): string {
 }
 
 /**
- * Generates an accessible alt-text description for social media posts, screen readers, and SEO indexing.
- * Criteria format: "Visual social card featuring [Creator]: [Headline] - [Supporting Text]"
- *
- * @param state - The current StaticCardState
- * @returns Standardized accessibility description string
+ * Assembles an alt-text sentence from the words already on the card.
+ * It describes the card's text and credits the photo; it cannot see the photo, so the
+ * creator still has to check it before pasting.
  */
 export function generateAccessibleAltText(state: StaticCardState): string {
-  const creator = (state.creator?.name || '').trim() || 'Creator';
-  const headline = cleanTextForAlt(state.headline) || 'Content';
+  const creator = (state.creator?.name || '').trim();
+  const headline = cleanTextForAlt(state.headline);
   const supporting = cleanTextForAlt(state.supportingText);
+
+  // An empty card has nothing to describe; inventing "Content" would put a false alt-text on the post.
+  if (!headline && !supporting) return '';
 
   let prefix = 'Visual social card';
   if (state.format === 'carousel-slide' && state.slides && state.slides.length > 1) {
@@ -34,12 +35,11 @@ export function generateAccessibleAltText(state: StaticCardState): string {
   }
 
   const attribution = state.photographerAttribution?.name
-    ? ` [Background photo: ${state.photographerAttribution.name}]`
+    ? ` — background photo by ${state.photographerAttribution.name}`
     : '';
 
-  if (supporting) {
-    return `${prefix} featuring ${creator}: "${headline}" - ${supporting}${attribution}`;
-  }
+  const subject = creator ? `featuring ${creator}` : 'with the text below';
+  const words = [headline, supporting].filter(Boolean).map((w) => `"${w}"`).join(' — ');
 
-  return `${prefix} featuring ${creator}: "${headline}"${attribution}`;
+  return `${prefix} ${subject}: ${words}${attribution}`;
 }

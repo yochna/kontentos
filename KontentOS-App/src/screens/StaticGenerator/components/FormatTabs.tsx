@@ -1,19 +1,9 @@
 import React from 'react';
 import { CardFormat } from '../../../types/staticCard';
 import { Icon } from '@/lib/icons';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
-interface FormatTabsProps {
-  currentFormat: CardFormat;
-  onSelectFormat: (format: CardFormat) => void;
-}
-
-interface FormatOption {
-  id: CardFormat;
-  label: string;
-  iconName: string;
-}
-
-const FORMAT_OPTIONS: FormatOption[] = [
+export const FORMAT_OPTIONS: { id: CardFormat; label: string; iconName: string }[] = [
   { id: 'instagram-overlay', label: 'Instagram Overlay', iconName: 'photo_camera' },
   { id: 'linkedin-split', label: 'LinkedIn Split', iconName: 'view_column' },
   { id: 'tweet-card', label: 'Tweet Card', iconName: 'tag' },
@@ -21,27 +11,36 @@ const FORMAT_OPTIONS: FormatOption[] = [
   { id: 'editorial-quote', label: 'Editorial Quote', iconName: 'format_quote' },
 ];
 
+/** The format id is a storage key; this is the words a creator reads instead. */
+export function formatLabel(format: CardFormat): string {
+  return FORMAT_OPTIONS.find((opt) => opt.id === format)?.label ?? format;
+}
+
+interface FormatTabsProps {
+  currentFormat: CardFormat;
+  onSelectFormat: (format: CardFormat) => void;
+}
+
 export const FormatTabs: React.FC<FormatTabsProps> = ({ currentFormat, onSelectFormat }) => {
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-1 scrollbar-none">
-      {FORMAT_OPTIONS.map((opt) => {
-        const isActive = currentFormat === opt.id;
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => onSelectFormat(opt.id)}
-            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[13px] font-body font-semibold transition-all duration-150 cursor-pointer select-none whitespace-nowrap ${
-              isActive
-                ? 'bg-primary text-on-primary shadow-[var(--shadow-1)] ring-1 ring-primary/40 scale-[1.01]'
-                : 'bg-surface text-ink-muted border border-line hover:text-ink hover:bg-surface-2 hover:border-line-strong'
-            }`}
-          >
-            <Icon name={opt.iconName} size={16} />
-            <span>{opt.label}</span>
-          </button>
-        );
-      })}
-    </div>
+    <ToggleGroup
+      value={currentFormat}
+      onValueChange={(next) => next && onSelectFormat(next as CardFormat)}
+      aria-label="Card format"
+      variant="none"
+      className="flex-wrap gap-1.5 overflow-x-auto px-1 py-1 scrollbar-none"
+    >
+      {FORMAT_OPTIONS.map((opt) => (
+        <ToggleGroupItem
+          key={opt.id}
+          value={opt.id}
+          variant="none"
+          className="gap-2 whitespace-nowrap rounded-full border border-line bg-surface px-3 py-1.5 text-[12.5px] font-semibold text-ink-muted hover:border-line-strong hover:text-ink data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-on-primary"
+        >
+          <Icon name={opt.iconName} size={15} />
+          <span>{opt.label}</span>
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   );
 };

@@ -58,6 +58,9 @@ import {
   type BrollCategory,
 } from '@/utils/brollEngine';
 import { extractAudioPeaks, slicePeaksForClip } from '@/utils/audioWaveform';
+import { useNavPayload } from '@/lib/nav';
+import { fmtBytes, getSelectedCutId, selectCut, useSelectedCutId } from '@/lib/bench';
+import type { Video } from '@/lib/types';
 
 const RULER_H = 28;
 const LANE_H = 50;
@@ -164,6 +167,7 @@ export default function SmartEditor() {
   const [zoom, setZoom] = useState(48); // px per second
   const [presetId, setPresetId] = useState(PRESETS[0].id);
   const [polishing, setPolishing] = useState(false);
+  const [assembling, setAssembling] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'polish' | 'media' | 'captions' | 'broll' | 'audio' | 'inspector'>('polish');
   const [showExportModal, setShowExportModal] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
@@ -202,22 +206,47 @@ export default function SmartEditor() {
   const autoLoadedRef = useRef(false);
 
   // Auto-populate project if timeline is empty and video clips are available
+  const litCut = useNavPayload<{ videoId?: string }>('smart-editor');
+
+  const assemble = useCallback(
+    (video: Video) => {
+      autoLoadedRef.current = true;
+      setAssembling(video.title);
+      return runAutoEdit(video, getPreset(presetId))
+        .then(() => selectCut(video.id))
+        .finally(() => setAssembling(null));
+    },
+    [runAutoEdit, presetId]
+  );
+
   useEffect(() => {
     if (project || autoLoadedRef.current) return;
-    if (activeDraft?.project) {
+    const wanted = litCut?.videoId ?? getSelectedCutId();
+    const draft = activeDraft ?? null;
+    // Older drafts predate the source-video record, so ask the timeline what it is built from.
+    const draftCut = draft?.sourceVideo?.id ?? (draft?.project ? videoClips(draft.project)[0]?.sourceFileId ?? null : null);
+
+    // A draft left on the shelf for some other clip must not hijack the cut the rail just lit.
+    if (draft?.project && (!wanted || draftCut === wanted)) {
       autoLoadedRef.current = true;
-      loadProject(activeDraft.project);
-    } else {
-      const ready = videos.filter((v) => v.status === 'ready' || v.status === 'processing');
-      if (ready.length > 0) {
-        autoLoadedRef.current = true;
-        setPolishing(true);
-        runAutoEdit(ready[0], getPreset(presetId)).finally(() => {
-          setPolishing(false);
-        });
-      }
+      loadProject(draft.project);
+      // Whatever is on the timeline is what the rail should be lit on.
+      if (draftCut) selectCut(draftCut);
+      return;
     }
-  }, [project, activeDraft, videos, loadProject, runAutoEdit, presetId]);
+
+    const ready = videos.filter((v) => v.status === 'ready' || v.status === 'processing');
+    const pick = ready.find((v) => v.id === wanted) ?? ready[0];
+    if (pick) void assemble(pick);
+  }, [project, activeDraft, videos, loadProject, litCut, assemble]);
+
+  /**
+   * The bench holds one cut at a time. When the rail lights a different one, saying so beats
+   * quietly rebuilding the timeline under the creator's feet — the swap costs an assembly pass.
+   */
+  const stageClipId = project ? videoClips(project)[0]?.sourceFileId ?? null : null;
+  const railCutId = useSelectedCutId();
+  const waitingCut = railCutId && railCutId !== stageClipId ? (videos.find((v) => v.id === railCutId) ?? null) : null;
 
   // Keep playhead within bounds when the timeline shrinks.
   useEffect(() => {
@@ -822,6 +851,17 @@ export default function SmartEditor() {
     }
   }
 
+  function assembleCut(video: (typeof videos)[number]) {
+    if (assembling) return;
+    setAssembling(video.title);
+    runAutoEdit(video, getPreset(presetId))
+      .then(() => {
+        seek(0);
+        selectCut(video.id);
+      })
+      .finally(() => setAssembling(null));
+  }
+
   const handleGenerateCaptions = useCallback(
     async (_eventOrNothing?: unknown) => {
       if (!project || generatingCaptions) return;
@@ -986,70 +1026,94 @@ export default function SmartEditor() {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-[1280px] mx-auto">
         <Header offline={false} hasProject={false} />
-        <Card className="p-12 text-center">
-          {polishing ? (
-            <div className="py-8 space-y-3">
-              <div className="kt-spin mx-auto w-10 h-10 rounded-full border-[3px] border-primary border-t-transparent" />
-              <h2 className="font-display text-[22px] text-ink">Preparing Video Timeline...</h2>
-              <p className="text-[14px] text-ink-muted mt-1 max-w-md mx-auto">
-                Auto-assembling cuts, syncing kinetic captions, and optimizing playback rhythm.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="w-12 h-12 rounded-full bg-surface-2 grid place-items-center text-ink-dim mx-auto mb-3">
-                <Icon name="content_cut" size={28} />
-              </div>
-              <h2 className="font-display text-[22px] text-ink">Nothing on the timeline yet</h2>
-              <p className="text-[14px] text-ink-muted mt-1 max-w-md mx-auto">
-                Assemble a reel in Raw → Reel Studio and click <b className="text-ink">Fine-tune in Editor</b> to load it
-                here — or start directly from an uploaded clip.
-              </p>
-              {/* Upload from Device Dropzone */}
-              <div className="mt-6 max-w-md mx-auto p-5 rounded-card border-2 border-dashed border-line hover:border-primary/50 bg-surface-2/40 hover:bg-surface-2/70 transition-all text-center">
-                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary grid place-items-center mx-auto mb-2.5">
-                  <Icon name="cloud_upload" size={22} />
-                </div>
-                <div className="text-sm font-semibold text-ink">Upload Video from Device</div>
-                <p className="text-xs text-ink-muted mt-0.5 mb-3">
-                  Select any MP4, MOV, or WebM video file from your computer to begin editing.
-                </p>
-                <Button
-                  icon={uploadingVideo ? 'autorenew' : 'upload_file'}
-                  onClick={() => {
-                    setUploadActionTarget('newProject');
-                    fileInputRef.current?.click();
-                  }}
-                  disabled={uploadingVideo}
-                >
-                  {uploadingVideo ? `Uploading (${uploadProgress ?? 0}%)...` : 'Browse Video Files'}
-                </Button>
-                {uploadProgress !== null && (
-                  <div className="mt-3 w-full bg-surface-3 rounded-full h-1.5 overflow-hidden">
-                    <div className="bg-primary h-full transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
-                  </div>
-                )}
-              </div>
+        <div className="flex min-h-[52vh] flex-col justify-center">
 
-              {ready.length > 0 && (
-                <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-                  <span className="text-[12px] text-ink-dim font-medium mr-1">Or choose existing:</span>
-                  {ready.slice(0, 4).map((v) => (
-                    <Button
-                      key={v.id}
-                      size="sm"
-                      variant="secondary"
-                      icon="play_arrow"
-                      onClick={() => runAutoEdit(v, getPreset(presetId))}
-                    >
-                      {v.title.slice(0, 24)}
-                    </Button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+        {assembling && (
+          <div className="mb-4 flex items-center gap-2.5 rounded-btn border border-primary/35 bg-primary/10 px-4 py-2.5">
+            <span className="kt-spin h-4 w-4 shrink-0 rounded-full border-2 border-primary border-t-transparent" />
+            <span className="truncate text-[12.5px] text-ink">
+              Laying <b className="font-semibold">{`“${assembling}”`}</b> on the timeline
+            </span>
+          </div>
+        )}
+
+        <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="min-w-0">
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">Bench</span>
+            <h2 className="mt-1.5 font-display text-[19px] leading-snug text-ink">No timeline open</h2>
+            <p className="mt-1.5 max-w-[58ch] text-[13px] leading-relaxed text-ink-muted">
+              A timeline is one clip laid end to end with its captions running under it. Light a cut in the rail
+              and choose <b className="text-ink">Open in Bench</b> to assemble it here, or drop a file anywhere in
+              the room to intake it first.
+            </p>
+          </div>
+          <div className="shrink-0">
+            <Button
+              icon={uploadingVideo ? 'autorenew' : 'upload_file'}
+              onClick={() => {
+                setUploadActionTarget('newProject');
+                fileInputRef.current?.click();
+              }}
+              disabled={uploadingVideo}
+            >
+              {uploadingVideo ? `Uploading (${uploadProgress ?? 0}%)` : 'Intake a clip'}
+            </Button>
+            {uploadProgress !== null && (
+              <div className="mt-3 h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-surface-3">
+                <div
+                  className="h-full bg-primary transition-[width] duration-200"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            )}
+          </div>
         </Card>
+
+        {/* The plate names the three lanes a cut is assembled onto; at phone width the gutter eats a third of the screen. */}
+        <div className="mt-4 hidden overflow-hidden rounded-card border border-line sm:flex">
+          <div className="shrink-0 bg-surface-2" style={{ width: GUTTER_W }}>
+            <div style={{ height: RULER_H }} className="border-b border-line" />
+            {['Kinetic Captions', 'SFX Overlays', 'Primary Video'].map((n) => (
+              <div
+                key={n}
+                style={{ height: LANE_H }}
+                className="flex items-center border-b border-line px-3 last:border-b-0"
+              >
+                <span className="truncate text-[11px] font-medium text-ink-dim">{n}</span>
+              </div>
+            ))}
+          </div>
+          <div className="relative flex-1 bg-app">
+            <div style={{ height: RULER_H }} className="border-b border-line" />
+            {[0, 1, 2].map((i) => (
+              <div key={i} style={{ height: LANE_H }} className="border-b border-line last:border-b-0" />
+            ))}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 border border-dashed border-line-strong text-ink-dim" style={{ height: LANE_H * 3 }}>
+              <Icon name="file_upload" size={16} />
+              <span className="text-[12px]">Drop footage onto the plate, or light a cut and open it here</span>
+            </div>
+          </div>
+        </div>
+
+        {ready.length > 0 && !assembling && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">In the vault</span>
+            {ready.slice(0, 6).map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => assembleCut(v)}
+                className="flex items-baseline gap-2 rounded-btn border border-line bg-surface-2/60 px-2.5 py-1.5 text-left transition-colors hover:border-primary/45 hover:bg-surface-2"
+              >
+                <span className="max-w-[16ch] truncate text-[12px] text-ink">{v.title}</span>
+                <span className="font-mono text-[11px] text-ink-dim">
+                  {v.duration ? fmtTime(v.duration) : fmtBytes(v.file_size)}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        </div>
       </div>
     );
   }
@@ -1106,7 +1170,7 @@ export default function SmartEditor() {
                       onClick={() => handleSetAspectRatio(ar.id as TargetAspectRatio)}
                       className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 transition-all ${
                         (project.projectMetadata.targetAspectRatio || '9:16') === ar.id
-                          ? 'bg-primary text-on-primary shadow-xs'
+                          ? 'bg-primary text-on-primary'
                           : 'text-ink-muted hover:text-ink hover:bg-surface-2'
                       }`}
                     >
@@ -1136,7 +1200,7 @@ export default function SmartEditor() {
                       : project.projectMetadata.targetAspectRatio === '4:5'
                       ? 'w-[230px] aspect-[4/5]'
                       : 'w-[220px] aspect-[9/16]'
-                  } max-w-full rounded-[22px] border-[5px] border-ink/85 bg-black overflow-hidden relative shadow-md transition-all duration-300`}
+                  } max-w-full rounded-[22px] border-[5px] border-ink/85 bg-black overflow-hidden relative shadow-[var(--shadow-2)] transition-all duration-300`}
                 >
                   <ReelPreview
                     ref={reelRef}
@@ -1209,10 +1273,10 @@ export default function SmartEditor() {
                   </Button>
                 </div>
 
-                <div className="text-[13px] text-ink-muted leading-relaxed bg-surface-2/60 p-3 rounded-btn border border-line">
+                <p className="text-[13px] text-ink-muted leading-relaxed">
                   Scrub the multi-track timeline below. Press <Key>S</Key> to split, <Key>⌫</Key> to ripple-delete, and{' '}
                   <Key>⌘/Ctrl</Key>+<Key>Z</Key> to undo.
-                </div>
+                </p>
 
                 <div className="flex items-center gap-2 flex-wrap pt-1">
                   <StatusPill tone="primary">{vClips.length} video cuts</StatusPill>
@@ -1282,19 +1346,39 @@ export default function SmartEditor() {
 
           {/* Multi-Track Timeline */}
           <Card className="p-3.5">
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-2">
+            <div className="mb-2.5 flex items-center justify-between gap-3">
+              <div className="flex shrink-0 items-center gap-2">
                 <Icon name="view_timeline" size={18} className="text-primary" />
                 <h2 className="font-semibold text-ink text-sm">Multi-Track Timeline</h2>
               </div>
-              <span className="text-[11.5px] text-ink-dim font-mono">
+              <span className="hidden min-w-0 flex-1 truncate text-right text-[12px] text-ink-dim font-mono md:block">
                 {selectedIds.length > 1
                   ? `Selected: ${selectedIds.length} clips (Shift+Click / Marquee)`
                   : selectedClip
                   ? `Selected: ${clipLabel(selectedClip)}`
-                  : 'Click clip to select · Drag ruler to scrub · Drag background to marquee select'}
+                  : 'Click a clip · Drag the ruler to scrub'}
               </span>
             </div>
+
+            {assembling ? (
+              <div className="mb-2.5 flex items-center gap-2.5 border-y border-line py-2">
+                <span className="kt-spin h-4 w-4 shrink-0 rounded-full border-2 border-primary border-t-transparent" />
+                <span className="truncate text-[12.5px] text-ink">
+                  Laying <b className="font-semibold">{`“${assembling}”`}</b> on the timeline
+                </span>
+              </div>
+            ) : waitingCut ? (
+              <div className="mb-2.5 flex flex-wrap items-center gap-2 border-y border-line py-2">
+                <Icon name="compare_arrows" size={15} className="shrink-0 text-ink-dim" />
+                <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink-muted">
+                  <span className="text-ink">{waitingCut.title}</span> is lit in the rail, but this timeline holds
+                  another cut. Assembling replaces what is loaded.
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => void assemble(waitingCut)}>
+                  Assemble it
+                </Button>
+              </div>
+            ) : null}
 
             <div className="flex">
               {/* Track Headers / Gutter */}
@@ -1312,7 +1396,7 @@ export default function SmartEditor() {
               </div>
 
               {/* Scrollable Timeline Lanes */}
-              <div className="overflow-x-auto flex-1 rounded-r-md border border-line bg-app">
+              <div className="overflow-x-auto flex-1 bg-app">
                 <div
                   ref={contentRef}
                   className="relative select-none"
@@ -1345,12 +1429,12 @@ export default function SmartEditor() {
                           selected={selectedIds.includes(c.id)}
                           color={
                             tr.id === 'track-broll'
-                              ? '#6366F1'
+                              ? 'var(--ink-dim)'
                               : tr.type === 'video'
-                              ? 'var(--primary, #3E4A3D)'
+                              ? 'var(--primary)'
                               : tr.type === 'text'
-                              ? 'var(--tertiary, #285C4D)'
-                              : 'var(--secondary, #825E3E)'
+                              ? 'var(--tertiary)'
+                              : 'var(--secondary)'
                           }
                           label={clipLabel(c)}
                           compact={tr.type !== 'video'}
@@ -1368,7 +1452,7 @@ export default function SmartEditor() {
                   {/* Marquee Drag Selection Box */}
                   {marquee && marqueeActiveRef.current && (
                     <div
-                      className="absolute border border-primary bg-primary/25 pointer-events-none rounded z-30 ring-1 ring-primary/50 shadow-sm"
+                      className="absolute border border-primary bg-primary/25 pointer-events-none rounded z-30 ring-1 ring-primary/50"
                       style={{
                         left: Math.min(marquee.startX, marquee.currentX),
                         top: Math.min(marquee.startY, marquee.currentY),
@@ -1384,8 +1468,8 @@ export default function SmartEditor() {
                       className="absolute top-0 bottom-0 z-30 pointer-events-none"
                       style={{ left: snapGuide * zoom }}
                     >
-                      <div className="w-[1.5px] h-full bg-amber-400 ring-2 ring-amber-400/40 shadow-sm" />
-                      <div className="absolute top-0 -translate-x-1/2 bg-amber-500 text-black font-extrabold text-[9px] font-mono px-1 rounded shadow-sm">
+                      <div className="w-[1.5px] h-full bg-primary ring-2 ring-primary/40" />
+                      <div className="absolute top-0 -translate-x-1/2 bg-app text-primary font-extrabold text-[11px] font-mono px-1 rounded">
                         {snapGuide.toFixed(2)}s
                       </div>
                     </div>
@@ -1396,7 +1480,7 @@ export default function SmartEditor() {
                     className="absolute top-0 bottom-0 z-20 pointer-events-none"
                     style={{ left: time * zoom }}
                   >
-                    <div className="w-[1.5px] h-full bg-danger shadow-sm" />
+                    <div className="w-[1.5px] h-full bg-danger" />
                     <div className="absolute -top-0.5 -left-[5px] w-0 h-0 border-l-[5px] border-r-[5px] border-t-[7px] border-l-transparent border-r-transparent border-t-danger" />
                   </div>
                 </div>
@@ -1457,7 +1541,7 @@ export default function SmartEditor() {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-[13px] font-semibold text-ink truncate">{p.name}</span>
-                          <span className="block text-[11px] text-ink-dim truncate">{p.tagline}</span>
+                          <span className="block text-[11px] text-ink-muted truncate">{p.tagline}</span>
                         </span>
                         {active && <Icon name="check_circle" size={17} className="text-primary" />}
                       </button>
@@ -1512,12 +1596,12 @@ export default function SmartEditor() {
                           onClick={() => setUploadActionTarget(m.id as any)}
                           className={`p-2 rounded-btn border text-left transition-all ${
                             uploadActionTarget === m.id
-                              ? 'border-primary bg-primary-soft text-ink shadow-xs ring-1 ring-primary/30'
+                              ? 'border-primary bg-primary-soft text-ink ring-1 ring-primary/30'
                               : 'border-line text-ink-muted hover:text-ink'
                           }`}
                         >
                           <div className="text-xs font-semibold">{m.label}</div>
-                          <div className="text-[10px] text-ink-dim">{m.desc}</div>
+                          <div className="text-[11px] text-ink-dim">{m.desc}</div>
                         </button>
                       ))}
                     </div>
@@ -1528,11 +1612,11 @@ export default function SmartEditor() {
                     onClick={() => fileInputRef.current?.click()}
                     className="p-4 rounded-card border-2 border-dashed border-line hover:border-primary/60 bg-surface-2/40 hover:bg-surface-2/80 cursor-pointer text-center transition-all group"
                   >
-                    <div className="w-9 h-9 rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform grid place-items-center mx-auto mb-2">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 text-primary grid place-items-center mx-auto mb-2">
                       <Icon name="upload_file" size={20} />
                     </div>
                     <div className="text-xs font-semibold text-ink">Choose video file from device</div>
-                    <div className="text-[10.5px] text-ink-dim mt-0.5">MP4, MOV, WebM, MKV up to 500MB</div>
+                    <div className="text-[11px] text-ink-dim mt-0.5">MP4, MOV, WebM, MKV up to 500MB</div>
                   </div>
 
                   {uploadProgress !== null && (
@@ -1542,7 +1626,7 @@ export default function SmartEditor() {
                         <span>{uploadProgress}%</span>
                       </div>
                       <div className="w-full bg-surface-3 rounded-full h-1.5 overflow-hidden">
-                        <div className="bg-primary h-full transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+                        <div className="bg-primary h-full transition-all duration-200" style={{ width:`${uploadProgress}%` }} />
                       </div>
                     </div>
                   )}
@@ -1587,12 +1671,12 @@ export default function SmartEditor() {
                               <div className="text-xs font-semibold text-ink truncate flex items-center gap-1.5">
                                 <span>{v.title}</span>
                                 {isCurrentSource && (
-                                  <span className="px-1.5 py-0.5 rounded-full bg-primary text-[9px] text-on-primary font-bold tracking-tight">
+                                  <span className="px-1.5 py-0.5 rounded-full bg-primary text-[11px] text-on-primary font-bold tracking-tight">
                                     Active Base
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[10.5px] text-ink-dim flex items-center gap-2 mt-0.5">
+                              <div className="text-[11px] text-ink-dim flex items-center gap-2 mt-0.5">
                                 <span>{fmtTime(v.duration || 0)}</span>
                                 <span>·</span>
                                 <span>{v.status}</span>
@@ -1676,14 +1760,16 @@ export default function SmartEditor() {
 
                   {/* Feedback notification */}
                   {captionNotice && (
-                    <div className="p-2.5 rounded-btn bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 text-emerald-800 dark:text-emerald-200 text-xs flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Icon name="check_circle" size={14} className="text-emerald-600 shrink-0" />
+                    <div className="flex items-center justify-between gap-2 rounded-btn border border-success/35 bg-success/12 p-2.5 text-[12px] text-ink">
+                      <div className="flex min-w-0 items-center gap-1.5 truncate">
+                        <Icon name="check_circle" size={14} className="shrink-0 text-success" />
                         <span className="truncate">{captionNotice}</span>
                       </div>
                       <button
+                        type="button"
                         onClick={() => setCaptionNotice(null)}
-                        className="text-emerald-600 hover:text-emerald-800 dark:hover:text-emerald-100"
+                        aria-label="Dismiss the caption notice"
+                        className="kt-focus shrink-0 text-ink-muted transition-colors hover:text-ink"
                       >
                         <Icon name="close" size={13} />
                       </button>
@@ -1745,7 +1831,7 @@ export default function SmartEditor() {
                         onClick={() => toggleCaptions()}
                         className={`px-2.5 py-1 rounded-btn text-xs font-semibold border transition-all ${
                           isCaptionsActive
-                            ? 'bg-success text-on-primary border-success shadow-sm'
+                            ? 'bg-success text-on-primary border-success'
                             : 'bg-surface-2 text-ink-muted border-line hover:text-ink'
                         }`}
                       >
@@ -1796,7 +1882,7 @@ export default function SmartEditor() {
                             <Icon name={preset.icon} size={15} className="text-primary" />
                             <span className="truncate">{preset.name}</span>
                           </div>
-                          <p className="text-[10.5px] text-ink-dim mt-0.5 line-clamp-1 leading-snug">
+                          <p className="text-[11px] text-ink-dim mt-0.5 line-clamp-1 leading-snug">
                             {preset.tagline}
                           </p>
                         </button>
@@ -1833,7 +1919,7 @@ export default function SmartEditor() {
                               updateGlobalCaptionStyle({ activeWordColorHex: c.hex });
                             }}
                             className={`w-7 h-7 rounded-full border-2 transition-all ${
-                              highlightColor === c.hex ? 'border-ink scale-110 shadow-sm' : 'border-line'
+                              highlightColor === c.hex ? 'border-ink scale-110' : 'border-line'
                             }`}
                             style={{ backgroundColor: c.hex }}
                           />
@@ -1936,7 +2022,7 @@ export default function SmartEditor() {
                         <Icon name="volume_off" size={16} className="text-ink-dim" />
                         <div>
                           <div className="text-xs font-semibold text-ink">No Background Music</div>
-                          <div className="text-[10px] text-ink-dim">Dialogue & SFX only</div>
+                          <div className="text-[11px] text-ink-dim">Dialogue & SFX only</div>
                         </div>
                       </div>
                       {!currentBgm && <Icon name="check_circle" size={16} className="text-primary" />}
@@ -1971,14 +2057,14 @@ export default function SmartEditor() {
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-xs font-semibold text-ink truncate">{p.name}</span>
-                                <span className="text-[10px] text-ink-dim px-1.5 py-0.5 rounded bg-surface-2 border border-line font-mono shrink-0">
+                                <span className="text-[11px] text-ink-dim px-1.5 py-0.5 rounded bg-surface-2 border border-line font-mono shrink-0">
                                   {p.duration}
                                 </span>
-                                <span className="text-[9.5px] text-secondary font-medium px-1 py-0.5 rounded bg-secondary/10 shrink-0">
+                                <span className="text-[11px] text-secondary font-medium px-1 py-0.5 rounded bg-secondary/10 shrink-0">
                                   {p.genre}
                                 </span>
                               </div>
-                              <div className="text-[10.5px] text-ink-dim truncate mt-0.5">{p.mood}</div>
+                              <div className="text-[11px] text-ink-dim truncate mt-0.5">{p.mood}</div>
                             </div>
                           </button>
                           <div className="flex items-center gap-1.5 shrink-0 pl-2">
@@ -1989,7 +2075,7 @@ export default function SmartEditor() {
                                 aria-label={isTesting ? 'Stop preview' : 'Listen to track'}
                                 className={`w-7 h-7 rounded-full border grid place-items-center text-xs transition-colors ${
                                   isTesting
-                                    ? 'bg-secondary text-on-primary border-secondary shadow-sm ring-2 ring-secondary/30'
+                                    ? 'bg-secondary text-on-primary border-secondary ring-2 ring-secondary/30'
                                     : 'border-line hover:border-line-strong text-ink-muted hover:text-ink hover:bg-surface-2'
                                 }`}
                               >
@@ -2080,7 +2166,7 @@ export default function SmartEditor() {
                         onClick={() => addSfxAtPlayhead(s.id)}
                         className="p-2 rounded-btn border border-line hover:border-primary/50 bg-surface-2/40 hover:bg-surface-2 text-left text-xs font-medium text-ink flex items-center gap-1.5 transition-colors group"
                       >
-                        <Icon name={s.icon} size={14} className="text-primary group-hover:scale-110 transition-transform" />
+                        <Icon name={s.icon} size={14} className="text-primary" />
                         <span className="truncate">{s.label}</span>
                       </button>
                     ))}
@@ -2124,12 +2210,12 @@ export default function SmartEditor() {
                           onClick={() => setBrollDensity(d.id as any)}
                           className={`p-2 rounded-btn border text-left transition-all ${
                             brollDensity === d.id
-                              ? 'border-secondary bg-secondary/10 text-ink shadow-xs'
+                              ? 'border-secondary bg-secondary/10 text-ink'
                               : 'border-line text-ink-muted hover:text-ink'
                           }`}
                         >
                           <div className="text-xs font-semibold">{d.label}</div>
-                          <div className="text-[10px] text-ink-dim">{d.desc}</div>
+                          <div className="text-[11px] text-ink-dim">{d.desc}</div>
                         </button>
                       ))}
                     </div>
@@ -2241,11 +2327,11 @@ export default function SmartEditor() {
                             <div className="min-w-0">
                               <div className="text-xs font-semibold text-ink truncate flex items-center gap-1.5">
                                 <span>{asset.title}</span>
-                                <span className="px-1.5 py-0.5 rounded-full bg-surface-2 text-[9px] text-ink-dim uppercase font-bold tracking-tight">
+                                <span className="px-1.5 py-0.5 rounded-full bg-surface-2 text-[11px] text-ink-dim uppercase font-bold tracking-tight">
                                   {asset.tag}
                                 </span>
                               </div>
-                              <div className="text-[10.5px] text-ink-muted truncate mt-0.5">
+                              <div className="text-[11px] text-ink-muted truncate mt-0.5">
                                 {asset.keywords.slice(0, 4).join(', ')}
                               </div>
                             </div>
@@ -2325,7 +2411,7 @@ export default function SmartEditor() {
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="text-danger hover:bg-danger/10 text-xs py-1 px-2"
+                        className="text-danger-ink hover:bg-danger/10 text-xs py-1 px-2"
                         onClick={doDelete}
                       >
                         Delete All ({selectedIds.length})
@@ -2497,7 +2583,7 @@ function Header({
                 <Icon name="undo" size={15} />
                 <span>Undo</span>
                 {historyCount && historyCount.past > 0 && (
-                  <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1 rounded-full">
+                  <span className="text-[11px] font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1 rounded-full">
                     {historyCount.past}
                   </span>
                 )}
@@ -2524,7 +2610,7 @@ function Header({
                 <Icon name="redo" size={15} />
                 <span>Redo</span>
                 {historyCount && historyCount.future > 0 && (
-                  <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1 rounded-full">
+                  <span className="text-[11px] font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-1 rounded-full">
                     {historyCount.future}
                   </span>
                 )}
@@ -2557,23 +2643,30 @@ function GutterTrackHeader({
   onToggleLock: () => void;
 }) {
   const icon = track.type === 'video' ? 'videocam' : track.type === 'text' ? 'subtitles' : 'volume_up';
+  // 110px of gutter cannot hold "Kinetic Captions" and the lane controls, so the gutter names the
+  // lane by kind and the tooltip carries its full name.
+  const short =
+    track.type === 'text' ? 'Captions' : track.type === 'sfx' ? 'SFX' : track.type === 'video' ? 'Video' : track.name;
 
   return (
     <div
-      className="flex items-center justify-between text-[11.5px] font-semibold text-ink px-2.5 border-b border-line bg-surface-2/40 select-none"
+      className="flex flex-col justify-center gap-1 text-[12px] font-semibold text-ink px-2.5 border-b border-line bg-surface-2/40 select-none"
       style={{ height: h }}
     >
-      <div className="flex items-center gap-1.5 truncate pr-1">
-        <Icon name={icon} size={15} className="text-primary shrink-0" />
-        <span className="truncate">{track.name}</span>
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
+      <Tooltip content={track.name} side="right" delay={350}>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Icon name={icon} size={15} className="text-primary shrink-0" />
+          <span className="truncate">{short}</span>
+        </div>
+      </Tooltip>
+      {/* The lane is 110px wide, so the controls get their own row rather than eating the name. */}
+      <div className="flex items-center gap-1 pl-[21px]">
         <Tooltip content={track.isMuted ? 'Unmute track' : 'Mute track'} side="left" delay={0}>
           <button
             type="button"
             onClick={onToggleMute}
             aria-label={track.isMuted ? 'Unmute track' : 'Mute track'}
-            className={`w-5 h-5 rounded grid place-items-center text-[10px] ${
+            className={`w-5 h-5 rounded grid place-items-center text-[11px] ${
               track.isMuted ? 'bg-danger text-on-primary' : 'text-ink-dim hover:text-ink'
             }`}
           >
@@ -2585,7 +2678,7 @@ function GutterTrackHeader({
             type="button"
             onClick={onToggleLock}
             aria-label={track.isLocked ? 'Unlock track' : 'Lock track'}
-            className={`w-5 h-5 rounded grid place-items-center text-[10px] ${
+            className={`w-5 h-5 rounded grid place-items-center text-[11px] ${
               track.isLocked ? 'bg-ink text-app' : 'text-ink-dim hover:text-ink'
             }`}
           >
@@ -2608,7 +2701,7 @@ function Ruler({ duration, zoom, height }: { duration: number; zoom: number; hei
         <div key={s} className="absolute top-0 h-full" style={{ left: s * zoom }}>
           <div className="w-px h-2 bg-line-strong" style={{ marginTop: height - 8 }} />
           {s % step === 0 && (
-            <span className="absolute top-0.5 left-1 text-[9px] font-mono text-ink-dim tabular-nums">
+            <span className="absolute top-0.5 left-1 text-[11px] font-mono text-ink-dim tabular-nums">
               {fmtTime(s).slice(0, 5)}
             </span>
           )}
@@ -2681,8 +2774,9 @@ function ClipWaveformCanvas({
     ctx.scale(dpr, dpr);
 
     ctx.clearRect(0, 0, width, height);
-    // Draw amplitude lines using primary accent color #285C4D
-    ctx.fillStyle = '#285C4D';
+    // Bars burn in the lane's own ink so they read on any lane colour, in either theme.
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--on-primary').trim() || '#171004';
+    ctx.globalAlpha = 0.6;
 
     const barWidth = 2;
     const gap = 1;
@@ -2827,7 +2921,7 @@ function ClipBlock({
     <div
       onPointerDown={(e) => startDrag(e, 'move')}
       className={`group absolute top-1.5 bottom-1.5 rounded-md overflow-visible select-none cursor-grab active:cursor-grabbing text-left transition-shadow ${
-        selected ? 'ring-2 ring-offset-1 ring-offset-app ring-primary shadow-md z-10' : 'hover:brightness-110 z-0'
+        selected ? 'ring-2 ring-offset-1 ring-offset-app ring-primary shadow-[var(--shadow-2)] z-10' : 'hover:brightness-110 z-0'
       }`}
       style={{
         left: clip.startOnTimeline * zoom,
@@ -2848,7 +2942,7 @@ function ClipBlock({
       {/* Cut Transition Badge Indicator on Video Clip */}
       {clip.type === 'video' && (clip as VideoClip).transition?.type && (clip as VideoClip).transition?.type !== 'none' && (
         <span
-          className="absolute -top-2 left-1 z-30 px-1 py-0.5 rounded bg-amber-500 text-black text-[9px] font-black tracking-tight uppercase shadow-xs flex items-center gap-0.5 pointer-events-none"
+          className="absolute -top-2 left-1 z-30 px-1 py-0.5 rounded bg-app text-primary text-[11px] font-black tracking-tight uppercase flex items-center gap-0.5 pointer-events-none"
         >
           <Icon name={(clip as VideoClip).transition!.type === 'flash' ? 'bolt' : 'auto_awesome_motion'} size={9} />
           <span>{(clip as VideoClip).transition!.type}</span>
@@ -2856,7 +2950,7 @@ function ClipBlock({
       )}
 
       {/* Label */}
-      <span className="absolute inset-0 flex items-center px-2 text-[10.5px] font-semibold text-white truncate drop-shadow-sm pointer-events-none z-10">
+      <span className="pointer-events-none absolute inset-0 z-10 flex items-center truncate px-2 text-[11px] font-semibold text-on-primary">
         {label}
       </span>
 
@@ -2869,7 +2963,7 @@ function ClipBlock({
             title="Drag to trim start"
             className="absolute left-0 top-0 bottom-0 w-2.5 bg-white/40 hover:bg-white/80 cursor-ew-resize rounded-l-md flex items-center justify-center transition-colors z-20"
           >
-            <div className="w-[1.5px] h-3 bg-black/60 rounded-full" />
+            <div className="w-[1.5px] h-3 bg-black/75 rounded-full" />
           </div>
 
           {/* Right Handle (Trim End) */}
@@ -2878,7 +2972,7 @@ function ClipBlock({
             title="Drag to trim end"
             className="absolute right-0 top-0 bottom-0 w-2.5 bg-white/40 hover:bg-white/80 cursor-ew-resize rounded-r-md flex items-center justify-center transition-colors z-20"
           >
-            <div className="w-[1.5px] h-3 bg-black/60 rounded-full" />
+            <div className="w-[1.5px] h-3 bg-black/75 rounded-full" />
           </div>
         </>
       )}
@@ -2907,7 +3001,7 @@ function ToolBtn({
         aria-label={label}
         className={`inline-flex items-center gap-1.5 rounded-btn px-3 py-1.5 text-[12.5px] font-semibold border transition-all kt-focus disabled:opacity-35 disabled:cursor-not-allowed ${
           danger
-            ? 'border-danger/30 text-danger hover:bg-danger/10'
+            ? 'border-danger/30 text-danger-ink hover:bg-danger/10'
             : 'border-line text-ink-muted hover:text-ink hover:bg-surface-2'
         }`}
       >
@@ -2981,12 +3075,12 @@ function SelectedPanel({
         <div className="min-w-0 pr-2">
           <div className="flex items-center gap-1.5 mb-0.5">
             <span
-              className={`text-[9.5px] uppercase font-bold px-1.5 py-0.5 rounded tracking-wide ${
+              className={`text-[11px] uppercase font-bold px-1.5 py-0.5 rounded tracking-wide border text-ink ${
                 isText
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  ? 'border-tertiary/45 bg-tertiary/12'
                   : isVideo
-                  ? 'bg-primary/20 text-primary border border-primary/30'
-                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  ? 'border-primary/45 bg-primary/12'
+                  : 'border-secondary/45 bg-secondary/12'
               }`}
             >
               {isText ? 'Kinetic Caption' : isVideo ? 'Primary Video' : 'SFX Audio'}
@@ -3008,7 +3102,7 @@ function SelectedPanel({
                 <Icon name="edit_note" size={14} className="text-primary" />
                 Caption Text
               </label>
-              <span className="text-[10px] text-ink-dim font-mono">
+              <span className="text-[11px] text-ink-dim font-mono">
                 {textDraft.trim().split(/\s+/).filter(Boolean).length} words · {textDraft.length} chars
               </span>
             </div>
@@ -3043,16 +3137,16 @@ function SelectedPanel({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider flex items-center gap-1">
-                  <Icon name="timer" size={14} className="text-emerald-400" />
+                  <Icon name="timer" size={14} className="text-success" />
                   Word Cadence ({textClip.style.words.length})
                 </label>
-                <span className="text-[10px] text-ink-dim">Click word to edit</span>
+                <span className="text-[11px] text-ink-dim">Click word to edit</span>
               </div>
               <div className="flex flex-wrap gap-1.5 p-2 rounded-btn bg-surface-2/60 border border-line max-h-36 overflow-y-auto">
                 {textClip.style.words.map((w, idx) => (
                   <div key={idx} className="relative group">
                     {editingWordIdx === idx ? (
-                      <span className="inline-flex items-center gap-1 bg-surface border border-primary px-1.5 py-0.5 rounded-md shadow-xs">
+                      <span className="inline-flex items-center gap-1 bg-surface border border-primary px-1.5 py-0.5 rounded-md">
                         <input
                           type="text"
                           value={editingWordVal}
@@ -3088,7 +3182,7 @@ function SelectedPanel({
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface border border-line text-xs font-medium text-ink hover:border-primary hover:text-primary transition-all group"
                         >
                           <span>{w.word}</span>
-                          <span className="text-[9px] text-ink-dim font-mono opacity-60 group-hover:opacity-100">
+                          <span className="text-[11px] text-ink-dim font-mono opacity-60 group-hover:opacity-100">
                             {w.start.toFixed(1)}s
                           </span>
                         </button>
@@ -3150,7 +3244,7 @@ function SelectedPanel({
                     onClick={() =>
                       onUpdateTextClip(clip.id, textClip.content, { animation: anim.id })
                     }
-                    className={`py-1 px-1.5 rounded-btn border text-[10.5px] font-medium flex items-center justify-center gap-1 transition-all ${
+                    className={`py-1 px-1.5 rounded-btn border text-[11px] font-medium flex items-center justify-center gap-1 transition-all ${
                       textClip.style.animation === anim.id
                         ? 'border-primary bg-primary-soft text-primary font-semibold'
                         : 'border-line text-ink-muted hover:text-ink'
@@ -3180,8 +3274,8 @@ function SelectedPanel({
                       style={{ backgroundColor: c.hex }}
                       className={`w-5 h-5 rounded-full border transition-all ${
                         textClip.style.activeWordColorHex === c.hex
-                          ? 'border-ink scale-110 shadow-sm'
-                          : 'border-white/30 hover:scale-105'
+                          ? 'border-ink scale-110'
+                          : 'border-white/30'
                       }`}
                     />
                   </Tooltip>
@@ -3229,7 +3323,7 @@ function SelectedPanel({
                 <Icon name="zoom_in" size={14} className="text-primary" />
                 Punch Zoom & Camera Animation
               </span>
-              <span className="text-[10px] font-mono text-primary font-bold">
+              <span className="text-[11px] font-mono text-primary font-bold">
                 {(() => {
                   const kfs = videoClip.keyframes || [];
                   if (kfs.length === 0) return 'Standard 1.0x';
@@ -3312,12 +3406,12 @@ function SelectedPanel({
                     onClick={() => onUpdateVideoClip(clip.id, { keyframes: opt.makeKfs() })}
                     className={`p-1.5 rounded-btn border text-left transition-all ${
                       isActive
-                        ? 'border-primary bg-primary-soft text-ink ring-1 ring-primary/40 font-semibold shadow-xs'
+                        ? 'border-primary bg-primary-soft text-ink ring-1 ring-primary/40 font-semibold'
                         : 'border-line text-ink-muted hover:text-ink hover:bg-surface-2'
                     }`}
                   >
                     <div className="text-[11px] truncate">{opt.label}</div>
-                    <div className="text-[9px] text-ink-dim truncate">{opt.desc}</div>
+                    <div className="text-[11px] text-ink-dim truncate">{opt.desc}</div>
                   </button>
                 );
               })}
@@ -3331,7 +3425,7 @@ function SelectedPanel({
                 <Icon name="auto_awesome_motion" size={13} className="text-primary" /> Cut Transition (In)
               </span>
               {videoClip.transition && videoClip.transition.type !== 'none' && (
-                <span className="text-[10.5px] font-semibold text-primary capitalize">
+                <span className="text-[11px] font-semibold text-primary capitalize">
                   {videoClip.transition.type} ({videoClip.transition.durationSec || 0.3}s)
                 </span>
               )}
@@ -3356,9 +3450,9 @@ function SelectedPanel({
                         },
                       })
                     }
-                    className={`py-1.5 px-1 rounded-btn text-[10px] font-medium border flex flex-col items-center justify-center gap-0.5 transition-all ${
+                    className={`py-1.5 px-1 rounded-btn text-[11px] font-medium border flex flex-col items-center justify-center gap-0.5 transition-all ${
                       (videoClip.transition?.type || 'none') === tr.id
-                        ? 'border-primary bg-primary text-on-primary font-semibold shadow-xs'
+                        ? 'border-primary bg-primary text-on-primary font-semibold'
                         : 'border-line text-ink-muted hover:text-ink hover:bg-surface-2'
                     }`}
                   >
@@ -3386,7 +3480,7 @@ function SelectedPanel({
                           },
                         })
                       }
-                      className={`px-2 py-0.5 rounded text-[10.5px] font-mono border transition-all ${
+                      className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-all ${
                         (videoClip.transition?.durationSec || 0.3) === dur
                           ? 'border-primary bg-primary text-on-primary font-bold'
                           : 'border-line text-ink-muted hover:text-ink'
@@ -3444,7 +3538,7 @@ function SelectedPanel({
                   }}
                   className={`py-1.5 px-2 rounded-btn border text-[11px] font-medium transition-all ${
                     (sfxClip.sfxAssetId || 'pop') === sfx.id
-                      ? 'border-amber-500 bg-amber-500/20 text-amber-300 font-semibold'
+                      ? 'border-primary bg-primary/12 text-ink font-semibold'
                       : 'border-line text-ink-muted hover:text-ink hover:bg-surface-2'
                   }`}
                 >
@@ -3460,7 +3554,7 @@ function SelectedPanel({
               <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">
                 Sound Volume
               </span>
-              <span className="text-xs font-mono font-bold text-amber-400">
+              <span className="text-xs font-mono font-bold text-primary">
                 {Math.round((sfxClip.audioModifiers?.volume ?? 1.0) * 100)}%
               </span>
             </div>
@@ -3479,7 +3573,7 @@ function SelectedPanel({
                   }
                   className={`py-1 rounded-btn text-xs font-mono border transition-all ${
                     Math.abs((sfxClip.audioModifiers?.volume ?? 1.0) - v) < 0.05
-                      ? 'border-amber-500 bg-amber-500 text-black font-bold'
+                      ? 'border-primary bg-primary text-on-primary font-bold'
                       : 'border-line text-ink-muted hover:text-ink'
                   }`}
                 >
@@ -3620,7 +3714,7 @@ function GeminiKeyModal({
             </div>
             <div>
               <DialogTitle className="text-sm font-bold text-ink">AI Live Captions & Speech Sync</DialogTitle>
-              <p className="text-[11.5px] text-ink-muted">Auto-Sync needs no key; word-accurate timing runs on the studio engine</p>
+              <p className="text-[12px] text-ink-muted">Auto-Sync needs no key; word-accurate timing runs on the studio engine</p>
             </div>
           </div>
           <DialogClose aria-label="Close" className="kt-focus text-ink-muted hover:text-ink">
@@ -3635,7 +3729,7 @@ function GeminiKeyModal({
               <Icon name="bolt" size={15} />
               Instant Free Mode (No Key Needed)
             </p>
-            <p className="text-[11.5px] text-ink-muted mt-0.5 leading-snug">
+            <p className="text-[12px] text-ink-muted mt-0.5 leading-snug">
               Generate synchronized kinetic captions for this video instantly with zero setup or API key.
             </p>
           </div>
@@ -3656,7 +3750,7 @@ function GeminiKeyModal({
             <Icon name="lock" size={15} />
             Word-accurate timing runs on the studio's own engine
           </p>
-          <p className="text-[11.5px] text-ink-muted leading-snug">
+          <p className="text-[12px] text-ink-muted leading-snug">
             The model key belongs to the deployment, so it is never kept on this device and never
             travels with your clips. Whoever runs this workspace sets it once; until then Auto-Sync
             times the captions from the speech cadence you can edit by hand.

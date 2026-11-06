@@ -102,7 +102,7 @@ export const InstagramOverlayCard: React.FC<Props> = ({ state, onUpdateText }) =
                 isLight ? 'bg-black/5 border-black/10 text-slate-900' : 'bg-black/60 border-white/15 text-white'
               }`}
             >
-              <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center bg-cyan-600/40 text-cyan-200 text-[10px] font-bold ring-1 ring-white/20 shrink-0">
+              <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center bg-cyan-600/40 text-cyan-200 text-[11px] font-bold ring-1 ring-white/20 shrink-0">
                 {safeAvatar ? (
                   <img
                     src={safeAvatar}

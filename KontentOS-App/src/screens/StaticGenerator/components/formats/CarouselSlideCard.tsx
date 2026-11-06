@@ -82,7 +82,7 @@ export const CarouselSlideCard: React.FC<Props> = ({ state, onUpdateText }) => {
       <div className="relative z-10 flex items-center justify-between font-body shrink-0 mb-1">
         {state.showCreatorBadge ? (
           <TransformableElement id="profile" transform={scene.profile} className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center bg-cyan-600/40 text-cyan-100 text-[10px] font-bold ring-1 ring-white/20">
+            <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center bg-cyan-600/40 text-cyan-100 text-[11px] font-bold ring-1 ring-white/20">
               {safeAvatar ? (
                 <img src={safeAvatar} alt="" className="w-full h-full object-cover" crossOrigin="anonymous" />
               ) : (
@@ -115,7 +115,7 @@ export const CarouselSlideCard: React.FC<Props> = ({ state, onUpdateText }) => {
         <TransformableElement
           id="badge"
           transform={scene.badge}
-          className="inline-block px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-2 border font-body self-start"
+          className="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-widest mb-2 border font-body self-start"
           style={{
             backgroundColor: theme.pillBg,
             borderColor: theme.borderColor,

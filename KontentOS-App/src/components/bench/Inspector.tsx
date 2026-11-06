@@ -1,6 +1,6 @@
 import { Icon } from '@/lib/icons';
 import { Tooltip } from '@/components/ui/tooltip';
-import { buildLedger, DRAFT_STEP_STATION, STATION_BY_ID, type StationId } from '@/lib/bench';
+import { buildLedger, DRAFT_STEP_STATION, fmtBytes, STATION_BY_ID, type StationId } from '@/lib/bench';
 import type { ActiveDraft, PublishingRecord, ScheduledPost, Video } from '@/lib/types';
 import type { TimelineProject } from '@/lib/timeline';
 import { useDisplayProfile } from '@/lib/store';
@@ -39,7 +39,7 @@ export function Inspector({
       <header className="border-b border-line px-4 py-3">
         <div className="flex items-center gap-2">
           <Icon name={meta.icon} size={15} className="text-primary" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-dim">{meta.label}</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">{meta.label}</span>
         </div>
         <p className="mt-1 text-[12px] leading-snug text-ink-muted">{meta.hint}</p>
       </header>
@@ -64,9 +64,12 @@ function Dossier({
 }) {
   const steps = buildLedger(video, { scheduled, history, project });
   const onBench = steps[1].state === 'done';
+  const queued = scheduled.filter((p) => p.video_id === video.id && p.status !== 'published');
+  const shipped = history.filter((h) => h.video_id === video.id && h.status === 'published');
   const rows: [string, string][] = [
     ['file', video.file_name || video.file_url.split('/').pop() || '—'],
-    ['size', video.file_size ? `${(video.file_size / 1048576).toFixed(1)} MB` : 'not set yet'],
+    ['length', video.duration ? `${Math.floor(video.duration / 60)}:${String(Math.round(video.duration % 60)).padStart(2, '0')}` : 'not set yet'],
+    ['size', fmtBytes(video.file_size)],
     ['shape', video.aspect_ratio || 'not set yet'],
     ['added', new Date(video.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })],
   ];
@@ -78,7 +81,7 @@ function Dossier({
       <dl className="mt-3 space-y-1.5 border-y border-line py-3">
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-baseline gap-2">
-            <dt className="w-14 shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-dim">{k}</dt>
+            <dt className="w-14 shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-dim">{k}</dt>
             <Tooltip content={v} side="left">
               <dd className="min-w-0 flex-1 truncate text-[12px] text-ink-muted">{v}</dd>
             </Tooltip>
@@ -87,7 +90,7 @@ function Dossier({
       </dl>
 
       <div className="mt-3">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-dim">Ledger</span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">Ledger</span>
         <ol className="mt-2 space-y-[3px]">
           {steps.map((s) => (
             <li key={s.label}>
@@ -112,6 +115,60 @@ function Dossier({
             </li>
           ))}
         </ol>
+      </div>
+
+      <div className="mt-3">
+        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">Its own rows</span>
+        {queued.length + shipped.length === 0 ? (
+          /* An empty ledger for this cut is the truth, so it gets said rather than hidden. */
+          <p className="mt-2 rounded-[5px] border border-dashed border-line px-2.5 py-2 text-[12px] leading-snug text-ink-dim">
+            Nothing queued and nothing shipped from this cut yet.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-[3px]">
+            {queued.map((p) => {
+              const when = new Date(p.scheduled_at);
+              return (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => onJump('publish-schedule', { editingPostId: p.id })}
+                    className="kt-focus flex w-full items-center gap-2 rounded-[5px] border border-line px-2.5 py-1.5 text-left transition-colors hover:border-line-strong hover:bg-surface-2/50"
+                  >
+                    <Icon name="schedule_send" size={14} className="shrink-0 text-ink-dim" />
+                    <span className="min-w-0 flex-1 truncate text-[12px] text-ink-muted">{p.platform}</span>
+                    <span className="shrink-0 font-mono text-[11px] text-ink-dim">
+                      {when.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+            {shipped.map((h) => (
+              <li
+                key={h.id}
+                className="flex items-center gap-2 rounded-[5px] px-2.5 py-1.5 text-[12px] text-ink-muted"
+              >
+                <Icon name="check_small" size={14} className="shrink-0 text-primary" />
+                <span className="min-w-0 flex-1 truncate">{h.platform}</span>
+                {h.url ? (
+                  <a
+                    href={h.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="kt-focus shrink-0 font-mono text-[11px] text-ink-dim underline decoration-line-strong underline-offset-2 hover:text-primary"
+                  >
+                    {new Date(h.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  </a>
+                ) : (
+                  <span className="shrink-0 font-mono text-[11px] text-ink-dim">
+                    {new Date(h.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="mt-4 space-y-2">
@@ -167,7 +224,13 @@ function DaysBoard({
       {activeDraft && (
         <button
           type="button"
-          onClick={() => onJump(DRAFT_STEP_STATION[activeDraft.step])}
+          onClick={() =>
+            onJump(
+              DRAFT_STEP_STATION[activeDraft.step],
+              // The card promises this draft, so name its cut rather than whatever the rail happens to light.
+              activeDraft.sourceVideo?.id ? { videoId: activeDraft.sourceVideo.id } : undefined
+            )
+          }
           className="kt-focus mt-4 flex w-full items-center gap-2.5 rounded-[6px] border border-primary/40 bg-primary-soft px-3 py-2.5 text-left transition-colors hover:border-primary"
         >
           <Icon name="play_arrow" size={16} className="text-primary" />
@@ -182,8 +245,8 @@ function DaysBoard({
 
       <section className="mt-5">
         <div className="flex items-baseline justify-between">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-dim">Next out</span>
-          <span className="font-mono text-[10px] text-ink-dim">{upcoming.length ? `${upcoming.length} queued` : 'empty'}</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">Next out</span>
+          <span className="font-mono text-[11px] text-ink-dim">{upcoming.length ? `${upcoming.length} queued` : 'empty'}</span>
         </div>
         {upcoming.length ? (
           <ul className="mt-2 space-y-[3px]">
@@ -199,13 +262,13 @@ function DaysBoard({
                   >
                     <span className="w-9 shrink-0 text-center">
                       <span className="block font-display text-[15px] font-bold leading-none text-ink">{when.getDate()}</span>
-                      <span className="block font-mono text-[9px] uppercase text-ink-dim">
+                      <span className="block font-mono text-[11px] uppercase text-ink-dim">
                         {when.toLocaleDateString(undefined, { month: 'short' })}
                       </span>
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[12.5px] font-semibold text-ink">{p.video_title || 'Untitled cut'}</span>
-                      <span className="block font-mono text-[10.5px] text-ink-muted">
+                      <span className="block font-mono text-[11px] text-ink-muted">
                         {p.platform} · {when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                         {days >= 0 && days < 30 ? ` · in ${days}d` : ''}
                       </span>
@@ -216,7 +279,7 @@ function DaysBoard({
             })}
           </ul>
         ) : (
-          <p className="mt-2 rounded-[5px] border border-dashed border-line px-2.5 py-2 text-[11.5px] text-ink-dim">
+          <p className="mt-2 rounded-[5px] border border-dashed border-line px-2.5 py-2 text-[12px] text-ink-dim">
             Nothing queued. Ship a cut and set its date.
           </p>
         )}
@@ -238,7 +301,7 @@ function Stat({ label, value, onClick }: { label: string; value: string; onClick
       className="kt-focus rounded-[5px] border border-line bg-surface-2/40 px-2.5 py-2 text-left transition-colors hover:border-line-strong"
     >
       <span className="block font-display text-[20px] font-bold leading-none text-ink">{value}</span>
-      <span className="mt-1 block font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink-dim">{label}</span>
+      <span className="mt-1 block font-mono text-[11px] uppercase tracking-[0.14em] text-ink-dim">{label}</span>
     </button>
   );
 }

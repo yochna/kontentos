@@ -4,15 +4,17 @@ import { jsPDF } from 'jspdf';
 import { StaticCardState } from '../../../types/staticCard';
 import { generateExportFilename } from '../utils/exportFilename';
 import { cleanExportFilter, waitForPaint, wait } from '../utils/exportHelpers';
+import { notify } from '@/components/ui/toast';
 
 export function useCardExporter() {
   const [isExporting, setIsExporting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  // Only the count of a multi-file job lives here; every finished job reports through the one
+  // toast system, because this message used to be printed on the clipboard button.
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
 
   const exportPNG = async (canvasElement: HTMLElement | null, state: StaticCardState) => {
     if (!canvasElement) return;
     setIsExporting(true);
-    setStatusMessage('Rendering high-res 300 DPI graphic...');
 
     try {
       // Ensure all custom fonts are ready before rasterizing
@@ -30,8 +32,10 @@ export function useCardExporter() {
       const currentSlide = state.slideCurrent || 1;
       const filename = generateExportFilename(brand, topic, currentSlide, totalSlides, 'png');
 
-      // 300 DPI multiplier (pixelRatio 3.0 provides pristine 3240px resolution)
+      // pixelRatio 3 draws the card at three times its on-screen size; a browser that caps the
+      // canvas falls back to 2x, and the creator is told which one they actually got.
       let dataUrl: string;
+      let ratio = 3;
       try {
         dataUrl = await toPng(canvasElement, {
           quality: 1.0,
@@ -41,7 +45,8 @@ export function useCardExporter() {
           filter: cleanExportFilter,
         });
       } catch (hiResErr) {
-        console.warn('300 DPI export hit canvas bounds, falling back to 2x resolution...', hiResErr);
+        console.warn('3x render hit canvas bounds, retrying at 2x...', hiResErr);
+        ratio = 2;
         dataUrl = await toPng(canvasElement, {
           quality: 0.96,
           pixelRatio: 2,
@@ -55,20 +60,20 @@ export function useCardExporter() {
       link.href = dataUrl;
       link.click();
 
-      setStatusMessage('High-res graphic downloaded!');
-      setTimeout(() => setStatusMessage(null), 3000);
+      notify.ok(`PNG saved at ${ratio}× resolution`);
     } catch (err: any) {
       console.error('Failed to export high-res PNG:', err);
-      setStatusMessage('Export failed. Please check image permissions.');
-      setTimeout(() => setStatusMessage(null), 4000);
+      notify.bad('The card could not be rendered. Nothing was saved.');
     } finally {
       setIsExporting(false);
+      setProgressMessage(null);
     }
   };
 
   const copyImageAndText = async (canvasElement: HTMLElement | null, state: StaticCardState) => {
     if (!canvasElement) return;
-    setStatusMessage('Copying to clipboard...');
+    setIsExporting(true);
+    setProgressMessage('Rendering the card for the clipboard…');
 
     try {
       const blob = await toBlob(canvasElement, {
@@ -85,8 +90,7 @@ export function useCardExporter() {
               'image/png': blob,
             }),
           ]);
-          setStatusMessage('Image copied to clipboard!');
-          setTimeout(() => setStatusMessage(null), 3000);
+          notify.ok('Card image is on the clipboard.');
           return;
         } catch (clipErr) {
           console.warn('Direct image clipboard write failed, copying post text...', clipErr);
@@ -96,12 +100,13 @@ export function useCardExporter() {
       // Fallback: Copy post copy & hashtags
       const textToCopy = `${state.headline}\n\n${state.supportingText}\n\n${state.socialCaption || ''}`;
       await navigator.clipboard.writeText(textToCopy);
-      setStatusMessage('Caption & post copy copied to clipboard!');
-      setTimeout(() => setStatusMessage(null), 3000);
+      notify.info('The browser would not take the image, so only the words were copied.');
     } catch (err) {
       console.error('Failed to copy to clipboard:', err);
-      setStatusMessage('Failed to copy');
-      setTimeout(() => setStatusMessage(null), 3000);
+      notify.bad('The browser blocked the clipboard. Export the PNG and copy the text yourself.');
+    } finally {
+      setIsExporting(false);
+      setProgressMessage(null);
     }
   };
 
@@ -109,12 +114,10 @@ export function useCardExporter() {
     try {
       const textToCopy = `${state.headline}\n\n${state.supportingText}\n\n${state.socialCaption || ''}`;
       await navigator.clipboard.writeText(textToCopy);
-      setStatusMessage('Post copy & caption copied!');
-      setTimeout(() => setStatusMessage(null), 3000);
+      notify.ok('Headline, body and caption copied.');
     } catch (err) {
       console.error('Failed to copy text to clipboard:', err);
-      setStatusMessage('Failed to copy');
-      setTimeout(() => setStatusMessage(null), 3000);
+      notify.bad('The browser blocked the clipboard. Select the text and copy it yourself.');
     }
   };
 
@@ -145,7 +148,7 @@ export function useCardExporter() {
 
       for (let i = 0; i < slides.length; i++) {
         const slideNum = i + 1;
-        setStatusMessage(`Rendering slide ${slideNum} of ${slides.length} (300 DPI)...`);
+        setProgressMessage(`Rendering slide ${slideNum} of ${slides.length}…`);
         await switchToSlide(slideNum);
         await waitForPaint();
         await wait(80);
@@ -183,20 +186,21 @@ export function useCardExporter() {
 
       await switchToSlide(originalSlide);
       await waitForPaint();
-      setStatusMessage(
-        `Exported ${exported} of ${slides.length} slides — allow "multiple downloads" if the browser asked.`,
+      notify.ok(
+        exported === slides.length
+          ? `${exported} slide PNGs saved.`
+          : `${exported} of ${slides.length} slide PNGs saved — the rest did not render.`,
       );
-      setTimeout(() => setStatusMessage(null), 4000);
     } catch (err: any) {
       console.error('Failed to export carousel deck:', err);
-      setStatusMessage(
+      notify.bad(
         exported > 0
           ? `Deck export stopped after ${exported} of ${slides.length} slides.`
           : 'Deck export encountered an error — no files were saved.',
       );
-      setTimeout(() => setStatusMessage(null), 4000);
     } finally {
       setIsExporting(false);
+      setProgressMessage(null);
     }
   };
 
@@ -252,7 +256,7 @@ export function useCardExporter() {
 
       for (let i = 0; i < slides.length; i++) {
         const slideNum = i + 1;
-        setStatusMessage(`Compiling slide ${slideNum} of ${slides.length} for LinkedIn PDF...`);
+        setProgressMessage(`Adding slide ${slideNum} of ${slides.length} to the PDF…`);
         await switchToSlide(slideNum);
         await waitForPaint();
         await wait(80);
@@ -290,20 +294,19 @@ export function useCardExporter() {
       const filename = generateExportFilename(brand, topic, 1, slides.length, 'pdf');
       doc.save(filename);
 
-      setStatusMessage(`LinkedIn PDF (${slides.length} pages) downloaded!`);
-      setTimeout(() => setStatusMessage(null), 4000);
+      notify.ok(`PDF saved with ${slides.length} pages.`);
     } catch (err: any) {
-      console.error('Failed to export LinkedIn PDF:', err);
-      setStatusMessage('LinkedIn PDF export failed.');
-      setTimeout(() => setStatusMessage(null), 4000);
+      console.error('Failed to export the deck as a PDF:', err);
+      notify.bad('The PDF could not be built. Nothing was saved.');
     } finally {
       setIsExporting(false);
+      setProgressMessage(null);
     }
   };
 
   return {
     isExporting,
-    statusMessage,
+    progressMessage,
     exportPNG,
     exportDeckSlides,
     exportLinkedInPDF,

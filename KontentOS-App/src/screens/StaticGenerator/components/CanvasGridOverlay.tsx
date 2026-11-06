@@ -54,8 +54,8 @@ export const CanvasGridOverlay: React.FC<Props> = ({ isLight = false }) => {
 
       {/* Grid Legend Badge */}
       <div className="absolute bottom-2.5 left-2.5 z-10">
-        <span className="text-[9px] font-mono font-bold tracking-wider uppercase text-primary bg-black/75 px-2 py-0.5 rounded-full border border-primary/30 shadow-sm">
-          3×3 Rule of Thirds (G)
+        <span className="text-[11px] font-semibold text-ink bg-app/85 px-2 py-0.5 rounded-btn border border-line">
+          3×3 rule of thirds · press G to hide
         </span>
       </div>
     </div>

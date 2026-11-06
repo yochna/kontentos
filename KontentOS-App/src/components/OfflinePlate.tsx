@@ -41,7 +41,7 @@ export function OfflinePlate({
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={busy}
-              className="kt-focus mt-2 inline-flex items-center gap-1.5 rounded-[4px] border border-line-strong px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.12em] text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+              className="kt-focus mt-2 inline-flex items-center gap-1.5 rounded-[4px] border border-line-strong px-2 py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
             >
               <Icon name={busy ? 'hourglass_top' : 'link'} size={13} className={busy ? 'kt-spin' : ''} />
               {busy ? 're-linking' : 're-link the file'}
@@ -68,7 +68,7 @@ export function OfflinePlate({
               }}
             />
             {failed && (
-              <p className="mt-1.5 text-[10.5px] text-danger">
+              <p className="mt-1.5 text-[11px] text-danger">
                 That file did not land back on the server. Try again, or intake it as a new clip.
               </p>
             )}

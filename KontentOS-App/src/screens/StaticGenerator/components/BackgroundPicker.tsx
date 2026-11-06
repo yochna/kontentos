@@ -4,6 +4,8 @@ import { BackgroundPreset } from '../../../types/staticCard';
 import { CURATED_STOCK_PHOTOS } from '../../../data/curatedStockPhotos';
 import { Icon } from '@/lib/icons';
 import { Button } from '@/components/ui';
+import { Input } from '@/components/ui/field';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStore } from '@/lib/store';
 import { getSafeImageUrl } from '@/lib/images';
@@ -102,7 +104,9 @@ export const BackgroundPicker: React.FC<Props> = ({
     return () => stockReqRef.current?.abort();
   }, []);
 
-  const handleCategoryClick = (cat: { label: string; query: string }) => {
+  const selectCategory = (label: string) => {
+    const cat = STOCK_CATEGORIES.find((c) => c.label === label);
+    if (!cat) return;
     setActiveCategory(cat.label);
     setStockQuery(cat.query);
     fetchStockPhotos(cat.query);
@@ -172,10 +176,10 @@ export const BackgroundPicker: React.FC<Props> = ({
       className="space-y-3"
     >
       <div className="flex items-center justify-between">
-        <label className="text-[13px] font-semibold text-ink flex items-center gap-1.5">
+        <span className="text-[13px] font-semibold text-ink flex items-center gap-1.5">
           <Icon name="image" size={16} className="text-primary" />
-          <span>Background Photo & Atmosphere</span>
-        </label>
+          <span>Background photo</span>
+        </span>
         <TabsList
           variant="pill"
           aria-label="Background source"
@@ -184,7 +188,7 @@ export const BackgroundPicker: React.FC<Props> = ({
           <TabsTrigger
             variant="pill"
             value="stock"
-            className="gap-1 rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:shadow-sm data-[state=active]:text-on-primary"
+            className="gap-1 rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-on-primary"
           >
             <Icon name="search" size={13} />
             <span>Search Stock</span>
@@ -192,21 +196,21 @@ export const BackgroundPicker: React.FC<Props> = ({
           <TabsTrigger
             variant="pill"
             value="presets"
-            className="rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:shadow-sm data-[state=active]:text-on-primary"
+            className="rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-on-primary"
           >
             Presets
           </TabsTrigger>
           <TabsTrigger
             variant="pill"
             value="storage"
-            className="rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:shadow-sm data-[state=active]:text-on-primary"
+            className="rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-on-primary"
           >
             Upload
           </TabsTrigger>
           <TabsTrigger
             variant="pill"
             value="library"
-            className="rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:shadow-sm data-[state=active]:text-on-primary"
+            className="rounded-md text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-on-primary"
           >
             Studio Media
           </TabsTrigger>
@@ -224,12 +228,13 @@ export const BackgroundPicker: React.FC<Props> = ({
                 size={16}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-dim"
               />
-              <input
+              <Input
                 type="text"
+                aria-label="Search stock photos"
                 value={stockQuery}
                 onChange={(e) => setStockQuery(e.target.value)}
-                placeholder="Search stock atmosphere (e.g. moody, neon, office)..."
-                className="w-full bg-surface-2 border border-line rounded-btn pl-8 pr-7 py-1.5 text-xs text-ink placeholder:text-ink-dim focus:outline-none focus:border-primary"
+                placeholder="Search stock photos (moody, neon, office)…"
+                className="py-1.5 pl-8 pr-7 text-xs"
               />
               {stockQuery && (
                 <button
@@ -256,35 +261,37 @@ export const BackgroundPicker: React.FC<Props> = ({
             </Button>
           </form>
 
-          {/* Popular Category Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+          {/* Category chips */}
+          <ToggleGroup
+            value={activeCategory}
+            onValueChange={(next) => next && selectCategory(next)}
+            aria-label="Stock categories"
+            variant="none"
+            className="gap-1.5 overflow-x-auto pb-1 no-scrollbar"
+          >
             {STOCK_CATEGORIES.map((cat) => (
-              <button
+              <ToggleGroupItem
                 key={cat.label}
-                type="button"
-                onClick={() => handleCategoryClick(cat)}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all cursor-pointer ${
-                  activeCategory === cat.label
-                    ? 'bg-primary text-on-primary font-semibold shadow-xs'
-                    : 'bg-surface-2 text-ink-muted hover:text-ink hover:bg-surface-3 border border-line'
-                }`}
+                value={cat.label}
+                variant="none"
+                className="rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-medium whitespace-nowrap text-ink-muted hover:bg-surface-3 hover:text-ink data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-on-primary"
               >
                 {cat.label}
-              </button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
 
           {/* Responsive Thumbnail Grid */}
           {isLoadingStock ? (
             <div className="py-12 flex flex-col items-center justify-center gap-2 text-ink-muted text-xs bg-surface-2/40 rounded-card border border-line/60">
               <Icon name="progress_activity" size={22} className="animate-spin text-primary" />
-              <span>Fetching curated high-resolution atmosphere...</span>
+              <span>Loading photos…</span>
             </div>
           ) : stockResults.length === 0 ? (
             <div className="p-6 rounded-card bg-surface-2/40 border border-line text-center text-xs text-ink-muted">
               <Icon name="image_not_supported" size={24} className="mx-auto mb-1.5 text-ink-dim opacity-70" />
               <p className="font-semibold text-ink">No photos found</p>
-              <p className="text-[11px] mt-0.5">Try a different query or select a popular category above.</p>
+              <p className="text-[11px] mt-0.5">Try another word, or pick a category above.</p>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
@@ -303,16 +310,17 @@ export const BackgroundPicker: React.FC<Props> = ({
                     <button
                       type="button"
                       onClick={() => handleSelectStock(photo)}
+                      aria-pressed={isSelected}
                       className={`relative aspect-square rounded-btn overflow-hidden border transition-all cursor-pointer group text-left bg-surface-2 ${
                         isSelected
-                          ? 'ring-2 ring-primary border-primary shadow-md'
-                          : 'border-line hover:border-line-strong hover:shadow-sm'
+                          ? 'ring-2 ring-primary border-primary shadow-[var(--shadow-1)]'
+                          : 'border-line hover:border-line-strong'
                       }`}
                     >
                       <img
                         src={thumbSrc}
                         alt={photo.description || `Photo by ${photo.photographer?.name}`}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        className="w-full h-full object-cover"
                         loading="lazy"
                         onError={(e) => {
                           const target = e.currentTarget;
@@ -322,7 +330,7 @@ export const BackgroundPicker: React.FC<Props> = ({
                         }}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-1.5 pointer-events-none">
-                        <span className="text-[10px] text-white/90 font-medium truncate leading-tight flex items-center gap-1">
+                        <span className="text-[11px] text-white/90 font-medium truncate leading-tight flex items-center gap-1">
                           <Icon name="photo_camera" size={11} className="shrink-0 opacity-75" />
                           <span className="truncate">{photo.photographer?.name}</span>
                         </span>
@@ -341,12 +349,12 @@ export const BackgroundPicker: React.FC<Props> = ({
 
           {/* Zero CORS & Attribution compliance indicator */}
           <div className="flex items-center justify-between text-[11px] text-ink-muted px-0.5 pt-0.5 border-t border-line/60">
-            <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+            <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
               <Icon name="shield" size={12} />
               <span>Zero CORS canvas-safe</span>
             </span>
             {selectedPhotographer && (
-              <span className="text-[10px] text-ink-dim truncate max-w-[200px]">
+              <span className="text-[11px] text-ink-dim truncate max-w-[200px]">
                 Photo by <strong className="text-ink font-medium">{selectedPhotographer}</strong>
               </span>
             )}
@@ -403,7 +411,7 @@ export const BackgroundPicker: React.FC<Props> = ({
               onClick={() => fileInputRef.current?.click()}
               className="w-full justify-center"
             >
-              Select Image from Device Storage
+              Choose an image from this device
             </Button>
           </div>
         </div>
@@ -415,7 +423,7 @@ export const BackgroundPicker: React.FC<Props> = ({
           {libraryAssets.length === 0 ? (
             <div className="p-4 rounded-card bg-surface-2/60 border border-line text-center text-xs text-ink-muted">
               <Icon name="perm_media" size={24} className="mx-auto mb-1 text-ink-dim opacity-60" />
-              <span>No uploaded studio assets found yet. Upload a photo from device storage or pick a preset!</span>
+              <span>Nothing uploaded yet. Add a photo under Upload, or pick a preset.</span>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
@@ -426,15 +434,16 @@ export const BackgroundPicker: React.FC<Props> = ({
                     key={asset.id}
                     type="button"
                     onClick={() => onCustomUpload(asset.url)}
+                    aria-pressed={isSelected}
                     className={`relative aspect-video rounded-btn overflow-hidden border transition-all cursor-pointer group ${
                       isSelected
-                        ? 'ring-2 ring-primary border-primary shadow-md'
+                        ? 'ring-2 ring-primary border-primary shadow-[var(--shadow-1)]'
                         : 'border-line hover:border-line-strong'
                     }`}
                   >
-                    <img src={asset.url} alt={asset.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    <img src={asset.url} alt={asset.title} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-1">
-                      <span className="text-[10px] text-white font-medium truncate leading-tight">
+                      <span className="text-[11px] text-white font-medium truncate leading-tight">
                         {asset.title}
                       </span>
                     </div>
@@ -450,26 +459,28 @@ export const BackgroundPicker: React.FC<Props> = ({
       <TabsContent value="presets" className="mt-0">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {BACKGROUND_PRESETS.map((preset) => {
-            const isSelected =
+            const isSelected = Boolean(
               currentUrl === preset.url ||
-              (preset.url && currentUrl === getSafeImageUrl(preset.url)) ||
-              (preset.url && currentUrl.includes(encodeURIComponent(preset.url)));
+                (preset.url && currentUrl === getSafeImageUrl(preset.url)) ||
+                (preset.url && currentUrl.includes(encodeURIComponent(preset.url))),
+            );
             return (
               <button
                 key={preset.id}
                 type="button"
                 onClick={() => onSelectPreset(preset)}
+                aria-pressed={isSelected}
                 className={`relative aspect-[16/10] rounded-btn border text-left transition-all cursor-pointer overflow-hidden group bg-surface-2 ${
                   isSelected
-                    ? 'ring-2 ring-primary border-primary shadow-md'
-                    : 'border-line hover:border-line-strong hover:shadow-sm'
+                    ? 'ring-2 ring-primary border-primary shadow-[var(--shadow-1)]'
+                    : 'border-line hover:border-line-strong'
                 }`}
               >
                 {preset.url ? (
                   <img
                     src={preset.thumbUrl || preset.url}
                     alt={preset.name}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    className="absolute inset-0 w-full h-full object-cover"
                     loading="lazy"
                     onError={(e) => {
                       const target = e.currentTarget;
@@ -486,7 +497,7 @@ export const BackgroundPicker: React.FC<Props> = ({
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-2 z-10 pointer-events-none">
                   <span className="text-xs font-semibold leading-tight text-white drop-shadow-sm">{preset.name}</span>
-                  <span className={`text-[10px] leading-tight ${isSelected ? 'text-white font-medium' : 'text-white/70'}`}>
+                  <span className={`text-[11px] leading-tight ${isSelected ? 'text-white font-medium' : 'text-white/70'}`}>
                     {preset.subtitle}
                   </span>
                 </div>

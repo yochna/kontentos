@@ -32,7 +32,7 @@ export const VectorShapesSection: React.FC = () => {
               key={entry}
               variant="pill"
               value={entry}
-              className="rounded-md border border-transparent bg-white/5 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-400 data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:bg-white/10 data-[state=inactive]:hover:text-slate-400 data-[state=active]:border-cyan-400/30 data-[state=active]:bg-cyan-500/20 data-[state=active]:shadow-none data-[state=active]:text-cyan-200"
+              className="rounded-md border border-transparent bg-app/50 px-2 py-1 text-[11px] font-semibold text-ink-dim data-[state=inactive]:hover:bg-surface-2 data-[state=active]:border-primary/40 data-[state=active]:bg-primary-soft data-[state=active]:shadow-none data-[state=active]:text-primary"
             >
               {entry}
             </TabsTrigger>
@@ -73,7 +73,7 @@ export const VectorShapesSection: React.FC = () => {
                   );
                   setToast(`${shape.label} added`);
                 }}
-                className="group aspect-square rounded-lg border border-white/10 bg-white/[0.035] hover:border-cyan-400/40 hover:bg-cyan-400/[0.07] p-1.5 flex items-center justify-center transition-colors"
+                className="group aspect-square rounded-lg border border-line bg-app/50 hover:border-line-strong hover:bg-surface-2 p-1.5 flex items-center justify-center transition-colors"
               >
                 <div className={`w-full ${isLine ? 'h-3' : 'h-full'} flex items-center justify-center`}>
                   <CustomShapeRenderer

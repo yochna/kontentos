@@ -47,7 +47,7 @@ export function Dock({
             key={s.id}
             type="button"
             onClick={() => onStation(s.id)}
-            className={`kt-focus shrink-0 rounded-[4px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] transition-colors ${
+            className={`kt-focus shrink-0 rounded-[4px] border px-2 py-1 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors ${
               station === s.id ? 'border-primary bg-primary-soft text-ink' : 'border-line text-ink-dim hover:text-ink-muted'
             }`}
           >
@@ -64,8 +64,8 @@ export function Dock({
           aria-label="Open the command deck"
         >
           <Icon name="search" size={14} />
-          <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] sm:inline">command</span>
-          <kbd className="rounded-[3px] border border-line-strong px-1 font-mono text-[9.5px] text-ink-muted">⌘K</kbd>
+          <span className="hidden font-mono text-[11px] uppercase tracking-[0.12em] sm:inline">command</span>
+          <kbd className="rounded-[3px] border border-line-strong px-1 font-mono text-[11px] text-ink-muted">⌘K</kbd>
         </button>
 
         <span className="h-4 w-px bg-line" />
@@ -73,19 +73,19 @@ export function Dock({
         {running ? (
           <span className="flex min-w-0 items-center gap-2">
             <Icon name="upload" size={14} className="kt-spin shrink-0 text-primary" />
-            <span className="truncate font-mono text-[10.5px] text-ink-muted">{running.label}</span>
+            <span className="truncate font-mono text-[11px] text-ink-muted">{running.label}</span>
             <span className="h-[3px] w-16 shrink-0 overflow-hidden rounded-full bg-surface-3">
               <span
                 className="block h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
                 style={{ width: `${Math.max(2, running.pct)}%` }}
               />
             </span>
-            <span className="shrink-0 font-mono text-[10px] text-ink-dim">{Math.round(running.pct)}%</span>
+            <span className="shrink-0 font-mono text-[11px] text-ink-dim">{Math.round(running.pct)}%</span>
           </span>
         ) : (
           <span className="flex min-w-0 items-center gap-2">
             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${notice ? 'bg-danger' : online ? 'bg-success' : 'kt-led--now bg-danger'}`} />
-            <span className={`truncate font-mono text-[10.5px] ${notice ? 'text-danger' : 'text-ink-muted'}`}>
+            <span className={`truncate font-mono text-[11px] ${notice ? 'text-danger' : 'text-ink-muted'}`}>
               {notice
                 ? notice
                 : `${online ? (dbStatus?.provider === 'mongodb' ? 'workspace · atlas' : 'workspace · local disk') : 'api offline'}${

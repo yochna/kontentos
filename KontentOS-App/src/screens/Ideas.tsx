@@ -191,7 +191,7 @@ export default function Ideas() {
 
             {/* Quick suggestion prompt chips */}
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <span className="text-[11.5px] font-semibold text-ink-dim uppercase tracking-wider mr-1">Trending:</span>
+              <span className="text-[12px] font-semibold text-ink-dim uppercase tracking-wider mr-1">Trending:</span>
               {QUICK_TOPICS.map((tag) => (
                 <button
                   key={tag}
@@ -245,7 +245,7 @@ export default function Ideas() {
       </div>
 
       {saveNotice && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-card border border-danger/30 bg-danger/10 px-4 py-2.5 text-[12.5px] text-danger">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-card border border-danger/30 bg-danger/10 px-4 py-2.5 text-[12.5px] text-danger-ink">
           <span className="flex items-center gap-2">
             <Icon name="error_outline" size={16} className="shrink-0" />
             {saveNotice}
@@ -281,7 +281,6 @@ export default function Ideas() {
               >
                 <Card
                   hover
-                  sheen
                   onClick={() => setOpen(idea)}
                   className="h-full flex flex-col overflow-hidden cursor-pointer"
                 >
@@ -291,7 +290,7 @@ export default function Ideas() {
                     <span className="absolute top-2 left-2">
                       <Badge tone={idea.categoryTone}>{idea.category}</Badge>
                     </span>
-                    <span className="absolute bottom-2 right-2 text-[11px] font-bold text-white/95 bg-black/50 backdrop-blur rounded-full px-2 py-0.5 flex items-center gap-1">
+                    <span className="absolute bottom-2 right-2 text-[11px] font-bold text-white/95 bg-black/70 rounded-full px-2 py-0.5 flex items-center gap-1">
                       <Icon name="bolt" size={12} fill={1} /> {idea.metric}
                     </span>
                   </Thumb>
@@ -336,10 +335,10 @@ export default function Ideas() {
                       toggleSaved(idea);
                     }}
                     aria-label={saved ? 'Remove from saved' : 'Save archetype'}
-                    className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur transition-all ${
+                    className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
                       saved
-                        ? 'bg-primary text-on-primary shadow-sm'
-                        : 'bg-black/40 text-white/80 hover:bg-black/60 hover:text-white'
+                        ? 'bg-primary text-on-primary'
+                        : 'bg-black/40 text-white/80 hover:bg-black/75 hover:text-white'
                     }`}
                   >
                     <Icon name="bookmark" size={15} fill={saved ? 1 : 0} />
@@ -454,11 +453,11 @@ function BlueprintDrawer({
           <section>
             <div className="flex items-center justify-between mb-2">
               <div className="kt-eyebrow">Opening hook formula</div>
-              <span className="text-[12px] font-bold text-tertiary bg-tertiary/10 px-2 py-0.5 rounded-full">
+              <span className="text-[12px] font-bold text-danger-ink bg-tertiary/10 px-2 py-0.5 rounded-full">
                 {b.hookScore > 0 ? `Engine estimate ${b.hookScore}/100` : 'Nothing has read this line yet'}
               </span>
             </div>
-            <div className="rounded-card bg-primary-soft border border-primary/25 p-4 shadow-sm">
+            <div className="rounded-card bg-primary-soft border border-primary/25 p-4">
               <p className="font-display text-[16.5px] leading-snug text-ink italic">{b.hook}</p>
             </div>
           </section>
@@ -579,7 +578,7 @@ function IdeaImage({ id, alt, eager }: { id: string; alt: string; eager?: boolea
       loading={eager ? 'eager' : 'lazy'}
       decoding="async"
       onError={() => setOk(false)}
-      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
+      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out"
     />
   );
 }

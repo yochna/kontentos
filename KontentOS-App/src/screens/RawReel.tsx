@@ -233,7 +233,7 @@ export default function RawReel() {
               <>
                 {result.offline && <StatusPill tone="neutral">Offline engine active</StatusPill>}
                 {result.source === 'gemini' && (
-                  <StatusPill tone="tertiary">Gemini AI Enhanced</StatusPill>
+                  <StatusPill tone="secondary">Assembled by Gemini</StatusPill>
                 )}
               </>
             ) : null}
@@ -324,7 +324,7 @@ export default function RawReel() {
                       }}
                       className={`shrink-0 w-[160px] text-left rounded-card border overflow-hidden transition-all kt-focus group relative ${
                         isSelected
-                          ? 'border-primary ring-2 ring-primary/40 shadow-sm bg-primary-soft/30'
+                          ? 'border-primary ring-2 ring-primary/40 bg-primary-soft/30'
                           : 'border-line hover:border-line-strong bg-surface'
                       }`}
                     >
@@ -335,7 +335,7 @@ export default function RawReel() {
                           <img
                             src={v.thumbnail_url}
                             alt=""
-                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform"
+                            className="absolute inset-0 w-full h-full object-cover transition-transform"
                           />
                         ) : (
                           <video
@@ -347,11 +347,11 @@ export default function RawReel() {
                             className="absolute inset-0 w-full h-full object-cover block"
                           />
                         )}
-                        <span className="absolute bottom-1.5 right-1.5 text-[10.5px] font-semibold text-white bg-black/70 backdrop-blur rounded px-1.5 py-0.5 tabular-nums">
+                        <span className="absolute bottom-1.5 right-1.5 text-[11px] font-semibold text-white bg-black/70 rounded px-1.5 py-0.5 tabular-nums">
                           {fmtTime(v.duration || 0)}
                         </span>
                         {isSelected && (
-                          <span className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-primary text-on-primary grid place-items-center shadow-sm">
+                          <span className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-primary text-on-primary grid place-items-center">
                             <Icon name="check" size={13} />
                           </span>
                         )}
@@ -376,7 +376,7 @@ export default function RawReel() {
                 >
                   <Icon name="add_circle" size={24} className="mb-1" />
                   <span className="text-xs font-semibold">Add clip</span>
-                  <span className="text-[10px] text-ink-dim mt-0.5">MP4 / MOV</span>
+                  <span className="text-[11px] text-ink-dim mt-0.5">MP4 / MOV</span>
                 </button>
               </div>
             )}
@@ -466,7 +466,7 @@ export default function RawReel() {
                     }}
                     className={`text-left rounded-card border p-4 flex flex-col justify-between transition-all kt-focus ${
                       active
-                        ? 'border-primary bg-primary-soft shadow-sm ring-2 ring-primary/25'
+                        ? 'border-primary bg-primary-soft ring-2 ring-primary/25'
                         : 'border-line hover:border-line-strong bg-surface'
                     }`}
                   >
@@ -482,7 +482,7 @@ export default function RawReel() {
                         <div className="flex items-center gap-1.5">
                           <span className="text-[14px] font-semibold text-ink">{p.name}</span>
                           {active && (
-                            <span className="w-4 h-4 rounded-full bg-primary text-on-primary grid place-items-center text-[10px]">
+                            <span className="w-4 h-4 rounded-full bg-primary text-on-primary grid place-items-center text-[11px]">
                               <Icon name="check" size={11} />
                             </span>
                           )}
@@ -597,7 +597,7 @@ export default function RawReel() {
 
             {/* 9:16 Vertical Device Mockup */}
             <div className="w-[230px] sm:w-[250px] max-w-full">
-              <div className="aspect-[9/16] rounded-[24px] border-[6px] border-ink/85 bg-black overflow-hidden relative shadow-lg">
+              <div className="aspect-[9/16] rounded-[24px] border-[6px] border-ink/85 bg-black overflow-hidden relative shadow-[var(--shadow-2)]">
                 {result?.project ? (
                   <ReelPreview
                     project={result.project}
@@ -621,10 +621,10 @@ export default function RawReel() {
                         onLoadedData={media.onLoadedData}
                       />
                     )}
-                    <div className="relative z-10 bg-black/60 backdrop-blur p-3 rounded-card text-white">
+                    <div className="relative z-10 bg-black/75 p-3 rounded-card text-white">
                       <Icon name="play_arrow" size={24} className="mx-auto mb-1 text-primary" />
                       <p className="text-xs font-medium">Ready for auto-cut</p>
-                      <p className="text-[10px] text-white/70 mt-0.5">Click "Create finished Reel"</p>
+                      <p className="text-[11px] text-white/70 mt-0.5">Click"Create finished Reel"</p>
                     </div>
                   </div>
                 ) : (
@@ -680,7 +680,7 @@ export default function RawReel() {
                 {result.hashtags.map((h) => (
                   <span
                     key={h}
-                    className="text-[11.5px] font-medium text-primary bg-primary-soft border border-primary/20 rounded-full px-2.5 py-0.5"
+                    className="text-[12px] font-medium text-primary bg-primary-soft border border-primary/20 rounded-full px-2.5 py-0.5"
                   >
                     #{h}
                   </span>

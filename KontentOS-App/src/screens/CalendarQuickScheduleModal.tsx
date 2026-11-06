@@ -206,7 +206,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
                   onClick={() => setPostType(fmt.id as any)}
                   className={`flex items-center justify-center gap-1.5 p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                     postType === fmt.id
-                      ? 'bg-primary-soft text-primary border-primary shadow-xs'
+                      ? 'bg-primary-soft text-primary border-primary'
                       : 'bg-surface text-ink-muted border-line hover:border-line-strong'
                   }`}
                 >
@@ -252,25 +252,25 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
 
             {/* Quick timing presets */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[10px] text-ink-muted uppercase tracking-wider mr-1">Presets:</span>
+              <span className="text-[11px] text-ink-muted uppercase tracking-wider mr-1">Presets:</span>
               <button
                 type="button"
                 onClick={() => handleApplyPresetTime(10, 0, 0)}
-                className="px-2 py-0.5 rounded text-[10.5px] bg-surface border border-line hover:border-primary/50 text-ink-muted hover:text-ink cursor-pointer"
+                className="px-2 py-0.5 rounded text-[11px] bg-surface border border-line hover:border-primary/50 text-ink-muted hover:text-ink cursor-pointer"
               >
                 Today 10:00 AM
               </button>
               <button
                 type="button"
                 onClick={() => handleApplyPresetTime(9, 15, 1)}
-                className="px-2 py-0.5 rounded text-[10.5px] bg-surface border border-line hover:border-primary/50 text-ink-muted hover:text-ink cursor-pointer"
+                className="px-2 py-0.5 rounded text-[11px] bg-surface border border-line hover:border-primary/50 text-ink-muted hover:text-ink cursor-pointer"
               >
                 Tomorrow 09:15 AM
               </button>
               <button
                 type="button"
                 onClick={() => handleApplyPresetTime(18, 45, 1)}
-                className="px-2 py-0.5 rounded text-[10.5px] bg-surface border border-line hover:border-primary/50 text-ink-muted hover:text-ink cursor-pointer"
+                className="px-2 py-0.5 rounded text-[11px] bg-surface border border-line hover:border-primary/50 text-ink-muted hover:text-ink cursor-pointer"
               >
                 Tomorrow 06:45 PM
               </button>
@@ -302,7 +302,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
                     onClick={() => togglePlatform(plat.id)}
                     className={`flex items-center gap-2 p-2 rounded-xl text-xs font-semibold border text-left transition-all cursor-pointer ${
                       active
-                        ? 'bg-primary-soft text-primary border-primary shadow-xs'
+                        ? 'bg-primary-soft text-primary border-primary'
                         : 'bg-surface text-ink-muted border-line hover:border-line-strong'
                     }`}
                   >
@@ -359,7 +359,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
               type="submit"
               icon={isSubmitting ? undefined : 'schedule_send'}
               disabled={isSubmitting || !title.trim()}
-              className="shadow-md"
+              className="shadow-[var(--shadow-2)]"
             >
               {isSubmitting ? 'Scheduling Drop...' : `Schedule for ${dateStr}`}
             </Button>

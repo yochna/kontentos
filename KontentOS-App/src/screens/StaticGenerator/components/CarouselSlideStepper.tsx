@@ -36,7 +36,7 @@ export const CarouselSlideStepper: React.FC<Props> = ({
   };
 
   return (
-    <div className="rounded-card bg-surface-2/90 border border-primary/20 p-3.5 space-y-2.5 shadow-sm">
+    <div className="rounded-card bg-surface-2/90 border border-primary/20 p-3.5 space-y-2.5">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Icon name="view_carousel" size={17} className="text-primary" />
@@ -77,12 +77,12 @@ export const CarouselSlideStepper: React.FC<Props> = ({
             <Button
               variant="secondary"
               size="sm"
-              icon="auto_awesome"
+              icon="refresh"
               onClick={onOpenRegenerate}
-              className="py-1 px-2.5 h-7 text-[11px] text-primary border-primary/30 hover:bg-primary/5 font-semibold"
-              title="Regenerate this slide with Gemini AI"
+              className="py-1 px-2.5 h-7 text-[11px]"
+              title="Ask the engine to rewrite this slide"
             >
-              Regenerate
+              Rewrite
             </Button>
           )}
 
@@ -111,16 +111,16 @@ export const CarouselSlideStepper: React.FC<Props> = ({
                 onClick={() => onSelectSlide(s.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer select-none ${
                   isActive
-                    ? 'bg-primary text-on-primary border-primary shadow-sm ring-1 ring-primary/40 font-bold'
+                    ? 'bg-primary text-on-primary border-primary ring-1 ring-primary/40 font-bold'
                     : 'bg-surface hover:bg-surface-2 text-ink-muted hover:text-ink border-line'
                 }`}
               >
                 <span>Slide {slideNumber}</span>
-                {idx === 0 && <span className="text-[10px] opacity-75 font-normal">(Hook)</span>}
+                {idx === 0 && <span className="text-[11px] opacity-75 font-normal">(Hook)</span>}
                 {idx === slides.length - 1 && slides.length > 1 ? (
-                  <span className="text-[10px] opacity-75 font-normal">(CTA)</span>
+                  <span className="text-[11px] opacity-75 font-normal">(CTA)</span>
                 ) : idx > 0 ? (
-                  <span className="text-[10px] opacity-75 font-normal">(Step {idx})</span>
+                  <span className="text-[11px] opacity-75 font-normal">(Step {idx})</span>
                 ) : null}
               </button>
 
@@ -132,7 +132,7 @@ export const CarouselSlideStepper: React.FC<Props> = ({
                     e.stopPropagation();
                     onDeleteSlide(s.id);
                   }}
-                  className="absolute -top-1.5 -right-1 w-4 h-4 rounded-full bg-danger text-on-primary flex items-center justify-center text-[10px] font-bold shadow-md hover:scale-110 transition-transform cursor-pointer"
+                  className="absolute -top-1.5 -right-1 w-4 h-4 rounded-full bg-danger text-on-primary flex items-center justify-center text-[11px] font-bold shadow-[var(--shadow-1)] hover:bg-danger/80 transition-colors cursor-pointer"
                   title="Remove this slide"
                 >
                   ×

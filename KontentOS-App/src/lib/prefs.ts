@@ -72,6 +72,12 @@ export function copyModel(): string {
   return readAiSettings().aiModel;
 }
 
+/** The same engine in the few words a panel can print next to a Write button. */
+export function copyModelLabel(): string {
+  const choice = MODEL_CHOICES.find((m) => m.id === copyModel());
+  return choice ? choice.label.split(' — ')[0] : copyModel();
+}
+
 export function saveAiSettings(next: AiSettings): void {
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify(next));

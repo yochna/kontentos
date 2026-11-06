@@ -49,7 +49,7 @@ export function Tooltip({
           collisionPadding={8}
           className={cn(
             'kt-pop z-[110] max-w-[18rem] rounded-btn border border-line bg-surface-2 px-2.5 py-1.5',
-            'text-[11.5px] leading-relaxed text-ink shadow-[var(--shadow-2)]',
+            'text-[12px] leading-relaxed text-ink shadow-[var(--shadow-2)]',
           )}
         >
           {content}

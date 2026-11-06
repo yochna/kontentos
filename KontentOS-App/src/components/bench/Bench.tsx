@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui';
 import { notify } from '@/components/ui/toast';
 import type { Theme } from '@/lib/theme';
+import type { Video } from '@/lib/types';
 import { Spine } from './Spine';
 import { CutRail } from './CutRail';
 import { Inspector } from './Inspector';
@@ -47,7 +48,7 @@ const RAIL_OFF: ScreenId[] = ['analytics', 'brand-kit', 'settings'];
 const STATION_IDS = Object.keys(STATIONS) as ScreenId[];
 
 /** Engines that open on a specific clip when the rail hands them one. */
-const CLIP_STATIONS: ScreenId[] = ['raw-reel'];
+const CLIP_STATIONS: ScreenId[] = ['raw-reel', 'smart-editor'];
 
 const isFileDrag = (e: ReactDragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
 
@@ -152,6 +153,29 @@ export function Bench({
     [store, goTo, flag]
   );
 
+  /** The rail's right-click: light the cut, then hop to the station that works on it. */
+  const openIn = useCallback(
+    (id: ScreenId, videoId: string) => {
+      selectCut(videoId);
+      goTo(id, CLIP_STATIONS.includes(id) ? { videoId } : undefined);
+    },
+    [goTo],
+  );
+
+  const deleteCut = useCallback(
+    async (video: Video) => {
+      const res = await store.deleteVideo(video.id);
+      if (res.ok) {
+        if (selectedId === video.id) selectCut(null);
+        notify.ok(`“${video.title}” is off the bench.`);
+      } else {
+        flag(res.message ?? 'The cut would not delete.');
+      }
+      return res.ok;
+    },
+    [store, selectedId, flag],
+  );
+
   const dropFiles = useCallback(
     (files: File[]) => {
       const clips = files.filter((f) => f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(f.name));
@@ -220,13 +244,15 @@ export function Bench({
             intakeBusy={jobs.length > 0}
             station={station}
             onOpenVault={() => goTo('content-library')}
+            onOpenIn={openIn}
+            onDeleteCut={deleteCut}
           />
         )}
 
         <div className="flex min-h-0 flex-1">
           <main className="relative flex min-w-0 flex-1 flex-col">
-            {/* Table the cut sits on: hairline grid, faded so it reads as depth, not decoration. */}
-            <span aria-hidden className="kt-graph pointer-events-none absolute inset-0 opacity-60" />
+            {/* Table the cut sits on: light from above, so the stage floor reads as a surface. */}
+            <span aria-hidden className="kt-graph pointer-events-none absolute inset-0" />
             <div ref={stageRef} className="relative min-w-0 flex-1 overflow-y-auto">
               <Suspense fallback={<StageSkeleton />}>
                 {/* Keyed by station: the swap animation replays per hop, once the engine is real. */}
@@ -293,7 +319,7 @@ export function Bench({
           <div className="kt-drop-card flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-primary/70 bg-surface px-10 py-8 text-center shadow-[var(--shadow-2)]">
             <Icon name="file_upload" size={26} className="text-primary" />
             <p className="font-display text-[18px] font-bold text-ink">Drop the footage on the bench</p>
-            <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-ink-dim">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-dim">
               Video files only · each one becomes a new cut
             </p>
           </div>

@@ -27,7 +27,7 @@
 
   --ink: #e9e4d9; /* bone — printed label on the slate */
   --ink-muted: #9ba6ad;
-  --ink-dim: #6a757c;
+  --ink-dim: #818c94; /* held above 4.5:1 on the bench top so micro-labels stay readable */
 
   --primary: #f0a33c; /* safelight amber */
   --primary-hover: #ffb957;
@@ -42,6 +42,8 @@
   --success: #64c394;
   --warning: #e8b93f;
   --danger: #e2593b;
+  --danger-ink: #f2876c; /* the bench's vermilion, lifted far enough to read on its own wash */
+  --success-ink: #8ed9b3;
 
   --ring: var(--primary); /* focus: the safelight at full strength — 8.5:1 on the bench top */
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.55), 0 6px 18px rgba(0, 0, 0, 0.35);
@@ -50,10 +52,7 @@
   --splash-glow: rgba(240, 163, 60, 0.16);
   --splash-shine: rgba(255, 255, 255, 0.2);
   --kt-shimmer: rgba(255, 255, 255, 0.07);
-  --kt-sheen: rgba(255, 255, 255, 0.14);
-  --kt-glow: rgba(240, 163, 60, 0.12);
   --kt-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --kt-ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
 }
 
 [data-theme='light'] {
@@ -67,8 +66,8 @@
   --line-strong: #bcc6c1;
 
   --ink: #141a1d;
-  --ink-muted: #5a646a;
-  --ink-dim: #8a9499;
+  --ink-muted: #4e5860;
+  --ink-dim: #5f6a72; /* on paper both clear 4.5:1; the step down from muted is narrow because pale grey text fails on white */
 
   --primary: #a35a12; /* burnt amber, deep enough to carry white text on paper */
   --primary-hover: #8c4d0e;
@@ -83,6 +82,8 @@
   --success: #2b7c5a;
   --warning: #98701d;
   --danger: #c1452a;
+  --danger-ink: #9a3419; /* deeper than the fill so a rejection badge stays readable on paper */
+  --success-ink: #1f5c42;
 
   --ring: var(--primary); /* 5.2:1 on paper — an amber wash at 35% was 2.2:1 and unreadable */
   --shadow-1: 0 1px 3px rgba(20, 26, 29, 0.06), 0 4px 12px rgba(20, 26, 29, 0.04);
@@ -91,8 +92,6 @@
   --splash-glow: rgba(163, 90, 18, 0.12);
   --splash-shine: rgba(255, 255, 255, 0.7);
   --kt-shimmer: rgba(255, 255, 255, 0.8);
-  --kt-sheen: rgba(255, 255, 255, 0.64);
-  --kt-glow: rgba(163, 90, 18, 0.09);
 }
 
 @theme inline {
@@ -114,20 +113,18 @@
   --color-tertiary: var(--tertiary);
   --color-tertiary-soft: var(--tertiary-soft);
   --color-success: var(--success);
+  --color-success-ink: var(--success-ink);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-danger-ink: var(--danger-ink);
 
-  /* Syne sets the machine-shop display voice; Space Grotesk carries the body at the
-     same width, so a heading and its control label read as one instrument.
-     The serif/sans pairs below stay only because the static card presets render them
-     into exported images by name — they are content, not chrome. */
-  --font-display: 'Syne', 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
-  --font-body: 'Space Grotesk', 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  /* Syne sets the machine-shop display voice. The body runs in Hanken Grotesk: Space Grotesk and
+     Plus Jakarta Sans are the two faces every generated UI converges on, and a bench that sells a
+     craft process cannot wear them. The card presets below still name them, because those are
+     fonts a creator chooses for an exported post — content, not chrome. */
+  --font-display: 'Syne', 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-playfair: 'Playfair Display', Georgia, serif;
-  --font-jakarta: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-space: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
-  --font-syne: 'Syne', ui-sans-serif, system-ui, sans-serif;
 
   --radius-btn: 6px;
   --radius-card: 10px;
@@ -256,9 +253,9 @@ h4 {
 /* Labels on machines, not editorial kickers: set in the mono face with wide tracking. */
 .kt-eyebrow {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-dim);
 }
@@ -287,7 +284,7 @@ input[type='range'] {
   0% { opacity: 0; transform: translateY(8px) rotate(-2deg); }
   100% { opacity: 1; transform: translateY(0) rotate(0); }
 }
-.kt-cap-pop { animation: ktCapPop 260ms cubic-bezier(0.2, 0.9, 0.3, 1.4) both; }
+.kt-cap-pop { animation: ktCapPop 260ms var(--kt-ease-out) both; }
 .kt-cap-fade { animation: ktCapFade 220ms ease-out both; }
 .kt-cap-wave { animation: ktCapWave 200ms ease-out both; }
 
@@ -453,15 +450,6 @@ input[type='range'] {
 .kt-splash-skip:hover { color: var(--primary); border-color: var(--primary); }
 @keyframes ktFadeIn { to { opacity: 1; } }
 
-/* Curated Typography Bundle Font Utilities */
-.font-playfair { font-family: 'Playfair Display', Georgia, serif; }
-.font-jakarta { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }
-.font-space { font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; }
-.font-syne { font-family: 'Syne', ui-sans-serif, system-ui, sans-serif; }
-.font-jetbrains { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
-.font-newsreader { font-family: 'Newsreader', ui-serif, Georgia, serif; }
-.font-hanken { font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; }
-
 /* Advanced canvas: hide underlying content while inline editor is active */
 .canvas-editing > :not([data-canvas-editor]) {
   opacity: 0;
@@ -575,27 +563,6 @@ input[type='range'] {
     animation: ktShimmer 1400ms ease-in-out infinite;
   }
 
-  /* --- specular sweep across an interactive card --------------------------- */
-  @keyframes ktSheen {
-    0% { transform: translateX(-130%) skewX(-14deg); opacity: 0; }
-    22% { opacity: 0.9; }
-    100% { transform: translateX(240%) skewX(-14deg); opacity: 0; }
-  }
-  .kt-sheen { position: relative; overflow: hidden; }
-  .kt-sheen::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 42%;
-    background: linear-gradient(105deg, transparent, var(--kt-sheen), transparent);
-    transform: translateX(-130%) skewX(-14deg);
-    opacity: 0;
-    pointer-events: none;
-  }
-  .kt-sheen:hover::after { animation: ktSheen 900ms ease-out; }
-
   /* --- live indicator pulse ------------------------------------------------ */
   @keyframes ktPing {
     0% { transform: scale(1); opacity: 0.55; }
@@ -637,45 +604,6 @@ input[type='range'] {
     animation: ktStripes 900ms linear infinite;
   }
 
-  /* --- slow drifting ambient light behind a hero --------------------------- */
-  @keyframes ktDrift {
-    0% { transform: translate3d(-3%, -2%, 0) scale(1); }
-    50% { transform: translate3d(5%, 3%, 0) scale(1.1); }
-    100% { transform: translate3d(-3%, -2%, 0) scale(1); }
-  }
-  .kt-aurora {
-    position: absolute;
-    inset: -35% -12%;
-    pointer-events: none;
-    background:
-      radial-gradient(38% 46% at 24% 32%, var(--primary-soft), transparent 70%),
-      radial-gradient(34% 42% at 76% 66%, var(--tertiary-soft), transparent 70%);
-    animation: ktDrift 16s ease-in-out infinite;
-  }
-
-  /* --- pointer-following spotlight + tilt on a card ------------------------ */
-  .kt-spot {
-    position: relative;
-    transform: perspective(900px) rotateX(var(--ry, 0deg)) rotateY(var(--rx, 0deg));
-    transition:
-      transform 260ms var(--kt-ease-out),
-      translate 200ms var(--kt-ease-out),
-      scale 200ms ease-out,
-      box-shadow 200ms ease-out,
-      border-color 200ms ease-out;
-  }
-  .kt-spot::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 240ms ease-out;
-    background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), var(--kt-glow), transparent 62%);
-  }
-  .kt-spot:hover::before { opacity: 1; }
-
   /* --- travelling highlight on the workflow rail --------------------------- */
   @keyframes ktRail {
     0% { transform: translateX(-30%); opacity: 0; }
@@ -698,7 +626,7 @@ input[type='range'] {
     from { opacity: 0; transform: rotate(-70deg) scale(0.7); }
     to { opacity: 1; transform: none; }
   }
-  .kt-icon-swap { animation: ktIconSwap 320ms var(--kt-ease-spring) both; }
+  .kt-icon-swap { animation: ktIconSwap 320ms var(--kt-ease-out) both; }
 
   /* --- declarative list stagger --------------------------------------------
      Fill-mode 'backwards' is deliberate: once the animation ends it stops owning
@@ -738,7 +666,7 @@ input[type='range'] {
   /* --- hover nudges -------------------------------------------------------- */
   .kt-nudge { transition: transform 220ms var(--kt-ease-out); }
   .group:hover .kt-nudge { transform: translateX(3px); }
-  .kt-grow { transition: transform 260ms var(--kt-ease-spring); }
+  .kt-grow { transition: transform 260ms var(--kt-ease-out); }
   .group:hover .kt-grow { transform: scale(1.12); }
 }
 
@@ -757,15 +685,15 @@ input[type='range'] {
   .kt-station { animation: ktStationIn 320ms var(--kt-ease-out) backwards; }
 
   /* --- machine table backdrop ----------------------------------------------
-     A 64px hairline grid, faded out below so the stage floor reads as a surface
-     the cut sits on rather than as empty space. */
+     Light falling from a lamp above the bench: brightest under the rail, gone
+     before the dock. A tiled hairline grid would say "blueprint", and nothing
+     here is drawn to scale — the only measured surface is the card canvas. */
   .kt-graph {
-    background-image:
-      linear-gradient(var(--line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--line) 1px, transparent 1px);
-    background-size: 64px 64px;
-    -webkit-mask-image: radial-gradient(130% 95% at 50% 0%, #000 18%, transparent 78%);
-    mask-image: radial-gradient(130% 95% at 50% 0%, #000 18%, transparent 78%);
+    background-image: radial-gradient(
+      125% 72% at 50% -10%,
+      color-mix(in srgb, var(--surface-2) 85%, transparent),
+      transparent 60%
+    );
   }
 
   /* --- cut tile -------------------------------------------------------------
@@ -869,7 +797,7 @@ input[type='range'] {
     to { opacity: 1; transform: none; }
   }
   .kt-drop { animation: ktDropIn 160ms ease-out backwards; }
-  .kt-drop-card { animation: ktDropCard 280ms var(--kt-ease-spring) backwards; }
+  .kt-drop-card { animation: ktDropCard 280ms var(--kt-ease-out) backwards; }
 }
 
 /* ==========================================================================
@@ -1039,15 +967,6 @@ input[type='range'] {
   .kt-cut-tile[data-selected='true'] .kt-safelight,
   .kt-drop,
   .kt-drop-card,
-  .kt-sheen::after,
-  .kt-skeleton::after,
-  .kt-live::before,
-  .kt-bar--live::after,
-  .kt-rail::after,
-  .kt-icon-swap,
-  .kt-spin,
-  .kt-shake,
-  .kt-aurora,
   .kt-stagger > *,
   .kt-stagger--fade > * {
     animation: none !important;
@@ -1058,12 +977,6 @@ input[type='range'] {
     transform: none;
     transition: none;
   }
-  .kt-sheen::after,
-  .kt-live::before,
-  .kt-rail::after,
-  .kt-spot::before,
-  .kt-safelight { display: none; }
-  .kt-spot { transform: none; transition: none; }
   .kt-nudge,
   .kt-grow,
   .kt-cut-tile,

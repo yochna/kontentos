@@ -159,7 +159,7 @@ export const TransformHandles: React.FC<Props> = ({ rect, accentColor = '#38bdf8
       {!isLine && (
         <>
           <div
-            className="absolute left-1/2 -translate-x-1/2 w-px bg-sky-400/80"
+            className="absolute left-1/2 -translate-x-1/2 w-px bg-primary"
             style={{ top: -22, height: 22 }}
           />
           <button
@@ -168,7 +168,7 @@ export const TransformHandles: React.FC<Props> = ({ rect, accentColor = '#38bdf8
             onPointerMove={move}
             onPointerUp={end}
             onPointerCancel={end}
-            className={`absolute left-1/2 -translate-x-1/2 -top-[28px] w-3.5 h-3.5 rounded-full bg-white border-2 shadow-md pointer-events-auto cursor-grab ${
+            className={`absolute left-1/2 -translate-x-1/2 -top-[28px] w-3.5 h-3.5 rounded-full bg-white border-2 shadow-[var(--shadow-1)] pointer-events-auto cursor-grab ${
               activeHandle === 'rot' ? 'scale-125' : ''
             }`}
             style={{ borderColor: accentColor }}
@@ -185,7 +185,7 @@ export const TransformHandles: React.FC<Props> = ({ rect, accentColor = '#38bdf8
             onPointerMove={move}
             onPointerUp={end}
             onPointerCancel={end}
-            className={`absolute w-2.5 h-2.5 rounded-[2px] bg-white border shadow-sm pointer-events-auto ${
+            className={`absolute w-2.5 h-2.5 rounded-[2px] bg-white border pointer-events-auto ${
               entry.cursor
             } ${activeHandle === entry.handle ? 'scale-150' : ''}`}
             style={{ ...entry.style, borderColor: accentColor }}

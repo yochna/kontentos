@@ -188,7 +188,7 @@ export default function ContentLibrary() {
             <div className="text-[12.5px] font-semibold text-ink">
               {dbStatus.media.provider === 'bucket' ? 'Media storage is not accepting clips' : 'Media is not durable here'}
             </div>
-            <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-muted">
+            <p className="mt-0.5 text-[12px] leading-relaxed text-ink-muted">
               {dbStatus.media.provider === 'bucket'
                 ? `${dbStatus.media.note} Check the MEDIA_* values in the hosting dashboard — until the bucket answers, an upload has nowhere to put your footage.`
                 : `${dbStatus.media.note} Download anything you still need before the service next restarts — ${
@@ -212,7 +212,7 @@ export default function ContentLibrary() {
           </div>
           {/* No ceiling is drawn: this workspace has no quota behind it, and Render's free disk is
               sized by the host, not promised by us. Only what the vault actually holds is shown. */}
-          <p className="text-[11.5px] text-ink-dim">
+          <p className="text-[12px] text-ink-dim">
             {videos.length} {videos.length === 1 ? 'file' : 'files'} on this account · up to 2 GB per clip
           </p>
         </Card>
@@ -234,7 +234,7 @@ export default function ContentLibrary() {
               {Math.floor(totalSec / 60)}m {Math.round(totalSec % 60)}s
             </div>
           </div>
-          <span className="w-10 h-10 rounded-btn bg-tertiary/15 text-tertiary grid place-items-center">
+          <span className="w-10 h-10 rounded-btn bg-tertiary/15 text-danger-ink grid place-items-center">
             <Icon name="timer" size={20} />
           </span>
         </Card>
@@ -316,7 +316,6 @@ export default function ContentLibrary() {
                   <Reveal key={v.id} delay={i * 60} className="h-full">
                   <Card
                     hover
-                    sheen
                     onClick={() => setInspectVideo(v)}
                     className="h-full overflow-hidden flex flex-col sm:flex-row cursor-pointer group"
                   >
@@ -328,7 +327,7 @@ export default function ContentLibrary() {
                         <img
                           src={v.thumbnail_url}
                           alt=""
-                          className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                          className="w-full h-full object-cover transition-transform duration-300"
                         />
                       ) : v.file_url ? (
                         <video
@@ -348,7 +347,7 @@ export default function ContentLibrary() {
                         <Icon name="play_circle" size={32} />
                       </span>
                       {dur && (
-                        <span className="absolute bottom-1.5 right-1.5 text-[10px] font-mono font-semibold text-white bg-black/70 backdrop-blur rounded px-1.5 py-0.5">
+                        <span className="absolute bottom-1.5 right-1.5 text-[11px] font-mono font-semibold text-white bg-black/70 rounded px-1.5 py-0.5">
                           {dur}
                         </span>
                       )}
@@ -383,7 +382,7 @@ export default function ContentLibrary() {
                                   setPendingDelete(v);
                                 }}
                                 aria-label={`Delete ${v.title}`}
-                                className="w-7 h-7 rounded-btn hover:bg-danger/10 grid place-items-center text-ink-dim hover:text-danger transition-colors kt-focus"
+                                className="w-7 h-7 rounded-btn hover:bg-danger/10 grid place-items-center text-ink-dim hover:text-danger-ink transition-colors kt-focus"
                               >
                                 <Icon name="delete" size={15} />
                               </button>
@@ -493,9 +492,7 @@ export default function ContentLibrary() {
                 if (pendingDelete) void removeClip(pendingDelete);
               }}
             >
-              <Button variant="secondary" icon="delete" className="border-danger/50 text-danger hover:bg-danger/10">
-                Delete for good
-              </Button>
+              <Button variant="danger" icon="delete">Delete for good</Button>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -691,10 +688,10 @@ function VideoDetailModal({
               <button
                 type="button"
                 onClick={() => setShowPlayerCaptions((c) => !c)}
-                className={`absolute top-3 right-3 z-20 px-2.5 py-1 rounded-full text-xs font-semibold backdrop-blur border shadow-md transition-all ${
+                className={`absolute top-3 right-3 z-20 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
                   showPlayerCaptions
                     ? 'bg-emerald-600 text-white border-emerald-400'
-                    : 'bg-black/60 text-white/70 border-white/20 hover:text-white'
+                    : 'bg-black/75 text-white/70 border-white/20 hover:text-white'
                 }`}
               >
                 CC {showPlayerCaptions ? 'ON' : 'OFF'}
@@ -704,7 +701,7 @@ function VideoDetailModal({
             {/* Synchronized Live Caption Floating Overlay */}
             {showPlayerCaptions && activeSegment && (
               <div className="pointer-events-none absolute bottom-8 inset-x-6 flex justify-center z-20">
-                <span className="px-3.5 py-1.5 rounded-lg bg-black/85 backdrop-blur text-white text-xs sm:text-sm font-bold tracking-wide shadow-2xl border border-white/20 text-center animate-pulse max-w-[90%]">
+                <span className="px-3.5 py-1.5 rounded-lg bg-black/85 text-white text-xs sm:text-sm font-bold tracking-wide border border-white/20 text-center animate-pulse max-w-[90%]">
                   {activeSegment.text}
                 </span>
               </div>
@@ -723,7 +720,7 @@ function VideoDetailModal({
             </div>
             <div>
               <div className="text-ink-dim">Aspect Ratio</div>
-              <div className="font-semibold text-ink mt-0.5">{video.aspect_ratio || '9:16 Vertical'}</div>
+              <div className="font-semibold text-ink mt-0.5">{video.aspect_ratio ||'9:16 Vertical'}</div>
             </div>
             <div>
               <div className="text-ink-dim">Ingested Date</div>
@@ -788,7 +785,7 @@ function VideoDetailModal({
                 className={`p-2 text-xs rounded border ${
                   subMsg.ok
                     ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20'
-                    : 'bg-danger/10 text-danger border-danger/30'
+                    : 'bg-danger/10 text-danger-ink border-danger/30'
                 }`}
               >
                 {subMsg.text}
@@ -811,7 +808,7 @@ function VideoDetailModal({
                         onClick={() => handleSeek(stSec)}
                         className={`p-2 rounded-btn border text-xs flex items-start gap-2.5 cursor-pointer transition-all ${
                           isCurrent
-                            ? 'border-primary bg-primary-soft text-ink font-medium shadow-sm'
+                            ? 'border-primary bg-primary-soft text-ink font-medium'
                             : 'border-line bg-surface hover:border-line-strong text-ink-muted hover:text-ink'
                         }`}
                       >
@@ -832,7 +829,8 @@ function VideoDetailModal({
             ) : (
               <div className="p-4 text-center text-xs text-ink-muted bg-surface rounded-btn border border-line">
                 <Icon name="graphic_eq" size={24} className="mx-auto text-ink-dim mb-1" />
-                No speech subtitles generated yet. Click "Generate Live Captions" to transcribe audio and compute matching timestamps.
+                Nothing transcribed yet. The CC control on the preview reads the audio and writes the caption
+                file.
               </div>
             )}
           </div>
@@ -840,7 +838,7 @@ function VideoDetailModal({
 
         {/* Footer Routing Actions */}
         <div className="pt-4 border-t border-line shrink-0 flex flex-wrap items-center justify-between gap-2">
-          <Button variant="secondary" icon="delete" onClick={onDelete} className="text-danger">
+          <Button variant="danger" icon="delete" onClick={onDelete}>
             Delete
           </Button>
           <div className="flex items-center gap-2">

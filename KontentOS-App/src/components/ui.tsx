@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ButtonHTMLAttributes, CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
 import { Icon } from '@/lib/icons';
 import { Tooltip } from '@/components/ui/tooltip';
 import { thumbGradient } from '@/data/mock';
@@ -154,7 +154,7 @@ export function AnimatedNumber({ text, duration = 900 }: { text: string; duratio
 
 /* ---------------------------------- Button ---------------------------------- */
 
-type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'soft';
+type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'soft' | 'danger';
 type BtnSize = 'sm' | 'md';
 
 const btnBase =
@@ -165,6 +165,9 @@ const btnVariants: Record<BtnVariant, string> = {
   secondary: 'bg-surface text-ink border border-line hover:bg-app hover:border-ink-muted',
   ghost: 'bg-transparent text-ink-muted hover:text-ink hover:bg-surface-2',
   soft: 'bg-primary-soft text-primary hover:bg-secondary-soft',
+  /* Work that cannot be undone wears vermilion, never the amber: the brand colour is the one a
+     creator's eye already trusts, and it is the colour of every affirmative verb on the bench. */
+  danger: 'bg-danger/10 text-danger-ink border border-danger/30 hover:bg-danger/20',
 };
 
 const btnSizes: Record<BtnSize, string> = {
@@ -224,53 +227,26 @@ export function IconButton({
 
 /* ----------------------------------- Card ----------------------------------- */
 
-const spotVars = ['--mx', '--my', '--rx', '--ry'] as const;
-
+/**
+ * A card on the bench is a matte plate: it answers the pointer with its edge, not with a sweep,
+ * a cursor-following spotlight or a lift off the table. Those three are how generated UIs signal
+ * "interactable", and here they would only compete with the cut.
+ */
 export function Card({
   children,
   className = '',
   hover = false,
-  sheen = false,
-  spot = false,
   onClick,
 }: {
   children?: ReactNode;
   className?: string;
   hover?: boolean;
-  sheen?: boolean;
-  spot?: boolean;
   onClick?: () => void;
 }) {
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  const pointerProps = spot
-    ? {
-        onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => {
-          if (e.pointerType !== 'mouse' || prefersReducedMotion()) return;
-          const el = cardRef.current;
-          if (!el) return;
-          const r = el.getBoundingClientRect();
-          const px = (e.clientX - r.left) / r.width;
-          const py = (e.clientY - r.top) / r.height;
-          el.style.setProperty('--mx', `${(px * 100).toFixed(1)}%`);
-          el.style.setProperty('--my', `${(py * 100).toFixed(1)}%`);
-          el.style.setProperty('--rx', `${((px - 0.5) * 4).toFixed(2)}deg`);
-          el.style.setProperty('--ry', `${((0.5 - py) * 3).toFixed(2)}deg`);
-        },
-        onPointerLeave: () => {
-          const el = cardRef.current;
-          if (!el) return;
-          for (const v of spotVars) el.style.removeProperty(v);
-        },
-      }
-    : {};
-
   const interactive = !!onClick;
   return (
     <div
-      ref={cardRef}
       onClick={onClick}
-      {...pointerProps}
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       onKeyDown={
@@ -285,11 +261,9 @@ export function Card({
           : undefined
       }
       className={`bg-surface border border-line rounded-card shadow-[var(--shadow-1)] ${
-        sheen ? 'kt-sheen ' : ''
-      }${spot ? 'kt-spot ' : ''}${
-        hover || interactive ? 'transition-all duration-200 ease-out ' : ''
-      }${hover ? 'hover:-translate-y-[3px] hover:shadow-[var(--shadow-2)] hover:border-line-strong ' : ''}${
-        interactive ? 'cursor-pointer kt-focus active:scale-[0.99] ' : ''
+        hover || interactive ? 'transition-colors duration-200 ' : ''
+      }${hover ? 'hover:border-line-strong ' : ''}${
+        interactive ? 'cursor-pointer kt-focus active:border-primary ' : ''
       }${className}`}
     >
       {children}
@@ -333,10 +307,10 @@ export function Chip({
 const toneMap: Record<string, string> = {
   primary: 'bg-primary-soft text-primary border-primary/25',
   secondary: 'bg-secondary-soft text-secondary border-secondary/25',
-  tertiary: 'bg-tertiary-soft text-tertiary border-tertiary/30',
+  tertiary: 'bg-tertiary-soft text-danger-ink border-tertiary/30',
   neutral: 'bg-surface-2 text-ink-muted border-line',
-  success: 'bg-primary-soft text-success border-success/25',
-  danger: 'bg-danger/10 text-danger border-danger/25',
+  success: 'bg-success/12 text-success-ink border-success/25',
+  danger: 'bg-danger/10 text-danger-ink border-danger/25',
 };
 
 export function Badge({

@@ -88,78 +88,66 @@ interface SectionMeta {
   label: string;
   shortLabel: string;
   icon: string;
-  eyebrow: string;
+  /** One line under the tool's name, and the same line in its tooltip — so it has to stay true. */
   description: string;
-  badge?: string;
 }
 
 const STUDIO_SECTIONS: SectionMeta[] = [
   {
     id: 'ai',
-    label: 'Gemini AI Writer',
-    shortLabel: 'AI Copy',
+    label: 'Write from a prompt',
+    shortLabel: 'Write',
     icon: 'auto_awesome',
-    eyebrow: 'AI ACCELERATOR',
-    description: 'Viral hooks, multi-slide decks & context-aligned copywriting',
-    badge: 'Step 1',
+    description: 'Ask the copy engine for this card, or for the whole deck',
   },
   {
     id: 'content',
-    label: 'Copy & Headlines',
+    label: 'Copy on the card',
     shortLabel: 'Text',
     icon: 'edit_note',
-    eyebrow: 'CONTENT & COPY',
-    description: 'Headline, supporting text, bracket highlight & optical sizing',
+    description: 'Headline and body of the slide you are standing on',
   },
   {
     id: 'typography',
-    label: 'Typography Bundles',
+    label: 'Type pairing',
     shortLabel: 'Type',
     icon: 'format_size',
-    eyebrow: 'CURATED TYPE BUNDLES',
-    description: '8 designer-vetted headline & body font pairings with optical hierarchy',
-    badge: 'Craft',
+    description: 'Eight headline-and-body pairs, each with its own scale',
   },
   {
     id: 'theme',
-    label: 'Themes & Colors',
+    label: 'Colour theme',
     shortLabel: 'Themes',
     icon: 'palette',
-    eyebrow: 'COLOR PALETTES',
-    description: '14 curated Craft & Studio themes and dark/light mode',
+    description: 'Fourteen palettes, each with a light and a dark set',
   },
   {
     id: 'styles',
-    label: 'Layer Styles & Glows',
+    label: 'Layer styles',
     shortLabel: 'Styles',
     icon: 'layers',
-    eyebrow: 'PHOTOCRAFT STYLES',
-    description: 'Non-destructive elevation, neon glows, frosted glass & specular rim',
-    badge: 'Craft',
+    description: 'Depth, glow, frost and rim on the text layers',
   },
   {
     id: 'background',
-    label: 'Backdrop & Atmosphere',
+    label: 'Backdrop',
     shortLabel: 'Backdrop',
     icon: 'image',
-    eyebrow: 'MEDIA & ATMOSPHERE',
-    description: 'Stock photos, custom uploads, darkness overlays & lens blur',
+    description: 'Stock photo, your own upload, dimming and blur',
   },
   {
     id: 'aspect',
-    label: 'Format & Dimensions',
+    label: 'Canvas size',
     shortLabel: 'Ratio',
     icon: 'aspect_ratio',
-    eyebrow: 'CANVAS DIMENSIONS',
-    description: '1:1 Square, 4:5 Portrait, 9:16 Story & 16:9 Landscape',
+    description: '1:1, 4:5, 9:16 or 16:9',
   },
   {
     id: 'branding',
-    label: 'Brand & Creator Identity',
+    label: 'Author line',
     shortLabel: 'Identity',
     icon: 'badge',
-    eyebrow: 'AUTHOR & IDENTITY',
-    description: 'Creator avatar, author name & handle attribution',
+    description: 'Avatar, name and handle printed on the card',
   },
 ];
 
@@ -169,7 +157,7 @@ export default function StaticGenerator() {
   const profile = useDisplayProfile();
   const {
     isExporting,
-    statusMessage,
+    progressMessage,
     exportPNG,
     exportDeckSlides,
     exportLinkedInPDF,
@@ -488,8 +476,8 @@ export default function StaticGenerator() {
       const stepNum = Math.max(1, slides.length);
       const newSlide: CarouselSlide = {
         id: newId,
-        headline: `Step ${stepNum}: [Actionable Leverage Multiplier]`,
-        supportingText: 'Define the concrete framework rule, operational boundary, or tactical execution method for this step.',
+        headline: `Step ${stepNum}: [the move you make here]`,
+        supportingText: '[what to do, and what it took off your plate]',
       };
       const updatedSlides = [...slides, newSlide];
       return {
@@ -674,17 +662,7 @@ export default function StaticGenerator() {
             icon="refresh"
             onClick={() => handleRandomizePhoto()}
           >
-            Randomize Photo
-          </Button>
-
-          <Button
-            variant="primary"
-            size="sm"
-            icon="calendar_month"
-            onClick={() => setIsCalendarModalOpen(true)}
-            className="shadow-sm font-semibold"
-          >
-            Export to Calendar
+            Shuffle backdrop
           </Button>
 
           <Button
@@ -703,9 +681,8 @@ export default function StaticGenerator() {
         {/* Left Column: Live Canvas & Actions (7 Cols) */}
         <div className="lg:col-span-7 space-y-4">
           <Card className="p-5 space-y-5">
-            {/* Format Archetype Tabs */}
             <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-ink-muted">Format Archetype</span>
+              <span className="text-xs font-semibold text-ink-muted">Card shape</span>
               <FormatTabs
                 currentFormat={state.format}
                 onSelectFormat={handleFormatChange}
@@ -726,54 +703,10 @@ export default function StaticGenerator() {
               />
             )}
 
-            {/* Live Card Viewport Canvas Container */}
-            <div className="rounded-card bg-surface-2/60 border border-line p-4 sm:p-6 min-h-[460px] flex items-center justify-center relative overflow-hidden">
-              {/* Floating Quick Indicators & Toggles */}
-              <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
-                <Tooltip content="Show the Instagram and LinkedIn safe zones and crop boundaries" side="bottom">
-                  <button
-                    type="button"
-                    onClick={() => setShowSafeZones((prev) => !prev)}
-                    aria-pressed={showSafeZones}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-md transition-all cursor-pointer ${
-                      showSafeZones
-                        ? 'bg-primary text-on-primary border-primary shadow-sm ring-1 ring-primary/40'
-                        : 'bg-surface/80 hover:bg-surface text-ink-muted hover:text-ink border-line'
-                    }`}
-                  >
-                    <Icon name="crop_free" size={15} />
-                    <span>{showSafeZones ? 'Safe Zones: On' : 'Safe Zones'}</span>
-                  </button>
-                </Tooltip>
-
-                <Tooltip content="Show the 3×3 rule-of-thirds grid — or press G" side="bottom">
-                  <button
-                    type="button"
-                    onClick={() => setShowGrid((prev) => !prev)}
-                    aria-pressed={showGrid}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border backdrop-blur-md transition-all cursor-pointer ${
-                      showGrid
-                        ? 'bg-primary text-on-primary border-primary shadow-sm ring-1 ring-primary/40'
-                        : 'bg-surface/80 hover:bg-surface text-ink-muted hover:text-ink border-line'
-                    }`}
-                  >
-                    <Icon name="grid_on" size={15} />
-                    <span>{showGrid ? 'Grid: On' : 'Grid (G)'}</span>
-                  </button>
-                </Tooltip>
-              </div>
-
-              <CardCanvas
-                state={state}
-                canvasRef={canvasRef}
-                showSafeZones={showSafeZones}
-                showGrid={showGrid}
-                isExporting={isExporting}
-              />
-            </div>
-
-            {/* Canvas Actions Toolbar */}
-            <div className="pt-2 border-t border-line">
+            {/* The bench's own toolbar: what you do to the card, above the card. It sits here
+                because the artboard is taller than the stage, and export should never be
+                something you have to scroll to find. */}
+            <div className="border-t border-line pt-4">
               <CanvasControls
                 isExporting={isExporting}
                 isCarouselFormat={state.format === 'carousel-slide'}
@@ -799,20 +732,67 @@ export default function StaticGenerator() {
                 onExportEntireDeck={() => exportDeckSlides(canvasRef.current, state, switchToSlide)}
                 onExportLinkedInPDF={() => exportLinkedInPDF(canvasRef.current, state, switchToSlide)}
                 onCopyImageAndText={() => copyImageAndText(canvasRef.current, state)}
-                copiedStatus={statusMessage}
-              />
-              <input
-                ref={canvasImageInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleCanvasImageFile(file);
-                  e.target.value = '';
-                }}
+                progress={progressMessage}
               />
             </div>
+
+            {/* Live Card Viewport Canvas Container */}
+            <div className="rounded-card bg-surface-2/60 border border-line p-4 sm:p-6 min-h-[460px] flex items-center justify-center relative overflow-hidden">
+              {/* Floating Quick Indicators & Toggles */}
+              <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
+                <Tooltip content="Show the Instagram and LinkedIn safe zones and crop boundaries" side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setShowSafeZones((prev) => !prev)}
+                    aria-pressed={showSafeZones}
+                    className={`inline-flex items-center gap-1 rounded-btn border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                      showSafeZones
+                        ? 'border-primary bg-primary-soft text-primary'
+                        : 'border-line bg-surface-2 text-ink-muted hover:border-line-strong hover:text-ink'
+                    }`}
+                  >
+                    <Icon name="crop_free" size={15} />
+                    <span>{showSafeZones ? 'Safe Zones: On' : 'Safe Zones'}</span>
+                  </button>
+                </Tooltip>
+
+                <Tooltip content="Show the 3×3 rule-of-thirds grid — or press G" side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setShowGrid((prev) => !prev)}
+                    aria-pressed={showGrid}
+                    className={`inline-flex items-center gap-1 rounded-btn border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                      showGrid
+                        ? 'border-primary bg-primary-soft text-primary'
+                        : 'border-line bg-surface-2 text-ink-muted hover:border-line-strong hover:text-ink'
+                    }`}
+                  >
+                    <Icon name="grid_on" size={15} />
+                    <span>{showGrid ? 'Grid: On' : 'Grid (G)'}</span>
+                  </button>
+                </Tooltip>
+              </div>
+
+              <CardCanvas
+                state={state}
+                canvasRef={canvasRef}
+                showSafeZones={showSafeZones}
+                showGrid={showGrid}
+                isExporting={isExporting}
+              />
+            </div>
+
+            <input
+              ref={canvasImageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleCanvasImageFile(file);
+                e.target.value = '';
+              }}
+            />
           </Card>
         </div>
 
@@ -820,40 +800,27 @@ export default function StaticGenerator() {
         <div className="lg:col-span-5 space-y-4">
           <Card className="p-4 sm:p-5 space-y-4">
             {/* Studio Tool Inspector Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-line">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                  <Icon name={currentSectionMeta.icon} size={18} />
+            <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Icon name={currentSectionMeta.icon} size={15} className="shrink-0 text-primary" />
+                  <h3 className="truncate text-[13px] font-semibold text-ink">{currentSectionMeta.label}</h3>
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-primary font-bold">
-                      {currentSectionMeta.eyebrow}
-                    </span>
-                    {currentSectionMeta.badge && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded-full font-mono uppercase tracking-tight bg-primary/15 text-primary font-bold">
-                        {currentSectionMeta.badge}
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-sm font-semibold text-ink truncate leading-tight">
-                    {currentSectionMeta.label}
-                  </h3>
-                </div>
+                <p className="mt-0.5 truncate text-[11px] text-ink-dim">{currentSectionMeta.description}</p>
               </div>
 
               {/* Prev / Next Stepper */}
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
                   onClick={handlePrevSection}
                   aria-label="Previous tool"
                   title="Previous tool"
-                  className="p-1.5 rounded-lg hover:bg-surface-2 text-ink-muted hover:text-ink border border-line text-xs transition-colors cursor-pointer flex items-center justify-center kt-focus"
+                  className="kt-focus flex cursor-pointer items-center justify-center rounded-lg border border-line p-1.5 text-xs text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
                 >
                   <Icon name="chevron_left" size={16} />
                 </button>
-                <span className="text-xs font-mono font-medium text-ink-dim px-1">
+                <span className="px-1 font-mono text-xs font-medium text-ink-dim">
                   {currentSectionIndex + 1}/{STUDIO_SECTIONS.length}
                 </span>
                 <button
@@ -861,7 +828,7 @@ export default function StaticGenerator() {
                   onClick={handleNextSection}
                   aria-label="Next tool"
                   title="Next tool"
-                  className="p-1.5 rounded-lg hover:bg-surface-2 text-ink-muted hover:text-ink border border-line text-xs transition-colors cursor-pointer flex items-center justify-center kt-focus"
+                  className="kt-focus flex cursor-pointer items-center justify-center rounded-lg border border-line p-1.5 text-xs text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
                 >
                   <Icon name="chevron_right" size={16} />
                 </button>
@@ -884,7 +851,7 @@ export default function StaticGenerator() {
                     <TabsTrigger
                       variant="pill"
                       value={sec.id}
-                      className="shrink-0 select-none rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-muted transition-all data-[state=inactive]:hover:bg-surface-2 data-[state=inactive]:hover:border-line-strong data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:font-semibold data-[state=active]:shadow-sm data-[state=active]:text-on-primary data-[state=active]:ring-1 data-[state=active]:ring-primary/30"
+                      className="shrink-0 select-none rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-muted transition-all data-[state=inactive]:hover:bg-surface-2 data-[state=inactive]:hover:border-line-strong data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:font-semibold data-[state=active]:text-on-primary data-[state=active]:ring-1 data-[state=active]:ring-primary/30"
                     >
                       <Icon name={sec.icon} size={15} />
                       <span>{sec.shortLabel}</span>

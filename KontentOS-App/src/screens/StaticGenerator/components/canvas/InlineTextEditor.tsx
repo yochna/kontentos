@@ -153,9 +153,9 @@ export const InlineTextEditor: React.FC<Props> = ({
       onDoubleClick={(event) => event.stopPropagation()}
     >
       {/* Floating rich formatting bar */}
-      <div className="absolute -top-[92px] left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-1.5 rounded-xl bg-slate-900/95 border border-white/20 shadow-2xl backdrop-blur-xl whitespace-nowrap">
-        <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 text-[9px] font-bold uppercase tracking-wider">
-          {scope === 'complete' ? 'Complete' : `${scope} Letters`}
+      <div className="absolute -top-[92px] left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-1.5 rounded-card bg-surface border border-line shadow-[var(--shadow-2)] whitespace-nowrap">
+        <span className="px-1.5 py-0.5 rounded-btn bg-primary-soft text-primary text-[11px] font-semibold">
+          {scope === 'complete' ? 'Complete' : `${scope} letters`}
         </span>
 
         <div className="relative">
@@ -163,13 +163,13 @@ export const InlineTextEditor: React.FC<Props> = ({
             type="button"
             onPointerDown={(e) => e.preventDefault()}
             onClick={() => setShowColors((v) => !v)}
-            className="w-6 h-6 rounded-md border border-white/20 flex items-center justify-center text-white hover:bg-white/10"
+            className="w-6 h-6 rounded-md border border-line-strong flex items-center justify-center text-ink hover:bg-surface-2"
             title="Text color"
           >
             <span className="w-3 h-3 rounded-full" style={{ background: style?.color || '#ffffff' }} />
           </button>
           {showColors && (
-            <div className="absolute top-8 left-0 z-[90] grid grid-cols-5 gap-1.5 p-2 rounded-lg bg-slate-900 border border-white/20 shadow-2xl">
+            <div className="absolute top-8 left-0 z-[90] grid grid-cols-5 gap-1.5 p-2 rounded-lg bg-surface border border-line shadow-[var(--shadow-2)]">
               {COLORS.map((color) => (
                 <Tooltip key={color} content={color}>
                   <button
@@ -179,7 +179,7 @@ export const InlineTextEditor: React.FC<Props> = ({
                       applyStyle({ color });
                       setShowColors(false);
                     }}
-                    className="w-5 h-5 rounded border border-white/25"
+                    className="w-5 h-5 rounded border border-line-strong"
                     style={{ background: color }}
                   />
                 </Tooltip>
@@ -198,29 +198,29 @@ export const InlineTextEditor: React.FC<Props> = ({
           type="button"
           onPointerDown={(e) => e.preventDefault()}
           onClick={() => changeSize(-2)}
-          className="w-6 h-6 rounded-md text-white hover:bg-white/10 flex items-center justify-center"
+          className="w-6 h-6 rounded-md text-ink hover:bg-surface-2 flex items-center justify-center"
           title="Decrease font size"
         >
           <Icon name="remove" size={14} />
         </button>
-        <span className="text-[10px] font-mono text-slate-300 w-7 text-center">{localSize}</span>
+        <span className="text-[11px] font-mono text-ink w-7 text-center">{localSize}</span>
         <button
           type="button"
           onPointerDown={(e) => e.preventDefault()}
           onClick={() => changeSize(2)}
-          className="w-6 h-6 rounded-md text-white hover:bg-white/10 flex items-center justify-center"
+          className="w-6 h-6 rounded-md text-ink hover:bg-surface-2 flex items-center justify-center"
           title="Increase font size"
         >
           <Icon name="add" size={14} />
         </button>
 
-        <span className="w-px h-4 bg-white/15 mx-0.5" />
+        <span className="w-px h-4 bg-line mx-0.5" />
 
         <button
           type="button"
           onPointerDown={(e) => e.preventDefault()}
           onClick={() => applyStyle({ fontWeight: 800 })}
-          className="w-6 h-6 rounded-md text-white hover:bg-white/10 flex items-center justify-center font-black text-xs"
+          className="w-6 h-6 rounded-md text-ink hover:bg-surface-2 flex items-center justify-center font-black text-xs"
           title="Bold"
         >
           B
@@ -229,7 +229,7 @@ export const InlineTextEditor: React.FC<Props> = ({
           type="button"
           onPointerDown={(e) => e.preventDefault()}
           onClick={() => applyStyle({ fontStyle: 'italic' })}
-          className="w-6 h-6 rounded-md text-white hover:bg-white/10 flex items-center justify-center italic text-xs"
+          className="w-6 h-6 rounded-md text-ink hover:bg-surface-2 flex items-center justify-center italic text-xs"
           title="Italic"
         >
           I
@@ -247,19 +247,19 @@ export const InlineTextEditor: React.FC<Props> = ({
               fontStyle: 'normal',
             });
           }}
-          className="w-6 h-6 rounded-md text-white hover:bg-white/10 flex items-center justify-center"
+          className="w-6 h-6 rounded-md text-ink hover:bg-surface-2 flex items-center justify-center"
           title="Clear formatting"
         >
           <Icon name="format_clear" size={13} />
         </button>
 
-        <span className="w-px h-4 bg-white/15 mx-0.5" />
+        <span className="w-px h-4 bg-line mx-0.5" />
 
         <button
           type="button"
           onPointerDown={(e) => e.preventDefault()}
           onClick={commit}
-          className="px-2 h-6 rounded-md bg-cyan-500 text-slate-950 font-bold text-[10px] hover:bg-cyan-400"
+          className="px-2 h-6 rounded-md bg-primary text-on-primary font-bold text-[11px] hover:bg-primary-hover"
         >
           Done
         </button>

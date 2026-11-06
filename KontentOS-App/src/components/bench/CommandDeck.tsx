@@ -22,7 +22,7 @@ interface Row {
 }
 
 const Kbd = ({ children }: { children: React.ReactNode }) => (
-  <kbd className="shrink-0 rounded-[3px] border border-line-strong px-1.5 py-0.5 font-mono text-[10px] text-ink-muted">
+  <kbd className="shrink-0 rounded-[3px] border border-line-strong px-1.5 py-0.5 font-mono text-[11px] text-ink-muted">
     {children}
   </kbd>
 );
@@ -183,7 +183,7 @@ export function CommandDeck({
           <CommandShortcut>
             <Kbd>enter</Kbd> open
           </CommandShortcut>
-          <span className="ml-auto font-mono text-[9.5px] uppercase tracking-[0.12em] text-ink-dim">
+          <span className="ml-auto font-mono text-[11px] uppercase tracking-[0.12em] text-ink-dim">
             {q ? `${total} matching` : `${total} in the deck`}
           </span>
         </footer>
@@ -205,7 +205,7 @@ function DeckRow({ row, onPick }: { row: Row; onPick: (row: Row) => void }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] font-semibold text-ink">{row.label}</span>
-        <span className="block truncate font-mono text-[10.5px] text-ink-dim">{row.detail}</span>
+        <span className="block truncate font-mono text-[11px] text-ink-dim">{row.detail}</span>
       </span>
     </CommandItem>
   );

@@ -1,8 +1,13 @@
 import express from 'express';
-import { GoogleGenAI } from '@google/genai';
 import { searchStockPhotos } from '../stockSearchService.js';
 import { envGeminiKey } from '../geminiKey.js';
 import { safeMessage } from '../errorText.js';
+import {
+  DEFAULT_MODEL,
+  ENGINE_MODELS,
+  MODEL_ATTEMPT_TIMEOUT_MS,
+  preferredModelFrom,
+} from './caption.js';
 
 const router = express.Router();
 
@@ -15,7 +20,6 @@ function readGeminiText(payload: unknown): string {
   const data = payload as GeminiReply;
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
-
 
 function getEffectiveApiKey(): string {
   // The deployment's key, or nothing. A browser-sent key is not accepted: it would have to travel
@@ -30,6 +34,55 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Prom
     promise,
     new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMsg)), ms)),
   ]);
+}
+
+/**
+ * One attempt per engine, starting with the model the Room station picked, with the rest of the
+ * cascade behind it. This replaces an earlier shape that tried every model over raw REST and then
+ * tried the same list again through the SDK — the SDK posts to the same endpoint with the same key,
+ * so the second pass only doubled the time the creator spent watching a spinner when the first pass
+ * had already been refused.
+ */
+async function askEngine<T>(
+  apiKey: string,
+  systemPrompt: string,
+  userText: string,
+  preferredModel: unknown,
+  parse: (rawText: string) => T | null
+): Promise<{ result: T; modelUsed: string } | null> {
+  if (!apiKey) return null;
+  const models = Array.from(
+    new Set([preferredModelFrom(preferredModel) ?? DEFAULT_MODEL, ...ENGINE_MODELS])
+  );
+
+  for (const model of models) {
+    try {
+      // The key goes in a header, not the URL: a query string is what ends up in proxy logs,
+      // crash reports and anybody's browser history.
+      const res = await withTimeout(
+        fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n${userText}` }] }],
+            generationConfig: { temperature: 0.75, responseMimeType: 'application/json' },
+          }),
+        }),
+        MODEL_ATTEMPT_TIMEOUT_MS,
+        `Timeout on ${model}`
+      );
+      if (!res.ok) {
+        console.warn(`[StaticCardAi] ${model} responded ${res.status}:`, (await res.text()).slice(0, 150));
+        continue;
+      }
+      const extracted = parse(readGeminiText(await res.json()));
+      if (extracted) return { result: extracted, modelUsed: model };
+    } catch (err: any) {
+      console.warn(`[StaticCardAi] ${model} attempt failed:`, err?.message);
+    }
+  }
+
+  return null;
 }
 
 function parseGeneratedCopy(rawText: string): { headline: string; supportingText: string; socialCaption: string } | null {
@@ -60,155 +113,59 @@ function parseGeneratedCopy(rawText: string): { headline: string; supportingText
 }
 
 /**
- * Direct REST caller to Google Generative AI API using the active Gemini models
+ * The voice the engine is asked for. Tone and the Brand Kit brief come from the bench, so the Kit
+ * and Room switches decide what card copy sounds like — before this the route always asked for a
+ * "world-class viral ghostwriter", whatever the creator had actually set.
  */
-async function callGeminiRest(apiKey: string, promptText: string, format: string): Promise<{ headline: string; supportingText: string; socialCaption: string } | null> {
-  // No key means no engine. Asking anyway is four live HTTPS calls per card that Google refuses,
-  // which reads as a slow 502 for the creator and as noise in the deploy log.
-  const models = apiKey ? ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'] : [];
-  
-  const systemPrompt = `You are a world-class creator, viral ghostwriter, and design strategist for Instagram, LinkedIn, and 𝕏.
-Generate highly specific, authoritative, non-generic copy for a visual social card (Format: ${format}).
-
-CRITICAL REQUIREMENTS:
-1. "headline": A bold, magnetic 1-2 sentence hook statement that stops the scroll. Max 18 words. Avoid cliches.
-2. "supportingText": A sharp 2-3 sentence tactical takeaway, framework breakdown, or high-signal insight. Max 35 words.
-3. "socialCaption": Accompanying full caption formatted with paragraph breaks and 3-4 hashtags.
-
-Return ONLY valid JSON with keys: "headline", "supportingText", "socialCaption".`;
-
-  for (const model of models) {
-    try {
-      // The key goes in a header, not the URL: a query string is what ends up in proxy logs,
-      // crash reports and anybody's browser history.
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-      const res = await withTimeout(
-        fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  { text: `${systemPrompt}\n\nUSER TOPIC / INSTRUCTION:\n"${promptText}"` }
-                ]
-              }
-            ],
-            generationConfig: {
-              temperature: 0.75,
-              responseMimeType: 'application/json',
-            }
-          })
-        }),
-        10000,
-        `Timeout on ${model}`
-      );
-
-      if (!res.ok) {
-        const errBody = await res.text();
-        console.warn(`[StaticCardAi REST] Model ${model} responded with ${res.status}:`, errBody.slice(0, 150));
-        continue;
-      }
-
-      const rawText = readGeminiText(await res.json());
-      const extracted = parseGeneratedCopy(rawText);
-      if (extracted) {
-        return extracted;
-      }
-    } catch (e: any) {
-      console.warn(`[StaticCardAi REST] ${model} attempt failed:`, e?.message);
-    }
-  }
-
-  return null;
+function voiceLines(tone: unknown, context: unknown): string[] {
+  const lines: string[] = [];
+  const cleanTone = typeof tone === 'string' ? tone.trim().slice(0, 120) : '';
+  const cleanContext = typeof context === 'string' ? context.trim().slice(0, 1200) : '';
+  if (cleanTone) lines.push(`Tone: ${cleanTone}.`);
+  if (cleanContext) lines.push(`Write inside this creator's own voice — use it, do not describe it:\n${cleanContext}`);
+  return lines;
 }
 
 /**
  * POST /api/static-card/generate-copy
- * Generate dynamic visual card copy strictly via Gemini AI
+ * Headline, supporting text and caption for one card, in the creator's voice.
  */
 router.post('/generate-copy', async (req, res) => {
   try {
-    const { prompt, format = 'instagram-overlay' } = req.body;
+    const { prompt, format = 'instagram-overlay', tone, context, model } = req.body || {};
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ error: 'Please provide a topic or prompt for the AI to generate copy.' });
     }
 
-    const cleanPrompt = prompt.trim();
-    const effectiveKey = getEffectiveApiKey();
+    const cleanFormat = typeof format === 'string' ? format.slice(0, 60) : 'instagram-overlay';
+    const systemPrompt = `You are writing the words on one static social card (format: ${cleanFormat}).
+${voiceLines(tone, context).join('\n')}
 
-    // Call REST first with the verified active Gemini models
-    let generatedCopy = await callGeminiRest(effectiveKey, cleanPrompt, format);
+The card has three parts:
+1. "headline": the claim itself, one to two sentences, max 18 words. No scene-setting, no cliches.
+2. "supportingText": the part that is actually useful — the step, the number or the trade-off. Two to three sentences, max 35 words.
+3. "socialCaption": the caption that goes with the card, paragraph breaks and three or four hashtags.
 
-    // If REST had any issue, try SDK with gemini-3.8-flash
-    if (!generatedCopy && effectiveKey) {
-      try {
-        const ai = new GoogleGenAI({
-          apiKey: effectiveKey,
-          httpOptions: {
-            headers: {
-              'User-Agent': 'kontentos-static-generator',
-            },
-          },
-        });
+Wrap one to three words in [square brackets] where the card should put the accent.
+Return ONLY valid JSON with keys: "headline", "supportingText", "socialCaption".`;
 
-        const systemPrompt = `You are a world-class creator, viral ghostwriter, and design strategist for Instagram, LinkedIn, and 𝕏.
-Generate highly specific, authoritative, non-generic copy for a visual social card (Format: ${format}).
+    const generated = await askEngine(
+      getEffectiveApiKey(),
+      systemPrompt,
+      `USER TOPIC:\n"${prompt.trim()}"`,
+      model,
+      parseGeneratedCopy
+    );
 
-CRITICAL REQUIREMENTS:
-1. "headline": A bold, magnetic 1-2 sentence hook statement that stops the scroll. Max 18 words. Avoid cliches.
-2. "supportingText": A sharp 2-3 sentence tactical takeaway, framework breakdown, or high-signal insight. Max 35 words.
-3. "socialCaption": Accompanying full caption formatted with paragraph breaks and 3-4 hashtags.
-
-Return pure JSON with keys: "headline", "supportingText", "socialCaption".`;
-
-        const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
-        let modelUsed = '';
-        for (const model of modelsToTry) {
-          try {
-            const response = await withTimeout(
-              ai.models.generateContent({
-                model,
-                contents: [
-                  {
-                    role: 'user',
-                    parts: [{ text: `${systemPrompt}\n\nUSER TOPIC / SEED IDEA:\n"${cleanPrompt}"` }],
-                  },
-                ],
-                config: {
-                  responseMimeType: 'application/json',
-                  temperature: 0.75,
-                },
-              }),
-              10000,
-              'Gemini timeout'
-            );
-
-            const responseText = response.text || '';
-            const extracted = parseGeneratedCopy(responseText);
-            if (extracted) {
-              generatedCopy = extracted;
-              modelUsed = model;
-              break;
-            }
-          } catch (err: any) {
-            console.warn(`[StaticCardAi SDK] ${model} failed:`, err?.message);
-          }
-        }
-      } catch (sdkInitErr) {
-        console.warn('[StaticCardAi SDK] SDK init failed:', sdkInitErr);
-      }
-    }
-
-    if (generatedCopy) {
+    if (generated) {
       return res.json({
         success: true,
-        headline: generatedCopy.headline,
-        supportingText: generatedCopy.supportingText,
-        socialCaption: generatedCopy.socialCaption,
-        modelUsed: 'gemini-3.1-flash-lite',
+        headline: generated.result.headline,
+        supportingText: generated.result.supportingText,
+        socialCaption: generated.result.socialCaption,
+        // The engine that actually answered — the panel prints it, so it cannot be a fixed name.
+        modelUsed: generated.modelUsed,
       });
     }
 
@@ -218,7 +175,7 @@ Return pure JSON with keys: "headline", "supportingText", "socialCaption".`;
   } catch (err: any) {
     console.error('[StaticCardAi] Server error:', err);
     return res.status(500).json({
-      error: safeMessage(err, 'Server error while contacting Gemini AI.'),
+      error: safeMessage(err, 'Server error while contacting the copy engine.'),
     });
   }
 });
@@ -254,37 +211,30 @@ function parseGeneratedDeck(rawText: string, expectedCount: number = 5): { slide
 
 /**
  * POST /api/static-card/generate-deck
- * Generate an entire 5-slide carousel story arc via Gemini AI strictly adhering to prompt.
+ * A whole carousel arc — one slide per beat, in the creator's voice.
  */
 router.post('/generate-deck', async (req, res) => {
   try {
-    const { prompt, slideCount = 5 } = req.body;
+    const { prompt, slideCount = 5, tone, context, model } = req.body || {};
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ error: 'Please provide a topic or prompt for the carousel deck.' });
     }
 
-    const cleanPrompt = prompt.trim();
     const count = Math.min(Math.max(Number(slideCount) || 5, 3), 8);
-    const effectiveKey = getEffectiveApiKey();
 
-    const systemPrompt = `You are a viral ghostwriter, editorial director, and visual slide strategist for top 0.1% creators on LinkedIn, Instagram, and 𝕏.
-Generate an authoritative, scroll-stopping ${count}-slide carousel presentation deck that STRICTLY and DEEPLY focuses on the user's prompt: "${cleanPrompt}".
+    const systemPrompt = `You are writing a ${count}-slide carousel about one topic, in the creator's own voice.
+${voiceLines(tone, context).join('\n')}
 
-CRITICAL STRUCTURE & QUALITY RULES:
-1. STRICT ADHERENCE: All content across ALL ${count} slides MUST be newly, custom-generated specifically for the user's prompt topic. Zero generic placeholders, zero stock templates, zero vague platitudes.
-2. NARRATIVE ARCHITECTURE FOR ${count} SLIDES:
-   - SLIDE 1 (The Hook): A counter-intuitive premise, surprising paradox, or shocking industry truth about this specific topic that forces the reader to stop scrolling. Wrap 1-3 critical impact words or metrics in [square brackets] (e.g. "[80% of creators]", "[The Fatal Flaw]").
-   - SLIDES 2 to ${count - 1} (Actionable Framework Steps):
-     * Slide 2 (Step 1): Name the foundational principle or diagnosis explicitly with "Step 1: [Core Actionable Step]" directly addressing the topic.
-     * Slide 3 (Step 2): Detail the tactical blueprint or execution method with "Step 2: [Core Strategic Framework]" directly addressing the topic.
-     * Slide 4 (Step 3): Reveal the scaling multiplier, automation, or leverage constraint with "Step 3: [High-Leverage Multiplier]" directly addressing the topic.
-   - SLIDE ${count} (The Playbook & CTA): A high-leverage final takeaway explicitly formatted as "The Playbook: [Execute This Framework]". The supportingText must provide a concise synthesis and an explicit call-to-action to bookmark/save the carousel and apply it immediately.
-3. ACCENT HIGHLIGHTING: Every single slide MUST contain exactly 1 to 3 words or numbers wrapped in [square brackets] so they illuminate with neon accent glows on the canvas.
-4. HEADLINE LENGTH: 8 to 16 words. Clear, bold, authoritative.
-5. SUPPORTING TEXT LENGTH: 2 to 3 sentences. 20 to 38 words. High signal-to-noise ratio.
-6. "socialCaption": Complete post caption with line breaks and 3-4 topic-relevant hashtags.
+The deck's shape:
+- Slide 1 makes the claim. One to two sentences, max 16 words.
+- Slides 2 to ${count - 1} are the moves, in the order they actually happen. Each headline starts "Step 1:", "Step 2:" and so on, and its supporting text says what to do and what it costs or fixes.
+- Slide ${count} closes: a synthesis of the steps in two to three sentences.
+- Every slide wraps one to three words or numbers in [square brackets]; those are the words the card lights up.
+- Headline: 8 to 16 words. Supporting text: 2 to 3 sentences, 20 to 38 words.
+- "socialCaption": the caption that goes with the deck, paragraph breaks and three or four hashtags.
 
+Say the specific thing, not the general one. If a number or a scene is not in the topic, leave a bracket for the creator to fill rather than inventing it.
 Return ONLY valid JSON with this exact schema:
 {
   "slides": [
@@ -297,100 +247,23 @@ Return ONLY valid JSON with this exact schema:
   "socialCaption": "..."
 }`;
 
-    // Try active Gemini REST models first
-    const models = effectiveKey ? ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'] : [];
-    let generatedDeck: { slides: GeneratedSlide[]; socialCaption: string } | null = null;
-    let modelUsed = '';
-
-    for (const model of models) {
-      try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-        const resp = await withTimeout(
-          fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': effectiveKey },
-            body: JSON.stringify({
-              contents: [
-                {
-                  role: 'user',
-                  parts: [{ text: `${systemPrompt}\n\nUSER TOPIC / SEED CONCEPT:\n"${cleanPrompt}"` }],
-                },
-              ],
-              generationConfig: {
-                temperature: 0.75,
-                responseMimeType: 'application/json',
-              },
-            }),
-          }),
-          14000,
-          `Timeout on ${model}`
-        );
-
-        if (!resp.ok) continue;
-        const rawText = readGeminiText(await resp.json());
+    const generated = await askEngine(
+      getEffectiveApiKey(),
+      systemPrompt,
+      `USER TOPIC:\n"${prompt.trim()}"`,
+      model,
+      (rawText) => {
         const parsed = parseGeneratedDeck(rawText, count);
-        if (parsed && parsed.slides.length >= 3) {
-          generatedDeck = parsed;
-          modelUsed = model;
-          break;
-        }
-      } catch (err: any) {
-        console.warn(`[DeckGen REST] ${model} failed:`, err?.message);
+        return parsed && parsed.slides.length >= 3 ? parsed : null;
       }
-    }
+    );
 
-    // Secondary fallback: Try GoogleGenAI SDK with active models
-    if (!generatedDeck && effectiveKey) {
-      try {
-        const ai = new GoogleGenAI({
-          apiKey: effectiveKey,
-          httpOptions: {
-            headers: {
-              'User-Agent': 'kontentos-static-generator',
-            },
-          },
-        });
-        for (const model of ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash']) {
-          try {
-            const resp = await withTimeout(
-              ai.models.generateContent({
-                model,
-                contents: [
-                  {
-                    role: 'user',
-                    parts: [{ text: `${systemPrompt}\n\nUSER TOPIC / SEED CONCEPT:\n"${cleanPrompt}"` }],
-                  },
-                ],
-                config: {
-                  responseMimeType: 'application/json',
-                  temperature: 0.75,
-                },
-              }),
-              12000,
-              `SDK timeout on ${model}`
-            );
-            const text = resp?.text || '';
-            const parsed = parseGeneratedDeck(text, count);
-            if (parsed && parsed.slides.length >= 3) {
-              generatedDeck = parsed;
-              modelUsed = model;
-              break;
-            }
-          } catch (sdkErr: any) {
-            console.warn(`[DeckGen SDK] ${model} failed:`, sdkErr?.message);
-          }
-        }
-      } catch (sdkInitErr) {
-        console.warn('[DeckGen SDK] SDK init failed:', sdkInitErr);
-      }
-    }
-
-    if (generatedDeck) {
+    if (generated) {
       return res.json({
         success: true,
-        slides: generatedDeck.slides,
-        socialCaption: generatedDeck.socialCaption,
-        modelUsed: modelUsed || 'gemini-3.1-flash-lite',
+        slides: generated.result.slides,
+        socialCaption: generated.result.socialCaption,
+        modelUsed: generated.modelUsed,
       });
     }
 
@@ -435,16 +308,10 @@ function parseRegeneratedSlide(rawText: string): { headline: string; supportingT
 
 /**
  * POST /api/static-card/regenerate-slide
- * Context-Aware Per-Slide Regeneration Endpoint (Task 2.4.1)
+ * Rewrite the one slide the creator is standing on, with its neighbours for continuity.
  *
- * Accepts:
- * - slideIndex: number (1-based index)
- * - totalSlides?: number
- * - currentSlide: { headline: string; supportingText: string; slideType?: string }
- * - previousSlide?: { headline: string; supportingText: string } | null
- * - nextSlide?: { headline: string; supportingText: string } | null
- * - topic?: string
- * - instruction?: string (e.g. "Make this step more tactical")
+ * Accepts slideIndex, totalSlides, currentSlide, previousSlide, nextSlide, topic, instruction,
+ * plus the same tone/context/model the rest of the copy routes take.
  */
 router.post('/regenerate-slide', async (req, res) => {
   try {
@@ -456,6 +323,9 @@ router.post('/regenerate-slide', async (req, res) => {
       nextSlide,
       topic = '',
       instruction = '',
+      tone,
+      context,
+      model,
     } = req.body || {};
 
     if (
@@ -468,38 +338,34 @@ router.post('/regenerate-slide', async (req, res) => {
       });
     }
 
-    const effectiveKey = getEffectiveApiKey();
     const cleanTopic = (topic || '').trim();
     const cleanInstruction = (instruction || '').trim();
     const idx = Number(slideIndex) || 1;
 
-    const systemPrompt = `You are an elite ghostwriter, viral creator, and visual slide strategist for top 0.1% creators on LinkedIn, Instagram, and 𝕏.
-Your mission is to REWRITE and IMPROVE a SINGLE SLIDE in a carousel presentation while preserving strict narrative flow and contextual continuity.
+    const neighbour = (slide: any, whenEmpty: string) =>
+      slide && (slide.headline || slide.supportingText)
+        ? `Headline: "${slide.headline || ''}" | Supporting: "${slide.supportingText || ''}"`
+        : whenEmpty;
 
-NARRATIVE FLOW & CONTEXT:
-- Overall Theme / Topic: "${cleanTopic || 'High-Leverage Creator Systems'}"
-- Carousel Position: Slide ${idx}${totalSlides ? ` of ${totalSlides}` : ''}
-- PRECEDING SLIDE (Context): ${
-  previousSlide && (previousSlide.headline || previousSlide.supportingText)
-    ? `Headline: "${previousSlide.headline || ''}" | Supporting: "${previousSlide.supportingText || ''}"`
-    : 'None (This is the opening hook slide of the deck)'
-}
-- CURRENT SLIDE (To Revise):
+    const systemPrompt = `You are rewriting a single slide of a carousel so it reads better, in the creator's own voice.
+${voiceLines(tone, context).join('\n')}
+
+Where it sits:
+- Topic: "${cleanTopic || 'the creator is filling this in themselves — keep their subject'}"
+- Position: slide ${idx}${totalSlides ? ` of ${totalSlides}` : ''}
+- Before it: ${neighbour(previousSlide, 'nothing — this is the opening slide')}
+- This slide, to revise:
   Headline: "${currentSlide.headline || ''}"
   Supporting: "${currentSlide.supportingText || ''}"
-- SUBSEQUENT SLIDE (Context): ${
-  nextSlide && (nextSlide.headline || nextSlide.supportingText)
-    ? `Headline: "${nextSlide.headline || ''}" | Supporting: "${nextSlide.supportingText || ''}"`
-    : 'None (This is the final closing / CTA slide of the deck)'
-}
-- CREATOR'S REVISION INSTRUCTION: "${cleanInstruction || 'Rewrite to make it more impactful, tactical, and concise while maintaining natural progression from the previous slide to the next slide.'}"
+- After it: ${neighbour(nextSlide, 'nothing — this is the closing slide')}
+- What the creator asked for: "${cleanInstruction || 'make it plainer, keep the thread from the slide before to the one after'}"
 
-CRITICAL RULES:
-1. NARRATIVE CONTINUITY: The revised slide MUST logically connect what came before to what comes after. Do not repeat facts from the previous slide or jump ahead to the next slide prematurely.
-2. KEYWORD ACCENTUATION: Wrap 1 to 3 pivotal high-impact words or numbers in [square brackets] so they illuminate with custom glow accents on the canvas (e.g. "[80% of your time]", "[The Asymmetry]", "[Step 2: Automate]").
-3. HEADLINE: Punchy, high-contrast, scroll-stopping title. Max 16 words.
-4. SUPPORTING TEXT: High-signal tactical takeaway, practical advice, or framework breakdown. 2-3 sentences. Max 35 words.
-5. STRICT INSTRUCTION COMPLIANCE: If the user asked for "more tactical", provide an actionable rule or step. If "more concise", cut fluff ruthlessly. If "stronger hook", increase intrigue or counter-intuition.
+Rules:
+1. Carry the thread: do not repeat what the previous slide said, do not spend what the next slide needs.
+2. Wrap one to three words or numbers in [square brackets]; those light up on the card.
+3. Headline max 16 words. Supporting text 2 to 3 sentences, max 35 words.
+4. Do the revision the creator asked for. "More tactical" means a step; "more concise" means cutting; "stronger hook" means a sharper claim.
+5. Do not invent a number, a result or a scene the creator has not given you — leave a bracket instead.
 
 Return ONLY valid JSON with this exact schema:
 {
@@ -507,86 +373,22 @@ Return ONLY valid JSON with this exact schema:
   "supportingText": "..."
 }`;
 
-    const models = effectiveKey ? ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'] : [];
-    let rewrittenSlide: { headline: string; supportingText: string } | null = null;
-    let modelUsed = '';
-
-    for (const model of models) {
-      try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-        const resp = await withTimeout(
-          fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': effectiveKey },
-            body: JSON.stringify({
-              contents: [
-                {
-                  role: 'user',
-                  parts: [{ text: systemPrompt }],
-                },
-              ],
-              generationConfig: {
-                temperature: 0.7,
-                responseMimeType: 'application/json',
-              },
-            }),
-          }),
-          10000,
-          `Timeout on ${model}`
-        );
-
-        if (!resp.ok) continue;
-        const rawText = readGeminiText(await resp.json());
+    const rewritten = await askEngine(
+      getEffectiveApiKey(),
+      systemPrompt,
+      'Rewrite the slide described above.',
+      model,
+      (rawText) => {
         const parsed = parseRegeneratedSlide(rawText);
-        if (parsed && (parsed.headline || parsed.supportingText)) {
-          rewrittenSlide = parsed;
-          modelUsed = model;
-          break;
-        }
-      } catch (err: any) {
-        console.warn(`[RegenerateSlide REST] ${model} failed:`, err?.message);
+        return parsed && (parsed.headline || parsed.supportingText) ? parsed : null;
       }
-    }
+    );
 
-    // Try GoogleGenAI SDK as secondary fallback
-    if (!rewrittenSlide && effectiveKey) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: effectiveKey });
-        for (const model of ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash']) {
-          try {
-            const resp = await withTimeout(
-              ai.models.generateContent({
-                model,
-                contents: systemPrompt,
-                config: {
-                  responseMimeType: 'application/json',
-                  temperature: 0.7,
-                },
-              }),
-              8000,
-              `SDK timeout on ${model}`
-            );
-            const text = resp?.text || '';
-            const parsed = parseRegeneratedSlide(text);
-            if (parsed) {
-              rewrittenSlide = parsed;
-              modelUsed = model;
-              break;
-            }
-          } catch (sdkErr: any) {
-            console.warn(`[RegenerateSlide SDK] ${model} failed:`, sdkErr?.message);
-          }
-        }
-      } catch (sdkInitErr) {
-        console.warn('[RegenerateSlide SDK] SDK init failed:', sdkInitErr);
-      }
-    }
-
-    if (rewrittenSlide) {
+    if (rewritten) {
       return res.json({
         success: true,
-        slide: rewrittenSlide,
-        modelUsed: modelUsed || 'gemini-3.8-flash',
+        slide: rewritten.result,
+        modelUsed: rewritten.modelUsed,
       });
     }
 

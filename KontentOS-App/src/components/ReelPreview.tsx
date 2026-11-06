@@ -715,7 +715,7 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
             )}
             {isTransitioning && activeTransition?.type === 'fade' && (
               <div
-                className="absolute inset-0 bg-black/50 pointer-events-none z-10"
+                className="absolute inset-0 bg-black/70 pointer-events-none z-10"
                 style={{ opacity: 1 - transitionProgress }}
               />
             )}
@@ -732,9 +732,9 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
                   playsInline
                   className="w-full h-full object-cover block animate-in fade-in zoom-in-95 duration-200"
                 />
-                <div className="absolute bottom-2.5 left-2.5 z-20 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur border border-white/20 text-white/90 text-[10px] font-semibold flex items-center gap-1 shadow-sm">
+                <div className="absolute bottom-2.5 left-2.5 z-20 px-2 py-0.5 rounded-full bg-black/75 border border-white/20 text-white/90 text-[11px] font-semibold flex items-center gap-1">
                   <Icon name="movie" size={11} className="text-secondary" />
-                  <span className="truncate max-w-[130px]">{activeBroll.name || 'B-Roll'}</span>
+                  <span className="truncate max-w-[130px]">{activeBroll.name ||'B-Roll'}</span>
                 </div>
               </div>
             )}
@@ -752,7 +752,7 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
       {/* Video Decode / Network Error State */}
       {videoError && (
         <div className="absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center p-4 text-center">
-          <Icon name="error_outline" size={32} className="text-amber-400 mb-2" />
+          <Icon name="error_outline" size={32} className="text-primary mb-2" />
           <p className="text-xs text-white font-medium">Video could not be decoded</p>
           <button
             type="button"
@@ -773,8 +773,8 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
 
       {/* AI Captions Generating Banner */}
       {generatingCaptions && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur border border-emerald-500/50 text-emerald-300 text-[11px] font-medium shadow-xl animate-pulse">
-          <Icon name="auto_awesome" size={14} className="animate-spin text-emerald-400" />
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/80 border border-primary/50 text-[11px] font-medium text-primary animate-pulse">
+          <Icon name="auto_awesome" size={14} className="animate-spin text-primary" />
           <span>AI Transcribing Audio & Generating Captions...</span>
         </div>
       )}
@@ -808,13 +808,13 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
               }
             }}
             disabled={generatingCaptions}
-            className={`h-8 px-2.5 rounded-full backdrop-blur flex items-center gap-1 border text-xs font-semibold transition-all shadow-md ${
+            className={`h-8 px-2.5 rounded-full flex items-center gap-1 border text-xs font-semibold transition-colors ${
               isCCActive
-                ? 'bg-emerald-600 text-white border-emerald-400/60 shadow-emerald-900/30'
+                ? 'bg-primary text-on-primary border-primary/60'
                 : hasCaptions
-                ? 'bg-black/60 text-white/80 border-white/20 hover:text-white hover:bg-black/80'
-                : 'bg-black/60 text-white/70 border-white/20 hover:text-white hover:border-emerald-500/50'
-            } ${generatingCaptions ? 'opacity-60 cursor-wait' : 'hover:scale-105 active:scale-95'}`}
+                ? 'bg-black/75 text-white/80 border-white/20 hover:text-white hover:bg-black/80'
+                : 'bg-black/75 text-white/70 border-white/20 hover:text-white hover:border-white/45'
+            } ${generatingCaptions ? 'opacity-60 cursor-wait' : 'active:scale-95'}`}
             aria-label={
               hasCaptions ? (isCCActive ? 'Hide Live Captions' : 'Show Live Captions') : 'Generate AI Live Captions'
             }
@@ -827,7 +827,7 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
               {generatingCaptions ? 'Generating...' : hasCaptions ? 'CC' : 'Auto CC'}
             </span>
             {!hasCaptions && !generatingCaptions && (
-              <Icon name="auto_awesome" size={11} className="text-amber-300 ml-0.5" />
+              <Icon name="auto_awesome" size={11} className="text-primary ml-0.5" />
             )}
           </button>
         </Tooltip>
@@ -845,10 +845,10 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
                   setLocalMuted((m) => !m);
                 }
               }}
-              className={`w-8 h-8 rounded-full backdrop-blur text-white/90 hover:text-white flex items-center justify-center border transition-all hover:scale-105 shadow-md ${
+              className={`w-8 h-8 rounded-full text-white/90 hover:text-white flex items-center justify-center border transition-colors ${
                 isAudioMuted
-                  ? 'bg-rose-950/80 border-rose-500/50 text-rose-300'
-                  : 'bg-black/60 border-white/20'
+                  ? 'bg-black/85 border-white/45 text-white'
+                  : 'bg-black/75 border-white/20'
               }`}
               aria-label={isAudioMuted ? 'Unmute video audio' : 'Mute video audio'}
             >
@@ -872,9 +872,9 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
         >
           {editingClipId === cue.id ? (
             <div
-              className="inline-flex flex-col items-center p-2 rounded-xl backdrop-blur-md bg-black/85 border-2 border-primary shadow-2xl ring-2 ring-primary/40 animate-in fade-in zoom-in-95 duration-150 max-w-full"
+              className="inline-flex flex-col items-center p-2 rounded-card bg-black/88 border border-primary animate-in fade-in duration-150 max-w-full"
               style={{
-                boxShadow: '0 8px 30px rgba(0,0,0,0.85), 0 0 16px rgba(40, 92, 77, 0.6)',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.85)',
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -902,8 +902,8 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
                 }}
                 placeholder="Edit caption text..."
               />
-              <div className="flex items-center gap-2 mt-1 pt-1 border-t border-white/20 text-[10.5px] font-semibold text-white/80">
-                <span className="flex items-center gap-0.5 text-emerald-400">
+              <div className="flex items-center gap-2 mt-1 pt-1 border-t border-white/20 text-[11px] font-semibold text-white/80">
+                <span className="flex items-center gap-0.5 text-success">
                   <Icon name="keyboard_return" size={11} />
                   <span>Enter to save</span>
                 </span>
@@ -913,7 +913,7 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
             </div>
           ) : (
             <span
-              className={`inline-block px-3 py-1.5 rounded-lg backdrop-blur leading-tight transition-transform hover:scale-[1.03] hover:ring-2 hover:ring-primary/70 ${animClass(
+              className={`inline-block px-3 py-1.5 rounded-lg leading-tight transition-shadow hover:ring-2 hover:ring-primary/70 ${animClass(
                 cue,
               )}`}
               style={{
@@ -953,15 +953,16 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
         />
       </div>
 
-      {/* Big Play Overlay (when paused) */}
+      {/* Pause plate: a corner chip rather than a centred disc, so it never lands on a caption. */}
       {duration > 0 && !playing && (
         <button
+          type="button"
           onClick={() => onPlayingChange?.(true)}
-          className="absolute inset-0 grid place-items-center kt-focus bg-black/20 hover:bg-black/30 transition-colors"
+          className="absolute inset-0 z-30 kt-focus bg-black/25 transition-colors hover:bg-black/35"
           aria-label="Play preview"
         >
-          <span className="grid place-items-center w-16 h-16 rounded-full bg-black/55 backdrop-blur text-white border border-white/30 shadow-lg transform transition-transform hover:scale-110">
-            <Icon name="play_arrow" size={34} />
+          <span className="absolute left-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-black/75 text-white border border-white/45">
+            <Icon name="play_arrow" size={17} />
           </span>
         </button>
       )}

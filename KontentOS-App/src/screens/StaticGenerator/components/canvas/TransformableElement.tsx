@@ -259,7 +259,7 @@ export const TransformableElement = forwardRef<HTMLDivElement, TransformableElem
           isEditing ? 'canvas-editing' : ''
         } ${
           isHovered && !isSelected && !isLocked
-            ? 'ring-1 ring-sky-400/45 rounded-[3px]'
+            ? 'ring-1 ring-primary/45 rounded-[3px]'
             : ''
         } ${className}`}
         style={computedStyle}

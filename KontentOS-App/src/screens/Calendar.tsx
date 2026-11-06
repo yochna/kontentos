@@ -201,7 +201,7 @@ export default function Calendar() {
         description="The dates you committed to. KontentOS keeps the plan and the caption; posting is still you."
         actions={
           <>
-            <div className="flex items-center rounded-btn border border-line bg-surface shadow-xs">
+            <div className="flex items-center rounded-btn border border-line bg-surface">
               <Tooltip side="bottom" content="Previous month">
                 <button
                   type="button"
@@ -299,7 +299,7 @@ export default function Calendar() {
       {/* Main Grid & Rail Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
         {/* Calendar Grid */}
-        <Card className="p-3 sm:p-5 shadow-sm overflow-hidden">
+        <Card className="p-3 sm:p-5 overflow-hidden">
           <div className="overflow-x-auto scrollbar-none -mx-1 px-1">
             <div className="min-w-[540px] sm:min-w-[720px]">
           {/* Day Headers (Mon - Sun) */}
@@ -307,7 +307,7 @@ export default function Calendar() {
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName) => (
               <div
                 key={dayName}
-                className="text-center text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim py-1"
+                className="text-center text-[12px] font-semibold uppercase tracking-wider text-ink-dim py-1"
               >
                 <span className="hidden sm:inline">{dayName}</span>
                 <span className="sm:hidden">{dayName[0]}</span>
@@ -348,7 +348,7 @@ export default function Calendar() {
                   }}
                   className={`group relative kt-focus min-h-[92px] sm:min-h-[110px] rounded-card border p-2 text-left transition-all duration-150 cursor-pointer flex flex-col justify-between ${
                     isSelected
-                      ? 'border-primary ring-2 ring-primary/20 bg-primary-soft/40 shadow-xs'
+                      ? 'border-primary ring-2 ring-primary/20 bg-primary-soft/40'
                       : 'border-line hover:border-line-strong bg-surface hover:bg-surface-2/40'
                   }`}
                 >
@@ -356,7 +356,7 @@ export default function Calendar() {
                     <span
                       className={`text-[12.5px] font-semibold w-6 h-6 grid place-items-center rounded-full transition-colors ${
                         isToday
-                          ? 'bg-primary text-on-primary font-bold shadow-xs'
+                          ? 'bg-primary text-on-primary font-bold'
                           : isSelected
                           ? 'text-primary font-bold'
                           : 'text-ink-muted group-hover:text-ink'
@@ -405,7 +405,7 @@ export default function Calendar() {
                                 setActivePostModal(ev);
                               }
                             }}
-                            className={`kt-focus flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium border leading-tight truncate transition-transform hover:scale-[1.02] ${cfg.bg} ${cfg.color} ${cfg.border}`}
+                            className={`kt-focus flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium border leading-tight truncate transition-colors ${cfg.bg} ${cfg.color} ${cfg.border}`}
                           >
                             <Icon name={cfg.icon} size={12} className="shrink-0" />
                             <span className="truncate flex-1">
@@ -416,14 +416,14 @@ export default function Calendar() {
                       );
                     })}
                     {evs.length > 2 && (
-                      <span className="block text-[10.5px] font-semibold text-primary px-1 text-right">
+                      <span className="block text-[11px] font-semibold text-primary px-1 text-right">
                         +{evs.length - 2} more
                       </span>
                     )}
                   </div>
 
                   {/* Bottom Day Status Indicator */}
-                  <div className="flex items-center justify-between text-[10px] text-ink-dim pt-1 border-t border-line/30">
+                  <div className="flex items-center justify-between text-[11px] text-ink-dim pt-1 border-t border-line/30">
                     <span>{evs.length > 0 ? `${evs.length} drops` : '—'}</span>
                     {evs.some((e) => e.status === 'published') && (
                       <span
@@ -445,7 +445,7 @@ export default function Calendar() {
         {/* Side Rail: Day Inspector & Distribution Queue */}
         <div className="space-y-6">
           {/* Day Inspector Card */}
-          <Card className="p-5 border-line shadow-sm">
+          <Card className="p-5 border-line">
             <div className="flex items-center justify-between pb-3 border-b border-line mb-4">
               <div>
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim">
@@ -495,13 +495,13 @@ export default function Calendar() {
           </Card>
 
           {/* Upcoming Master Queue */}
-          <Card className="p-5 border-line shadow-sm">
+          <Card className="p-5 border-line">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-ink text-[15px] flex items-center gap-2">
                 <Icon name="upcoming" size={17} className="text-primary" />
                 Upcoming Queue
               </h3>
-              <span className="text-[11.5px] text-ink-dim">
+              <span className="text-[12px] text-ink-dim">
                 {upcomingQueue.length} queued
               </span>
             </div>
@@ -532,7 +532,7 @@ export default function Calendar() {
                         <div className="text-[13px] font-semibold text-ink truncate group-hover:text-primary transition-colors">
                           {post.video_title || 'Untitled Reel'}
                         </div>
-                        <div className="text-[11.5px] text-ink-muted flex items-center gap-1.5 mt-0.5">
+                        <div className="text-[12px] text-ink-muted flex items-center gap-1.5 mt-0.5">
                           <span>
                             {MONTH_NAMES[dateObj.getMonth()].slice(0, 3)} {dateObj.getDate()}
                           </span>
@@ -607,7 +607,7 @@ export default function Calendar() {
               )}
 
               <div>
-                <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                   Post Title
                 </label>
                 <div className="text-[15px] font-semibold text-ink">
@@ -616,7 +616,7 @@ export default function Calendar() {
               </div>
 
               <div>
-                <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                   {activePostModal.post_url ? 'Live post' : 'Where it goes'}
                 </label>
                 <a
@@ -668,7 +668,7 @@ export default function Calendar() {
 
               {(activePostModal.caption_text || (activePostModal.hashtags && activePostModal.hashtags.length > 0)) && (
                 <div>
-                  <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                  <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                     Formatted Caption &amp; Hashtags
                   </label>
                   <div className="text-[13px] text-ink bg-surface-2/60 border border-line rounded-btn p-3 whitespace-pre-wrap max-h-[140px] overflow-y-auto leading-relaxed">
@@ -794,7 +794,7 @@ function DayPostCard({
   return (
     <div
       onClick={onInspect}
-      className="rounded-card border border-line p-3.5 bg-surface hover:border-line-strong transition-all cursor-pointer space-y-2.5 shadow-xs"
+      className="rounded-card border border-line p-3.5 bg-surface hover:border-line-strong transition-all cursor-pointer space-y-2.5"
     >
       <div className="flex items-start gap-3">
         {post.thumbnail_url ? (
@@ -814,7 +814,7 @@ function DayPostCard({
           <div className="text-[13.5px] font-semibold text-ink truncate">
             {post.video_title || 'Untitled Post'}
           </div>
-          <div className="text-[11.5px] text-ink-muted flex items-center gap-1.5 mt-0.5">
+          <div className="text-[12px] text-ink-muted flex items-center gap-1.5 mt-0.5">
             <span>{timeStr}</span>
             <span>•</span>
             <span>{cfg.label}</span>

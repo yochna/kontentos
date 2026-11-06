@@ -85,7 +85,7 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state, onUpdateText }) => {
                 isLight ? 'bg-black/5 border-black/10 text-slate-900' : 'bg-black/60 border-white/20 text-white'
               }`}
             >
-              <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center bg-cyan-600/40 text-cyan-200 text-[10px] font-bold">
+              <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center bg-cyan-600/40 text-cyan-200 text-[11px] font-bold">
                 {safeAvatar ? (
                   <img src={safeAvatar} alt="" className="w-full h-full object-cover" crossOrigin="anonymous" />
                 ) : (
@@ -102,7 +102,7 @@ export const LinkedInSplitCard: React.FC<Props> = ({ state, onUpdateText }) => {
         {/* Format Tag */}
         <TransformableElement id="badge" transform={scene.badge} className="relative z-10">
           <span
-            className={`text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded backdrop-blur-sm border ${
+            className={`text-[11px] uppercase font-mono tracking-widest px-2 py-0.5 rounded backdrop-blur-sm border ${
               isLight ? 'bg-white/80 border-black/10' : 'bg-black/50 border-white/10'
             }`}
             style={{ color: theme.accent }}

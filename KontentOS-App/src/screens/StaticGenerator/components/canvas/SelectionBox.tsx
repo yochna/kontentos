@@ -164,24 +164,24 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
       <div
         className="w-full h-full relative"
         style={{
-          border: `1.5px solid ${isLocked ? '#94a3b8' : accentColor}`,
+          border: `1.5px solid ${isLocked ? 'var(--line-strong)' : accentColor}`,
           boxShadow: `0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 16px ${
-            isLocked ? '#94a3b825' : `${accentColor}25`
+            isLocked ? 'rgba(41, 50, 58, 0.15)' : `${accentColor}25`
           }`,
         }}
       >
         {/* Element Type Pill Tag */}
         <div
-          className={`absolute flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase select-none shadow-md backdrop-blur-md pointer-events-none transition-all ${
+          className={`absolute flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold select-none pointer-events-none transition-all ${
             isTopTight ? 'top-1.5' : '-top-6'
           } ${isLeftTight ? 'left-1.5' : 'left-0'}`}
           style={{
             backgroundColor: accentColor,
-            color: '#020617', // slate-950 for sharp readability
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            color: 'var(--app)',
+            boxShadow: 'var(--shadow-1)',
           }}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-slate-950 opacity-80" />
+          <span className="w-1.5 h-1.5 rounded-full bg-app opacity-80" />
           <span>{getElementLabel(selectedElementId)}</span>
         </div>
 

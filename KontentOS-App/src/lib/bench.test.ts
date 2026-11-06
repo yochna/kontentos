@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildLedger,
   DRAFT_STEP_STATION,
+  fmtBytes,
   formatDuration,
   lastStation,
   LEDGER_STAGES,
@@ -170,6 +171,29 @@ describe('rail filtering', () => {
   it('names a stage for every cut the rail can draw', () => {
     expect(ledgerStage(buildLedger(video(), empty))).not.toBeNull();
     expect(ledgerStage([])).toBeNull();
+  });
+});
+
+describe('byte formatting', () => {
+  it('never reports a real file as 0.0 MB', () => {
+    // A phone take can be 43 KB: rounding it to megabytes showed "0.0 MB" and made the panel
+    // read as broken data.
+    expect(fmtBytes(44_000)).toBe('43 KB');
+    expect(fmtBytes(4_400)).toBe('4.3 KB');
+    expect(fmtBytes(1_500_000)).toBe('1.43 MB');
+    expect(fmtBytes(43_000_000)).toBe('41.0 MB');
+    expect(fmtBytes(2_400_000_000)).toBe('2.24 GB');
+  });
+
+  it('says the bytes are missing instead of inventing a size', () => {
+    expect(fmtBytes(undefined)).toBe('not set yet');
+    expect(fmtBytes(0)).toBe('not set yet');
+  });
+
+  it('puts the same number in the ledger', () => {
+    const steps = buildLedger(video({ file_size: 44_000 }), empty);
+    expect(steps[0].detail).toBe('43 KB on disk');
+    expect(buildLedger(video(), empty)[0].detail).toBe('On the bench');
   });
 });
 

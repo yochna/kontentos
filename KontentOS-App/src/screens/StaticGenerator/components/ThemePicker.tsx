@@ -3,6 +3,7 @@ import { THEME_CONFIGS, getActiveTheme } from '../../../data/staticCardPresets';
 import { ColorTheme, FontStyle, CardMode } from '../../../types/staticCard';
 import { Icon } from '@/lib/icons';
 import { Tooltip } from '@/components/ui/tooltip';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { TypographyPicker } from './TypographyPicker';
 
 interface Props {
@@ -67,7 +68,7 @@ export const ThemePicker: React.FC<Props> = ({
               }}
               className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
                 cardMode === 'dark'
-                  ? 'bg-primary text-on-primary shadow-sm'
+                  ? 'bg-primary text-on-primary'
                   : 'text-ink-muted hover:text-ink'
               }`}
             >
@@ -83,7 +84,7 @@ export const ThemePicker: React.FC<Props> = ({
               }}
               className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
                 cardMode === 'light'
-                  ? 'bg-primary text-on-primary shadow-sm'
+                  ? 'bg-primary text-on-primary'
                   : 'text-ink-muted hover:text-ink'
               }`}
             >
@@ -95,83 +96,72 @@ export const ThemePicker: React.FC<Props> = ({
 
       {/* Palette Selection Header & Collection Tabs */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] text-ink-muted font-medium">Curated Slide Themes</span>
-          <div className="inline-flex items-center gap-1 bg-surface-2/60 p-0.5 rounded-md border border-line/60 text-[10px]">
-            <button
-              type="button"
-              onClick={() => setCollectionFilter('all')}
-              className={`px-2 py-0.5 rounded transition-all cursor-pointer font-medium ${
-                collectionFilter === 'all'
-                  ? 'bg-surface text-ink font-semibold shadow-xs'
-                  : 'text-ink-muted hover:text-ink'
-              }`}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-medium text-ink-muted">Slide themes</span>
+          <ToggleGroup
+            value={collectionFilter}
+            onValueChange={(next) => next && setCollectionFilter(next as typeof collectionFilter)}
+            aria-label="Filter the theme list"
+            variant="segment"
+            className="bg-surface-2/60 text-[11px]"
+          >
+            <ToggleGroupItem
+              value="all"
+              variant="segment"
+              className="px-2 py-0.5 text-[11px] data-[state=on]:bg-surface"
             >
-              All ({themeList.filter((t) => (cardMode === 'light' ? t.mode === 'light' : t.mode === 'dark')).length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setCollectionFilter('craft')}
-              className={`px-2 py-0.5 rounded transition-all cursor-pointer font-medium flex items-center gap-1 ${
-                collectionFilter === 'craft'
-                  ? 'bg-primary text-on-primary font-semibold shadow-xs'
-                  : 'text-primary hover:text-primary-hover'
-              }`}
-              title="Curated themes inspired by Storytold / DeckCraft"
+              <span>
+                All ({themeList.filter((t) => (cardMode === 'light' ? t.mode === 'light' : t.mode === 'dark')).length})
+              </span>
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="craft"
+              variant="segment"
+              className="px-2 py-0.5 text-[11px] data-[state=on]:bg-surface"
+              title="Themes built as a matched series"
             >
               <span>Craft Series</span>
-              <span className="text-[9px] px-1 py-0.2 rounded-full bg-white/20 font-bold">New</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCollectionFilter('core')}
-              className={`px-2 py-0.5 rounded transition-all cursor-pointer font-medium ${
-                collectionFilter === 'core'
-                  ? 'bg-surface text-ink font-semibold shadow-xs'
-                  : 'text-ink-muted hover:text-ink'
-              }`}
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="core"
+              variant="segment"
+              className="px-2 py-0.5 text-[11px] data-[state=on]:bg-surface"
             >
-              Studio Core
-            </button>
-          </div>
+              <span>Studio Core</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
         {/* Palette Selection Chips with Rich Previews */}
-        <div className="flex flex-wrap gap-1.5">
-          {filteredThemes.map((t) => {
-            const isSelected = currentTheme === t.id;
-            return (
-              <Tooltip key={t.id} content={t.description || t.name}>
-                <button
-                  type="button"
-                  onClick={() => onSelectTheme(t.id as ColorTheme)}
-                  className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-primary text-on-primary border-primary shadow-[var(--shadow-1)] ring-1 ring-primary/40 font-bold'
-                      : 'bg-surface hover:bg-surface-2 text-ink border-line hover:border-line-strong'
-                  }`}
+        <ToggleGroup
+          value={currentTheme}
+          onValueChange={(next) => next && onSelectTheme(next as ColorTheme)}
+          aria-label="Slide theme"
+          variant="none"
+          className="flex-wrap"
+        >
+          {filteredThemes.map((t) => (
+            <Tooltip key={t.id} content={t.description || t.name}>
+              <ToggleGroupItem
+                value={t.id}
+                variant="none"
+                className="group inline-flex cursor-pointer items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-line-strong hover:bg-surface-2 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-on-primary data-[state=on]:shadow-[var(--shadow-1)]"
+              >
+                {/* Backdrop colour with the accent core in it, so the chip previews the pair */}
+                <span
+                  className="relative flex h-3.5 w-3.5 items-center justify-center overflow-hidden rounded-full border border-white/20"
+                  style={{ backgroundColor: t.cardBg }}
                 >
-                  {/* Mini Color Swatch with Backdrop & Accent Core */}
                   <span
-                    className="relative w-3.5 h-3.5 rounded-full border border-white/20 shadow-inner flex items-center justify-center overflow-hidden"
-                    style={{ backgroundColor: t.cardBg }}
-                  >
-                    <span
-                      className="w-1.5 h-1.5 rounded-full shadow-xs"
-                      style={{ backgroundColor: t.accent }}
-                    />
-                  </span>
-                  <span>{t.name}</span>
-                  {t.collection === 'craft' && !isSelected && (
-                    <span className="text-[9px] text-primary font-bold px-1 py-0.2 bg-primary/10 rounded-full">
-                      Craft
-                    </span>
-                  )}
-                </button>
-              </Tooltip>
-            );
-          })}
-        </div>
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: t.accent }}
+                  />
+                </span>
+                <span>{t.name}</span>
+              </ToggleGroupItem>
+            </Tooltip>
+          ))}
+        </ToggleGroup>
       </div>
 
       {/* Custom Accent Color Picker */}
@@ -179,16 +169,16 @@ export const ThemePicker: React.FC<Props> = ({
         <div className="space-y-1.5 pt-1">
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-ink-muted font-medium flex items-center gap-1">
-              <span>Custom Accent & Keyword Glow:</span>
+              <span>Accent colour</span>
               {customAccent && (
-                <span className="font-mono text-primary font-bold text-[10px]">{customAccent}</span>
+                <span className="font-mono text-primary font-bold text-[11px]">{customAccent}</span>
               )}
             </span>
             {customAccent && (
               <button
                 type="button"
                 onClick={() => onSelectCustomAccent(undefined)}
-                className="text-[10px] text-ink-dim hover:text-danger cursor-pointer transition-colors"
+                className="text-[11px] text-ink-dim hover:text-danger cursor-pointer transition-colors"
               >
                 Reset to Default
               </button>
@@ -204,12 +194,12 @@ export const ThemePicker: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => onSelectCustomAccent(swatch.hex)}
-                    className={`w-6 h-6 rounded-full border transition-all cursor-pointer flex items-center justify-center ${
-                      isActive ? 'ring-2 ring-primary ring-offset-2 scale-110' : 'border-white/20 hover:scale-105'
+                    className={`w-6 h-6 rounded-full border border-line-strong transition-colors cursor-pointer flex items-center justify-center ${
+                      isActive ? 'ring-2 ring-primary' : 'hover:border-line-strong'
                     }`}
                     style={{ backgroundColor: swatch.hex }}
                   >
-                    {isActive && <span className="text-[10px] text-black font-bold"><Icon name="check" size={11} className="text-black" /></span>}
+                    {isActive && <span className="text-[11px] text-black font-bold"><Icon name="check" size={11} className="text-black" /></span>}
                   </button>
                 </Tooltip>
               );
@@ -235,7 +225,7 @@ export const ThemePicker: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Curated Typography Bundles */}
+      {/* Type pairings */}
       <div className="pt-2 border-t border-line/60">
         <TypographyPicker
           fontStyle={fontStyle}

@@ -1,8 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, Badge, StatusPill } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Field, Input, Label } from '@/components/ui/field';
+import { Switch } from '@/components/ui/switch';
 import { StaticCardState } from '../../../types/staticCard';
+import { formatLabel } from './FormatTabs';
 import { useStore } from '@/lib/store';
 import { navigate } from '@/lib/nav';
 import type { SocialPlatform } from '@/lib/types';
@@ -24,6 +27,17 @@ const ALL_PLATFORMS: { id: SocialPlatform; label: string; icon: string; color: s
   { id: 'facebook', label: 'Facebook', icon: 'group', color: 'text-blue-500' },
   { id: 'youtube', label: 'YouTube Shorts', icon: 'smart_display', color: 'text-red-500' },
 ];
+
+const TIMING_PRESETS = [
+  { id: 'today_10am', label: 'Today 10:00 AM' },
+  { id: 'today_6pm', label: 'Today 6:30 PM' },
+  { id: 'tomorrow_9am', label: 'Tomorrow 9:15 AM' },
+  { id: 'tomorrow_6pm', label: 'Tomorrow 6:45 PM' },
+  { id: 'saturday', label: 'Saturday 11:00 AM' },
+] as const;
+
+const platformLabels = (ids: SocialPlatform[]) =>
+  ids.map((id) => ALL_PLATFORMS.find((p) => p.id === id)?.label ?? id);
 
 export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
   isOpen,
@@ -225,7 +239,7 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
         count: slides.length - refused.length,
         dateFormatted: formattedReadable,
         targetIso: firstScheduledIso,
-        platforms: selectedPlatforms.map((p) => p.toUpperCase()),
+        platforms: platformLabels(selectedPlatforms),
         refused,
       });
     } catch (err) {
@@ -234,7 +248,7 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
         count: 0,
         dateFormatted: '',
         targetIso: new Date().toISOString(),
-        platforms: selectedPlatforms.map((p) => p.toUpperCase()),
+        platforms: platformLabels(selectedPlatforms),
         refused: [`Could not reach the calendar: ${err instanceof Error ? err.message : 'unknown error'}`],
       });
     } finally {
@@ -249,23 +263,15 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
       <DialogContent size="lg" hideClose className="flex flex-col gap-0 overflow-hidden p-0">
         {/* Header */}
         <div className="p-5 border-b border-line bg-surface/90 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-              <Icon name="calendar_month" size={22} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <DialogTitle className="text-base font-bold text-ink">
-                  Export to Calendar
-                </DialogTitle>
-                <Badge tone="primary">
-                  {isCarousel ? `${slides.length} Carousel Slides` : 'Static Post'}
-                </Badge>
-              </div>
-              <p className="text-xs text-ink-muted">
-                Select your drop date, time, and social platforms to schedule inside the calendar
-              </p>
-            </div>
+          <div className="min-w-0">
+            <DialogTitle className="text-[15px] font-semibold text-ink">
+              Send this to the Calendar
+            </DialogTitle>
+            <p className="mt-1 text-xs text-ink-muted">
+              {isCarousel
+                ? `${slides.length} slides — the Calendar queues them; it does not publish them.`
+                : 'The Calendar queues this post; it does not publish it.'}
+            </p>
           </div>
           <DialogClose
             aria-label="Close export dialog"
@@ -279,35 +285,37 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
         <div className="p-5 overflow-y-auto space-y-4 flex-1">
           {successInfo !== null ? (
             /* Result State — nothing is claimed until the calendar actually took the row */
-            <div className="text-center py-6 px-4 space-y-4 animate-in fade-in duration-300">
+            <div className="text-center py-6 px-4 space-y-4 animate-in">
               <div
-                className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center border shadow-sm ${
+                className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full border ${
                   successInfo.count > 0
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
-                    : 'bg-danger/10 border-danger/30 text-danger'
+                    ? 'border-success/30 bg-success/10 text-success'
+                    : 'border-danger/30 bg-danger/10 text-danger-ink'
                 }`}
               >
-                <Icon name={successInfo.count > 0 ? 'check_circle' : 'error'} size={34} />
+                <Icon name={successInfo.count > 0 ? 'check_circle' : 'error'} size={30} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-ink">
+                <h3 className="text-[15px] font-semibold text-ink">
                   {successInfo.count > 0
                     ? `${successInfo.count} post${successInfo.count > 1 ? 's' : ''} queued in the Calendar`
                     : 'Nothing was queued'}
                 </h3>
                 {successInfo.dateFormatted && (
-                  <p className="text-xs text-ink font-semibold mt-1">
-                    Scheduled for: <span className="text-primary">{successInfo.dateFormatted}</span>
+                  <p className="mt-1 text-xs font-medium text-ink">
+                    Queued for <span className="text-primary">{successInfo.dateFormatted}</span>
                   </p>
                 )}
-                <p className="text-[11px] text-ink-muted mt-1">
-                  Channels: {successInfo.platforms.join(', ')}
-                </p>
-                <p className="text-[11px] text-ink-muted mt-1">
+                {successInfo.platforms.length > 0 && (
+                  <p className="mt-1 text-[11px] text-ink-muted">
+                    Channels: {successInfo.platforms.join(', ')}
+                  </p>
+                )}
+                <p className="mt-1 text-[11px] text-ink-muted">
                   Queued, not published — post it yourself, then mark it on the Calendar.
                 </p>
                 {successInfo.refused.length > 0 && (
-                  <ul className="mx-auto mt-2 max-w-[42ch] space-y-1 rounded-xl border border-danger/30 bg-danger/10 p-2.5 text-left text-[11.5px] text-ink">
+                  <ul className="mx-auto mt-2 max-w-[42ch] space-y-1 rounded-card border border-danger/30 bg-danger/10 p-2.5 text-left text-[12px] text-ink">
                     {successInfo.refused.map((r) => (
                       <li key={r}>{r}</li>
                     ))}
@@ -324,102 +332,77 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
                     onClose();
                     navigate('calendar', { targetDate: successInfo.targetIso });
                   }}
-                  className="shadow-md"
                 >
-                  View in Calendar →
+                  Open in Calendar
                 </Button>
                 <Button variant="secondary" size="md" onClick={onClose}>
-                  Done (Stay in Studio)
+                  Back to the card
                 </Button>
               </div>
             </div>
           ) : (
             <>
-              {/* 1. Date & Time Selection Box */}
-              <div className="p-4 bg-surface-2/40 border border-line rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-ink uppercase tracking-wider flex items-center gap-1.5">
+              {/* Timing */}
+              <div className="p-4 bg-surface-2/40 border border-line rounded-card space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
                     <Icon name="calendar_today" size={15} className="text-primary" />
-                    1. Select Date &amp; Time
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
-                    <input
-                      type="checkbox"
+                    When it goes out
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="kt-post-now"
                       checked={markAsPublishedNow}
-                      onChange={(e) => setMarkAsPublishedNow(e.target.checked)}
-                      className="rounded border-line text-primary focus:ring-primary"
+                      onCheckedChange={setMarkAsPublishedNow}
                     />
-                    <span className="text-[11px] font-medium">Queue for right now</span>
-                  </label>
+                    <Label htmlFor="kt-post-now" className="text-[11px] font-medium text-ink">
+                      Post now
+                    </Label>
+                  </div>
                 </div>
 
                 {!markAsPublishedNow && (
                   <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <span className="text-[11px] text-ink-muted block mb-1 font-medium">Drop Date:</span>
-                        <input
-                          type="date"
-                          required
-                          value={selectedDate}
-                          onChange={(e) => setSelectedDate(e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-surface border border-line rounded-lg text-ink font-medium focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                      </div>
+                      <Field label="Drop date" className="gap-1">
+                        {({ id }) => (
+                          <Input
+                            id={id}
+                            type="date"
+                            required
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                          />
+                        )}
+                      </Field>
 
-                      <div>
-                        <span className="text-[11px] text-ink-muted block mb-1 font-medium">Drop Time:</span>
-                        <input
-                          type="time"
-                          required
-                          value={selectedTime}
-                          onChange={(e) => setSelectedTime(e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-surface border border-line rounded-lg text-ink font-medium focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                      </div>
+                      <Field label="Drop time" className="gap-1">
+                        {({ id }) => (
+                          <Input
+                            id={id}
+                            type="time"
+                            required
+                            value={selectedTime}
+                            onChange={(e) => setSelectedTime(e.target.value)}
+                          />
+                        )}
+                      </Field>
                     </div>
 
                     {/* Quick Timing Presets */}
-                    <div className="space-y-1 pt-1">
-                      <span className="text-[10px] text-ink-muted uppercase tracking-wider block">
-                        Quick Timing Presets:
-                      </span>
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[11px] text-ink-muted font-medium block">Or pick a slot</span>
                       <div className="flex flex-wrap gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleQuickPreset('today_10am')}
-                          className="px-2.5 py-1 rounded-md text-[11px] bg-surface border border-line hover:border-primary/50 text-ink-muted hover:text-ink cursor-pointer"
-                        >
-                          Today 10:00 AM
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickPreset('today_6pm')}
-                          className="px-2.5 py-1 rounded-md text-[11px] bg-surface border border-line hover:border-primary/50 text-ink-muted hover:text-ink cursor-pointer"
-                        >
-                          Today 06:30 PM
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickPreset('tomorrow_9am')}
-                          className="px-2.5 py-1 rounded-md text-[11px] bg-surface border border-line hover:border-primary/50 text-ink-muted hover:text-ink cursor-pointer"
-                        >
-                          Tomorrow 09:15 AM
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickPreset('tomorrow_6pm')}
-                          className="px-2.5 py-1 rounded-md text-[11px] bg-surface border border-line hover:border-primary/50 text-ink-muted hover:text-ink cursor-pointer"
-                        >
-                          Tomorrow 06:45 PM
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickPreset('saturday')}
-                          className="px-2.5 py-1 rounded-md text-[11px] bg-surface border border-line hover:border-primary/50 text-ink-muted hover:text-ink cursor-pointer"
-                        >
-                          Saturday 11:00 AM
-                        </button>
+                        {TIMING_PRESETS.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => handleQuickPreset(preset.id)}
+                            className="kt-focus cursor-pointer rounded-btn border border-line bg-surface px-2.5 py-1 text-[11px] text-ink-muted hover:border-line-strong hover:text-ink"
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </>
@@ -429,59 +412,61 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
               {/* Carousel Sequence Strategy (Only if multi-slide) */}
               {isCarousel && slides.length > 1 && !markAsPublishedNow && (
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold text-ink uppercase tracking-wider block">
-                    Carousel Deck Dispatch Strategy
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <span className="text-[13px] font-semibold text-ink block">How the deck goes out</span>
+                  <div
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-2.5"
+                    role="radiogroup"
+                    aria-label="How the deck goes out"
+                  >
                     <button
                       type="button"
+                      role="radio"
+                      aria-checked={carouselStrategy === 'same_day'}
                       onClick={() => setCarouselStrategy('same_day')}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      className={`cursor-pointer rounded-btn border p-3 text-left transition-colors kt-focus ${
                         carouselStrategy === 'same_day'
-                          ? 'border-primary ring-2 ring-primary/20 bg-primary-soft/30 shadow-xs'
-                          : 'border-line hover:border-line-strong bg-surface hover:bg-surface-2/40'
+                          ? 'border-primary bg-primary-soft/30 text-ink'
+                          : 'border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink'
                       }`}
                     >
-                      <span className="text-xs font-bold text-ink block">
-                        Full Campaign Drop on {selectedDate}
-                      </span>
+                      <span className="text-xs font-semibold text-ink block">All at once</span>
                       <p className="text-[11px] text-ink-muted mt-0.5">
-                        All {slides.length} slides scheduled together on this chosen date &amp; time.
+                        {slides.length} slides on {selectedDate} at {selectedTime}.
                       </p>
                     </button>
 
                     <button
                       type="button"
+                      role="radio"
+                      aria-checked={carouselStrategy === 'cadence'}
                       onClick={() => setCarouselStrategy('cadence')}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      className={`cursor-pointer rounded-btn border p-3 text-left transition-colors kt-focus ${
                         carouselStrategy === 'cadence'
-                          ? 'border-primary ring-2 ring-primary/20 bg-primary-soft/30 shadow-xs'
-                          : 'border-line hover:border-line-strong bg-surface hover:bg-surface-2/40'
+                          ? 'border-primary bg-primary-soft/30 text-ink'
+                          : 'border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink'
                       }`}
                     >
-                      <span className="text-xs font-bold text-ink block">
-                        Sequential Cadence (1 Slide / Day)
-                      </span>
+                      <span className="text-xs font-semibold text-ink block">One slide a day</span>
                       <p className="text-[11px] text-ink-muted mt-0.5">
-                        Slide 1 on {selectedDate}, Slide 2 next day, etc., at {selectedTime}.
+                        Slide 1 on {selectedDate}, the rest on the days after, each at {selectedTime}.
                       </p>
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* 2. Destination Social Channels */}
+              {/* Destination Social Channels */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-ink uppercase tracking-wider block">
-                    2. Select Social Platforms ({selectedPlatforms.length})
-                  </label>
+                  <span className="text-[13px] font-semibold text-ink">
+                    Where it goes ({selectedPlatforms.length})
+                  </span>
                   <button
                     type="button"
                     onClick={handleSelectAllPlatforms}
-                    className="text-[11px] text-primary hover:underline font-medium cursor-pointer"
+                    className="text-[11px] cursor-pointer font-medium text-primary underline-offset-2 kt-focus rounded-sm hover:underline"
                   >
-                    {selectedPlatforms.length === ALL_PLATFORMS.length ? 'Deselect All' : 'Select All Platforms'}
+                    {selectedPlatforms.length === ALL_PLATFORMS.length ? 'Clear' : 'All platforms'}
                   </button>
                 </div>
 
@@ -492,11 +477,12 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
                       <button
                         key={plat.id}
                         type="button"
+                        aria-pressed={active}
                         onClick={() => togglePlatform(plat.id)}
-                        className={`flex items-center gap-2 p-2.5 rounded-xl text-xs font-semibold border text-left transition-all cursor-pointer ${
+                        className={`flex items-center gap-2 rounded-btn border p-2.5 text-left text-xs font-semibold transition-colors cursor-pointer kt-focus ${
                           active
-                            ? 'bg-primary-soft text-primary border-primary shadow-xs'
-                            : 'bg-surface text-ink-muted border-line hover:border-line-strong'
+                            ? 'bg-primary-soft text-primary border-primary'
+                            : 'bg-surface text-ink-muted border-line hover:border-line-strong hover:text-ink'
                         }`}
                       >
                         <Icon name={plat.icon} size={16} className={active ? 'text-primary' : plat.color} />
@@ -508,25 +494,23 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
                 </div>
               </div>
 
-              {/* 3. Post Summary Manifest */}
+              {/* Post Summary Manifest */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-ink uppercase tracking-wider">
-                    3. Posts to Export ({slides.length})
-                  </label>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[13px] font-semibold text-ink">What gets exported ({slides.length})</span>
                   <span className="text-[11px] text-ink-muted">
-                    Format: <strong className="text-ink">{state.format}</strong> ({state.aspectRatio})
+                    {formatLabel(state.format)} · {state.aspectRatio}
                   </span>
                 </div>
 
-                <div className="space-y-1.5 max-h-36 overflow-y-auto border border-line rounded-xl p-2 bg-app/40">
+                <div className="space-y-1.5 max-h-36 overflow-y-auto border border-line rounded-card p-2 bg-app/40">
                   {slides.map((s, idx) => (
                     <div
                       key={s.id || idx}
                       className="p-2 rounded-lg bg-surface border border-line/70 flex items-start justify-between gap-3 text-xs"
                     >
                       <div className="flex items-start gap-2 min-w-0">
-                        <span className="w-5 h-5 rounded bg-primary/10 text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="w-5 h-5 rounded bg-primary/10 text-primary font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
                           {idx + 1}
                         </span>
                         <div className="min-w-0">
@@ -539,7 +523,7 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
                         </div>
                       </div>
 
-                      <span className="text-[10px] text-ink-muted font-mono shrink-0">
+                      <span className="text-[11px] text-ink-muted font-mono shrink-0">
                         {markAsPublishedNow
                           ? 'Today'
                           : carouselStrategy === 'cadence'
@@ -569,24 +553,18 @@ export const PublishToCalendarModal: React.FC<PublishToCalendarModalProps> = ({
               <Button
                 variant="primary"
                 size="sm"
-                icon={isPublishing ? undefined : 'calendar_month'}
+                icon={isPublishing ? 'progress_activity' : 'calendar_month'}
+                iconSpin={isPublishing}
                 disabled={isPublishing || selectedPlatforms.length === 0}
                 onClick={handleExportToCalendar}
-                className="shadow-md"
               >
-                {isPublishing ? (
-                  <>
-                    <svg className="animate-spin h-3.5 w-3.5 text-on-primary mr-1" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span>Exporting to Calendar...</span>
-                  </>
-                ) : (
-                  <span>
-                    Export to Calendar ({selectedDate})
-                  </span>
-                )}
+                <span>
+                  {isPublishing
+                    ? 'Queuing…'
+                    : markAsPublishedNow
+                    ? `Queue ${slides.length} for today`
+                    : `Queue ${slides.length} for ${selectedDate} · ${selectedTime}`}
+                </span>
               </Button>
             </div>
           </div>

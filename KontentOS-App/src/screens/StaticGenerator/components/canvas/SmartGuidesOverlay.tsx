@@ -32,7 +32,7 @@ export const SmartGuidesOverlay: React.FC<Props> = ({ disabled = false }) => {
               />
               {guide.label && (
                 <span
-                  className="absolute top-2 px-1.5 py-0.5 rounded-full text-[8px] font-black tracking-widest text-slate-950"
+                  className="absolute top-2 px-1.5 py-0.5 rounded-full text-[11px] font-semibold text-app"
                   style={{ left: guide.position + 6, background: color }}
                 >
                   {guide.label}
@@ -53,7 +53,7 @@ export const SmartGuidesOverlay: React.FC<Props> = ({ disabled = false }) => {
             />
             {guide.label && (
               <span
-                className="absolute left-2 px-1.5 py-0.5 rounded-full text-[8px] font-black tracking-widest text-slate-950"
+                className="absolute left-2 px-1.5 py-0.5 rounded-full text-[11px] font-semibold text-app"
                 style={{ top: guide.position + 6, background: color }}
               >
                 {guide.label}

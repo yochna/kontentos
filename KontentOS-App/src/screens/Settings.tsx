@@ -183,7 +183,7 @@ export default function Settings() {
           <TabsList
             variant="stack"
             aria-label="Settings sections"
-            className="flex lg:flex-col gap-1.5 overflow-x-auto lg:overflow-visible bg-surface p-2 rounded-card border border-line shadow-xs"
+            className="flex lg:flex-col gap-1.5 overflow-x-auto lg:overflow-visible bg-surface p-2 rounded-card border border-line"
           >
             {settingsSections.map((s) => (
               <TabsTrigger
@@ -203,7 +203,7 @@ export default function Settings() {
           {/* 1. Account & Profile */}
           <TabsContent value="account" className="mt-0 space-y-6">
               <>
-                <Card className="p-6 shadow-xs border-line space-y-6">
+                <Card className="p-6 border-line space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="font-display text-[22px] font-bold text-ink">
@@ -217,7 +217,7 @@ export default function Settings() {
 
                   <div className="flex items-center gap-4 p-4 rounded-card bg-surface-2/60 border border-line">
                     <span
-                      className="grid place-items-center w-16 h-16 rounded-full text-on-primary font-display text-[26px] font-bold shadow-xs shrink-0"
+                      className="grid place-items-center w-16 h-16 rounded-full text-on-primary font-display text-[26px] font-bold shrink-0"
                       style={{ background: 'var(--primary)' }}
                     >
                       {initials}
@@ -229,14 +229,14 @@ export default function Settings() {
                       <div className="text-[12.5px] text-ink-muted mt-0.5 flex items-center gap-2">
                         <span>{email}</span>
                         <span>•</span>
-                        <span className="text-primary font-medium">@{igHandle || 'yourhandle'}</span>
+                        <span className="text-primary font-medium">@{igHandle ||'yourhandle'}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                         Display Name
                       </label>
                       <input
@@ -247,7 +247,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                         Email Address
                       </label>
                       <input
@@ -260,7 +260,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                         Instagram Handle
                       </label>
                       <div className="flex items-center rounded-btn border border-line bg-surface overflow-hidden">
@@ -276,7 +276,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                         YouTube Channel Identifier
                       </label>
                       <input
@@ -288,7 +288,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                         Primary Content Niche
                       </label>
                       <input
@@ -300,7 +300,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                         Target Audience Locale
                       </label>
                       <input
@@ -332,7 +332,7 @@ export default function Settings() {
                 </Card>
 
                 {/* Backend & Data Persistence Status */}
-                <Card className="p-6 shadow-xs border-line">
+                <Card className="p-6 border-line">
                   <h3 className="font-display text-[18px] font-bold text-ink mb-1">
                     Database &amp; Engine Status
                   </h3>
@@ -374,20 +374,20 @@ export default function Settings() {
                 </Card>
 
                 {/* Account security: the studio is one creator's workspace, so sign-out is real */}
-                <Card className="p-6 shadow-xs border-line space-y-5">
+                <Card className="p-6 border-line space-y-5">
                   <div>
                     <h3 className="font-display text-[18px] font-bold text-ink mb-1">
                       Sign-in &amp; Password
                     </h3>
                     <p className="text-[12.5px] text-ink-muted">
-                      Signed in as <span className="font-semibold text-ink">{email || 'your account'}</span>.
+                      Signed in as <span className="font-semibold text-ink">{email ||'your account'}</span>.
                       Your clips, captions and calendar are visible only to this account.
                     </p>
                   </div>
 
                   <form onSubmit={handleChangePassword} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                         Current password
                       </label>
                       <input
@@ -399,7 +399,7 @@ export default function Settings() {
                       />
                     </div>
                     <div>
-                      <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                         New password
                       </label>
                       <input
@@ -416,7 +416,7 @@ export default function Settings() {
                       </p>
                     )}
                     <div className="sm:col-span-2 flex items-center justify-between gap-3">
-                      <p className="text-[11.5px] text-ink-dim">
+                      <p className="text-[12px] text-ink-dim">
                         Changing it signs you out of this browser. Minimum 8 characters.
                       </p>
                       <Button
@@ -431,7 +431,7 @@ export default function Settings() {
                   </form>
 
                   <div className="flex items-center justify-between pt-4 border-t border-line">
-                    <p className="text-[11.5px] text-ink-dim">Ends this session on this browser.</p>
+                    <p className="text-[12px] text-ink-dim">Ends this session on this browser.</p>
                     <Button variant="secondary" icon="logout" onClick={handleSignOut}>
                       Sign out
                     </Button>
@@ -442,7 +442,7 @@ export default function Settings() {
 
           {/* 2. AI Engine */}
           <TabsContent value="ai" className="mt-0 space-y-6">
-              <Card className="p-6 shadow-xs border-line space-y-6">
+              <Card className="p-6 border-line space-y-6">
                 <div>
                   <h2 className="font-display text-[22px] font-bold text-ink">
                     Generation engine
@@ -454,7 +454,7 @@ export default function Settings() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
-                    <label htmlFor="ai-primary-model" className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                    <label htmlFor="ai-primary-model" className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
                       Primary model
                     </label>
                     <Select value={aiModel} onValueChange={setAiModel}>
@@ -471,7 +471,7 @@ export default function Settings() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-[11.5px] text-ink-dim mt-1">
+                    <p className="text-[12px] text-ink-dim mt-1">
                       Sent to the copy engines as their first choice; if it is unavailable the server
                       runs the next engine in the list.
                     </p>
@@ -479,10 +479,10 @@ export default function Settings() {
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim">
+                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim">
                         Creativity / Temperature ({temperature})
                       </label>
-                      <span className="text-[11.5px] font-bold text-primary">
+                      <span className="text-[12px] font-bold text-primary">
                         {temperature <= 0.3
                           ? 'Precise & Direct'
                           : temperature <= 0.7
@@ -547,7 +547,7 @@ export default function Settings() {
 
           {/* 3. Appearance */}
           <TabsContent value="appearance" className="mt-0 space-y-6">
-              <Card className="p-6 shadow-xs border-line space-y-6">
+              <Card className="p-6 border-line space-y-6">
                 <div>
                   <h2 className="font-display text-[22px] font-bold text-ink">
                     Aesthetic &amp; Theme Studio
@@ -562,7 +562,7 @@ export default function Settings() {
                     onClick={() => setTheme('light')}
                     className={`text-left rounded-card border-2 p-3.5 transition-all kt-focus ${
                       theme === 'light'
-                        ? 'border-primary ring-2 ring-primary/20 shadow-sm'
+                        ? 'border-primary ring-2 ring-primary/20'
                         : 'border-line hover:border-line-strong'
                     }`}
                   >
@@ -584,7 +584,7 @@ export default function Settings() {
                     onClick={() => setTheme('dark')}
                     className={`text-left rounded-card border-2 p-3.5 transition-all kt-focus ${
                       theme === 'dark'
-                        ? 'border-primary ring-2 ring-primary/20 shadow-sm'
+                        ? 'border-primary ring-2 ring-primary/20'
                         : 'border-line hover:border-line-strong'
                     }`}
                   >
@@ -607,7 +607,7 @@ export default function Settings() {
 
           {/* 4. API Keys */}
           <TabsContent value="keys" className="mt-0 space-y-6">
-              <Card className="p-6 shadow-xs border-line space-y-6">
+              <Card className="p-6 border-line space-y-6">
                 <div>
                   <h2 className="font-display text-[22px] font-bold text-ink">
                     Engine key
@@ -624,7 +624,7 @@ export default function Settings() {
                     className={`p-3 border rounded-btn text-[13px] flex items-center gap-2 ${
                       keyNotice.ok
                         ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-900'
-                        : 'bg-danger/10 text-danger border-danger/30'
+                        : 'bg-danger/10 text-danger-ink border-danger/30'
                     }`}
                   >
                     <Icon name={keyNotice.ok ? 'check_circle' : 'error_outline'} size={16} className={keyNotice.ok ? 'text-emerald-600' : 'shrink-0'} />
@@ -652,7 +652,7 @@ export default function Settings() {
                     ) : (
                       // The endpoint refuses this in production, so the field is not offered rather than
                       // shown and then answered with a 403.
-                      <span className="text-[11.5px] text-ink-dim text-right max-w-[28ch]">
+                      <span className="text-[12px] text-ink-dim text-right max-w-[28ch]">
                         Held by the host · set GEMINI_API_KEY in its environment
                       </span>
                     )}
@@ -660,7 +660,7 @@ export default function Settings() {
 
                   {isEditingKey && (
                     <div className="p-4 rounded-card border border-primary/40 bg-primary-soft/30 space-y-3">
-                      <label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim block">
+                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block">
                         Enter new Google Gemini API Key
                       </label>
                       <input
@@ -741,7 +741,7 @@ export default function Settings() {
 
           {/* 5. Exports */}
           <TabsContent value="exports" className="mt-0 space-y-6">
-              <Card className="p-6 shadow-xs border-line space-y-6">
+              <Card className="p-6 border-line space-y-6">
                 <div>
                   <h2 className="font-display text-[22px] font-bold text-ink">
                     Render &amp; Export Presets
@@ -819,7 +819,7 @@ function PresetSelect({
   const shown = options.find(([v]) => v === value)?.[1] ?? value;
   return (
     <div>
-      <span className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-dim mb-1 block">{label}</span>
+      <span className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim mb-1 block">{label}</span>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger aria-label={label}>
           <span className="truncate">{shown}</span>
@@ -851,7 +851,7 @@ function ToggleRow({
     <div className="flex items-center justify-between gap-4 p-3 rounded-card border border-line bg-surface hover:border-line-strong transition-colors">
       <div className="min-w-0 flex-1">
         <div className="text-[13.5px] font-semibold text-ink">{label}</div>
-        <div className="text-[11.5px] text-ink-dim mt-0.5">{desc}</div>
+        <div className="text-[12px] text-ink-dim mt-0.5">{desc}</div>
       </div>
       <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
     </div>

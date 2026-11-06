@@ -112,7 +112,7 @@ export function SelectLabel({ className, ...rest }: React.ComponentPropsWithoutR
   return (
     <SelectPrimitive.Label
       {...rest}
-      className={cn('px-2 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-dim', className)}
+      className={cn('px-2 pb-1 pt-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-dim', className)}
     />
   );
 }

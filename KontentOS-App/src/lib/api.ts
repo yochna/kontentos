@@ -271,14 +271,17 @@ export const api = {
   },
 
   /**
-   * Generates dynamic high-converting headline, tactical takeaway, and caption
-   * for static social cards via Google Gemini AI.
+   * Headline, takeaway and caption for a static card. The Room's model and the Brand Kit's voice
+   * travel with the prompt, so what the panel says about the engine is true of this call.
    */
   async generateStaticCardCopy(opts: {
     prompt: string;
     format?: string;
-  }): Promise<{ headline: string; supportingText: string; socialCaption?: string; fallback?: boolean }> {
-    // 1. Primary: Specialized static card Gemini AI endpoint with model cascades
+    tone?: string;
+    context?: string;
+    model?: string;
+  }): Promise<{ headline: string; supportingText: string; socialCaption?: string; modelUsed?: string; fallback?: boolean }> {
+    // 1. Primary: the card-copy route, with the engine cascade behind it
     try {
       const res = await fetch('/api/static-card/generate-copy', {
         method: 'POST',
@@ -286,6 +289,9 @@ export const api = {
         body: JSON.stringify({
           prompt: opts.prompt,
           format: opts.format || 'instagram-overlay',
+          tone: opts.tone,
+          context: opts.context,
+          model: opts.model,
         }),
       });
 
@@ -296,6 +302,7 @@ export const api = {
             headline: data.headline,
             supportingText: data.supportingText,
             socialCaption: data.socialCaption || '',
+            modelUsed: data.modelUsed,
           };
         }
       }
@@ -305,15 +312,16 @@ export const api = {
 
     // 2. Secondary fallback: Try /api/caption/text-gen with structured prompt
     try {
-      const systemPrompt = `You are an elite ghostwriter and viral content strategist for Instagram, LinkedIn, and X.
-Generate highly specific, authoritative, non-generic copy for a visual social card (Format: ${opts.format || 'instagram-overlay'}).
+      const systemPrompt = `You are writing the words on one static social card (format: ${opts.format || 'instagram-overlay'}).
+${opts.tone ? `Tone: ${opts.tone}.` : ''}
+${opts.context ? `Write inside this creator's own voice — use it, do not describe it:\n${opts.context}` : ''}
 
-TOPIC / PROMPT: "${opts.prompt}"
+The card has three parts, for the topic below:
+1. "headline": the claim itself, one to two sentences, max 18 words.
+2. "supportingText": the useful part — the step, the number or the trade-off. Two to three sentences, max 35 words.
+3. "socialCaption": the caption that goes with the card, paragraph breaks and three or four hashtags.
 
-CRITICAL REQUIREMENTS:
-1. "headline": A bold, magnetic 1-2 sentence hook statement (max 18 words).
-2. "supportingText": A sharp 2-3 sentence tactical takeaway or framework breakdown (max 35 words).
-3. "socialCaption": Accompanying full caption formatted with paragraph breaks and 3-4 hashtags.
+TOPIC: "${opts.prompt}"
 
 Respond ONLY with pure JSON matching this exact structure:
 {
@@ -372,14 +380,18 @@ Respond ONLY with pure JSON matching this exact structure:
   },
 
   /**
-   * Generates a complete 5-7 slide carousel story arc via Google Gemini AI.
+   * A whole carousel arc — the claim, the moves, the close — from the same engine as the single card.
    */
   async generateStaticCarouselDeck(opts: {
     prompt: string;
     slideCount?: number;
+    tone?: string;
+    context?: string;
+    model?: string;
   }): Promise<{
     slides: Array<{ id: number; headline: string; supportingText: string }>;
     socialCaption?: string;
+    modelUsed?: string;
   }> {
     try {
       const res = await fetch('/api/static-card/generate-deck', {
@@ -388,6 +400,9 @@ Respond ONLY with pure JSON matching this exact structure:
         body: JSON.stringify({
           prompt: opts.prompt,
           slideCount: opts.slideCount || 5,
+          tone: opts.tone,
+          context: opts.context,
+          model: opts.model,
         }),
       });
 
@@ -397,6 +412,7 @@ Respond ONLY with pure JSON matching this exact structure:
           return {
             slides: data.slides,
             socialCaption: data.socialCaption || '',
+            modelUsed: data.modelUsed,
           };
         }
       }
@@ -440,8 +456,8 @@ Respond ONLY with pure JSON matching this exact structure:
   },
 
   /**
-   * Rewrites/regenerates a single slide with full narrative continuity context
-   * using Google Gemini AI. (Task 2.4.1)
+   * Rewrite the one slide the creator is standing on, with its neighbours for continuity.
+   * No engine answer is a failure — the modal says so rather than writing words for the creator.
    */
   async regenerateCarouselSlide(opts: {
     slideIndex: number;
@@ -451,38 +467,30 @@ Respond ONLY with pure JSON matching this exact structure:
     nextSlide?: { headline: string; supportingText: string } | null;
     topic?: string;
     instruction?: string;
+    tone?: string;
+    context?: string;
+    model?: string;
   }): Promise<{ headline: string; supportingText: string; modelUsed?: string }> {
-    try {
-      const res = await fetch('/api/static-card/regenerate-slide', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(opts),
-      });
+    const res = await fetch('/api/static-card/regenerate-slide', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(opts),
+    });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.slide?.headline || data?.slide?.supportingText) {
-          return {
-            headline: data.slide.headline || opts.currentSlide.headline,
-            supportingText: data.slide.supportingText || opts.currentSlide.supportingText,
-            modelUsed: data.modelUsed,
-          };
-        }
-      }
-    } catch (err) {
-      console.warn('[api.regenerateCarouselSlide] Network error calling endpoint:', err);
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data?.error || 'The copy engine did not answer. Try again in a moment.');
     }
 
-    // High-signal fallback if offline or server timeout
-    const baseHeadline = opts.currentSlide.headline || `Key Point #${opts.slideIndex}`;
-    const bracketed = baseHeadline.includes('[')
-      ? baseHeadline
-      : `Step ${opts.slideIndex}: [${baseHeadline.replace(/^Step\s+\d+:?\s*/i, '').slice(0, 32)}]`;
+    const data = await res.json();
+    if (!data?.slide?.headline && !data?.slide?.supportingText) {
+      throw new Error('The copy engine sent back nothing readable.');
+    }
 
     return {
-      headline: bracketed,
-      supportingText: opts.currentSlide.supportingText || 'Focus on high-leverage creation systems and asset reuse.',
-      modelUsed: 'client-fallback',
+      headline: data.slide.headline || opts.currentSlide.headline,
+      supportingText: data.slide.supportingText || opts.currentSlide.supportingText,
+      modelUsed: data.modelUsed,
     };
   },
 

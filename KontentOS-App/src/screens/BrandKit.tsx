@@ -109,7 +109,7 @@ export default function BrandKit() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Voice Profile Card */}
-        <Card className="p-5 shadow-xs border-line">
+        <Card className="p-5 border-line">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-display text-[20px] font-bold text-ink">Voice Profile</h2>
@@ -201,7 +201,7 @@ export default function BrandKit() {
         </Card>
 
         {/* Signature Hooks */}
-        <Card className="p-5 shadow-xs border-line">
+        <Card className="p-5 border-line">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-display text-[20px] font-bold text-ink">Signature Hook Formulas</h2>
@@ -221,7 +221,7 @@ export default function BrandKit() {
                 key={i}
                 className="group flex items-start gap-3 rounded-card border border-line p-3 bg-surface hover:border-line-strong transition-colors"
               >
-                <span className="grid place-items-center w-7 h-7 rounded-full bg-tertiary-soft text-tertiary text-[12px] font-bold shrink-0">
+                <span className="grid place-items-center w-7 h-7 rounded-full bg-tertiary-soft text-danger-ink text-[12px] font-bold shrink-0">
                   {i + 1}
                 </span>
                 <p className="text-[13.5px] text-ink leading-snug pt-0.5 flex-1">{h}</p>
@@ -258,7 +258,7 @@ export default function BrandKit() {
         </Card>
 
         {/* Brand Color System */}
-        <Card className="p-5 shadow-xs border-line">
+        <Card className="p-5 border-line">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-display text-[20px] font-bold text-ink">Color Palette Matrix</h2>
@@ -270,7 +270,7 @@ export default function BrandKit() {
             {data.palette.map((c, idx) => (
               <div key={idx} className="text-center group relative">
                 <div
-                  className="h-16 rounded-card border border-line shadow-xs cursor-pointer overflow-hidden transition-transform group-hover:scale-105 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--ring)]"
+                  className="h-16 rounded-card border border-line cursor-pointer overflow-hidden transition-colors hover:border-primary has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--ring)]"
                   style={{ background: c }}
                 >
                   <input
@@ -281,7 +281,7 @@ export default function BrandKit() {
                     className="opacity-0 w-full h-full cursor-pointer"
                   />
                 </div>
-                <div className="text-[10.5px] text-ink-dim mt-1.5 font-mono uppercase font-semibold">
+                <div className="text-[11px] text-ink-dim mt-1.5 font-mono uppercase font-semibold">
                   {c}
                 </div>
               </div>
@@ -297,7 +297,7 @@ export default function BrandKit() {
         </Card>
 
         {/* Typography Studio */}
-        <Card className="p-5 shadow-xs border-line">
+        <Card className="p-5 border-line">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-display text-[20px] font-bold text-ink">Typography &amp; Hierarchy</h2>
@@ -355,7 +355,7 @@ function Stat({
   danger?: boolean;
 }) {
   return (
-    <div className="rounded-card border border-line p-3.5 bg-surface hover:border-line-strong transition-all shadow-xs">
+    <div className="rounded-card border border-line p-3.5 bg-surface hover:border-line-strong transition-all">
       <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-dim mb-1.5">
         <Icon name={icon} size={14} className={danger ? 'text-danger' : 'text-primary'} />
         {label}

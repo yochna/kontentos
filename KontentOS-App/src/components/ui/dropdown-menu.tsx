@@ -5,6 +5,19 @@ import { cn } from '@/lib/cn';
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
+/**
+ * Where a menu opened by a right-click lands. This Radix build ships no Anchor, so the trigger
+ * slot stands in for one: an unfocusable 1x1 point at the cursor that the content positions
+ * against and that can never be clicked, so the only way to open it is the gesture that put it
+ * there.
+ */
+export function DropdownMenuAnchor({ x, y }: { x: number; y: number }) {
+  return (
+    <DropdownMenuPrimitive.Trigger asChild>
+      <span aria-hidden className="pointer-events-none fixed h-px w-px" style={{ left: x, top: y }} />
+    </DropdownMenuPrimitive.Trigger>
+  );
+}
 export const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 export const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 
@@ -45,7 +58,7 @@ export function DropdownMenuItem({
       {...rest}
       className={cn(
         itemClass,
-        tone === 'danger' && 'text-danger data-[highlighted]:bg-danger/10 data-[highlighted]:text-danger',
+        tone === 'danger' && 'text-danger-ink data-[highlighted]:bg-danger/10 data-[highlighted]:text-danger-ink',
         className,
       )}
     />
@@ -75,7 +88,7 @@ export function DropdownMenuLabel({ className, ...rest }: React.ComponentPropsWi
   return (
     <DropdownMenuPrimitive.Label
       {...rest}
-      className={cn('px-2 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-dim', className)}
+      className={cn('px-2 pb-1 pt-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-dim', className)}
     />
   );
 }
@@ -117,5 +130,5 @@ export function DropdownMenuSubContent({
 }
 
 export function DropdownMenuShortcut({ className, ...rest }: React.HTMLAttributes<HTMLSpanElement>) {
-  return <span {...rest} className={cn('ml-auto font-mono text-[10px] text-ink-dim', className)} />;
+  return <span {...rest} className={cn('ml-auto font-mono text-[11px] text-ink-dim', className)} />;
 }

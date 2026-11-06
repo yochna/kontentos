@@ -169,6 +169,19 @@ export interface LedgerStep {
 }
 
 /**
+ * Bytes the way a creator reads them. A phone take is often under a megabyte, and `0.0 MB` is
+ * both wrong and the sort of rounding that makes a person distrust the rest of the panel.
+ */
+export function fmtBytes(n?: number): string {
+  if (!n || n <= 0) return 'not set yet';
+  const kb = n / 1024;
+  if (kb < 1024) return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb < 10 ? mb.toFixed(2) : mb.toFixed(1)} MB`;
+  return `${(mb / 1024).toFixed(2)} GB`;
+}
+
+/**
  * Nothing here is inferred from a status field the creator never set. A step is done only when
  * a row exists that proves it: the clip is on disk, a timeline holds its source, a queue row
  * carries its id, a history row says it shipped.
@@ -188,7 +201,7 @@ export function buildLedger(
       phase: 'in',
       label: 'Intake',
       state: 'done',
-      detail: video.file_size ? `${(video.file_size / 1048576).toFixed(1)} MB on disk` : 'On the bench',
+      detail: video.file_size ? `${fmtBytes(video.file_size)} on disk` : 'On the bench',
       station: 'raw-reel',
     },
     {

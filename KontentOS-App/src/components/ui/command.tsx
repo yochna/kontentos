@@ -101,7 +101,7 @@ export function CommandShortcut({ className, ...rest }: React.HTMLAttributes<HTM
     <span
       {...rest}
       className={cn(
-        'ml-auto flex items-center gap-1 font-mono text-[10px] text-ink-dim',
+        'ml-auto flex items-center gap-1 font-mono text-[11px] text-ink-dim',
         className,
       )}
     />

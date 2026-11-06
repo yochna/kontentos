@@ -678,7 +678,7 @@ function generateDeterministicAutoEdit(
     schemaVersion: '1.0.0',
     projectMetadata: {
       id: `proj_${Date.now()}`,
-      title: videoMetadata.title || 'Smart-Polished Reel',
+      title: videoMetadata.title || 'Untitled cut',
       targetAspectRatio: videoMetadata.targetAspectRatio || '9:16',
       width: videoMetadata.width || 1080,
       height: videoMetadata.height || 1920,
@@ -759,7 +759,9 @@ function sanitizeTimelineProject(
     schemaVersion: '1.0.0',
     projectMetadata: {
       id: raw.projectMetadata?.id || fallbackProject.projectMetadata.id,
-      title: raw.projectMetadata?.title || fallbackProject.projectMetadata.title,
+      // The prompt tells the engine to answer with a placeholder title; the cut already has one,
+      // given to it by the creator, so the fallback's wins.
+      title: fallbackProject.projectMetadata.title || raw.projectMetadata?.title,
       targetAspectRatio: raw.projectMetadata?.targetAspectRatio || '9:16',
       width: raw.projectMetadata?.width || 1080,
       height: raw.projectMetadata?.height || 1920,

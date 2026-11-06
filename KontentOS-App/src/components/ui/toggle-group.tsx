@@ -29,7 +29,7 @@ export function ToggleGroup({
       className={cn(
         'flex items-center',
         variant === 'segment' && 'gap-0.5 rounded-btn bg-surface-3 p-0.5',
-        variant === 'solid' && 'gap-0.5 rounded-btn border border-line bg-surface p-1 shadow-xs',
+        variant ==='solid' &&'gap-0.5 rounded-btn border border-line bg-surface p-1',
         variant === 'none' && 'gap-1',
         className,
       )}
@@ -52,7 +52,7 @@ export function ToggleGroupItem({
         variant === 'segment' &&
           'px-2.5 py-1 data-[state=on]:bg-surface data-[state=on]:text-ink data-[state=on]:shadow-[var(--shadow-1)]',
         variant === 'solid' &&
-          'px-3 py-1 data-[state=on]:bg-primary data-[state=on]:text-on-primary data-[state=on]:shadow-xs',
+          'px-3 py-1 data-[state=on]:bg-primary data-[state=on]:text-on-primary',
         className,
       )}
     />

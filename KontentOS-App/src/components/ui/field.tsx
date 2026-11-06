@@ -27,7 +27,7 @@ export function Label({ className, children, htmlFor, ...rest }: React.Component
   return (
     <LabelPrimitive.Root
       htmlFor={htmlFor}
-      className={cn('block text-[11.5px] font-semibold text-ink-muted', className)}
+      className={cn('block text-[12px] font-semibold text-ink-muted', className)}
       {...rest}
     >
       {children}
@@ -56,11 +56,11 @@ export function Field({
       <Label htmlFor={id}>{label}</Label>
       {children({ id, describedBy: errorId ?? hintId })}
       {error ? (
-        <p id={errorId} role="alert" className="text-[11.5px] text-danger">
+        <p id={errorId} role="alert" className="text-[12px] text-danger">
           {error}
         </p>
       ) : hint ? (
-        <p id={hintId} className="text-[11.5px] text-ink-dim">
+        <p id={hintId} className="text-[12px] text-ink-dim">
           {hint}
         </p>
       ) : null}

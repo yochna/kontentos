@@ -1,26 +1,8 @@
 import { useMemo } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, CountUp, Eyebrow, PageHeader, PageShell, Progress, Reveal, StatusPill } from '@/components/ui';
-import { quickActions } from '@/data/mock';
+import { Button, Card, Eyebrow, PageHeader, PageShell, Reveal, StatusPill } from '@/components/ui';
 import { useDisplayProfile, useStore } from '@/lib/store';
-import { DRAFT_STEP_STATION, STATION_BY_ID } from '@/lib/bench';
 import { type ScreenId } from '@/lib/nav';
-import type { Video } from '@/lib/types';
-import { OfflinePlate } from '@/components/OfflinePlate';
-
-const STATUS_TONE: Record<Video['status'], { label: string; tone: string; pct: number }> = {
-  uploading: { label: 'Uploading', tone: 'tertiary', pct: 30 },
-  processing: { label: 'Processing', tone: 'tertiary', pct: 65 },
-  ready: { label: 'Ready', tone: 'primary', pct: 100 },
-  failed: { label: 'Failed', tone: 'neutral', pct: 100 },
-};
-
-function fmtDuration(sec?: number): string {
-  if (!sec || sec <= 0) return '—';
-  const m = Math.floor(sec / 60);
-  const s = Math.round(sec % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
 
 function dayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -30,10 +12,9 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function CommandCenter() {
   const profile = useDisplayProfile();
-  const { videos, scheduled, history, activeDraft, online, navigate, savedIdeas } = useStore();
+  const { videos, scheduled, activeDraft, navigate, savedIdeas } = useStore();
   const firstName = profile.name.split(' ')[0] || 'there';
-
-  const recentVideos = useMemo(() => videos.slice(0, 3), [videos]);
+  const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening';
 
   // Dynamic Pipeline: binds to real user data and active drafts
   const dynamicPipeline = useMemo(() => {
@@ -118,43 +99,11 @@ export default function CommandCenter() {
   return (
     <PageShell className="space-y-10">
       <PageHeader
-        eyebrow={`Good morning, ${firstName}`}
+        eyebrow={`${greeting}, ${firstName}`}
         icon="space_dashboard"
         title="Cutting room desk"
         description="Four phases, one cut at a time: seed the angle, intake the footage, cut and caption it, queue it to ship."
-        actions={
-          <>
-            <Button variant="secondary" icon="history" onClick={() => navigate('content-library')}>
-              Media vault ({videos.length})
-            </Button>
-            <Button icon="add" onClick={() => navigate('ideas')}>
-              New idea
-            </Button>
-          </>
-        }
       />
-
-      {/* Stats strip — real workspace counts, not projected platform metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: 'Clips in library', value: videos.length, sub: 'Intaked to the vault' },
-          { label: 'Scheduled posts', value: scheduled.length, sub: 'Queued in Plan' },
-          { label: 'Saved ideas', value: savedIdeas.length, sub: 'Kept in Seeds' },
-        ].map((s, i) => (
-          <Reveal key={s.label} delay={i * 90} className="h-full">
-            <Card className="p-5 h-full">
-              <div className="text-[12px] text-ink-dim">{s.label}</div>
-              <div className="flex items-baseline gap-2 mt-1">
-                <CountUp
-                  to={s.value}
-                  className={online ? 'font-display text-[30px] text-ink leading-none' : 'font-display text-[30px] text-ink-dim leading-none'}
-                />
-              </div>
-              <div className="text-[12px] text-ink-muted mt-2">{online ? s.sub : 'Unavailable — server not reachable'}</div>
-            </Card>
-          </Reveal>
-        ))}
-      </div>
 
       {/* Pipeline */}
       <section>
@@ -176,7 +125,7 @@ export default function CommandCenter() {
                 onClick={() => navigate(p.screenId)}
                 className="w-full h-full text-left kt-focus group"
               >
-                <Card hover sheen spot className="p-5 h-full flex flex-col gap-3 group-hover:border-primary/50">
+                <Card hover className="p-5 h-full flex flex-col gap-3 group-hover:border-primary/50">
                   <div className="flex items-center justify-between">
                     <Eyebrow>{p.phase}</Eyebrow>
                     <span className={`kt-grow grid place-items-center w-8 h-8 rounded-btn transition-all duration-200 ${
@@ -200,162 +149,6 @@ export default function CommandCenter() {
             </Reveal>
           ))}
         </div>
-      </section>
-
-      {/* Quick actions */}
-      <section>
-        <Reveal variant="fade">
-          <h2 className="font-display text-[24px] text-ink mb-4">Start something</h2>
-        </Reveal>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {quickActions.map((a, i) => (
-            <Reveal key={a.id} delay={i * 80} className="h-full">
-              <button
-                onClick={() => navigate(a.id as ScreenId)}
-                className="w-full h-full text-left kt-focus group"
-              >
-                <Card hover sheen spot className="p-5 h-full flex flex-col gap-3 group-hover:border-primary/50">
-                  <span className="kt-grow grid place-items-center w-11 h-11 rounded-card bg-primary-soft text-primary group-hover:bg-primary group-hover:text-on-primary transition-all duration-200">
-                    <Icon name={a.icon} size={22} />
-                  </span>
-                  <div>
-                    <div className="font-display text-[19px] text-ink group-hover:text-primary transition-colors">{a.title}</div>
-                    <p className="text-[13px] text-ink-muted mt-1 leading-snug">{a.body}</p>
-                  </div>
-                  <div className="mt-auto pt-1 flex items-center justify-between gap-2">
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className="text-[11px] font-semibold text-primary bg-primary-soft rounded-full px-2 py-0.5">{a.tag}</span>
-                    </div>
-                    <Icon
-                      name="arrow_forward"
-                      size={16}
-                      className="kt-nudge shrink-0 text-ink-dim opacity-0 group-hover:opacity-100 group-hover:text-primary transition-all duration-200"
-                    />
-                  </div>
-                </Card>
-              </button>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* Continue creating */}
-      <section>
-        <Reveal variant="fade">
-          <div className="flex items-end justify-between mb-4">
-            <div>
-              <h2 className="font-display text-[24px] text-ink">Continue creating</h2>
-              <p className="text-[13px] text-ink-muted mt-0.5">Resume a cut in flight, or open a take you recently intaked.</p>
-            </div>
-            <Button variant="ghost" size="sm" icon="arrow_forward" onClick={() => navigate('content-library')}>
-              Open Vault
-            </Button>
-          </div>
-        </Reveal>
-
-        {/* Active Draft Hero Card (if in progress) */}
-        {activeDraft && (
-          <Reveal delay={60} variant="scale">
-            <Card sheen className="p-5 mb-4 border-primary/40 bg-primary-soft/30 overflow-hidden relative">
-              <span className="kt-aurora" aria-hidden />
-              <div className="relative flex flex-wrap items-center justify-between gap-4">
-                <div className="space-y-1 max-w-xl">
-                  <div className="flex items-center gap-2">
-                    <StatusPill tone="primary" pulse>Active Pipeline Draft</StatusPill>
-                    <span className="text-[11px] text-ink-dim">Updated {new Date(activeDraft.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-                  <h3 className="font-display text-[20px] text-ink">{activeDraft.title}</h3>
-                  {activeDraft.idea?.hook && (
-                    <p className="text-[13px] text-ink-muted italic">“{activeDraft.idea.hook}”</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    icon="play_arrow"
-                    onClick={() => navigate(DRAFT_STEP_STATION[activeDraft.step])}
-                  >
-                    Resume in {STATION_BY_ID[DRAFT_STEP_STATION[activeDraft.step]].label}
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </Reveal>
-        )}
-
-        {online && recentVideos.length === 0 && !activeDraft ? (
-          <Card className="p-8 text-center">
-            <Icon name="upload" size={26} className="text-ink-dim mx-auto mb-2" />
-            <div className="font-semibold text-ink">Nothing in progress yet</div>
-            <p className="text-[13px] text-ink-muted mt-1">Intake a clip on the bench to start your first cut.</p>
-            <Button size="sm" icon="add" className="mt-4" onClick={() => navigate('content-library')}>Upload clip</Button>
-          </Card>
-        ) : recentVideos.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {recentVideos.map((v, i) => {
-              const st = STATUS_TONE[v.status];
-              const inFlight = v.status === 'uploading' || v.status === 'processing';
-              return (
-                <Reveal key={v.id} delay={i * 90} className="h-full">
-                  <button
-                    onClick={() => navigate('raw-reel', { videoId: v.id })}
-                    className="w-full h-full text-left kt-focus group"
-                  >
-                    <Card hover className="overflow-hidden flex flex-col h-full group-hover:border-primary/50">
-                      <div className="relative aspect-[16/9] bg-surface-2 overflow-hidden">
-                        {v.media_available === false ? (
-                          <OfflinePlate />
-                        ) : v.thumbnail_url ? (
-                          <img
-                            src={v.thumbnail_url}
-                            alt=""
-                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
-                          />
-                        ) : (
-                          <video
-                            src={v.file_url}
-                            crossOrigin="anonymous"
-                            muted
-                            playsInline
-                            preload="metadata"
-                            className="absolute inset-0 w-full h-full object-cover block transition-transform duration-500 ease-out group-hover:scale-[1.05]"
-                          />
-                        )}
-                        <span className="absolute top-2 left-2"><StatusPill tone={st.tone} pulse={inFlight}>{st.label}</StatusPill></span>
-                        <span className="absolute bottom-2 right-2 text-[11px] font-semibold text-white/95 bg-black/35 backdrop-blur rounded-full px-2 py-0.5">
-                          {fmtDuration(v.duration)}
-                        </span>
-                      </div>
-                      <div className="p-4 flex flex-col gap-2 flex-1">
-                        <div className="text-[11px] uppercase tracking-wider text-ink-dim">Raw Clip</div>
-                        <div className="font-semibold text-ink leading-snug line-clamp-1 group-hover:text-primary transition-colors">
-                          {v.title}
-                        </div>
-                        <div className="mt-auto pt-2 space-y-1.5">
-                          <Progress value={st.pct} live={inFlight} />
-                          <div className="flex justify-between text-[11px] text-ink-dim">
-                            <span>{new Date(v.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                            <span className="font-semibold text-primary group-hover:underline">Start Reel →</span>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  </button>
-                </Reveal>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-card border border-dashed border-line px-6 py-10 text-center">
-            <p className="text-[14px] font-semibold text-ink">Nothing in progress yet</p>
-            <p className="text-[12.5px] text-ink-muted mt-1">
-              Upload a clip or save an idea and it will show up here.
-            </p>
-            <div className="flex justify-center gap-2 mt-4">
-              <Button size="sm" icon="upload" onClick={() => navigate('raw-reel')}>Upload clip</Button>
-              <Button size="sm" variant="ghost" icon="add" onClick={() => navigate('ideas')}>New idea</Button>
-            </div>
-          </div>
-        )}
       </section>
 
       {/* Week strip */}

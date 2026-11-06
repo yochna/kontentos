@@ -80,13 +80,13 @@ export const LayerStylesControl: React.FC<Props> = ({
   ];
 
   return (
-    <div className="space-y-3.5 p-3.5 bg-surface rounded-xl border border-line/80 shadow-xs">
+    <div className="space-y-3.5 p-3.5 bg-surface rounded-card border border-line/80">
       {/* Header with Title and Reset */}
       <div className="flex items-center justify-between">
         <label className="text-[13px] font-semibold text-ink flex items-center gap-1.5">
           <Icon name="layers" size={16} className="text-primary" />
           <span>Layer Styles & Glows</span>
-          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-primary/10 text-primary font-bold">
+          <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-primary/10 text-primary font-bold">
             PhotoCraft
           </span>
         </label>
@@ -95,7 +95,7 @@ export const LayerStylesControl: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => onChange({ ...DEFAULT_LAYER_STYLES })}
-            className="text-[10px] text-ink-muted hover:text-primary transition-colors cursor-pointer flex items-center gap-1"
+            className="text-[11px] text-ink-muted hover:text-primary transition-colors cursor-pointer flex items-center gap-1"
           >
             <Icon name="restart_alt" size={13} />
             <span>Reset</span>
@@ -108,7 +108,7 @@ export const LayerStylesControl: React.FC<Props> = ({
         <div className="flex items-center justify-between text-[11px] text-ink-muted font-medium">
           <span>Style Presets</span>
           {currentPreset === 'custom' && (
-            <span className="text-[10px] text-primary font-semibold">Custom Configured</span>
+            <span className="text-[11px] text-primary font-semibold">Custom Configured</span>
           )}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
@@ -122,7 +122,7 @@ export const LayerStylesControl: React.FC<Props> = ({
                   onClick={() => handleSelectPreset(p)}
                   className={`py-1.5 px-2 rounded-btn text-left border transition-all cursor-pointer flex flex-col gap-0.5 ${
                     isSelected
-                      ? 'bg-primary text-on-primary border-primary shadow-xs ring-1 ring-primary/40 font-bold'
+                      ? 'bg-primary text-on-primary border-primary ring-1 ring-primary/40 font-bold'
                       : 'bg-surface-2 hover:bg-surface text-ink border-line hover:border-line-strong'
                   }`}
                 >
@@ -146,7 +146,7 @@ export const LayerStylesControl: React.FC<Props> = ({
               <Icon name="flare" size={13} className="text-primary" />
               <span>Accent Glow Intensity</span>
             </span>
-            <span className="text-[10px] font-mono text-ink-dim capitalize">
+            <span className="text-[11px] font-mono text-ink-dim capitalize">
               {layerStyles.glowIntensity}
             </span>
           </div>
@@ -158,9 +158,9 @@ export const LayerStylesControl: React.FC<Props> = ({
                   key={opt.id}
                   type="button"
                   onClick={() => handleUpdate('glowIntensity', opt.id)}
-                  className={`py-1 text-[10px] font-semibold rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  className={`py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 ${
                     active
-                      ? 'bg-primary text-on-primary shadow-xs'
+                      ? 'bg-primary text-on-primary'
                       : 'text-ink-muted hover:text-ink'
                   }`}
                 >
@@ -178,7 +178,7 @@ export const LayerStylesControl: React.FC<Props> = ({
               <Icon name="layers" size={13} className="text-primary" />
               <span>Shadow Elevation</span>
             </span>
-            <span className="text-[10px] font-mono text-ink-dim capitalize">
+            <span className="text-[11px] font-mono text-ink-dim capitalize">
               {layerStyles.elevation}
             </span>
           </div>
@@ -190,9 +190,9 @@ export const LayerStylesControl: React.FC<Props> = ({
                   key={opt.id}
                   type="button"
                   onClick={() => handleUpdate('elevation', opt.id)}
-                  className={`py-1 text-[10px] font-semibold rounded-md transition-all cursor-pointer flex items-center justify-center ${
+                  className={`py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center justify-center ${
                     active
-                      ? 'bg-primary text-on-primary shadow-xs'
+                      ? 'bg-primary text-on-primary'
                       : 'text-ink-muted hover:text-ink'
                   }`}
                 >
@@ -210,7 +210,7 @@ export const LayerStylesControl: React.FC<Props> = ({
               <Icon name="blur_on" size={13} className="text-primary" />
               <span>Glassmorphism Blur</span>
             </span>
-            <span className="text-[10px] font-mono text-ink-dim capitalize">
+            <span className="text-[11px] font-mono text-ink-dim capitalize">
               {layerStyles.glassBlur}
             </span>
           </div>
@@ -222,9 +222,9 @@ export const LayerStylesControl: React.FC<Props> = ({
                   key={opt.id}
                   type="button"
                   onClick={() => handleUpdate('glassBlur', opt.id)}
-                  className={`py-1 text-[10px] font-semibold rounded-md transition-all cursor-pointer flex items-center justify-center ${
+                  className={`py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center justify-center ${
                     active
-                      ? 'bg-primary text-on-primary shadow-xs'
+                      ? 'bg-primary text-on-primary'
                       : 'text-ink-muted hover:text-ink'
                   }`}
                 >
@@ -242,7 +242,7 @@ export const LayerStylesControl: React.FC<Props> = ({
               <Icon name="format_size" size={13} className="text-primary" />
               <span>Headline Text Effect</span>
             </span>
-            <span className="text-[10px] font-mono text-ink-dim capitalize">
+            <span className="text-[11px] font-mono text-ink-dim capitalize">
               {layerStyles.textEffect}
             </span>
           </div>
@@ -254,9 +254,9 @@ export const LayerStylesControl: React.FC<Props> = ({
                   key={opt.id}
                   type="button"
                   onClick={() => handleUpdate('textEffect', opt.id)}
-                  className={`py-1 text-[10px] font-semibold rounded-md transition-all cursor-pointer flex items-center justify-center ${
+                  className={`py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center justify-center ${
                     active
-                      ? 'bg-primary text-on-primary shadow-xs'
+                      ? 'bg-primary text-on-primary'
                       : 'text-ink-muted hover:text-ink'
                   }`}
                 >
@@ -286,7 +286,7 @@ export const LayerStylesControl: React.FC<Props> = ({
             }`}
           >
             <div
-              className={`w-3.5 h-3.5 rounded-full bg-white shadow-xs transition-transform ${
+              className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${
                 layerStyles.borderGlow ? 'translate-x-4' : 'translate-x-0'
               }`}
             />

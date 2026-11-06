@@ -398,7 +398,7 @@ export default function Analytics() {
       />
 
       {isEmptyAccount ? (
-        <Card className="p-8 sm:p-12 text-center border-line shadow-xs">
+        <Card className="p-8 sm:p-12 text-center border-line">
           <span className="grid place-items-center w-14 h-14 rounded-btn bg-primary-soft text-primary mx-auto">
             <Icon name="insights" size={28} />
           </span>
@@ -423,7 +423,7 @@ export default function Analytics() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {kpis.map((k, i) => (
               <Reveal key={k.label} delay={i * 70} className="h-full">
-              <Card sheen spot className="p-5 h-full flex flex-col justify-between shadow-xs hover:border-line-strong hover:-translate-y-[3px] transition-all duration-200 ease-out">
+              <Card hover className="p-5 h-full flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="grid place-items-center w-10 h-10 rounded-btn bg-primary-soft text-primary">
@@ -446,7 +446,7 @@ export default function Analytics() {
           </div>
 
           {/* Honest disclosure: no platform metrics API is connected, so performance stays unmeasured. */}
-          <Card className="p-5 mb-6 border-line shadow-xs">
+          <Card className="p-5 mb-6 border-line">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-3 min-w-0">
                 <span className="grid place-items-center w-10 h-10 rounded-btn bg-surface-2 text-ink-muted shrink-0">
@@ -478,7 +478,7 @@ export default function Analytics() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-5 pt-4 border-t border-line/60">
               {unconnectedMetrics.map((m) => (
                 <div key={m.label} className="rounded-btn border border-line/70 bg-surface-2/40 px-3 py-2.5">
-                  <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-muted">
+                  <div className="flex items-center gap-1.5 text-[12px] font-semibold text-ink-muted">
                     <Icon name={m.icon} size={14} className="text-ink-dim" />
                     {m.label}
                   </div>
@@ -505,7 +505,7 @@ export default function Analytics() {
                 <div className="space-y-3.5">
                   {insights.map((o, i) => (
                     <Reveal key={o.title} delay={i * 70}>
-                    <Card sheen className="p-5 border-line shadow-xs hover:border-line-strong hover:-translate-y-[2px] transition-all duration-200 ease-out">
+                    <Card hover className="p-5 border-line">
                       <div className="flex items-start gap-4">
                         <span className="grid place-items-center w-11 h-11 rounded-btn bg-secondary-soft text-secondary shrink-0 mt-0.5">
                           <Icon name={o.icon} size={22} />
@@ -544,14 +544,14 @@ export default function Analytics() {
                 </div>
 
                 {range.recentVideos.length === 0 ? (
-                  <Card className="p-6 text-center border-line shadow-xs">
+                  <Card className="p-6 text-center border-line">
                     <p className="text-[13.5px] text-ink-muted">
                       No clips were uploaded {RANGE_LABEL[timeRange]}.
                       {videos.length > 0 && ` Switch to All Time to see the ${videos.length} already in the library.`}
                     </p>
                   </Card>
                 ) : (
-                  <Card className="divide-y divide-line shadow-xs overflow-hidden">
+                  <Card className="divide-y divide-line overflow-hidden">
                     {range.recentVideos.map((v) => {
                       const rec = statusById.get(v.id);
                       return (
@@ -562,10 +562,10 @@ export default function Analytics() {
                                 src={v.thumbnail_url}
                                 alt=""
                                 loading="lazy"
-                                className="w-full aspect-[9/16] object-cover rounded-btn shadow-xs"
+                                className="w-full aspect-[9/16] object-cover rounded-btn"
                               />
                             ) : (
-                              <Thumb k={v.id.slice(-1)} aspect="aspect-[9/16]" className="rounded-btn shadow-xs" />
+                              <Thumb k={v.id.slice(-1)} aspect="aspect-[9/16]" className="rounded-btn" />
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -580,7 +580,7 @@ export default function Analytics() {
                               </span>
                               {rec && (
                                 <span className="flex items-center gap-1">
-                                  <Icon name={PLATFORM_META[rec.platform as SocialPlatform]?.icon || 'share'} size={14} className="text-ink-dim" />
+                                  <Icon name={PLATFORM_META[rec.platform as SocialPlatform]?.icon ||'share'} size={14} className="text-ink-dim" />
                                   {rec.state === 'published' ? 'marked published on' : 'scheduled for'} {platformLabel(rec.platform)}
                                 </span>
                               )}
@@ -595,7 +595,7 @@ export default function Analytics() {
                                 href={rec.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-[11.5px] font-semibold text-ink-muted hover:text-primary transition-colors inline-flex items-center gap-1"
+                                className="text-[12px] font-semibold text-ink-muted hover:text-primary transition-colors inline-flex items-center gap-1"
                               >
                                 <Icon name="open_in_new" size={13} />
                                 View live post
@@ -603,7 +603,7 @@ export default function Analytics() {
                             ) : (
                               <button
                                 onClick={() => navigate('publish-schedule')}
-                                className="text-[11.5px] font-semibold text-ink-muted hover:text-primary transition-colors inline-flex items-center gap-1"
+                                className="text-[12px] font-semibold text-ink-muted hover:text-primary transition-colors inline-flex items-center gap-1"
                               >
                                 <Icon name="schedule_send" size={13} />
                                 {rec ? 'Open in schedule' : 'Schedule this'}
@@ -619,7 +619,7 @@ export default function Analytics() {
             </div>
 
             <div className="space-y-6">
-              <Card className="p-5 border-line shadow-xs">
+              <Card className="p-5 border-line">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-ink text-[15px] flex items-center gap-2">
                     <Icon name="donut_small" size={17} className="text-primary" />
@@ -640,7 +640,7 @@ export default function Analytics() {
                           <div key={p}>
                             <div className="flex items-center justify-between text-[12.5px] mb-1.5">
                               <span className="text-ink font-semibold flex items-center gap-1.5">
-                                <Icon name={PLATFORM_META[p as SocialPlatform]?.icon || 'share'} size={14} className="text-ink-dim" />
+                                <Icon name={PLATFORM_META[p as SocialPlatform]?.icon ||'share'} size={14} className="text-ink-dim" />
                                 {platformLabel(p)}
                               </span>
                               <span className="text-primary font-bold text-[12px] tabular-nums bg-primary-soft px-2 py-0.5 rounded">
@@ -648,7 +648,7 @@ export default function Analytics() {
                               </span>
                             </div>
                             <div className="h-2 rounded-full bg-surface-2 overflow-hidden border border-line/40">
-                              <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${(n / max) * 100}%` }} />
+                              <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width:`${(n / max) * 100}%` }} />
                             </div>
                           </div>
                         );
@@ -660,7 +660,7 @@ export default function Analytics() {
                 </p>
               </Card>
 
-              <Card className="p-5 border-line shadow-xs">
+              <Card className="p-5 border-line">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-ink text-[15px] flex items-center gap-2">
                     <Icon name="tag" size={17} className="text-primary" />
@@ -706,7 +706,7 @@ export default function Analytics() {
                   </h3>
                 </div>
                 {range.upcoming.length === 0 ? (
-                  <Card className="p-5 border-line shadow-xs">
+                  <Card className="p-5 border-line">
                     <p className="text-[13px] text-ink-muted leading-relaxed">
                       Nothing is scheduled{RANGE_DAYS[timeRange] === null ? '' : ` in the next ${RANGE_DAYS[timeRange]} days`}.
                     </p>
@@ -717,7 +717,7 @@ export default function Analytics() {
                 ) : (
                   <div className="space-y-3.5">
                     {range.upcoming.slice(0, 4).map((s: ScheduledPost) => (
-                      <Card key={s.id} hover className="p-4 border-line shadow-xs space-y-2.5 transition-all">
+                      <Card key={s.id} hover className="p-4 border-line space-y-2.5 transition-all">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-[11px] font-bold text-primary bg-primary-soft rounded-full px-2.5 py-0.5 flex items-center gap-1">
                             <Icon name={PLATFORM_META[s.platform]?.icon || 'share'} size={12} />
@@ -734,7 +734,7 @@ export default function Analytics() {
                           {s.caption_text?.trim() || 'No caption written for this post yet.'}
                         </p>
                         <div className="flex items-center justify-between pt-2 border-t border-line/60">
-                          <span className="text-[11.5px] text-ink-dim flex items-center gap-1">
+                          <span className="text-[12px] text-ink-dim flex items-center gap-1">
                             <Icon name="tag" size={13} />
                             {s.hashtags?.length ? `${s.hashtags.length} hashtag(s)` : 'no hashtags'}
                           </span>

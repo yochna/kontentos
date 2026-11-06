@@ -2,6 +2,8 @@ import React, { useMemo, useRef } from 'react';
 import { Icon } from '@/lib/icons';
 import { Tooltip } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { Label } from '@/components/ui/field';
+import { Switch } from '@/components/ui/switch';
 import type { CanvasCustomElement } from '../../../../types/canvasScene';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 import { VectorShapesSection } from './VectorShapesSection';
@@ -197,19 +199,19 @@ export const ElementInspectorPanel: React.FC<Props> = ({
     <div
       className={
         embedded
-          ? 'flex flex-col w-full h-[calc(100vh-9rem)] min-h-[620px] max-h-[920px] rounded-2xl border border-white/15 bg-slate-950/95 text-slate-200 shadow-2xl backdrop-blur-2xl overflow-hidden'
-          : 'fixed right-4 top-[82px] bottom-4 w-[322px] z-[70] flex flex-col rounded-2xl border border-white/15 bg-slate-950/95 text-slate-200 shadow-2xl backdrop-blur-2xl overflow-hidden'
+          ? 'flex flex-col w-full h-[calc(100vh-9rem)] min-h-[620px] max-h-[920px] rounded-card border border-line bg-surface text-ink shadow-[var(--shadow-2)] overflow-hidden'
+          : 'fixed right-4 top-[82px] bottom-4 w-[322px] z-[70] flex flex-col rounded-card border border-line bg-surface text-ink shadow-[var(--shadow-2)] overflow-hidden'
       }
       data-canvas-ui="true"
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <div className="flex items-center justify-between px-3.5 h-11 border-b border-white/10 shrink-0">
+      <div className="flex items-center justify-between px-3.5 h-11 border-b border-line shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="w-6 h-6 rounded-md bg-cyan-500/15 text-cyan-300 flex items-center justify-center">
+          <span className="w-6 h-6 rounded-md bg-primary-soft text-primary flex items-center justify-center">
             <Icon name={custom ? KIND_ICONS[custom.kind] || 'tune' : 'tune'} size={14} />
           </span>
           <div className="min-w-0">
-            <p className="text-[9px] uppercase tracking-[0.16em] text-slate-500 font-black leading-none">
+            <p className="text-[11px] text-ink-dim font-semibold leading-none">
               Inspector
             </p>
             <p className="text-[11px] font-semibold truncate">
@@ -220,7 +222,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={onClose}
-          className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white"
+          className="w-7 h-7 rounded-md flex items-center justify-center text-ink-dim hover:bg-surface-2 hover:text-ink"
           title="Close inspector"
         >
           <Icon name="close" size={15} />
@@ -321,13 +323,13 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                 <ActionButton icon="flip_to_back" label="Back" onClick={() => sendToBack(selectedId)} />
                 <ActionButton icon="restart_alt" label="Reset" onClick={() => resetElement(selectedId)} />
               </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 px-0.5">
+              <div className="flex items-center justify-between text-[11px] text-ink-dim px-0.5">
                 <span>z-index</span>
                 <input
                   type="number"
                   value={transform?.zIndex ?? 20}
                   onChange={(event) => patchTransform({ zIndex: Number(event.target.value) || 0 })}
-                  className="w-16 bg-slate-900 border border-white/10 rounded px-2 py-1 text-right font-mono text-[10px] text-slate-200 outline-none focus:border-cyan-400/50"
+                  className="w-16 bg-app border border-line rounded px-2 py-1 text-right font-mono text-[11px] text-ink focus:border-primary"
                 />
               </div>
             </Section>
@@ -337,13 +339,13 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => setEditingElement(selectedId)}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-cyan-500/15 border border-cyan-400/25 text-cyan-200 text-[10px] font-bold hover:bg-cyan-500/25"
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-primary-soft border border-primary/30 text-primary text-[11px] font-bold hover:bg-secondary-soft"
                 >
                   <Icon name="edit" size={12} /> Edit text inline
                 </button>
                 <Field label="Font family">
                   <Select value={textFontFamily} onValueChange={(font) => patchText({ fontFamily: font })}>
-                    <SelectTrigger aria-label="Font family" size="sm" className="text-[10.5px]">
+                    <SelectTrigger aria-label="Font family" size="sm" className="text-[11px]">
                       <span className="truncate">
                         {FONTS.find((font) => font.value === textFontFamily)?.label ?? textFontFamily}
                       </span>
@@ -368,7 +370,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                       value={String(textFontWeight)}
                       onValueChange={(weight) => patchText({ fontWeight: weight })}
                     >
-                      <SelectTrigger aria-label="Font weight" size="sm" className="text-[10.5px]">
+                      <SelectTrigger aria-label="Font weight" size="sm" className="text-[11px]">
                         <span className="truncate">{String(textFontWeight)}</span>
                       </SelectTrigger>
                       <SelectContent>
@@ -399,10 +401,10 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => patchText({ fontStyle: textFontStyle === 'italic' ? 'normal' : 'italic' })}
-                    className={`flex-1 py-1.5 rounded-md text-[10px] font-bold border ${
+                    className={`flex-1 py-1.5 rounded-md text-[11px] font-bold border ${
                       textFontStyle === 'italic'
-                        ? 'bg-cyan-500/20 border-cyan-400/30 text-cyan-200'
-                        : 'bg-white/5 border-white/10 text-slate-300'
+                        ? 'bg-primary-soft border-primary/30 text-primary'
+                        : 'bg-app/50 border-line text-ink'
                     }`}
                   >
                     Italic
@@ -414,8 +416,8 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                         onClick={() => patchText({ textAlign: align })}
                         className={`w-8 h-7 rounded-md flex items-center justify-center border ${
                           textAlign === align
-                            ? 'bg-cyan-500/20 border-cyan-400/30 text-cyan-200'
-                            : 'bg-white/5 border-white/10 text-slate-400'
+                            ? 'bg-primary-soft border-primary/30 text-primary'
+                            : 'bg-app/50 border-line text-ink-dim'
                         }`}
                       >
                         <Icon name={`format_align_${align}`} size={13} />
@@ -434,7 +436,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                     <input
                       value={textColor}
                       onChange={(event) => patchText({ color: event.target.value })}
-                      className="flex-1 bg-slate-900 border border-white/10 rounded-md px-2 text-[10px] font-mono outline-none focus:border-cyan-400/50"
+                      className="flex-1 bg-app border border-line rounded-md px-2 text-[11px] font-mono focus:border-primary"
                     />
                   </div>
                 </Field>
@@ -456,7 +458,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-bold text-slate-200 hover:bg-white/10"
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-app/50 border border-line text-[11px] font-bold text-ink hover:bg-surface-2"
                 >
                   <Icon name="upload" size={12} /> Replace image
                 </button>
@@ -471,7 +473,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                   <input
                     value={custom.imageUrl || ''}
                     onChange={(event) => patchCustom({ imageUrl: event.target.value })}
-                    className="w-full bg-slate-900 border border-white/10 rounded-md px-2 py-1.5 text-[10px] font-mono outline-none focus:border-cyan-400/50"
+                    className="w-full bg-app border border-line rounded-md px-2 py-1.5 text-[11px] font-mono focus:border-primary"
                     placeholder="https://…"
                   />
                 </Field>
@@ -481,10 +483,10 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                       key={fit}
                       type="button"
                       onClick={() => patchCustom({ objectFit: fit })}
-                      className={`flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase border ${
+                      className={`flex-1 py-1.5 rounded-md text-[11px] font-semibold border ${
                         (custom.objectFit || 'cover') === fit
-                          ? 'bg-cyan-500/20 border-cyan-400/30 text-cyan-200'
-                          : 'bg-white/5 border-white/10 text-slate-400'
+                          ? 'bg-primary-soft border-primary/30 text-primary'
+                          : 'bg-app/50 border-line text-ink-dim'
                       }`}
                     >
                       {fit}
@@ -532,7 +534,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                     <input
                       value={custom.fill || ''}
                       onChange={(event) => patchCustom({ fill: event.target.value })}
-                      className="flex-1 bg-slate-900 border border-white/10 rounded-md px-2 text-[10px] font-mono outline-none focus:border-cyan-400/50"
+                      className="flex-1 bg-app border border-line rounded-md px-2 text-[11px] font-mono focus:border-primary"
                     />
                   </div>
                 </Field>
@@ -572,7 +574,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                   value={custom.text || ''}
                   onChange={(event) => patchCustom({ text: event.target.value })}
                   rows={3}
-                  className="w-full resize-none bg-slate-900 border border-white/10 rounded-md px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-cyan-400/50"
+                  className="w-full resize-none bg-app border border-line rounded-md px-2 py-1.5 text-[11px] text-ink focus:border-primary"
                 />
               </Section>
             )}
@@ -601,7 +603,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={copyAllElements}
-                  className="py-1.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-bold text-slate-300 hover:bg-white/10"
+                  className="py-1.5 rounded-md bg-app/50 border border-line text-[11px] font-bold text-ink hover:bg-surface-2"
                 >
                   Copy all
                 </button>
@@ -609,7 +611,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                   type="button"
                   disabled={!clipboard}
                   onClick={() => pasteClipboard()}
-                  className="py-1.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-bold text-slate-300 hover:bg-white/10 disabled:opacity-40"
+                  className="py-1.5 rounded-md bg-app/50 border border-line text-[11px] font-bold text-ink hover:bg-surface-2 disabled:opacity-40"
                 >
                   Paste
                 </button>
@@ -617,7 +619,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={resetSlide}
-                className="w-full py-1.5 rounded-md bg-rose-500/10 border border-rose-400/20 text-[10px] font-bold text-rose-300 hover:bg-rose-500/20"
+                className="w-full py-1.5 rounded-md bg-danger/10 border border-danger/30 text-[11px] font-bold text-danger-ink hover:bg-danger/20"
               >
                 Reset slide layout
               </button>
@@ -627,7 +629,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
 
         <Section title={`Layers (${layerEntries.length})`} icon="layers">
           {layerEntries.length === 0 ? (
-            <p className="text-[10px] text-slate-500 py-2 text-center">
+            <p className="text-[11px] text-ink-dim py-2 text-center">
               No layers yet. Right-click the canvas to add.
             </p>
           ) : (
@@ -639,25 +641,25 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                     key={entry.id}
                     className={`group flex items-center gap-1.5 px-1.5 py-1 rounded-md cursor-pointer border ${
                       active
-                        ? 'bg-cyan-500/15 border-cyan-400/30'
-                        : 'bg-transparent border-transparent hover:bg-white/[0.06]'
+                        ? 'bg-primary-soft border-primary/30'
+                        : 'bg-transparent border-transparent hover:bg-surface-2'
                     }`}
                     onClick={() => selectElement(entry.id)}
                   >
                     <Icon
                       name={entry.custom ? KIND_ICONS[entry.custom.kind] || 'category' : 'text_fields'}
                       size={12}
-                      className={active ? 'text-cyan-300' : 'text-slate-500'}
+                      className={active ? 'text-primary' : 'text-ink-dim'}
                     />
                     <span
-                      className={`flex-1 truncate text-[10px] ${
-                        entry.transform.isHidden ? 'line-through text-slate-600' : active ? 'text-cyan-100' : 'text-slate-300'
+                      className={`flex-1 truncate text-[11px] ${
+                        entry.transform.isHidden ? 'line-through text-ink-dim' : active ? 'text-ink' : 'text-ink'
                       }`}
                     >
                       {ELEMENT_LABELS[entry.id] ||
                         (entry.custom ? `${entry.custom.kind} ${entry.id.slice(-3)}` : entry.id)}
                     </span>
-                    <span className="text-[8px] font-mono text-slate-600">{entry.transform.zIndex}</span>
+                    <span className="text-[11px] font-mono text-ink-dim">{entry.transform.zIndex}</span>
                     <Tooltip content={entry.transform.isHidden ? 'Show layer' : 'Hide layer'}>
                       <button
                         type="button"
@@ -665,7 +667,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                           event.stopPropagation();
                           toggleHidden(entry.id);
                         }}
-                        className="w-5 h-5 rounded flex items-center justify-center text-slate-500 hover:bg-white/10 hover:text-white opacity-0 group-hover:opacity-100"
+                        className="w-5 h-5 rounded flex items-center justify-center text-ink-dim hover:bg-surface-2 hover:text-ink opacity-0 group-hover:opacity-100"
                       >
                         <Icon name={entry.transform.isHidden ? 'visibility' : 'visibility_off'} size={11} />
                       </button>
@@ -677,7 +679,7 @@ export const ElementInspectorPanel: React.FC<Props> = ({
                           event.stopPropagation();
                           toggleLock(entry.id);
                         }}
-                        className="w-5 h-5 rounded flex items-center justify-center text-slate-500 hover:bg-white/10 hover:text-white opacity-0 group-hover:opacity-100"
+                        className="w-5 h-5 rounded flex items-center justify-center text-ink-dim hover:bg-surface-2 hover:text-ink opacity-0 group-hover:opacity-100"
                       >
                         <Icon name={entry.transform.isLocked ? 'lock' : 'lock_open'} size={11} />
                       </button>
@@ -698,9 +700,9 @@ const Section: React.FC<{ title: string; icon: string; children: React.ReactNode
   icon,
   children,
 }) => (
-  <div className="rounded-xl border border-white/10 bg-white/[0.025] p-2.5 space-y-2">
-    <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
-      <Icon name={icon} size={12} className="text-cyan-400/80" />
+  <div className="rounded-card border border-line bg-app/40 p-2.5 space-y-2">
+    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-dim">
+      <Icon name={icon} size={12} className="text-primary" />
       {title}
     </div>
     {children}
@@ -709,7 +711,7 @@ const Section: React.FC<{ title: string; icon: string; children: React.ReactNode
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div className="space-y-1">
-    <p className="text-[9px] text-slate-500 font-semibold">{label}</p>
+    <p className="text-[11px] text-ink-dim font-semibold">{label}</p>
     {children}
   </div>
 );
@@ -735,7 +737,7 @@ const NumberField: React.FC<{
         const parsed = Number(event.target.value);
         if (Number.isFinite(parsed)) onChange(parsed);
       }}
-      className="w-full bg-slate-900 border border-white/10 rounded-md px-2 py-1.5 text-[10px] font-mono text-slate-200 outline-none focus:border-cyan-400/50"
+      className="w-full bg-app border border-line rounded-md px-2 py-1.5 text-[11px] font-mono text-ink focus:border-primary"
     />
   </Field>
 );
@@ -751,9 +753,9 @@ const SliderField: React.FC<{
   onChange: (value: number) => void;
 }> = ({ label, value, min, max, step, suffix = '', onStart, onChange }) => (
   <div className="space-y-1">
-    <div className="flex items-center justify-between text-[9px]">
-      <span className="text-slate-500 font-semibold">{label}</span>
-      <span className="font-mono text-slate-400">
+    <div className="flex items-center justify-between text-[11px]">
+      <span className="text-ink-dim font-semibold">{label}</span>
+      <span className="font-mono text-ink-dim">
         {value}
         {suffix}
       </span>
@@ -766,7 +768,7 @@ const SliderField: React.FC<{
       value={value}
       onPointerDown={onStart}
       onChange={(event) => onChange(Number(event.target.value))}
-      className="w-full accent-cyan-400 cursor-pointer"
+      className="w-full accent-primary cursor-pointer"
     />
   </div>
 );
@@ -775,24 +777,17 @@ const ToggleField: React.FC<{ label: string; value: boolean; onChange: (value: b
   label,
   value,
   onChange,
-}) => (
-  <button
-    type="button"
-    onClick={() => onChange(!value)}
-    className="w-full flex items-center justify-between text-[10px] text-slate-300 py-0.5"
-  >
-    <span>{label}</span>
-    <span
-      className={`w-8 h-4 rounded-full p-0.5 transition-colors ${value ? 'bg-cyan-500' : 'bg-slate-700'}`}
-    >
-      <span
-        className={`block w-3 h-3 rounded-full bg-white transition-transform ${
-          value ? 'translate-x-4' : 'translate-x-0'
-        }`}
-      />
-    </span>
-  </button>
-);
+}) => {
+  const id = `kt-el-${label.replace(/\W+/g, '-').toLowerCase()}`;
+  return (
+    <div className="flex w-full items-center justify-between gap-2 text-[11px] text-ink">
+      <Label htmlFor={id} className="text-[11px] font-semibold text-ink">
+        {label}
+      </Label>
+      <Switch id={id} checked={value} onCheckedChange={onChange} />
+    </div>
+  );
+};
 
 const ActionButton: React.FC<{
   icon: string;
@@ -804,12 +799,12 @@ const ActionButton: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-md border text-[8px] font-bold transition-colors ${
+    className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-md border text-[11px] font-bold transition-colors ${
       danger
-        ? 'border-rose-400/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20'
+        ? 'border-danger/30 bg-danger/10 text-danger-ink hover:bg-danger/20'
         : active
-        ? 'border-cyan-400/30 bg-cyan-500/15 text-cyan-200'
-        : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+        ? 'border-primary/30 bg-primary-soft text-primary'
+        : 'border-line bg-app/50 text-ink hover:bg-surface-2'
     }`}
   >
     <Icon name={icon} size={13} />
@@ -825,9 +820,9 @@ const AddButton: React.FC<{ icon: string; label: string; onClick: () => void }> 
   <button
     type="button"
     onClick={onClick}
-    className="aspect-square rounded-lg border border-white/10 bg-white/[0.035] hover:border-cyan-400/40 hover:bg-cyan-400/[0.07] flex flex-col items-center justify-center gap-1 text-[9px] font-bold text-slate-300"
+    className="aspect-square rounded-lg border border-line bg-surface-2 hover:border-line-strong hover:bg-surface-2 flex flex-col items-center justify-center gap-1 text-[11px] font-bold text-ink"
   >
-    <Icon name={icon} size={16} className="text-cyan-300" />
+    <Icon name={icon} size={16} className="text-primary" />
     {label}
   </button>
 );

@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { AI_EXAMPLE_PROMPTS } from '../../../data/staticCardPresets';
 import { CardFormat, CarouselSlide } from '../../../types/staticCard';
-import { Badge, Button } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { Field, Textarea } from '@/components/ui/field';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { notify } from '@/components/ui/toast';
 import { Icon } from '@/lib/icons';
 import { api } from '@/lib/api';
+import { copyVoice, voiceTone } from '@/lib/brandKit';
+import { copyModel, copyModelLabel } from '@/lib/prefs';
 
 interface Props {
   format: CardFormat;
@@ -11,184 +16,151 @@ interface Props {
   onDeckGenerated?: (data: { slides: CarouselSlide[]; socialCaption?: string }) => void;
 }
 
+const DECK_LENGTHS = ['3', '5', '7'];
+
 export const AICopyGenerator: React.FC<Props> = ({ format, onGenerated, onDeckGenerated }) => {
   const [prompt, setPrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isGeneratingDeck, setIsGeneratingDeck] = useState(false);
-  const [slideCount, setSlideCount] = useState<number>(5);
+  const [busy, setBusy] = useState<'card' | 'deck' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const [slideCount, setSlideCount] = useState('5');
 
   const isCarousel = format === 'carousel-slide';
+  // Read once per render, not per click: the line under the box has to describe the engine this
+  // panel is about to call, and the Room and Kit stations can change both between visits.
+  const voice = copyVoice();
+  const engine = `${copyModelLabel()} · ${voice ? 'the voice in Kit' : 'a default voice'}`;
 
-  const handleGenerateSingle = async (customSeedPrompt?: string) => {
-    const textToUse = customSeedPrompt || prompt;
-    if (!textToUse.trim()) {
-      setError('Please type a topic or click an example prompt below.');
+  /** What the engine sends back is dropped onto the canvas, so the wording has to say who wrote it. */
+  const writtenNotice = (modelUsed?: string, what = 'The card') =>
+    `${what} written by ${modelUsed ?? 'the copy engine'} — it is a draft until you read it.`;
+
+  const writeCard = async (seed?: string) => {
+    const textToUse = (seed ?? prompt).trim();
+    if (!textToUse) {
+      setError('Give it a topic first. One line is enough.');
       return;
     }
 
     setError(null);
-    setSuccessNotice(null);
-    setIsGenerating(true);
+    setBusy('card');
 
     try {
       const result = await api.generateStaticCardCopy({
-        prompt: textToUse.trim(),
+        prompt: textToUse,
         format,
+        tone: voiceTone(),
+        context: voice,
+        model: copyModel(),
       });
 
-      if (result && result.headline) {
-        onGenerated({
-          headline: result.headline,
-          supportingText: result.supportingText,
-          socialCaption: result.socialCaption || '',
-        });
-        setSuccessNotice(
-          result.fallback
-            ? 'No engine answered — that is the card skeleton, not generated copy. Every bracket is yours.'
-            : 'Fresh copy synthesized with Gemini AI!'
-        );
-        setTimeout(() => setSuccessNotice(null), 3500);
-      } else {
-        throw new Error('Failed to generate copy from AI engine.');
-      }
-    } catch (err: any) {
-      console.error('Error generating AI copy:', err);
-      setError(err?.message || 'Error generating copy with Gemini AI. Please try again.');
+      if (!result?.headline) throw new Error('The copy engine sent back nothing readable.');
+
+      onGenerated({
+        headline: result.headline,
+        supportingText: result.supportingText,
+        socialCaption: result.socialCaption || '',
+      });
+      notify.ok(
+        result.fallback
+          ? 'No engine answered, so this is the scaffold. Every bracket is yours to fill.'
+          : writtenNotice(result.modelUsed)
+      );
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'The copy engine did not answer. Try again.');
     } finally {
-      setIsGenerating(false);
+      setBusy(null);
     }
   };
 
-  const handleGenerateDeck = async (customSeedPrompt?: string) => {
-    const textToUse = customSeedPrompt || prompt;
-    if (!textToUse.trim()) {
-      setError('Please type a topic or click an example prompt below.');
+  const writeDeck = async (seed?: string) => {
+    const textToUse = (seed ?? prompt).trim();
+    if (!textToUse) {
+      setError('Give it a topic first. One line is enough.');
       return;
     }
 
     if (!onDeckGenerated) return;
 
     setError(null);
-    setSuccessNotice(null);
-    setIsGeneratingDeck(true);
+    setBusy('deck');
 
     try {
       const result = await api.generateStaticCarouselDeck({
-        prompt: textToUse.trim(),
-        slideCount,
+        prompt: textToUse,
+        slideCount: Number(slideCount),
+        tone: voiceTone(),
+        context: voice,
+        model: copyModel(),
       });
 
-      if (result && Array.isArray(result.slides) && result.slides.length > 0) {
-        onDeckGenerated({
-          slides: result.slides,
-          socialCaption: result.socialCaption || '',
-        });
-        setSuccessNotice(`Full ${result.slides.length}-slide carousel synthesized & loaded into Stepper!`);
-        setTimeout(() => setSuccessNotice(null), 4000);
-      } else {
-        throw new Error('Failed to generate carousel deck from AI engine.');
+      if (!Array.isArray(result.slides) || result.slides.length === 0) {
+        throw new Error('The copy engine sent back nothing readable.');
       }
-    } catch (err: any) {
-      console.error('Error generating AI deck:', err);
-      setError(err?.message || 'Error generating carousel deck. Please try again.');
+
+      onDeckGenerated({ slides: result.slides, socialCaption: result.socialCaption || '' });
+      notify.ok(writtenNotice(result.modelUsed, `${result.slides.length} slides`));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'The copy engine did not answer. Try again.');
     } finally {
-      setIsGeneratingDeck(false);
+      setBusy(null);
     }
   };
 
   return (
-    <div className="rounded-card bg-surface-2/70 border border-line p-4 space-y-3 relative shadow-[var(--shadow-1)]">
-      {/* Header with GEMINI AI Badge */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon name="auto_awesome" size={17} className="text-primary" />
-          <span className="text-[13px] font-semibold text-ink">
-            {isCarousel ? 'AI Carousel Story Arc Generator' : 'AI Headline & Description Generator'}
-          </span>
-        </div>
-        <Badge tone="primary">GEMINI AI</Badge>
-      </div>
+    <div className="space-y-4">
+      <Field
+        label={isCarousel ? 'What is the deck about?' : 'What is the card about?'}
+        hint={`Written by ${engine}. Nothing reaches the card until you accept it.`}
+        error={error ?? undefined}
+      >
+        {({ id, describedBy }) => (
+          <Textarea
+            id={id}
+            aria-describedby={describedBy}
+            rows={3}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder={
+              isCarousel
+                ? 'e.g. the three things you do between a raw voice note and a shipped post — name each one and what it costs'
+                : 'e.g. why posting every day stopped being the point, or the one number that changed your mind this month'
+            }
+            className="text-xs"
+          />
+        )}
+      </Field>
 
-      <p className="text-xs text-ink-muted leading-relaxed">
-        {isCarousel
-          ? 'Enter any prompt or topic. Gemini AI will newly generate a structured 5-slide presentation arc (Hook, Step 1, Step 2, Step 3, The Playbook & CTA) strictly adhering to your prompt with zero placeholders.'
-          : 'Describe what kind of post you want. Gemini AI will craft an authoritative headline & punchy tactical takeaway formatted specifically for this card.'}
-      </p>
-
-      {/* Prompt Input */}
-      <div className="relative">
-        <textarea
-          rows={3}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder={
-            isCarousel
-              ? 'e.g. 5 steps to turn 1 raw insight into 6 high-converting assets, or Why top creators decouple ideation from editing...'
-              : 'e.g. Why consistency beats high-budget production for creators in 2026, or a 3-step framework to repurpose video into carousels...'
-          }
-          className="w-full bg-surface border border-line rounded-btn p-3 text-xs text-ink placeholder-ink-dim focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 resize-none transition-all leading-relaxed shadow-[var(--shadow-1)]"
-        />
-      </div>
-
-      {/* Slide Count Selector (when Carousel format is active) */}
       {isCarousel && (
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-[11px] font-medium text-ink-muted flex items-center gap-1">
-            <Icon name="view_carousel" size={13} className="text-primary" />
-            <span>Deck Length:</span>
-          </span>
-          <div className="inline-flex items-center gap-1 bg-surface p-0.5 rounded-btn border border-line">
-            {[3, 5, 7].map((num) => (
-              <button
-                key={num}
-                type="button"
-                onClick={() => setSlideCount(num)}
-                className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
-                  slideCount === num
-                    ? 'bg-primary text-on-primary shadow-sm'
-                    : 'text-ink-muted hover:text-ink'
-                }`}
-              >
-                <span>{num} Slides</span>
-              </button>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[12px] font-semibold text-ink-muted">Slides in the deck</span>
+          <ToggleGroup
+            value={slideCount}
+            onValueChange={(next) => next && setSlideCount(next)}
+            aria-label="Slides in the deck"
+            variant="segment"
+          >
+            {DECK_LENGTHS.map((num) => (
+              <ToggleGroupItem key={num} value={num} variant="segment" className="px-2.5 py-0.5 text-[12px]">
+                <span>{num}</span>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
         </div>
       )}
 
-      {error && (
-        <div className="p-2 rounded-btn bg-danger/10 border border-danger/20 text-danger text-[11px] font-medium flex items-start gap-1.5">
-          <Icon name="error_outline" size={14} className="mt-0.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {successNotice && (
-        <div className="p-2 rounded-btn bg-success/10 border border-success/20 text-success text-[11px] font-medium flex items-center gap-1.5">
-          <Icon name="check_circle" size={14} />
-          <span>{successNotice}</span>
-        </div>
-      )}
-
-      {/* Quick Example Chips */}
-      <div className="space-y-1.5">
-        <span className="text-[11px] font-semibold text-ink-dim block">Quick Inspiration Archetypes:</span>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {AI_EXAMPLE_PROMPTS.map((ex, i) => (
+      <div className="space-y-2">
+        <span className="kt-eyebrow block text-ink-dim">Start from one of these</span>
+        <div className="flex flex-wrap gap-1.5">
+          {AI_EXAMPLE_PROMPTS.map((ex) => (
             <button
-              key={i}
+              key={ex.label}
               type="button"
               onClick={() => {
                 setPrompt(ex.prompt);
-                if (isCarousel) {
-                  handleGenerateDeck(ex.prompt);
-                } else {
-                  handleGenerateSingle(ex.prompt);
-                }
+                if (isCarousel) void writeDeck(ex.prompt);
+                else void writeCard(ex.prompt);
               }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface hover:bg-surface-2 border border-line text-[11px] font-semibold text-ink-muted hover:text-ink hover:border-line-strong transition-all cursor-pointer shadow-sm"
+              className="kt-focus inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-[11px] font-semibold text-ink-muted transition-colors hover:border-line-strong hover:bg-surface-2 hover:text-ink"
             >
               <Icon name={ex.icon} size={13} className="text-primary" />
               <span>{ex.label}</span>
@@ -197,62 +169,44 @@ export const AICopyGenerator: React.FC<Props> = ({ format, onGenerated, onDeckGe
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="space-y-2 pt-1">
+      <div className="space-y-2">
         {isCarousel && onDeckGenerated ? (
           <>
             <Button
               variant="primary"
               size="md"
-              icon={isGeneratingDeck ? undefined : 'auto_awesome'}
-              disabled={isGeneratingDeck || isGenerating}
-              onClick={() => handleGenerateDeck()}
-              className="w-full justify-center shadow-md font-bold"
+              icon={busy === 'deck' ? 'progress_activity' : 'draw'}
+              iconSpin={busy === 'deck'}
+              disabled={busy !== null}
+              onClick={() => void writeDeck()}
+              className="w-full justify-center"
             >
-              {isGeneratingDeck ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 text-on-primary" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span>Synthesizing {slideCount}-Slide Narrative Arc...</span>
-                </>
-              ) : (
-                <span>Generate Full Carousel Story Deck ({slideCount} Slides)</span>
-              )}
+              <span>{busy === 'deck' ? 'Writing the deck...' : `Write the deck (${slideCount} slides)`}</span>
             </Button>
 
             <Button
               variant="secondary"
               size="sm"
-              icon={isGenerating ? undefined : 'tune'}
-              disabled={isGenerating || isGeneratingDeck}
-              onClick={() => handleGenerateSingle()}
-              className="w-full justify-center text-xs"
+              icon={busy === 'card' ? 'progress_activity' : 'refresh'}
+              iconSpin={busy === 'card'}
+              disabled={busy !== null}
+              onClick={() => void writeCard()}
+              className="w-full justify-center"
             >
-              {isGenerating ? 'Synthesizing Current Slide...' : 'Regenerate Current Slide Only'}
+              <span>{busy === 'card' ? 'Rewriting this slide...' : 'Rewrite this slide only'}</span>
             </Button>
           </>
         ) : (
           <Button
             variant="primary"
             size="md"
-            icon={isGenerating ? undefined : 'auto_awesome'}
-            disabled={isGenerating}
-            onClick={() => handleGenerateSingle()}
+            icon={busy === 'card' ? 'progress_activity' : 'draw'}
+            iconSpin={busy === 'card'}
+            disabled={busy === 'card'}
+            onClick={() => void writeCard()}
             className="w-full justify-center"
           >
-            {isGenerating ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-on-primary" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>Synthesizing Copy with Gemini AI...</span>
-              </>
-            ) : (
-              <span>Generate Headline & Supporting Text</span>
-            )}
+            <span>{busy === 'card' ? 'Writing...' : 'Write the headline and body'}</span>
           </Button>
         )}
       </div>

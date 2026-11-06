@@ -167,17 +167,11 @@ export const CardCanvas: React.FC<CardCanvasProps> = ({
 
   return (
     <div className="relative w-full flex items-center justify-center p-2 sm:p-4">
-      {/* Ambient Theme Studio Backlight */}
-      <div
-        className="absolute w-72 h-72 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-500"
-        style={{ background: theme.accent }}
-      />
-
       {/* Dynamic Aspect Ratio Card Frame */}
       <div
         ref={canvasRef}
         id="kontentos-static-card-canvas"
-        className={`w-full ${getAspectRatioClasses()} transition-all duration-300 rounded-3xl overflow-hidden shadow-[0_30px_70px_-15px_rgba(0,0,0,0.85)] border border-white/10 bg-slate-950 relative flex items-center justify-center`}
+        className={`w-full ${getAspectRatioClasses()} rounded-3xl overflow-hidden shadow-[var(--shadow-2)] border border-white/10 bg-slate-950 relative flex items-center justify-center`}
         onContextMenu={handleContextMenu}
         onPointerDown={handleCanvasPointerDown}
         onDoubleClick={handleCanvasDoubleClick}

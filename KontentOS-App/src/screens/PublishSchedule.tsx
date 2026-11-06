@@ -84,12 +84,12 @@ function HashtagEditor({
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5">
         {tags.length === 0 && (
-          <span className="text-[11.5px] text-ink-dim">No tags yet — this app will not pick them for you.</span>
+          <span className="text-[12px] text-ink-dim">No tags yet — this app will not pick them for you.</span>
         )}
         {tags.map((t) => (
           <span
             key={t}
-            className="text-[11.5px] font-medium text-primary bg-primary-soft border border-primary/20 rounded-full px-2.5 py-0.5 flex items-center gap-1"
+            className="text-[12px] font-medium text-primary bg-primary-soft border border-primary/20 rounded-full px-2.5 py-0.5 flex items-center gap-1"
           >
             #{t}
             <button
@@ -554,7 +554,7 @@ export default function PublishSchedule() {
         <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-card border border-tertiary/40 bg-tertiary/10 px-4 py-2.5 text-[13px]">
           <span className="flex items-center gap-2 text-ink">
             <Icon name="edit_note" size={17} className="text-tertiary" />
-            Editing <strong className="font-semibold">{editingPost.video_title || 'this post'}</strong>
+            Editing <strong className="font-semibold">{editingPost.video_title ||'this post'}</strong>
             <span className="text-ink-dim">
               ({editingPost.platform}) — “Schedule Dispatch” updates this row instead of creating a new one.
             </span>
@@ -718,7 +718,7 @@ export default function PublishSchedule() {
                 onClick={handleRegenerateCopy}
                 disabled={generatingCopy || !selectedVideo}
               >
-                {generatingCopy ? 'Gemini AI Generating...' : 'Re-Generate AI Copy'}
+                {generatingCopy ? 'Rewriting…' : 'Rewrite the copy'}
               </Button>
             </div>
 
@@ -759,7 +759,7 @@ export default function PublishSchedule() {
               const pct = Math.min(100, Math.round((verdict.length / spec.captionMax) * 100));
               return (
                 <div className="mb-3 rounded-btn border border-line bg-surface-2/60 p-3 space-y-2">
-                  <div className="flex items-center justify-between text-[11.5px]">
+                  <div className="flex items-center justify-between text-[12px]">
                     <span className="font-semibold uppercase tracking-wider text-ink-dim">
                       {spec.label} limits
                     </span>
@@ -786,7 +786,7 @@ export default function PublishSchedule() {
                     />
                   </div>
                   {verdict.notes.length > 0 && (
-                    <ul className="space-y-0.5 text-[11.5px] leading-relaxed">
+                    <ul className="space-y-0.5 text-[12px] leading-relaxed">
                       {verdict.notes.map((n) => (
                         <li key={n} className={verdict.ok ? 'text-ink-muted' : 'text-danger font-medium'}>
                           {n}
@@ -798,7 +798,7 @@ export default function PublishSchedule() {
                     href={spec.composerUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="kt-focus inline-flex items-center gap-1.5 text-[11.5px] font-medium text-primary hover:underline"
+                    className="kt-focus inline-flex items-center gap-1.5 text-[12px] font-medium text-primary hover:underline"
                   >
                     <Icon name="open_in_new" size={13} />
                     Post it on {spec.label} yourself
@@ -950,7 +950,7 @@ export default function PublishSchedule() {
 
             {/* Mobile Device Viewport */}
             <div className="w-[240px] max-w-full">
-              <div className="aspect-[9/19] rounded-[26px] border-[6px] border-ink/90 bg-black overflow-hidden relative shadow-lg text-white">
+              <div className="aspect-[9/19] rounded-[26px] border-[6px] border-ink/90 bg-black overflow-hidden relative shadow-[var(--shadow-2)] text-white">
                 {/* Background Video Media */}
                 {selectedVideo?.file_url ? (
                   <video
@@ -972,7 +972,7 @@ export default function PublishSchedule() {
                 )}
 
                 {/* Top Notch */}
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-16 h-2 rounded-full bg-black/70 backdrop-blur z-20" />
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-16 h-2 rounded-full bg-black/70 z-20" />
 
                 {/* Platform Overlay: Instagram / TikTok Style */}
                 {(previewPlatform === 'instagram' || previewPlatform === 'tiktok') && (
@@ -981,37 +981,37 @@ export default function PublishSchedule() {
                     <div className="absolute right-2.5 bottom-14 z-20 flex flex-col items-center gap-3.5 text-center text-white drop-shadow">
                       <div className="flex flex-col items-center">
                         <Icon name="favorite" size={20} className="text-white" />
-                        <span className="text-[9px] font-bold mt-0.5">Like</span>
+                        <span className="text-[11px] font-bold mt-0.5">Like</span>
                       </div>
                       <div className="flex flex-col items-center">
                         <Icon name="chat_bubble" size={20} className="text-white" />
-                        <span className="text-[9px] font-bold mt-0.5">Comment</span>
+                        <span className="text-[11px] font-bold mt-0.5">Comment</span>
                       </div>
                       <div className="flex flex-col items-center">
                         <Icon name="send" size={20} className="text-white" />
-                        <span className="text-[9px] font-bold mt-0.5">Share</span>
+                        <span className="text-[11px] font-bold mt-0.5">Share</span>
                       </div>
                       <div className="flex flex-col items-center">
                         <Icon name="bookmark" size={20} className="text-white" />
-                        <span className="text-[9px] font-bold mt-0.5">Save</span>
+                        <span className="text-[11px] font-bold mt-0.5">Save</span>
                       </div>
                     </div>
 
                     {/* Bottom Author & Caption Bar */}
                     <div className="absolute left-3 right-12 bottom-3 z-20 text-left text-white drop-shadow-md">
                       <div className="flex items-center gap-1.5 mb-1">
-                        <span className="w-5 h-5 rounded-full bg-primary text-on-primary text-[10px] font-bold grid place-items-center">
+                        <span className="w-5 h-5 rounded-full bg-primary text-on-primary text-[11px] font-bold grid place-items-center">
                           {profile.initials}
                         </span>
                         <span className="text-[11px] font-bold">{profile.handle}</span>
                       </div>
-                      <p className="text-[10px] line-clamp-2 text-white/90 leading-tight">
+                      <p className="text-[11px] line-clamp-2 text-white/90 leading-tight">
                         {previewPlatform === 'instagram'
                           ? copyBundle.instagram.caption
                           : copyBundle.tiktok.caption}
                       </p>
-                      <div className="flex items-center gap-1 text-[9px] text-white/70 mt-1">
-                        <Icon name="music_note" size={10} />
+                      <div className="flex items-center gap-1 text-[11px] text-white/70 mt-1">
+                        <Icon name="music_note" size={11} />
                         <span className="truncate">Original audio · {profile.handle}</span>
                       </div>
                     </div>
@@ -1026,12 +1026,12 @@ export default function PublishSchedule() {
                     </h5>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-red-600 text-[10px] font-bold grid place-items-center">
+                        <span className="w-5 h-5 rounded-full bg-red-600 text-[11px] font-bold grid place-items-center">
                           {profile.initials}
                         </span>
-                        <span className="text-[10.5px] font-semibold">{profile.name}</span>
+                        <span className="text-[11px] font-semibold">{profile.name}</span>
                       </div>
-                      <span className="bg-white text-black text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      <span className="bg-white text-black text-[11px] font-bold px-2 py-0.5 rounded-full">
                         Subscribe
                       </span>
                     </div>
@@ -1040,14 +1040,14 @@ export default function PublishSchedule() {
 
                 {/* Platform Overlay: LinkedIn / X */}
                 {(previewPlatform === 'linkedin' || previewPlatform === 'x') && (
-                  <div className="absolute inset-x-2 bottom-3 z-20 bg-black/75 backdrop-blur p-2.5 rounded-card text-left text-white">
+                  <div className="absolute inset-x-2 bottom-3 z-20 bg-black/75 p-2.5 rounded-card text-left text-white">
                     <div className="flex items-center gap-1.5 mb-1">
-                      <span className="w-4 h-4 rounded-full bg-primary text-[9px] font-bold grid place-items-center">
+                      <span className="w-4 h-4 rounded-full bg-primary text-[11px] font-bold grid place-items-center">
                         {profile.initials}
                       </span>
-                      <span className="text-[10.5px] font-bold">{profile.name}</span>
+                      <span className="text-[11px] font-bold">{profile.name}</span>
                     </div>
-                    <p className="text-[9.5px] text-white/90 line-clamp-3 leading-snug">
+                    <p className="text-[11px] text-white/90 line-clamp-3 leading-snug">
                       {previewPlatform === 'linkedin'
                         ? copyBundle.linkedin.postText
                         : copyBundle.x.thread[0]}
@@ -1075,11 +1075,11 @@ export default function PublishSchedule() {
                     onClick={() => setSlot(getFormattedSlotDate(ps.offsetDays, ps.offsetHours))}
                     className="p-2 rounded-btn border border-line bg-surface hover:bg-surface-2 text-left text-xs transition-all hover:border-primary"
                   >
-                    <div className="font-semibold text-ink text-[11.5px] flex items-center gap-1">
+                    <div className="font-semibold text-ink text-[12px] flex items-center gap-1">
                       <Icon name="bolt" size={13} className="text-tertiary" />
                       {ps.label}
                     </div>
-                    <div className="text-[10px] text-ink-dim mt-0.5">{ps.desc}</div>
+                    <div className="text-[11px] text-ink-dim mt-0.5">{ps.desc}</div>
                   </button>
                 ))}
               </div>
@@ -1125,7 +1125,7 @@ export default function PublishSchedule() {
               >
                 Open the composer to post it yourself
               </Button>
-              <p className="text-[11.5px] leading-relaxed text-ink-dim">
+              <p className="text-[12px] leading-relaxed text-ink-dim">
                 Queuing writes to KontentOS&apos;s calendar. It never touches a platform — no channel is
                 connected, so a post only becomes “published” when you mark it and paste its live link.
               </p>

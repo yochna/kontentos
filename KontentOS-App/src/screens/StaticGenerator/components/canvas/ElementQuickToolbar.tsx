@@ -110,7 +110,7 @@ export const ElementQuickToolbar: React.FC<Props> = ({ rect }) => {
 
   return (
     <div
-      className={`absolute left-1/2 -translate-x-1/2 z-[75] flex items-center gap-0.5 px-1.5 py-1 rounded-xl bg-slate-900/95 border border-white/20 shadow-2xl backdrop-blur-xl whitespace-nowrap pointer-events-auto ${
+      className={`absolute left-1/2 -translate-x-1/2 z-[75] flex items-center gap-0.5 px-1.5 py-1 rounded-card bg-surface border border-line shadow-[var(--shadow-2)] whitespace-nowrap pointer-events-auto ${
         flipPosition ? 'top-full mt-3' : '-top-[96px]'
       }`}
       data-canvas-ui="true"
@@ -125,7 +125,7 @@ export const ElementQuickToolbar: React.FC<Props> = ({ rect }) => {
             onClick={() => setEditingElement(selectedId)}
           />
           <ToolButton icon="remove" title="Decrease font size" onClick={() => changeSize(-2)} />
-          <span className="text-[9px] font-mono text-slate-300 w-7 text-center">{Math.round(currentFontSize)}</span>
+          <span className="text-[11px] font-mono text-ink w-7 text-center">{Math.round(currentFontSize)}</span>
           <ToolButton icon="add" title="Increase font size" onClick={() => changeSize(2)} />
           <ToolButton
             icon="format_bold"
@@ -147,7 +147,7 @@ export const ElementQuickToolbar: React.FC<Props> = ({ rect }) => {
             onClick={() => patchText({ fontStyle: currentStyle === 'italic' ? 'normal' : 'italic' })}
           />
           <ToolButton icon="format_align_left" title={`Align: ${currentAlign}`} onClick={cycleAlign} />
-          <span className="w-px h-4 bg-white/15 mx-0.5" />
+          <span className="w-px h-4 bg-line mx-0.5" />
         </>
       )}
 
@@ -155,22 +155,22 @@ export const ElementQuickToolbar: React.FC<Props> = ({ rect }) => {
         <button
           type="button"
           onClick={() => setShowColors((value) => !value)}
-          className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-white/10"
+          className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-surface-2"
           title="Color"
         >
           <span
-            className="w-3.5 h-3.5 rounded-full border border-white/40"
+            className="w-3.5 h-3.5 rounded-full border border-line-strong"
             style={{ background: currentColor }}
           />
         </button>
         {showColors && (
-          <div className="absolute top-9 left-1/2 -translate-x-1/2 grid grid-cols-5 gap-1.5 p-2 rounded-lg bg-slate-900 border border-white/20 shadow-2xl z-[80]">
+          <div className="absolute top-9 left-1/2 -translate-x-1/2 grid grid-cols-5 gap-1.5 p-2 rounded-lg bg-surface border border-line shadow-[var(--shadow-2)] z-[80]">
             {COLORS.map((color) => (
               <Tooltip key={color} content={color} delay={0}>
                 <button
                   type="button"
                   onClick={() => applyColor(color)}
-                  className="w-5 h-5 rounded border border-white/25 hover:scale-110 transition-transform"
+                  className="w-5 h-5 rounded border border-line-strong hover:border-line-strong"
                   style={{ background: color }}
                 />
               </Tooltip>
@@ -255,7 +255,7 @@ export const ElementQuickToolbar: React.FC<Props> = ({ rect }) => {
         </>
       )}
 
-      <span className="w-px h-4 bg-white/15 mx-0.5" />
+      <span className="w-px h-4 bg-line mx-0.5" />
 
       <ToolButton
         icon={isLocked ? 'lock' : 'lock_open'}
@@ -291,10 +291,10 @@ const ToolButton: React.FC<{
       aria-label={title}
       className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
         danger
-          ? 'text-rose-300 hover:bg-rose-500/20'
+          ? 'text-danger-ink hover:bg-danger/20'
           : active
-          ? 'bg-cyan-500/25 text-cyan-200'
-          : 'text-slate-200 hover:bg-white/10'
+          ? 'bg-primary-soft text-primary'
+          : 'text-ink hover:bg-surface-2'
       }`}
     >
       <Icon name={icon} size={14} />

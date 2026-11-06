@@ -23,7 +23,7 @@ interface Props {
   onExportEntireDeck?: () => void;
   onExportLinkedInPDF?: () => void;
   onCopyImageAndText: () => void;
-  copiedStatus: string | null;
+  progress?: string | null;
   onOpenPublishPack?: () => void;
   onOpenPublishToCalendar?: () => void;
 }
@@ -48,7 +48,7 @@ export const CanvasControls: React.FC<Props> = ({
   onExportEntireDeck,
   onExportLinkedInPDF,
   onCopyImageAndText,
-  copiedStatus,
+  progress = null,
   onOpenPublishPack,
   onOpenPublishToCalendar,
 }) => {
@@ -58,22 +58,13 @@ export const CanvasControls: React.FC<Props> = ({
         <Button
           variant="primary"
           size="md"
-          icon={isExporting ? undefined : 'download'}
+          icon={isExporting ? 'progress_activity' : 'download'}
+          iconSpin={isExporting}
           disabled={isExporting}
           onClick={onExportPNG}
           className="shadow-[var(--shadow-2)]"
         >
-          {isExporting ? (
-            <>
-              <svg className="animate-spin h-4 w-4 text-on-primary" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              <span>Rendering 300 DPI...</span>
-            </>
-          ) : (
-            <span>{isCarouselFormat ? 'Export Slide PNG (300 DPI)' : 'Export High-Res PNG (300 DPI)'}</span>
-          )}
+          <span>{isExporting ? 'Rendering…' : isCarouselFormat ? 'Export this slide (3×)' : 'Export PNG (3×)'}</span>
         </Button>
 
         {isCarouselFormat && onExportLinkedInPDF && (
@@ -83,24 +74,24 @@ export const CanvasControls: React.FC<Props> = ({
             icon={isExporting ? undefined : 'picture_as_pdf'}
             disabled={isExporting}
             onClick={onExportLinkedInPDF}
-            className="shadow-[var(--shadow-1)] border border-primary/40 text-primary font-semibold hover:bg-primary-soft"
-            title="Export as a multi-page PDF document ready for direct upload to LinkedIn Carousels"
+            className="border border-line hover:border-primary/50"
+            title="Save every slide as one multi-page PDF, the format LinkedIn accepts for a document post"
           >
-            <span>LinkedIn PDF Carousel</span>
+            <span>Deck as PDF</span>
           </Button>
         )}
 
         {isCarouselFormat && onExportEntireDeck && (
           <Button
-            variant="soft"
+            variant="secondary"
             size="md"
             icon={isExporting ? undefined : 'layers'}
             disabled={isExporting}
             onClick={onExportEntireDeck}
-            className="shadow-[var(--shadow-1)] border border-primary/30"
-            title="Export all slides as separate high-resolution PNGs"
+            className="border border-line hover:border-primary/50"
+            title="Save every slide as its own PNG"
           >
-            <span>Full Deck PNGs ({slideCount})</span>
+            <span>All slides as PNG ({slideCount})</span>
           </Button>
         )}
 
@@ -108,9 +99,10 @@ export const CanvasControls: React.FC<Props> = ({
           variant="secondary"
           size="md"
           icon="content_copy"
+          disabled={isExporting}
           onClick={onCopyImageAndText}
         >
-          {copiedStatus || 'Copy Image & Caption'}
+          Copy image & caption
         </Button>
 
         {onOpenPublishToCalendar && (
@@ -119,10 +111,10 @@ export const CanvasControls: React.FC<Props> = ({
             size="md"
             icon="calendar_month"
             onClick={onOpenPublishToCalendar}
-            className="border-primary/50 text-primary font-semibold hover:bg-primary-soft shadow-[var(--shadow-1)] bg-primary-soft/20"
-            title="Export and schedule static posts directly to your publishing calendar with date, time, and platforms"
+            className="border border-primary/40 text-primary hover:bg-primary-soft"
+            title="Send the exported cards to the Calendar, which queues them for the date you set"
           >
-            <span>Export to Calendar</span>
+            <span>Send to Calendar</span>
           </Button>
         )}
 
@@ -130,17 +122,23 @@ export const CanvasControls: React.FC<Props> = ({
           <Button
             variant="secondary"
             size="md"
-            icon="inventory_2"
+            icon="notes"
             onClick={onOpenPublishPack}
-            className="border-primary/40 text-ink font-semibold hover:border-primary hover:text-primary shadow-[var(--shadow-1)]"
-            title="Open One-Click Publish Pack (Hooks, caption, hashtags, and complete post copying)"
+            className="border border-line hover:border-primary/50"
+            title="The words from this card, split into the blocks a scheduler asks for"
           >
-            Publish Pack
+            Publish pack
           </Button>
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-1 p-1 rounded-xl bg-surface-2/70 border border-line sm:flex-nowrap">
+      {progress ? (
+        <p role="status" className="text-center text-[12px] text-ink-muted">
+          {progress}
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-center gap-1 p-1 rounded-card bg-surface-2/70 border border-line sm:flex-nowrap">
         <DockButton icon="title" label="Text" title="Add text box (T)" onClick={onAddText} />
         <DockButton icon="image" label="Image" title="Add image from storage" onClick={onAddImage} />
 
@@ -210,13 +208,13 @@ const DockButton: React.FC<{
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors ${
+      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-btn text-[11px] font-semibold whitespace-nowrap transition-colors ${
         disabled
           ? 'text-ink-dim/40 cursor-not-allowed'
           : tone === 'warning'
-          ? 'bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
+          ? 'border border-danger/30 bg-danger/10 text-danger-ink hover:bg-danger/20'
           : active
-          ? 'bg-primary/15 border border-primary/30 text-primary'
+          ? 'border border-primary/30 bg-primary/15 text-primary'
           : 'text-ink-muted hover:bg-surface hover:text-ink'
       }`}
     >
@@ -238,7 +236,7 @@ const DockIcon: React.FC<{
       disabled={disabled}
       onClick={onClick}
       aria-label={title}
-      className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+      className={`w-7 h-7 rounded-btn flex items-center justify-center transition-colors ${
         disabled
           ? 'text-ink-dim/40 cursor-not-allowed'
           : 'text-ink-muted hover:bg-surface hover:text-ink'

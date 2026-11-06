@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { Icon } from '@/lib/icons';
-import { Button, Card, Eyebrow, IconButton, Badge } from '@/components/ui';
+import { Button, IconButton } from '@/components/ui';
+import { notify } from '@/components/ui/toast';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StaticCardState } from '../../../types/staticCard';
+import { formatLabel } from './FormatTabs';
 import { generateAccessibleAltText } from '../utils/altTextGenerator';
 
 interface PublishPackDrawerProps {
@@ -15,6 +17,64 @@ interface PublishPackDrawerProps {
 
 type TabKey = 'all' | 'copy' | 'caption' | 'alt-text';
 
+const wordCount = (text: string) => text.split(/\s+/).filter(Boolean).length;
+
+/** One block of the pack: a name, how big it is, the text, and the button that copies it. */
+function PackCard({
+  label,
+  meta,
+  text,
+  emptyText,
+  hint,
+  copied,
+  onCopy,
+  scroll,
+}: {
+  label: string;
+  meta: string;
+  text: string;
+  emptyText: string;
+  hint?: string;
+  copied: boolean;
+  onCopy: () => void;
+  scroll?: boolean;
+}) {
+  return (
+    <section className="rounded-card border border-line bg-surface">
+      <div className="flex items-center justify-between gap-3 border-b border-line px-3.5 py-2">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h3 className="text-[12.5px] font-semibold text-ink">{label}</h3>
+          <span className="text-[11px] text-ink-dim">{meta}</span>
+        </div>
+        <Button
+          size="sm"
+          variant={copied ? 'soft' : 'ghost'}
+          icon={copied ? 'check' : 'content_copy'}
+          onClick={onCopy}
+        >
+          {copied ? 'Copied' : 'Copy'}
+        </Button>
+      </div>
+      <div className="space-y-2 p-3.5">
+        {text ? (
+          <p
+            className={`select-text whitespace-pre-line rounded-btn border border-line bg-app/50 p-2.5 text-[12.5px] leading-relaxed text-ink ${
+              scroll ? 'max-h-48 overflow-y-auto' : ''
+            }`}
+          >
+            {text}
+          </p>
+        ) : (
+          <p className="rounded-btn border border-dashed border-line p-2.5 text-[12.5px] text-ink-dim">
+            {emptyText}
+          </p>
+        )}
+        {hint && <p className="text-[11px] text-ink-dim">{hint}</p>}
+      </div>
+    </section>
+  );
+}
+
 export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
   isOpen,
   onClose,
@@ -23,6 +83,9 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabKey>('all');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const slideCount = state.slides?.length ?? 0;
+  const isDeck = state.format === 'carousel-slide' && slideCount > 0;
 
   // Clean strings without accentuation brackets [bracket]
   const cleanHeadline = useMemo(
@@ -72,6 +135,7 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
       }, 2000);
     } catch (err) {
       console.error('Failed to copy to clipboard', err);
+      notify.bad('The browser blocked the clipboard. Select the text and copy it yourself.');
     }
   };
 
@@ -81,28 +145,18 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
     <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent placement="right" hideClose className="w-full sm:max-w-xl">
         {/* Drawer Header */}
-        <div className="p-5 border-b border-line bg-surface/90 backdrop-blur-md flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-soft flex items-center justify-center text-primary border border-primary/20">
-              <Icon name="inventory_2" size={22} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <DialogTitle className="text-base font-bold text-ink">
-                  Publish Pack
-                </DialogTitle>
-                <Badge tone="primary">Ready to Post</Badge>
-              </div>
-              <p className="text-xs text-ink-muted">
-                1-click text copying for social schedulers & captions
-              </p>
-            </div>
+        <div className="shrink-0 border-b border-line bg-surface/90 p-5 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <DialogTitle className="text-[15px] font-semibold text-ink">Publish pack</DialogTitle>
+            <p className="mt-1 text-xs text-ink-muted">
+              The words from this card, split into the blocks a scheduler asks for.
+            </p>
           </div>
           <IconButton name="close" label="Close drawer" onClick={onClose} />
         </div>
 
-        {/* Master Actions Button Bar */}
-        <div className="p-4 bg-app/80 border-b border-line shrink-0 space-y-2">
+        {/* Actions */}
+        <div className="shrink-0 space-y-2 border-b border-line bg-app/80 p-4">
           {onOpenPublishToCalendar && (
             <button
               type="button"
@@ -110,16 +164,14 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
                 onClose();
                 onOpenPublishToCalendar();
               }}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-primary text-on-primary font-semibold hover:bg-primary-hover shadow-md transition-all cursor-pointer group"
+              className="kt-focus flex w-full cursor-pointer items-center justify-between gap-3 rounded-btn bg-primary px-3.5 py-2.5 text-[13px] font-semibold text-on-primary transition-colors hover:bg-primary-hover"
             >
-              <div className="flex items-center gap-2.5">
-                <Icon name="calendar_month" size={20} />
-                <span className="text-sm">
-                  Export to Calendar
-                </span>
-              </div>
-              <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-sans">
-                {state.format === 'carousel-slide' ? `${state.slides?.length || 5} Drops` : 'Instant Drop'}
+              <span className="flex items-center gap-2">
+                <Icon name="calendar_month" size={17} />
+                <span>Send to Calendar</span>
+              </span>
+              <span className="text-[11px] font-normal opacity-80">
+                {isDeck ? `${slideCount} slides` : 'single card'}
               </span>
             </button>
           )}
@@ -127,19 +179,17 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
           <button
             type="button"
             onClick={() => handleCopy(completePost, 'master')}
-            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-ink font-semibold hover:bg-surface-2 transition-all cursor-pointer group ${
-              onOpenPublishToCalendar ? 'bg-surface border-line' : 'bg-primary text-on-primary hover:bg-primary-hover shadow-md'
+            className={`kt-focus flex w-full cursor-pointer items-center justify-between gap-3 rounded-btn border px-3.5 py-2.5 text-[13px] font-semibold transition-colors ${
+              onOpenPublishToCalendar
+                ? 'border-line bg-surface text-ink hover:border-line-strong'
+                : 'border-primary bg-primary text-on-primary hover:bg-primary-hover'
             }`}
           >
-            <div className="flex items-center gap-2.5">
-              <Icon name={copiedKey === 'master' ? 'check_circle' : 'content_copy'} size={18} />
-              <span className="text-sm">
-                {copiedKey === 'master' ? 'Complete Post Copied to Clipboard!' : 'Copy All as Complete Post'}
-              </span>
-            </div>
-            <span className="text-xs bg-ink/10 dark:bg-white/10 px-2 py-0.5 rounded-full font-mono">
-              {completePost.length} chars
+            <span className="flex items-center gap-2">
+              <Icon name={copiedKey === 'master' ? 'check' : 'content_copy'} size={17} />
+              <span>{copiedKey === 'master' ? 'Copied the whole post' : 'Copy the whole post'}</span>
             </span>
+            <span className="font-mono text-[11px] font-normal opacity-80">{completePost.length} chars</span>
           </button>
         </div>
 
@@ -152,10 +202,10 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
             className="w-full shrink-0 gap-1.5 overflow-x-auto rounded-none border-b border-line bg-surface px-5 py-2.5"
           >
             {[
-              { id: 'all', label: 'All Cards', icon: 'dashboard' },
-              { id: 'copy', label: 'Hook & Body', icon: 'title' },
-              { id: 'caption', label: 'Caption & Tags', icon: 'chat' },
-              { id: 'alt-text', label: 'Accessibility Alt-Text', icon: 'visibility' },
+              { id: 'all', label: 'Everything', icon: 'dashboard' },
+              { id: 'copy', label: 'Card text', icon: 'title' },
+              { id: 'caption', label: 'Caption & tags', icon: 'chat_bubble_outline' },
+              { id: 'alt-text', label: 'Alt text', icon: 'visibility' },
             ].map((tab) => (
               <TabsTrigger
                 key={tab.id}
@@ -172,163 +222,105 @@ export const PublishPackDrawer: React.FC<PublishPackDrawerProps> = ({
 
         {/* Scrollable Asset Cards Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* 1. Headline Hook Card */}
           {(activeTab === 'all' || activeTab === 'copy') && (
-            <Card className="p-4 bg-surface hover:border-ink-muted/30 transition-all">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
-                <div className="flex items-center gap-2">
-                  <Eyebrow>1. Headline Hook</Eyebrow>
-                  <span className="text-[11px] text-ink-muted">
-                    {cleanHeadline.split(/\s+/).filter(Boolean).length} words
-                  </span>
-                </div>
-                <Button
-                  size="sm"
-                  variant={copiedKey === 'headline' ? 'soft' : 'secondary'}
-                  icon={copiedKey === 'headline' ? 'check' : 'content_copy'}
-                  onClick={() => handleCopy(cleanHeadline, 'headline')}
-                  className={copiedKey === 'headline' ? 'text-emerald-500 border-emerald-500/40' : ''}
-                >
-                  {copiedKey === 'headline' ? 'Copied' : 'Copy'}
-                </Button>
-              </div>
-              <p className="text-sm font-semibold text-ink leading-relaxed select-text bg-app/50 p-2.5 rounded-lg border border-line/60">
-                {cleanHeadline || <span className="text-ink-muted italic">No headline entered</span>}
-              </p>
-            </Card>
+            <PackCard
+              label="Headline"
+              meta={`${wordCount(cleanHeadline)} words`}
+              text={cleanHeadline}
+              emptyText="Nothing on this card yet — write it above."
+              copied={copiedKey === 'headline'}
+              onCopy={() => handleCopy(cleanHeadline, 'headline')}
+            />
           )}
 
-          {/* 2. Body Takeaway Card */}
           {(activeTab === 'all' || activeTab === 'copy') && (
-            <Card className="p-4 bg-surface hover:border-ink-muted/30 transition-all">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
-                <div className="flex items-center gap-2">
-                  <Eyebrow>2. Body Takeaway</Eyebrow>
-                  <span className="text-[11px] text-ink-muted">
-                    {cleanBody.split(/\s+/).filter(Boolean).length} words
-                  </span>
-                </div>
-                <Button
-                  size="sm"
-                  variant={copiedKey === 'body' ? 'soft' : 'secondary'}
-                  icon={copiedKey === 'body' ? 'check' : 'content_copy'}
-                  onClick={() => handleCopy(cleanBody, 'body')}
-                  className={copiedKey === 'body' ? 'text-emerald-500 border-emerald-500/40' : ''}
-                >
-                  {copiedKey === 'body' ? 'Copied' : 'Copy'}
-                </Button>
-              </div>
-              <p className="text-xs text-ink leading-relaxed select-text bg-app/50 p-2.5 rounded-lg border border-line/60 whitespace-pre-line">
-                {cleanBody || <span className="text-ink-muted italic">No body text entered</span>}
-              </p>
-            </Card>
+            <PackCard
+              label="Body"
+              meta={`${wordCount(cleanBody)} words`}
+              text={cleanBody}
+              emptyText="Nothing under the headline yet."
+              copied={copiedKey === 'body'}
+              onCopy={() => handleCopy(cleanBody, 'body')}
+            />
           )}
 
-          {/* 3. Full Social Caption Card */}
           {(activeTab === 'all' || activeTab === 'caption') && (
-            <Card className="p-4 bg-surface hover:border-ink-muted/30 transition-all">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
-                <div className="flex items-center gap-2">
-                  <Eyebrow>3. Full Social Caption</Eyebrow>
-                  <span className="text-[11px] text-ink-muted font-mono">
-                    {captionText.length} chars
-                  </span>
-                </div>
-                <Button
-                  size="sm"
-                  variant={copiedKey === 'caption' ? 'soft' : 'secondary'}
-                  icon={copiedKey === 'caption' ? 'check' : 'content_copy'}
-                  onClick={() => handleCopy(captionText, 'caption')}
-                  className={copiedKey === 'caption' ? 'text-emerald-500 border-emerald-500/40' : ''}
-                >
-                  {copiedKey === 'caption' ? 'Copied' : 'Copy'}
-                </Button>
-              </div>
-              <p className="text-xs text-ink leading-relaxed select-text bg-app/50 p-2.5 rounded-lg border border-line/60 whitespace-pre-line max-h-48 overflow-y-auto">
-                {captionText || (
-                  <span className="text-ink-muted italic">
-                    No social caption entered. Generate one with AI or type in the studio editor.
-                  </span>
-                )}
-              </p>
-            </Card>
+            <PackCard
+              label="Caption"
+              meta={`${captionText.length} chars`}
+              text={captionText}
+              emptyText="Write supplies this. Nothing has written it for this card yet."
+              copied={copiedKey === 'caption'}
+              onCopy={() => handleCopy(captionText, 'caption')}
+              scroll
+            />
           )}
 
-          {/* 4. Extracted Hashtags Card */}
           {(activeTab === 'all' || activeTab === 'caption') && (
-            <Card className="p-4 bg-surface hover:border-ink-muted/30 transition-all">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
-                <div className="flex items-center gap-2">
-                  <Eyebrow>4. Extracted Hashtags</Eyebrow>
-                  <span className="text-[11px] text-ink-muted">
-                    {hashtags.length > 0 ? `${hashtags.length} tags` : 'none in the caption'}
+            <section className="rounded-card border border-line bg-surface">
+              <div className="flex items-center justify-between gap-3 border-b border-line px-3.5 py-2">
+                <div className="flex min-w-0 items-baseline gap-2">
+                  <h3 className="text-[12.5px] font-semibold text-ink">Hashtags</h3>
+                  <span className="text-[11px] text-ink-dim">
+                    {hashtags.length > 0 ? `${hashtags.length} pulled from the caption` : 'none in the caption'}
                   </span>
                 </div>
                 <Button
                   size="sm"
-                  variant={copiedKey === 'hashtags' ? 'soft' : 'secondary'}
+                  variant={copiedKey === 'hashtags' ? 'soft' : 'ghost'}
                   icon={copiedKey === 'hashtags' ? 'check' : 'content_copy'}
                   onClick={() => handleCopy(hashtagsString, 'hashtags')}
-                  className={copiedKey === 'hashtags' ? 'text-emerald-500 border-emerald-500/40' : ''}
                 >
-                  {copiedKey === 'hashtags' ? 'Copied All' : 'Copy All'}
+                  {copiedKey === 'hashtags' ? 'Copied' : 'Copy all'}
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-1.5 p-2.5 bg-app/50 rounded-lg border border-line/60">
-                {hashtags.map((tag, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleCopy(tag, `tag-${idx}`)}
-                    className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-surface border border-line hover:border-primary/50 text-primary font-mono transition-colors cursor-pointer"
-                    title="Click to copy single hashtag"
-                  >
-                    <span>{tag}</span>
-                    {copiedKey === `tag-${idx}` && (
-                      <Icon name="check" size={12} className="text-emerald-500" />
-                    )}
-                  </button>
-                ))}
+              <div className="flex flex-wrap gap-1.5 p-3.5">
+                {hashtags.length === 0 ? (
+                  <p className="text-[12.5px] text-ink-dim">No # appears in the caption, so there is nothing here.</p>
+                ) : (
+                  hashtags.map((tag, idx) => {
+                    const justCopied = copiedKey === `tag-${idx}`;
+                    return (
+                      <button
+                        key={`${tag}-${idx}`}
+                        type="button"
+                        onClick={() => handleCopy(tag, `tag-${idx}`)}
+                        title="Copy this tag"
+                        className={`cursor-pointer rounded-full border px-2 py-0.5 font-mono text-[11px] transition-colors ${
+                          justCopied
+                            ? 'border-primary bg-primary-soft text-primary'
+                            : 'border-line bg-app/50 text-ink-muted hover:border-line-strong hover:text-ink'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })
+                )}
               </div>
-            </Card>
+            </section>
           )}
 
-          {/* 5. Automated Accessibility Alt-Text Card (Task 1.4.2) */}
           {(activeTab === 'all' || activeTab === 'alt-text') && (
-            <Card className="p-4 bg-surface hover:border-ink-muted/30 transition-all">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
-                <div className="flex items-center gap-2">
-                  <Eyebrow>5. Accessible Alt-Text</Eyebrow>
-                  <span className="text-[11px] text-ink-muted font-mono">{altText.length} chars</span>
-                  <Badge tone="neutral">Screen Readers & SEO</Badge>
-                </div>
-                <Button
-                  size="sm"
-                  variant={copiedKey === 'alt' ? 'soft' : 'secondary'}
-                  icon={copiedKey === 'alt' ? 'check' : 'content_copy'}
-                  onClick={() => handleCopy(altText, 'alt')}
-                  className={copiedKey === 'alt' ? 'text-emerald-500 border-emerald-500/40' : ''}
-                >
-                  {copiedKey === 'alt' ? 'Copied' : 'Copy'}
-                </Button>
-              </div>
-              <p className="text-xs text-ink leading-relaxed select-text bg-app/50 p-2.5 rounded-lg border border-line/60 italic">
-                "{altText}"
-              </p>
-              <p className="text-[11px] text-ink-muted mt-2">
-                Paste directly into Instagram or LinkedIn's <strong>"Add Alt Text"</strong> field before posting to maximize search accessibility and SEO indexing.
-              </p>
-            </Card>
+            <PackCard
+              label="Alt text"
+              meta={altText ? `${altText.length} chars` : 'nothing to describe'}
+              text={altText}
+              emptyText="The card has no words yet, so there is nothing to describe."
+              hint="Assembled from the words on this card and the photo credit — it cannot see the picture, so check it before you paste."
+              copied={copiedKey === 'alt'}
+              onCopy={() => handleCopy(altText, 'alt')}
+            />
           )}
         </div>
 
         {/* Drawer Footer */}
-        <div className="p-4 border-t border-line bg-surface shrink-0 flex items-center justify-between">
-          <span className="text-xs text-ink-muted">
-            Format: <strong className="text-ink">{state.format}</strong> ({state.aspectRatio})
+        <div className="shrink-0 flex items-center justify-between gap-3 border-t border-line bg-surface p-4">
+          <span className="text-[11px] text-ink-dim">
+            {formatLabel(state.format)} · {state.aspectRatio}
           </span>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Done
+            Close
           </Button>
         </div>
       </DialogContent>

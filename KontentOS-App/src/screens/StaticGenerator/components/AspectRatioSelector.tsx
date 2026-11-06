@@ -42,7 +42,7 @@ export const AspectRatioSelector: React.FC<Props> = ({ currentRatio, onSelectRat
               }`}
             >
               <div className="text-xs font-semibold">{item.label}</div>
-              <div className={`text-[10px] ${isSelected ? 'text-on-primary/80' : 'text-ink-dim'}`}>
+              <div className={`text-[11px] ${isSelected ? 'text-on-primary/80' : 'text-ink-dim'}`}>
                 {item.sub}
               </div>
             </button>
