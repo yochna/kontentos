@@ -1,5 +1,6 @@
 import { Icon } from '@/lib/icons';
 import { PHASES, STATION_BY_ID, UTILITY_STATIONS, type StationId } from '@/lib/bench';
+import { useWorkspaceStatus } from '@/lib/workspace';
 import type { DbStatus } from '@/lib/types';
 import type { Theme } from '@/lib/theme';
 
@@ -37,6 +38,8 @@ export function Dock({
   selectedTitle: string | null;
 }) {
   const running = jobs[0];
+  // The desk's own state, because "workspace · atlas" is only true once the save landed.
+  const desk = useWorkspaceStatus();
 
   return (
     <footer className="shrink-0 border-t border-line bg-surface">
@@ -84,13 +87,19 @@ export function Dock({
           </span>
         ) : (
           <span className="flex min-w-0 items-center gap-2">
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${notice ? 'bg-danger' : online ? 'bg-success' : 'kt-led--now bg-danger'}`} />
-            <span className={`truncate font-mono text-[11px] ${notice ? 'text-danger' : 'text-ink-muted'}`}>
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                notice || desk.state === 'unsaved' ? 'bg-danger' : online ? 'bg-success' : 'kt-led--now bg-danger'
+              }`}
+            />
+            <span className={`truncate font-mono text-[11px] ${notice || desk.state === 'unsaved' ? 'text-danger' : 'text-ink-muted'}`}>
               {notice
                 ? notice
-                : `${online ? (dbStatus?.provider === 'mongodb' ? 'workspace · atlas' : 'workspace · local disk') : 'api offline'}${
-                    selectedTitle ? ` · lit: ${selectedTitle}` : ''
-                  }`}
+                : desk.state === 'unsaved'
+                  ? `desk not saved · ${desk.message}`
+                  : `${online ? (dbStatus?.provider === 'mongodb' ? 'workspace · atlas' : 'workspace · local disk') : 'api offline'}${
+                      desk.state === 'saving' ? ' · saving' : ''
+                    }${selectedTitle ? ` · lit: ${selectedTitle}` : ''}`}
             </span>
           </span>
         )}

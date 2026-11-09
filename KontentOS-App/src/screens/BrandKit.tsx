@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Icon } from '@/lib/icons';
 import { Badge, Button, Card, PageHeader, PageShell } from '@/components/ui';
 import { notify } from '@/components/ui/toast';
+import { readBrandKit, saveBrandKit } from '@/lib/brandKit';
 import { brandKit as defaultBrandKit } from '@/data/mock';
 
 interface BrandKitData {
@@ -19,14 +20,10 @@ const NOT_SET = 'Not set yet';
 const filled = (value: string) => (value.trim() ? value : NOT_SET);
 
 export default function BrandKit() {
-  const [data, setData] = useState<BrandKitData>(() => {
-    try {
-      const saved = localStorage.getItem('kontentos_brand_kit');
-      return saved ? JSON.parse(saved) : defaultBrandKit;
-    } catch {
-      return defaultBrandKit;
-    }
-  });
+  const [data, setData] = useState<BrandKitData>(() => ({
+    ...defaultBrandKit,
+    ...readBrandKit(),
+  }) as BrandKitData);
 
   const [isEditingVoice, setIsEditingVoice] = useState(false);
   const [newHookText, setNewHookText] = useState('');
@@ -49,52 +46,50 @@ export default function BrandKit() {
     });
   }, [data]);
 
+  /** The station's four saves all do the same thing: update the panel, then put the kit on the account. */
+  const persist = (next: BrandKitData) => {
+    setData(next);
+    saveBrandKit(next);
+  };
+
   const handleSaveVoice = () => {
-    const next: BrandKitData = {
+    persist({
       ...data,
       voiceArchetype: formVoice.archetype,
       catchphrase: formVoice.catchphrase,
       tone: formVoice.tone,
       bannedWords: formVoice.banned,
-    };
-    setData(next);
-    localStorage.setItem('kontentos_brand_kit', JSON.stringify(next));
+    });
     setIsEditingVoice(false);
     notify.ok('Brand voice saved.');
   };
 
   const handleAddHook = () => {
     if (!newHookText.trim()) return;
-    const next: BrandKitData = {
+    persist({
       ...data,
       hooks: [...data.hooks, newHookText.trim()],
-    };
-    setData(next);
-    localStorage.setItem('kontentos_brand_kit', JSON.stringify(next));
+    });
     setNewHookText('');
     setIsAddingHook(false);
     notify.ok('Hook added.');
   };
 
   const handleRemoveHook = (index: number) => {
-    const next: BrandKitData = {
+    persist({
       ...data,
       hooks: data.hooks.filter((_, i) => i !== index),
-    };
-    setData(next);
-    localStorage.setItem('kontentos_brand_kit', JSON.stringify(next));
+    });
     notify.ok('Hook removed.');
   };
 
   const handleColorChange = (index: number, newHex: string) => {
     const nextPalette = [...data.palette];
     nextPalette[index] = newHex;
-    const next: BrandKitData = {
+    persist({
       ...data,
       palette: nextPalette,
-    };
-    setData(next);
-    localStorage.setItem('kontentos_brand_kit', JSON.stringify(next));
+    });
   };
 
   return (
@@ -103,7 +98,7 @@ export default function BrandKit() {
         eyebrow="Kit"
         icon="palette"
         title="Fonts, colours & voice"
-        description="Your palette, fonts and voice, kept on this device. The voice writes into every caption the Ship station generates; palette and fonts still drive only their own pickers."
+        description="Your palette, fonts and voice, saved to your account. The voice writes into every caption the Ship station generates; palette and fonts still drive only their own pickers."
         className="mb-6"
       />
 

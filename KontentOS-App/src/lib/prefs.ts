@@ -1,10 +1,14 @@
 /**
- * The switches on the Room station (Settings) are saved to localStorage. These are the readers
- * the engines use, so a saved preference actually changes what the app does. Anything not read
- * here is still decoration and the Room station says so.
+ * The switches on the Room station (Settings). These are the readers the engines use, so a saved
+ * preference actually changes what the app does. Anything not read here is still decoration and the
+ * Room station says so.
+ *
+ * They used to be a localStorage key, which meant a creator's chosen engine and their voice settings
+ * lived and died in one browser. Now they are the `prefs` slot of the account's workspace row, read
+ * synchronously from the cache the bootstrap fills — see src/lib/workspace.ts.
  */
 
-const PREFS_KEY = 'kontentos_ai_settings';
+import { readSlot, writeSlot } from './workspace';
 
 export interface AiPrefs {
   voiceMatch: boolean;
@@ -43,23 +47,18 @@ function clampTemperature(value: unknown, fallback: number): number {
 }
 
 export function readAiSettings(): AiSettings {
-  try {
-    const raw = localStorage.getItem(PREFS_KEY);
-    if (!raw) return DEFAULTS;
-    const saved = JSON.parse(raw) as Partial<AiSettings>;
-    const model = MODEL_CHOICES.some((m) => m.id === saved.aiModel)
-      ? saved.aiModel!
-      : DEFAULTS.aiModel;
-    return {
-      aiModel: model,
-      temperature: clampTemperature(saved.temperature, DEFAULTS.temperature),
-      autoDraft: saved.autoDraft ?? DEFAULTS.autoDraft,
-      voiceMatch: saved.voiceMatch ?? DEFAULTS.voiceMatch,
-      transcribeOnIngest: saved.transcribeOnIngest ?? DEFAULTS.transcribeOnIngest,
-    };
-  } catch {
-    return DEFAULTS;
-  }
+  const saved = readSlot<Partial<AiSettings>>('prefs');
+  if (!saved) return DEFAULTS;
+  const model = MODEL_CHOICES.some((m) => m.id === saved.aiModel)
+    ? saved.aiModel!
+    : DEFAULTS.aiModel;
+  return {
+    aiModel: model,
+    temperature: clampTemperature(saved.temperature, DEFAULTS.temperature),
+    autoDraft: saved.autoDraft ?? DEFAULTS.autoDraft,
+    voiceMatch: saved.voiceMatch ?? DEFAULTS.voiceMatch,
+    transcribeOnIngest: saved.transcribeOnIngest ?? DEFAULTS.transcribeOnIngest,
+  };
 }
 
 export function readAiPrefs(): AiPrefs {
@@ -79,9 +78,5 @@ export function copyModelLabel(): string {
 }
 
 export function saveAiSettings(next: AiSettings): void {
-  try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify(next));
-  } catch {
-    // Storage full or blocked; the switches stay usable for this session.
-  }
+  writeSlot('prefs', next);
 }

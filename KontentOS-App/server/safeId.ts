@@ -19,9 +19,17 @@ export function asId(value: unknown): string {
  * A key beginning with `$` or containing a `.` is read as an operator or a path by MongoDB, so a
  * saved idea carrying one could rewrite the query that stores it. Values are limited to what JSON
  * can actually round-trip.
+ *
+ * The depth bound is a limit on how deep a hostile payload can drive this function, not a statement
+ * about the data: a saved idea is two levels, but a workspace timeline nests a caption clip's word
+ * cues (project → tracks → track → clips → clip → style → words → word), so eight is the shallowest
+ * ceiling that accepts real editorial work. The operator rules apply at every level, so the deeper
+ * allowance cannot smuggle a `$` key or a dotted path past them.
  */
+const MAX_DEPTH = 8;
+
 export function isPlainJson(value: unknown, depth = 0): boolean {
-  if (depth > 6) return false;
+  if (depth > MAX_DEPTH) return false;
   if (value === null) return true;
   const type = typeof value;
   if (type === 'string' || type === 'number' || type === 'boolean') return true;

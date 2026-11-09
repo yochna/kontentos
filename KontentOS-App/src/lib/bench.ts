@@ -1,8 +1,9 @@
 import { useSyncExternalStore } from 'react';
 import type { ScreenId } from './nav';
-import type { PublishingRecord, ScheduledPost, Video } from './types';
+import type { PublishingRecord, ScheduledPost, Video, WorkspaceBench } from './types';
 import type { TimelineProject } from './timeline';
 import { fmtTime } from './timeline';
+import { readBench, writeSlot } from './workspace';
 
 /**
  * The bench replaces "pick a room, find the tool". A creator works on one cut at a time and
@@ -92,26 +93,13 @@ export const DRAFT_STEP_STATION: Record<'idea' | 'raw-reel' | 'smart-editor' | '
 // The selected cut
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = 'kontentos_bench_cut';
-
-let selectedId: string | null = readStored();
+// The lit cut and the last-open station are one slot in the account's workspace row, so a browser
+// that loses its storage — or a second machine — opens on the same clip and the same engine.
+let selectedId: string | null = null;
 const listeners = new Set<() => void>();
 
-function readStored(): string | null {
-  try {
-    return typeof window === 'undefined' ? null : window.localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function writeStored(id: string | null) {
-  try {
-    if (id) window.localStorage.setItem(STORAGE_KEY, id);
-    else window.localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    /* private mode: the selection just won't survive a reload */
-  }
+function writeBench(patch: Partial<WorkspaceBench>) {
+  writeSlot('bench', { ...readBench(), ...patch });
 }
 
 export function getSelectedCutId(): string | null {
@@ -119,13 +107,23 @@ export function getSelectedCutId(): string | null {
 }
 
 /**
- * Sign-out removes the stored cut, but this module already read it into `selectedId`, so a second
- * account signing in in the same tab would open on the first one's clip until the page reloads.
+ * Sign-out empties the cache, but this module already read it into `selectedId`, so a second account
+ * signing in in the same tab would open on the first one's clip until the page reloads. Nothing is
+ * written: the first creator's row is theirs, and logging out of a browser does not delete a desk.
  */
 export function resetSelectedCut(): void {
   if (selectedId === null) return;
   selectedId = null;
-  writeStored(null);
+  for (const notify of listeners) notify();
+}
+
+/**
+ * The workspace row is read after this module is imported, so hydration hands the lit cut over here
+ * rather than the other way round. An explicit selection made before the row lands is kept.
+ */
+export function applyStoredCut(cutId: string | null): void {
+  if (selectedId || !cutId) return;
+  selectedId = cutId;
   for (const notify of listeners) notify();
 }
 
@@ -136,7 +134,7 @@ export function resetSelectedCut(): void {
 export function selectCut(id: string | null): void {
   if (selectedId === id) return;
   selectedId = id;
-  writeStored(id);
+  writeBench({ cutId: id ?? '' });
   for (const notify of listeners) notify();
 }
 
@@ -255,31 +253,20 @@ export function formatDuration(sec?: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Last station, per account
+// Last station
 // ---------------------------------------------------------------------------
 
-const STATION_KEY = 'kontentos_bench_station';
-
-const stationKey = (account: string) => `${STATION_KEY}:${account}`;
-
 /**
- * A creator who closes the laptop mid-cut expects the bench to be on the same station when they
- * come back. Keyed by account so a second creator signing in here doesn't inherit the first one's
- * last open engine, and validated against the registry so a retired station id can't blank the stage.
+ * A creator who closes the laptop mid-cut expects the bench to be on the same station when they come
+ * back. It sits in the account's own workspace row, so it no longer needs keying by hand to keep one
+ * creator's desk off another's, and it is validated against the registry so a retired station id
+ * cannot blank the stage.
  */
-export function lastStation(account: string, known: readonly StationId[]): StationId | null {
-  try {
-    const saved = window.localStorage.getItem(stationKey(account));
-    return saved && known.includes(saved as StationId) ? (saved as StationId) : null;
-  } catch {
-    return null;
-  }
+export function lastStation(known: readonly StationId[]): StationId | null {
+  const saved = readBench().station;
+  return known.find((id) => id === saved) ?? null;
 }
 
-export function rememberStation(account: string, id: StationId): void {
-  try {
-    window.localStorage.setItem(stationKey(account), id);
-  } catch {
-    /* private mode: the bench just always opens on the desk */
-  }
+export function rememberStation(id: StationId): void {
+  writeBench({ station: id });
 }

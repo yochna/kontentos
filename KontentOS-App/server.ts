@@ -37,6 +37,7 @@ import staticCardAiRouter from './server/routes/staticCardAi.js';
 import { safeMessage } from './server/errorText.js';
 import { bucketMediaFallback, uploadAccessGate } from './server/mediaAccess.js';
 import * as mediaStore from './server/mediaStore.js';
+import * as workspace from './server/workspaceStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const appRoot = path.dirname(__filename);
@@ -111,8 +112,21 @@ async function createApp() {
     limit: 300,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    skip: (req) => req.path === '/health' || req.path.startsWith('/upload'),
+    skip: (req) => req.path === '/health' || req.path.startsWith('/upload') || req.path.startsWith('/workspace'),
     message: { error: 'Too many requests, please slow down and try again shortly.' },
+  });
+  // The workspace is the creator's own desk: the switches they flip, the cut they lit, the timeline
+  // they are dragging. It saves on edit, so a long cutting session is a steady stream of small
+  // writes. Under the general cap that would 429 every other endpoint in the studio and silently
+  // stop persisting the edit — which is the opposite of what this store is for. Its own ceiling
+  // still bounds one IP; the slot size caps in server/workspaceStore.ts bound one request.
+  const workspaceLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 240,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skip: (req) => req.method === 'GET',
+    message: { error: 'This desk is saving faster than the server can accept. Pause a moment.' },
   });
   // A clip is sent in 5 MB chunks and one clip may reach 2 GB, so the largest honest upload is 400
   // requests on its own. Counting those against the general cap would 429 a creator partway through
@@ -133,6 +147,7 @@ async function createApp() {
   });
   app.use('/api', apiLimiter);
   app.use('/api/upload', uploadLimiter);
+  app.use('/api/workspace', workspaceLimiter);
   app.use(['/api/script', '/api/caption', '/api/transcribe', '/api/static-card', '/api/editor'], aiLimiter);
   // Nothing under /api is a public page: a shared cache must not hold one creator's transcript,
   // caption or schedule where the next visitor could read it.
@@ -895,6 +910,34 @@ Output valid JSON:
       res.json({ success: true, data: await db.deleteSavedIdea(req.userId, req.params.id) });
     } catch (err: any) {
       res.status(500).json({ error: safeMessage(err, 'Could not delete this idea') });
+    }
+  });
+
+  // The creator's own desk: the Room switches, the Brand Kit, which cut is lit, which station was
+  // last open, the timeline being edited and the draft in progress. Every one of these lived in
+  // this browser's localStorage, so clearing site data — or working on a second machine — cost the
+  // creator their settings and their unfinished edit. They are rows now, scoped to req.userId by
+  // the gate that runs ahead of the body parsers.
+  app.get('/api/workspace', async (req, res) => {
+    try {
+      res.json({ success: true, data: await workspace.getWorkspace(req.userId) });
+    } catch (err: any) {
+      res.status(503).json({ error: safeMessage(err, 'Could not read your workspace. Please try again.') });
+    }
+  });
+
+  app.patch('/api/workspace', async (req, res) => {
+    const patch = req.body;
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+      return res.status(400).json({ error: 'Send the workspace slots to save as an object.' });
+    }
+    try {
+      res.json({ success: true, data: await workspace.patchWorkspace(req.userId, patch) });
+    } catch (err: any) {
+      // An un-storable slot is the client's mistake and is answered as one, because a workspace that
+      // reports 503 for a payload it will never accept tells the creator to retry forever.
+      const status = err instanceof workspace.RefusedWorkspaceWrite ? 400 : 503;
+      res.status(status).json({ error: safeMessage(err, 'Could not save your workspace.') });
     }
   });
 

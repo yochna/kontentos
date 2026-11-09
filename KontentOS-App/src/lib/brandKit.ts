@@ -1,12 +1,14 @@
 /**
- * The Brand Kit is edited on its own station and saved to localStorage; the copy engines read it
- * from here. Everything is optional — an empty kit produces an empty brief, so the engines fall
- * back to their default voice instead of inventing one.
+ * The Brand Kit is edited on its own station and read by the copy engines. Everything is optional —
+ * an empty kit produces an empty brief, so the engines fall back to their default voice instead of
+ * inventing one.
+ *
+ * It used to be a localStorage key, so the persona a creator spent an evening writing disappeared
+ * with the browser it was written in. It is the `brandKit` slot of the account's workspace row now.
  */
 
 import { readAiPrefs } from './prefs';
-
-const KIT_KEY = 'kontentos_brand_kit';
+import { readSlot, writeSlot } from './workspace';
 
 export interface BrandKit {
   voiceArchetype?: string;
@@ -20,12 +22,12 @@ export interface BrandKit {
 }
 
 export function readBrandKit(): BrandKit {
-  try {
-    const raw = localStorage.getItem(KIT_KEY);
-    return raw ? (JSON.parse(raw) as BrandKit) : {};
-  } catch {
-    return {};
-  }
+  return readSlot<BrandKit>('brandKit') ?? {};
+}
+
+/** The station's Save. The cache updates at once; the row follows on the debounce. */
+export function saveBrandKit(kit: BrandKit): void {
+  writeSlot('brandKit', kit);
 }
 
 const clip = (value: unknown, max = 120) =>

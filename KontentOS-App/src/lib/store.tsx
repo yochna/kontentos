@@ -6,7 +6,8 @@ import type { Idea } from '@/data/mock';
 import { navigate, type ScreenId } from './nav';
 import { copyVoice } from './brandKit';
 import { copyModel, readAiPrefs } from './prefs';
-import { DRAFT_STEP_STATION, resetSelectedCut } from './bench';
+import { DRAFT_STEP_STATION, applyStoredCut, resetSelectedCut } from './bench';
+import { hydrateWorkspace, readBench, readSlot, resetWorkspace, writeSlot } from './workspace';
 import {
   applyCaptionsToProject,
   applyPresetLook,
@@ -162,19 +163,16 @@ interface StoreValue {
 const StoreCtx = createContext<StoreValue | null>(null);
 
 /**
- * The bench keeps the working project, the resume draft and the lit cut in this browser so a
- * refresh does not cost a creator their place. None of it belongs to the next account that signs in
- * here, and remounting the provider cannot help: it reads these same keys back on start-up. So the
- * keys are cleared where the session ends.
+ * The bench keeps the working project, the resume draft and the lit cut in the account's workspace
+ * row, so a refresh — or a different machine — does not cost a creator their place.
+ *
+ * On sign-out the in-memory cache is emptied and nothing is deleted: the desk belongs to the
+ * account, not to the browser, and logging out of one laptop is not a reason to lose the timeline
+ * being edited on it. The next account in the same tab gets its own row, because the cache it reads
+ * was just cleared and is re-hydrated from its own user id.
  */
 export function clearBenchWorkspace(): void {
-  for (const key of ['kontentos_working_project', 'kontentos_active_draft', 'kontentos_bench_cut']) {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      /* a browser that refuses localStorage has nothing left to leak */
-    }
-  }
+  resetWorkspace();
   // The lit cut is also held in a module variable, which outlives the provider being unmounted and
   // rebuilt — without this the next account in the same tab opens on the last one's clip.
   resetSelectedCut();
@@ -193,16 +191,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // localStorage, which would have shown one creator's briefs to the next person on the browser.
   const [savedIdeas, setSavedIdeas] = useState<Idea[]>([]);
   const [project, setProjectState] = useState<TimelineProject | null>(() => {
-    try {
-      const saved = localStorage.getItem('kontentos_working_project');
-      if (saved) return JSON.parse(saved);
-      const draft = localStorage.getItem('kontentos_active_draft');
-      if (draft) {
-        const d = JSON.parse(draft);
-        if (d.project) return d.project;
-      }
-    } catch {}
-    return null;
+    const stored = readSlot<TimelineProject>('project');
+    if (stored) return stored;
+    const draft = readSlot<ActiveDraft>('draft');
+    return draft?.project ?? null;
   });
   const projectRef = useRef<TimelineProject | null>(project);
   interface HistoryEntry {
@@ -218,10 +210,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const commit = useCallback((next: TimelineProject | null) => {
     projectRef.current = next;
     setProjectState(next);
-    try {
-      if (next) localStorage.setItem('kontentos_working_project', JSON.stringify(next));
-      else localStorage.removeItem('kontentos_working_project');
-    } catch {}
+    // A null project is the creator closing the timeline, so the slot is cleared rather than left
+    // holding the edit they just walked away from.
+    writeSlot('project', next);
   }, []);
   const bump = useCallback(() => setHistTick((n) => (n + 1) % 1_000_000), []);
 
@@ -300,16 +291,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [commit, bump]);
 
 
+  /** The workspace row is read once per sign-in; a later refresh must not overwrite live edits. */
+  const workspaceHydrated = useRef(false);
+
   const refresh = useCallback(async () => {
     try {
+      const userPromise = api.getUser().catch(() => null);
       const [u, v, s, h, d, si] = await Promise.all([
-        api.getUser().catch(() => null),
+        userPromise,
         api.listVideos().catch(() => []),
         api.getScheduled().catch(() => []),
         api.getHistory().catch(() => []),
         api.dbStatus().catch(() => null),
         api.getSavedIdeas().catch(() => null),
+        // The desk is read on the account's id, and the first read also adopts whatever this browser
+        // still holds in localStorage from before it lived in the database. Awaiting it here is what
+        // lets the bench draw its first station only once those values are in the cache.
+        userPromise.then((user) => hydrateWorkspace(user?.id ?? '')),
       ]);
+      if (!workspaceHydrated.current) {
+        workspaceHydrated.current = true;
+        applyStoredCut(readBench().cutId || null);
+        const storedProject = readSlot<TimelineProject>('project');
+        if (storedProject) {
+          projectRef.current = storedProject;
+          setProjectState(storedProject);
+        }
+        const storedDraft = readSlot<ActiveDraft>('draft');
+        if (storedDraft && Object.keys(DRAFT_STEP_STATION).includes(storedDraft.step)) {
+          setActiveDraftState(storedDraft);
+        }
+      }
       setUser(u);
       setVideos(v);
       setScheduled(s);
@@ -611,23 +623,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const [activeDraft, setActiveDraftState] = useState<ActiveDraft | null>(() => {
-    try {
-      const saved = localStorage.getItem('kontentos_active_draft');
-      const parsed = saved ? JSON.parse(saved) : null;
-      // The step is read back out of whatever this browser held, and every desk panel maps it to a
-      // station before drawing. A value that is not one of the four would render nothing at all.
-      return parsed && Object.keys(DRAFT_STEP_STATION).includes(parsed.step) ? parsed : null;
-    } catch {
-      return null;
-    }
+    const stored = readSlot<ActiveDraft>('draft');
+    // The step comes out of the creator's row, and every desk panel maps it to a station before
+    // drawing. A value that is not one of the four would render nothing at all.
+    return stored && Object.keys(DRAFT_STEP_STATION).includes(stored.step) ? stored : null;
   });
 
   const setActiveDraft = useCallback((draft: ActiveDraft | null) => {
     setActiveDraftState(draft);
-    try {
-      if (draft) localStorage.setItem('kontentos_active_draft', JSON.stringify(draft));
-      else localStorage.removeItem('kontentos_active_draft');
-    } catch {}
+    writeSlot('draft', draft);
   }, []);
 
   const updateActiveDraft = useCallback((patch: Partial<ActiveDraft>) => {
@@ -641,9 +645,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             updatedAt: new Date().toISOString(),
             ...patch,
           };
-      try {
-        localStorage.setItem('kontentos_active_draft', JSON.stringify(next));
-      } catch {}
+      writeSlot('draft', next);
       return next;
     });
   }, []);

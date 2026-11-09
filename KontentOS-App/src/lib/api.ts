@@ -8,6 +8,8 @@ import type {
   PublishingRecord,
   SocialPlatform,
   DbStatus,
+  WorkspaceRow,
+  WorkspacePatch,
 } from './types';
 import type { TimelineProject, WordTimestamp } from './timeline';
 
@@ -58,7 +60,11 @@ async function json<T>(res: Response): Promise<T> {
   if (res.status === 401) window.dispatchEvent(new Event('kt:signedOut'));
   if (!res.ok) {
     const server = (data as { error?: string }).error;
-    throw new Error(server || STATUS_MESSAGES[res.status] || `The studio could not complete that (${res.status}).`);
+    const err = new Error(server || STATUS_MESSAGES[res.status] || `The studio could not complete that (${res.status}).`);
+    // 400 means the server will never accept this payload, so a caller that is retrying on its own
+    // (the workspace save) knows to stop instead of hammering a request it already refused.
+    (err as Error & { status?: number }).status = res.status;
+    throw err;
   }
   return data as T;
 }
@@ -136,6 +142,30 @@ export const api = {
       }),
     );
     return d.data ?? null;
+  },
+
+  // ---- Workspace ----
+  /** The creator's desk: Room switches, Brand Kit, lit cut, last station, open timeline and draft. */
+  async getWorkspace(signal?: AbortSignal): Promise<WorkspaceRow | null> {
+    const d = await json<{ data: WorkspaceRow | null }>(await fetch('/api/workspace', { signal }));
+    return d.data ?? null;
+  },
+
+  /**
+   * Save named slots and get the stored row back. `keepalive` is for the save on page hide, where
+   * an ordinary fetch is cancelled the moment the tab goes away — which is the last edit a creator
+   * makes before closing the laptop.
+   */
+  async patchWorkspace(patch: WorkspacePatch, keepalive = false): Promise<WorkspaceRow> {
+    const d = await json<{ data: WorkspaceRow }>(
+      await fetch('/api/workspace', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+        keepalive,
+      }),
+    );
+    return d.data;
   },
 
   // ---- Videos ----

@@ -4,14 +4,37 @@ import { Splash } from '@/components/Splash';
 import { AuthScreen } from '@/components/AuthScreen';
 import { Icon } from '@/lib/icons';
 import { api } from '@/lib/api';
-import { useTheme } from '@/lib/theme';
+import { useTheme, type Theme } from '@/lib/theme';
 import { StoreProvider, clearBenchWorkspace } from '@/lib/store';
+import { useWorkspaceLifecycle, useWorkspaceReady } from '@/lib/workspace';
 import type { User } from '@/lib/types';
+
+/**
+ * The bench is not drawn until the account's workspace row is in the cache.
+ *
+ * Room switches, the Brand Kit, the lit cut and the last station are all read synchronously by the
+ * engines that use them, so a station mounted a beat early would open on defaults and then write
+ * those defaults back over what the creator actually saved. One gate here covers every reader,
+ * instead of a wait in each.
+ */
+function BenchGate({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => void }) {
+  const ready = useWorkspaceReady();
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center gap-2 bg-app font-body text-[13px] text-ink-dim">
+        <Icon name="hourglass_top" size={16} className="animate-pulse text-primary" />
+        Reading your desk…
+      </div>
+    );
+  }
+  return <Bench theme={theme} onToggleTheme={onToggleTheme} />;
+}
 
 export default function App() {
   const { theme, toggle } = useTheme();
   const [showSplash, setShowSplash] = useState(true);
   const [account, setAccount] = useState<User | null | 'checking'>('checking');
+  useWorkspaceLifecycle();
 
   // The store starts fetching as soon as it mounts, so the session has to be settled first:
   // an anonymous visitor must see the sign-in form, not a wall of failed requests.
@@ -50,7 +73,7 @@ export default function App() {
   return (
     <StoreProvider key={account.id}>
       {showSplash && <Splash onDone={() => setShowSplash(false)} />}
-      <Bench account={account.id} theme={theme} onToggleTheme={toggle} />
+      <BenchGate theme={theme} onToggleTheme={toggle} />
     </StoreProvider>
   );
 }

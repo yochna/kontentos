@@ -134,3 +134,32 @@ export interface ActiveDraft {
   updatedAt: string;
 }
 
+/** Which cut is lit in the rail, and which station the creator was last standing at. */
+export interface WorkspaceBench {
+  cutId: string;
+  station: string;
+}
+
+/**
+ * The creator's own desk, one row per account. Everything here used to be a localStorage key on one
+ * browser, so clearing site data cost the Room switches, the Brand Kit, the lit cut, the last
+ * station, the timeline being edited and the draft in progress.
+ *
+ * The four content slots stay opaque: a brand kit and a timeline project are the editor's shapes, and
+ * copying them into a shared type would only be a place for the client and the stored row to drift.
+ */
+export interface WorkspaceRow {
+  userId: string;
+  prefs: Record<string, unknown> | null;
+  brandKit: Record<string, unknown> | null;
+  bench: WorkspaceBench | null;
+  project: Record<string, unknown> | null;
+  draft: Record<string, unknown> | null;
+  updatedAt: string;
+}
+
+export type WorkspaceSlot = 'prefs' | 'brandKit' | 'bench' | 'project' | 'draft';
+
+/** A slot set to null clears it; a slot left out of the patch is not touched. */
+export type WorkspacePatch = Partial<Record<WorkspaceSlot, unknown>>;
+

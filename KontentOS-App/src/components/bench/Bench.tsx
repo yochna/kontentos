@@ -53,17 +53,15 @@ const CLIP_STATIONS: ScreenId[] = ['raw-reel', 'smart-editor'];
 const isFileDrag = (e: ReactDragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
 
 export function Bench({
-  account,
   theme,
   onToggleTheme,
 }: {
-  account: string;
   theme: Theme;
   onToggleTheme: () => void;
 }) {
   const store = useStore();
   const selectedId = useSelectedCutId();
-  const [station, setStation] = useState<ScreenId>(() => lastStation(account, STATION_IDS) ?? 'home');
+  const [station, setStation] = useState<ScreenId>(() => lastStation(STATION_IDS) ?? 'home');
   const [deck, setDeck] = useState(false);
   const [jobs, setJobs] = useState<BenchJob[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
@@ -103,8 +101,8 @@ export function Bench({
   }, [station]);
 
   useEffect(() => {
-    rememberStation(account, station);
-  }, [account, station]);
+    rememberStation(station);
+  }, [station]);
 
   useEffect(() => {
     if (!notice) return;

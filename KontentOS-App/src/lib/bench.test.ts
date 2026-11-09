@@ -200,9 +200,16 @@ describe('byte formatting', () => {
 describe('station memory', () => {
   const KNOWN = ['home', 'raw-reel'] as StationId[];
 
-  it('reads and writes without a window instead of throwing', () => {
-    // Node has no localStorage: the bench must still open on the desk, not crash the app.
-    expect(lastStation('u1', KNOWN)).toBeNull();
-    expect(() => rememberStation('u1', 'raw-reel')).not.toThrow();
+  it('opens on nothing before the account row arrives, and never throws in Node', () => {
+    // The workspace cache is empty until hydration, and Node has no window at all: the bench must
+    // still open on the desk rather than crash the app.
+    expect(lastStation(KNOWN)).toBeNull();
+    expect(() => rememberStation('raw-reel')).not.toThrow();
+  });
+
+  it('remembers the station the creator left, and drops one the app no longer has', () => {
+    expect(lastStation(KNOWN)).toBe('raw-reel');
+    rememberStation('smart-editor' as StationId);
+    expect(lastStation(KNOWN)).toBeNull();
   });
 });
