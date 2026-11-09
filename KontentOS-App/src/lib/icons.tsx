@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react';
 
 /**
- * Material Symbols Outlined icon wrapper.
- * Uses the Google Fonts webfont loaded in index.html.
+ * Material Symbols Outlined icon wrapper. The faces are vendored under /fonts and declared in
+ * src/fonts.css: weight selects the instance, FILL is the one axis still variable.
  */
 export function Icon({
   name,
@@ -25,7 +25,8 @@ export function Icon({
       className={`material-symbols-outlined ${className}`}
       style={{
         fontSize: `${size}px`,
-        fontVariationSettings: `'FILL' ${fill}, 'wght' ${weight}, 'GRAD' 0, 'opsz' ${size}`,
+        fontWeight: weight,
+        fontVariationSettings: `'FILL' ${fill}`,
         ...style,
       }}
     >

@@ -48,9 +48,16 @@ describe('the headers a KontentOS page ships with', () => {
     expect(csp).toMatch(/https:\/\/huggingface\.co/);
     expect(csp).toMatch(/frame-ancestors 'none'/);
     expect(csp).toMatch(/object-src 'none'/);
-    // The fonts the two front ends link, and the stock frames the picker shows.
-    expect(csp).toMatch(/https:\/\/fonts\.gstatic\.com/);
+    // The stock frames the picker shows.
     expect(csp).toMatch(/https:\/\/images\.unsplash\.com/);
+    // Every face is vendored under /fonts, so no font or stylesheet host outside this origin is
+    // trusted. A CDN the creator's network could not reach used to leave each icon printing its
+    // own ligature name instead of a glyph.
+    const fontSrc = /font-src ([^;]*)/.exec(csp)?.[1] ?? '';
+    expect(fontSrc).toMatch(/'self'/);
+    expect(fontSrc).not.toMatch(/https?:\/\//);
+    const styleSrc = /style-src ([^;]*)/.exec(csp)?.[1] ?? '';
+    expect(styleSrc).not.toMatch(/https?:\/\//);
 
     // The script source is the one worth reading back: 'wasm-unsafe-eval' is the only eval-shaped
     // thing allowed, and inline script is not. No remote origin may script this page either — the

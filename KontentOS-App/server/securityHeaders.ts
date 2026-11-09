@@ -29,10 +29,10 @@ export function cspOptions(): CspOptions {
     // else. Everything executed here is either this bundle or a blob this bundle assembled.
     scriptSrc: ["'self'", "'wasm-unsafe-eval'", 'blob:'],
     workerSrc: ["'self'", 'blob:'],
-    // A style attribute is how React writes one; the Google Fonts sheet is a plain <link>, so only
-    // that host is trusted rather than any style a page might be tricked into accepting.
-    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-    fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+    // A style attribute is how React writes one. Every face is served from this origin, so no
+    // third-party stylesheet or font host is trusted at all.
+    styleSrc: ["'self'", "'unsafe-inline'"],
+    fontSrc: ["'self'", 'data:'],
     imgSrc: ["'self'", 'data:', 'blob:', 'https://images.unsplash.com', 'https://images.pexels.com'],
     mediaSrc: ["'self'", 'data:', 'blob:', 'https://images.unsplash.com', 'https://videos.pexels.com'],
     connectSrc: [

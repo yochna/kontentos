@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '../src/fonts.css';
 
 /*
  * KontentOS Studio — a paper-and-ink identity, deliberately the opposite of the dark cutting-room
