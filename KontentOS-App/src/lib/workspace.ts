@@ -290,13 +290,19 @@ async function uploadLegacy(patch: WorkspacePatch, keys: string[]) {
  * the database, and open the cache to the bench. Called once, from the store's bootstrap.
  */
 export async function hydrateWorkspace(account: string): Promise<void> {
-  let row: WorkspaceRow | null = null;
+  let row: WorkspaceRow | null;
   try {
-    row = await api.getWorkspace(AbortSignal.timeout(8000));
+    // The free plan cold-starts, and a wake-up can take most of a minute. Aborting early would open
+    // the desk on defaults while the account's real work was still on its way.
+    row = await api.getWorkspace(AbortSignal.timeout(60_000));
   } catch {
-    // No row and no server: the bench opens on defaults rather than a spinner, and every write from
-    // here on reports the store as unreachable instead of claiming it saved.
-    row = null;
+    // The row was not read, so nothing here knows what the account already holds. Adopting this
+    // browser's old copies now could overwrite work finished on another device, so they stay put for
+    // a start that can actually read the row, and the dock says the desk is not saved.
+    ready = true;
+    setStatus('unsaved', 'Could not reach the workspace store.');
+    notifyState();
+    return;
   }
   applyRow(row);
   const { patch, keys } = collectLegacy(row, account);

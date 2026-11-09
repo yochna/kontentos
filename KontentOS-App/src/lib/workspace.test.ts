@@ -224,11 +224,16 @@ describe('one-time migration from localStorage', () => {
   });
 
   it('opens the desk on defaults when the server cannot be reached at all', async () => {
+    jar.set('kontentos_ai_settings', JSON.stringify({ temperature: 0.6 }));
     responder = () => {
       throw new Error('offline');
     };
     await expect(hydrateWorkspace('u1')).resolves.toBeUndefined();
     expect(readSlot('prefs')).toBeNull();
+    expect(workspaceStatus().state).toBe('unsaved');
+    // The row was never read, so an old browser copy must not be pushed over work finished elsewhere.
+    expect(patches()).toHaveLength(0);
+    expect(jar.has('kontentos_ai_settings')).toBe(true);
   });
 
   it('clears the desk when a second account signs in here', async () => {
