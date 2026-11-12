@@ -257,7 +257,7 @@ describe('what a bucket says when it refuses', () => {
     await withEnv({ ...COMPLETE, MEDIA_ENDPOINT: endpoint, RENDER: 'true' }, async () => {
       const a = await probeBucket();
       said = mediaStatus().note;
-      expect(a?.ok).toBe(status < 400);
+      expect(a?.ok).toBe(status >= 200 && status < 300);
     });
     return { asked, said };
   }
@@ -270,17 +270,22 @@ describe('what a bucket says when it refuses', () => {
     expect(asked[0]).toContain('prefix=clips');
   });
 
-  it('reads a 403 as an access problem instead of as the word Unknown', async () => {
-    // The 403 with no body is exactly what B2's answer looks like, and is the one the live banner
+  it('reads a 403 with no body as an access problem instead of as the word Unknown', async () => {
+    // The 403 with no body is what a bodyless refusal looks like, and is the one the live banner
     // mis-reported as "Unknown".
     const { said } = await probe(403);
     expect(said).toContain('the keys do not have access to it');
     expect(said).not.toMatch(/Unknown/);
   });
 
-  it('names a refused key, an absent bucket and an unreachable address as three different problems', async () => {
-    expect((await probe(401)).said).toContain('key id or secret was refused');
-    expect((await probe(404)).said).toContain('no bucket by that name');
+  it('tells a wrong key id, a wrong secret and a wrong bucket apart', async () => {
+    // A listing refusal does carry a body, and this is the distinction a creator needs most: which
+    // of the two values he pasted is the broken one.
+    const err = (code: string) => `<Error><Code>${code}</Code><Message>refused</Message></Error>`;
+    expect((await probe(403, err('InvalidAccessKeyId'))).said).toContain('key id was not recognised');
+    expect((await probe(403, err('SignatureDoesNotMatch'))).said).toContain('secret does not match');
+    expect((await probe(404, err('NoSuchBucket'))).said).toContain('no bucket by that name');
+    expect((await probe(301, err('PermanentRedirect'))).said).toContain('somewhere else than this address');
     expect((await probe(500)).said).toContain('trouble right now');
     await withEnv({ ...COMPLETE, MEDIA_ENDPOINT: 'http://127.0.0.1:1', RENDER: 'true' }, async () => {
       const a = await probeBucket();

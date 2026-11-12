@@ -107,29 +107,35 @@ export async function probeBucket(): Promise<{ ok: boolean; reason: string } | n
 /**
  * Why the bucket said no, as one short phrase.
  *
- * An S3-compatible store that refuses us does so in three different places, and only the first is
- * reliable: the modeled error names (`Forbidden`, `NoSuchBucket`) are missing for any code the S3
- * model does not define, which is most of what B2, R2 and MinIO return. A refusal from B2 arrives as
- * an error literally named `Unknown` — faithful, and useless to read — so the HTTP status carries the
- * answer instead. A socket that never connected has no status at all and is told apart by Node's
+ * An S3-compatible store refuses us in one of three places, and the modelled error names are the
+ * most informative of them when they exist: a listing answers a refusal with an XML body, so
+ * `InvalidAccessKeyId` and `SignatureDoesNotMatch` survive to tell a mistyped key id apart from a
+ * mismatched secret. A `HeadBucket` refusal has no body to carry either — that is what reached us as
+ * an error literally named `Unknown`, faithful and useless to read — so the HTTP status answers
+ * where the code does not. A socket that never connected has neither and is told apart by Node's
  * error code, which is read rather than echoed: `getaddrinfo ENOTFOUND s3.…` names the host we were
  * told to reach, and a host is not something this banner prints.
  */
 function probeReason(err: any): string {
   const status: number | undefined = err?.$metadata?.httpStatusCode;
   const names = [err?.name, err?.Code, err?.__type].map((v) => String(v ?? ''));
+  const code = (c: string) => names.includes(c);
 
   if (names.includes('TimeoutError') || names.includes('AbortError')) return 'it did not answer within 15 seconds';
   if (!status) {
-    const code = String(err?.cause?.code ?? err?.code ?? '');
-    return /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ETIMEDOUT|ECONNABORTED|EPROTO|CERT|HOST_UNRESOLVED/i.test(code)
+    const socket = String(err?.cause?.code ?? err?.code ?? '');
+    return /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ETIMEDOUT|ECONNABORTED|EPROTO|CERT|HOST_UNRESOLVED/i.test(socket)
       ? 'its address could not be reached'
       : 'it never answered';
   }
-  if (status === 403) return 'the keys do not have access to it';
-  if (status === 401) return 'the key id or secret was refused';
-  if (status === 404) return 'there is no bucket by that name';
-  if (status === 301 || status === 307 || status === 421) return 'the bucket lives somewhere else than this address';
+  if (code('InvalidAccessKeyId')) return 'the key id was not recognised by it';
+  if (code('SignatureDoesNotMatch')) return 'the secret does not match that key id';
+  if (code('AuthorizationHeaderMalformed')) return 'the key id is not in the form it expects';
+  if (code('PermanentRedirect') || code('RegionDisabledException') || status === 301 || status === 307 || status === 421) {
+    return 'the bucket lives somewhere else than this address';
+  }
+  if (code('NoSuchBucket') || status === 404) return 'there is no bucket by that name';
+  if (status === 403 || status === 401 || code('Forbidden') || code('AccessDenied')) return 'the keys do not have access to it';
   if (status >= 500) return 'the bucket service is having trouble right now';
   return names.find((n) => n && n !== 'Error' && n !== 'Unknown') ?? `it answered with ${status}`;
 }
