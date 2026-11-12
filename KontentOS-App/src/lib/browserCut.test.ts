@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checkCut, MAX_CUT_SOURCE_BYTES, resolveSpan } from './cut';
+import { checkCut, MAX_CUT_SOURCE_BYTES, probeFrameAspect, resolveSpan } from './browserCut';
 
 const req = (over: Partial<Parameters<typeof checkCut>[0]> = {}) => ({
   fileUrl: '/uploads/vid_test.mp4',
@@ -29,6 +29,50 @@ describe('resolveSpan', () => {
 
   it('leaves a zero-length span for the gate to refuse instead of padding it', () => {
     expect(resolveSpan(20, 20, 60).duration).toBe(0);
+  });
+});
+
+describe('probeFrameAspect', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  function videoStub(width = 640, height = 360) {
+    const video = {
+      videoWidth: width, videoHeight: height, src: '', preload: '',
+      onloadedmetadata: null as (() => void) | null,
+      onerror: null as (() => void) | null,
+      removeAttribute: vi.fn(), load: vi.fn(),
+    };
+    vi.stubGlobal('document', { createElement: vi.fn(() => video) });
+    return video;
+  }
+
+  it('measures actual pixels instead of trusting an upload label', async () => {
+    const video = videoStub();
+    const result = probeFrameAspect('/uploads/source.mp4');
+    video.onloadedmetadata!();
+    await expect(result).resolves.toBe('640:360');
+    expect(video.removeAttribute).toHaveBeenCalledWith('src');
+    expect(video.load).toHaveBeenCalled();
+    expect(video.onloadedmetadata).toBeNull();
+  });
+
+  it('reports an unreadable frame as unknown', async () => {
+    const video = videoStub();
+    const result = probeFrameAspect('/uploads/source.mp4');
+    video.onerror!();
+    await expect(result).resolves.toBeNull();
+  });
+
+  it('releases a metadata request that never answers', async () => {
+    vi.useFakeTimers();
+    const video = videoStub();
+    const result = probeFrameAspect('/uploads/source.mp4');
+    await vi.advanceTimersByTimeAsync(8000);
+    await expect(result).resolves.toBeNull();
+    expect(video.load).toHaveBeenCalled();
   });
 });
 

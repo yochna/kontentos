@@ -5,8 +5,9 @@ import { copyModel, readAiPrefs } from '@/lib/prefs';
 import { copyVoice, voiceTone } from '@/lib/brandKit';
 import { notify } from '../lib/notify';
 import { packFor } from '../lib/pack';
-import { cutSpan, resolveSpan, type CutProgress } from '../lib/cut';
-import { downloadTextFile, spanCaptions, type CaptionCue } from '../lib/captions';
+import { cutSpan, resolveSpan, type CutProgress } from '@/lib/browserCut';
+import { downloadTextFile } from '../lib/captions';
+import { spanCaptions, type CaptionCue } from '@/lib/captionFiles';
 import { Button, Label, Timecode } from '../components/atoms';
 
 type Edits = Pick<RepurposeClip, 'title' | 'hook' | 'caption' | 'cardHeadline' | 'platform'>;

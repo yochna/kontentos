@@ -1,0 +1,239 @@
+import { useLayoutEffect, useRef, useState } from 'react';
+import { getFontEmbedCSS, toPng } from 'html-to-image';
+import type { PressDeck as PressDeckData } from '@/lib/press';
+import { Button } from '@/components/ui';
+import { notify } from '@/components/ui/toast';
+
+export interface PressDeckProps {
+  deck: PressDeckData;
+  title: string;
+}
+
+const WIDTH = 1080;
+const HEIGHT = 1350;
+const BACKGROUND = '#15191d';
+const BODY_FONT = '"Hanken Grotesk", sans-serif';
+const DISPLAY_FONT = '"Syne", "Hanken Grotesk", sans-serif';
+const MONO_FONT = '"JetBrains Mono", monospace';
+
+function copyFits(card: HTMLElement) {
+  const copy = card.querySelector<HTMLElement>('[data-press-copy]')!;
+  const bounds = copy.parentElement!;
+  return copy.scrollHeight <= bounds.clientHeight && copy.scrollWidth <= bounds.clientWidth;
+}
+
+export default function PressDeck({ deck, title }: PressDeckProps) {
+  const { slides } = deck;
+  const viewport = useRef<HTMLDivElement>(null);
+  const cards = useRef<(HTMLElement | null)[]>([]);
+  const revision = useRef(0);
+  const exporting = useRef(false);
+  const [index, setIndex] = useState(0);
+  const [scale, setScale] = useState(0);
+  const [fits, setFits] = useState<boolean[] | null>(null);
+  const [fontError, setFontError] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+  const current = Math.min(index, Math.max(0, slides.length - 1));
+
+  useLayoutEffect(() => {
+    const node = viewport.current;
+    if (!node) return;
+    const resize = () => setScale(node.clientWidth / WIDTH);
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [slides.length]);
+
+  useLayoutEffect(() => {
+    const version = ++revision.current;
+    exporting.current = false;
+    setProgress(null);
+    setIndex(0);
+    setFits(null);
+    setFontError(false);
+    const nodes = cards.current.slice(0, slides.length).filter((node): node is HTMLElement => !!node);
+
+    async function prepare() {
+      try {
+        await Promise.all([
+          document.fonts.load('700 88px "Syne"', slides.map((slide) => slide.headline).join(' ')),
+          document.fonts.load('400 44px "Hanken Grotesk"', slides.map((slide) => slide.supportingText).join(' ')),
+          document.fonts.load('400 26px "JetBrains Mono"', 'CAROUSEL 0123456789 /'),
+        ]);
+        await document.fonts.ready;
+        if (revision.current !== version) return;
+        // Fit every slide at one shared type size, never below a readable export size.
+        for (let size = 44; size >= 24; size -= 2) {
+          nodes.forEach((node) => {
+            node.querySelector<HTMLElement>('[data-press-copy]')!.style.fontSize = `${size}px`;
+          });
+          const result = nodes.map(copyFits);
+          if (result.every(Boolean) || size === 24) {
+            setFits(result);
+            break;
+          }
+        }
+      } catch {
+        if (revision.current !== version) return;
+        setFontError(true);
+        setFits(slides.map(() => false));
+      }
+    }
+    void prepare();
+    return () => { revision.current += 1; };
+  }, [slides, title]);
+
+  async function download(format: 'png' | 'pdf') {
+    if (exporting.current || !fits || !slides.length) return;
+    const indices = format === 'png' ? [current] : slides.map((_, i) => i);
+    if (indices.some((i) => !fits[i])) {
+      notify.bad('Some slide copy does not fit. Shorten it before exporting.');
+      return;
+    }
+    const version = revision.current;
+    const nodes = indices.map((i) => cards.current[i]);
+    const assertCurrent = () => {
+      if (revision.current !== version) throw new Error('The deck changed during export.');
+    };
+    exporting.current = true;
+    setProgress('Preparing download…');
+
+    try {
+      await document.fonts.ready;
+      assertCurrent();
+      if (nodes.some((node) => !node || !copyFits(node))) {
+        throw new Error('Slide copy no longer fits. Reload the preview before exporting.');
+      }
+      // All local faces are WOFF2; format filtering drops alternating faces in html-to-image.
+      const fontEmbedCSS = await getFontEmbedCSS(nodes[0]!);
+      assertCurrent();
+      const pdf = format === 'pdf'
+        ? new (await import('jspdf')).jsPDF({
+          orientation: 'portrait', unit: 'px', format: [WIDTH, HEIGHT], hotfixes: ['px_scaling'],
+        })
+        : null;
+      const base = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80).replace(/^-+|-+$/g, '') || 'press';
+
+      for (let page = 0; page < nodes.length; page += 1) {
+        assertCurrent();
+        setProgress(`Rendering slide ${indices[page] + 1} of ${slides.length}…`);
+        const image = await toPng(nodes[page]!, {
+          width: WIDTH, height: HEIGHT, canvasWidth: WIDTH, canvasHeight: HEIGHT,
+          pixelRatio: 1, skipAutoScale: true, backgroundColor: BACKGROUND, fontEmbedCSS,
+        });
+        assertCurrent();
+        if (pdf) {
+          if (page > 0) pdf.addPage([WIDTH, HEIGHT], 'portrait');
+          pdf.addImage(image, 'PNG', 0, 0, WIDTH, HEIGHT, undefined, 'FAST');
+        } else {
+          const link = document.createElement('a');
+          link.href = image;
+          link.download = `${base}-slide-${String(current + 1).padStart(2, '0')}.png`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        }
+      }
+      if (pdf) await pdf.save(`${base}-carousel.pdf`, { returnPromise: true });
+      assertCurrent();
+      notify.ok(pdf ? `PDF download started: ${slides.length} pages.` : 'PNG download started: 1080 × 1350.');
+    } catch (error) {
+      if (revision.current === version) {
+        notify.bad(error instanceof Error ? error.message : 'The carousel could not be exported. Try again.');
+      }
+    } finally {
+      if (revision.current === version) {
+        exporting.current = false;
+        setProgress(null);
+      }
+    }
+  }
+
+  if (!slides.length) return <p className="text-sm text-ink-muted">No carousel slides yet.</p>;
+  const blocked = fits !== null && !fits[current];
+
+  return (
+    <section aria-label={`${title || 'Press'} carousel`} aria-busy={!!progress} className="min-w-0 space-y-3">
+      <div
+        ref={viewport}
+        className="relative mx-auto w-full overflow-hidden rounded-btn border border-line"
+        style={{ maxWidth: 480, aspectRatio: '4 / 5', background: BACKGROUND }}
+        role="group"
+        aria-roledescription="carousel"
+        aria-label="Slide preview"
+      >
+        <div style={{ width: WIDTH, height: HEIGHT, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+          {slides.map((slide, i) => (
+            // Inactive slides stay measurable; only the unscaled article is rasterized.
+            <div
+              key={i}
+              aria-hidden={i !== current || !fits?.[i]}
+              style={{ position: 'absolute', top: 0, left: i === current && fits?.[i] ? 0 : -WIDTH * 2 }}
+            >
+              <article
+                ref={(node) => { cards.current[i] = node; }}
+                aria-label={`Slide ${i + 1} of ${slides.length}`}
+                style={{
+                  width: WIDTH, height: HEIGHT, boxSizing: 'border-box', padding: 80,
+                  display: 'flex', flexDirection: 'column', background: BACKGROUND, color: '#e9e4d9',
+                  fontFamily: BODY_FONT, textAlign: 'left',
+                }}
+              >
+                <div style={{
+                  flexShrink: 0, paddingBottom: 28, marginBottom: 64, borderBottom: '1px solid #3b4750',
+                  fontFamily: MONO_FONT, fontSize: 26, lineHeight: 1.4, letterSpacing: '0.12em', color: '#f0a33c',
+                }}>CAROUSEL</div>
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center' }}>
+                  <div data-press-copy style={{
+                    width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.8em',
+                    fontSize: 44, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
+                  }}>
+                    {slide.headline && <h3 style={{
+                      margin: 0, fontFamily: DISPLAY_FONT, fontSize: '2em', fontWeight: 700,
+                      lineHeight: 1.08, letterSpacing: '-0.035em', color: '#e9e4d9',
+                    }}>{slide.headline}</h3>}
+                    {slide.supportingText && <p style={{
+                      margin: 0, fontFamily: BODY_FONT, fontSize: '1em', fontWeight: 400,
+                      lineHeight: 1.45, letterSpacing: 0, color: '#bbc3c8',
+                    }}>{slide.supportingText}</p>}
+                  </div>
+                </div>
+                <div style={{
+                  flexShrink: 0, paddingTop: 28, marginTop: 64, borderTop: '1px solid #3b4750',
+                  fontFamily: MONO_FONT, fontSize: 26, lineHeight: 1.4, color: '#9ba6ad',
+                }}>{String(i + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}</div>
+              </article>
+            </div>
+          ))}
+        </div>
+        {(!fits || blocked) && (
+          <p className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm" style={{ color: '#e9e4d9' }}>
+            {!fits ? 'Preparing preview…' : 'Preview unavailable. Full slide text is below.'}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <Button variant="secondary" size="sm" disabled={!!progress || current === 0} onClick={() => setIndex(current - 1)}>Previous</Button>
+        <span className="text-sm text-ink-muted" aria-live="polite">Slide {current + 1} of {slides.length}</span>
+        <Button variant="secondary" size="sm" disabled={!!progress || current === slides.length - 1} onClick={() => setIndex(current + 1)}>Next</Button>
+      </div>
+      {blocked && (
+        <div className="space-y-2 text-sm" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+          <p role="alert" className="text-danger-ink">{fontError
+            ? 'Local fonts could not load. Downloads are unavailable; reload to retry.'
+            : 'This slide is too long to fit legibly. Shorten the copy before exporting; nothing has been cut.'}</p>
+          <p className="font-semibold text-ink">{slides[current].headline}</p>
+          <p className="text-ink-muted">{slides[current].supportingText}</p>
+        </div>
+      )}
+      {fits?.some((fit) => !fit) && <p className="text-sm text-danger-ink">PDF unavailable: check slides {fits.flatMap((fit, i) => fit ? [] : [i + 1]).join(', ')}.</p>}
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button size="sm" variant="secondary" disabled={!!progress || !fits?.[current]} onClick={() => void download('png')}>Download PNG</Button>
+        <Button size="sm" variant="secondary" disabled={!!progress || !fits?.every(Boolean)} onClick={() => void download('pdf')}>Download PDF</Button>
+      </div>
+      <p role="status" className="text-center text-xs text-ink-muted">{progress || '1080 × 1350 · PNG: current slide · PDF: whole carousel'}</p>
+    </section>
+  );
+}

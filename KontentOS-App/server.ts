@@ -33,6 +33,7 @@ import publishRouter from './server/routes/publish.js';
 import scriptRouter from './server/routes/script.js';
 import editorRouter from './server/routes/editor.js';
 import repurposeRouter from './server/routes/repurpose.js';
+import pressRouter from './server/routes/press.js';
 import staticCardAiRouter from './server/routes/staticCardAi.js';
 import { safeMessage } from './server/errorText.js';
 import { bucketMediaFallback, uploadAccessGate } from './server/mediaAccess.js';
@@ -966,6 +967,8 @@ Output valid JSON:
   app.use('/api/editor', editorRouter);
   // Studio's repurpose engine: one recording in, several shorts out.
   app.use('/api/repurpose', repurposeRouter);
+  // The Press: one cut in, a reel plus a carousel plus caption files out.
+  app.use('/api/press', pressRouter);
 
   // User profile — the signed-in creator, never another account.
   app.get('/api/user', async (req, res) => {

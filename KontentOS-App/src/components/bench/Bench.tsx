@@ -19,6 +19,7 @@ import { CommandDeck } from './CommandDeck';
 const CommandCenter = lazy(() => import('@/screens/CommandCenter'));
 const Ideas = lazy(() => import('@/screens/Ideas'));
 const RawReel = lazy(() => import('@/screens/RawReel'));
+const Press = lazy(() => import('@/screens/Press'));
 const SmartEditor = lazy(() => import('@/screens/SmartEditor'));
 const StaticGenerator = lazy(() => import('@/screens/StaticGenerator'));
 const PublishSchedule = lazy(() => import('@/screens/PublishSchedule'));
@@ -32,6 +33,7 @@ const STATIONS: Record<ScreenId, React.ComponentType> = {
   home: CommandCenter,
   ideas: Ideas,
   'raw-reel': RawReel,
+  press: Press,
   'smart-editor': SmartEditor,
   'static-generator': StaticGenerator,
   'publish-schedule': PublishSchedule,
@@ -48,7 +50,7 @@ const RAIL_OFF: ScreenId[] = ['analytics', 'brand-kit', 'settings'];
 const STATION_IDS = Object.keys(STATIONS) as ScreenId[];
 
 /** Engines that open on a specific clip when the rail hands them one. */
-const CLIP_STATIONS: ScreenId[] = ['raw-reel', 'smart-editor'];
+const CLIP_STATIONS: ScreenId[] = ['raw-reel', 'press', 'smart-editor'];
 
 const isFileDrag = (e: ReactDragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
 

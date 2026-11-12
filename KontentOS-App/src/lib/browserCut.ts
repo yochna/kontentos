@@ -3,10 +3,16 @@
  *
  * The Studio writes words, not pictures, so until now a short it proposed could only be re-made by
  * hand on the bench. This module closes that loop: it pulls the creator's own source bytes out of
- * /uploads and runs the same ffmpeg worker the bench uses, but with an input seek so only the
- * requested span is decoded. Nothing is uploaded anywhere — the cut happens in this tab and the
- * file is handed back as a Blob.
+ * /uploads and runs the ffmpeg worker with an input seek so only the requested span is decoded.
+ * Nothing is uploaded anywhere — the cut happens in this tab and the file is handed back as a Blob.
+ *
+ * It sits on this side of the app because two engines now need it: the Studio's Cut screen and the
+ * Press, which has to put a file in the vault before it can call the result a reel. Encoding there
+ * rather than on the server is a deliberate trade — a shared free-tier core takes minutes over a
+ * 30s span, this tab takes seconds and reports real progress.
  */
+
+import { cutFilter } from './frameFit';
 
 /** A source larger than this cannot be read into a browser tab's memory and reported on honestly. */
 export const MAX_CUT_SOURCE_BYTES = 400 * 1024 * 1024;
@@ -29,6 +35,14 @@ export interface CutRequest {
   sourceSeconds?: number;
   start: number;
   duration: number;
+  /**
+   * The shape the cut should come out in, e.g. '9:16'. The filter chain is derived from this and the
+   * source's own aspect rather than taken from the caller: what reaches ffmpeg has to be one of the
+   * two chains in `frameFit`, not a string some screen assembled.
+   */
+  targetAspect?: string;
+  /** The source's aspect_ratio, when its record knows it. */
+  sourceAspect?: string;
 }
 
 export interface CutResult {
@@ -69,6 +83,31 @@ export function resolveSpan(
 
 class CutError extends Error {}
 
+// Upload records may default to 9:16 without ever measuring the frame.
+export function probeFrameAspect(fileUrl: string): Promise<string | null> {
+  if (typeof document === 'undefined') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    const finish = (aspect: string | null) => {
+      clearTimeout(timer);
+      video.onloadedmetadata = null;
+      video.onerror = null;
+      video.removeAttribute('src');
+      video.load();
+      resolve(aspect);
+    };
+    const timer = setTimeout(() => finish(null), 8000);
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      finish(w > 0 && h > 0 ? `${w}:${h}` : null);
+    };
+    video.onerror = () => finish(null);
+    video.src = fileUrl;
+  });
+}
+
 let worker: Worker | null = null;
 let workerReady: Promise<void> | null = null;
 
@@ -77,7 +116,7 @@ const listeners = new Set<Listener>();
 
 function ensureWorker(): { worker: Worker; ready: Promise<void> } {
   if (!worker) {
-    const created = new Worker(new URL('../../src/workers/ffmpeg.worker.ts', import.meta.url), {
+    const created = new Worker(new URL('../workers/ffmpeg.worker.ts', import.meta.url), {
       type: 'module',
     });
     created.onmessage = (event: MessageEvent) => {
@@ -159,8 +198,12 @@ export async function cutSpan(
 ): Promise<CutResult> {
   const blocked = await checkCut(req);
   if (blocked) throw new CutError(blocked.message);
+  signal?.throwIfAborted();
 
   onProgress({ stage: 'reading', fraction: null, message: 'Reading your source…' });
+  // Only a vertical target needs to know the source's shape, and the read runs alongside the full
+  // fetch below rather than in front of it.
+  const aspectProbe = req.targetAspect === '9:16' ? probeFrameAspect(req.fileUrl) : Promise.resolve(null);
   const res = await fetch(req.fileUrl, { credentials: 'same-origin', signal });
   if (!res.ok) {
     throw new CutError(
@@ -176,6 +219,7 @@ export async function cutSpan(
     );
   }
 
+  signal?.throwIfAborted();
   const { worker: w, ready } = ensureWorker();
   const id = `cut_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -243,10 +287,24 @@ export async function cutSpan(
     if (signal) signal.addEventListener('abort', onAbort, { once: true });
 
     ready
-      .then(() => {
+      .then(async () => {
+        if (settled) return;
+        // Unknown pixels still need the vertical filter; the stored aspect may only be a default.
+        const sourceAspect = (await aspectProbe) || undefined;
         if (settled) return;
         onProgress({ stage: 'preparing', fraction: 0.05, message: 'Loading the cut bench…' });
-        w.postMessage({ type: 'CUT_SPAN', id, buffer, inputFileName: 'input.mp4', start: req.start, duration: req.duration }, [buffer]);
+        w.postMessage(
+          {
+            type: 'CUT_SPAN',
+            id,
+            buffer,
+            inputFileName: 'input.mp4',
+            start: req.start,
+            duration: req.duration,
+            filter: cutFilter(req.targetAspect, sourceAspect) ?? undefined,
+          },
+          [buffer]
+        );
       })
       .catch((err: Error) => fail(err.message || 'The ffmpeg engine could not be loaded in this browser.'));
   });

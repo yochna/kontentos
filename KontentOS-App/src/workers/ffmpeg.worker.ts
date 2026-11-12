@@ -348,13 +348,17 @@ async function exportMP4(
  * `-ss` sits before `-i` so ffmpeg seeks instead of decoding from the top of the file, and the
  * audio map is optional (`0:a:0?`) because a screen recording can arrive without a sound track —
  * a required map would fail the whole cut on a span that has pictures to show.
+ *
+ * `filter` is the frame-fitting chain from `src/lib/frameFit`, never a string assembled by a screen:
+ * the only thing a caller may ask for is a shape, and this side decides what that shape costs.
  */
 async function cutSpan(
   id: string,
   inputBuffer: ArrayBuffer,
   fileName: string,
   start: number,
-  duration: number
+  duration: number,
+  filter?: string
 ): Promise<void> {
   let writtenInput = false;
   let outputFileName = '';
@@ -397,6 +401,7 @@ async function cutSpan(
       '-c:v', 'libx264',
       '-preset', 'ultrafast',
       '-threads', '1',
+      ...(filter ? ['-vf', filter] : []),
       '-pix_fmt', 'yuv420p',
       '-c:a', 'aac',
       '-b:a', '192k',
@@ -514,7 +519,8 @@ self.onmessage = async (event: MessageEvent) => {
         event.data.buffer,
         event.data.inputFileName || 'input.mp4',
         Number(event.data.start) || 0,
-        Number(event.data.duration) || 0
+        Number(event.data.duration) || 0,
+        typeof event.data.filter === 'string' ? event.data.filter : undefined
       );
       break;
 

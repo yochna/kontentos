@@ -52,6 +52,7 @@ type Filter = 'all' | LedgerStage;
 /** The stations that actually work on one cut, in the order the bench does. */
 const OPEN_IN: { station: StationId; label: string; icon: string }[] = [
   { station: 'raw-reel', label: 'Open in Intake', icon: 'smart_display' },
+  { station: 'press', label: 'Open in Press', icon: 'print' },
   { station: 'smart-editor', label: 'Open in Bench', icon: 'content_cut' },
   { station: 'static-generator', label: 'Open in Card', icon: 'photo_size_select_actual' },
   { station: 'publish-schedule', label: 'Open in Ship', icon: 'schedule_send' },

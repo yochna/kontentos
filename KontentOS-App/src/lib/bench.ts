@@ -40,6 +40,12 @@ export const PHASES: Phase[] = [
     stations: [
       { id: 'ideas', label: 'Seeds', icon: 'auto_awesome', hint: 'Prompts worth shooting.' },
       { id: 'raw-reel', label: 'Intake', icon: 'smart_display', hint: 'Raw footage in, first cut out.' },
+      {
+        id: 'press',
+        label: 'Press',
+        icon: 'print',
+        hint: 'One click: a reel, the cards and the caption files.',
+      },
     ],
   },
   {

@@ -3,7 +3,7 @@
  * uses, so nothing here can drift out of step with the bench's larger client.
  */
 
-import type { CaptionCue } from './captions';
+import type { CaptionCue } from '@/lib/captionFiles';
 
 export type ClipStatus = 'draft' | 'saved' | 'shipped';
 

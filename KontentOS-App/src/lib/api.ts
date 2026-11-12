@@ -12,6 +12,7 @@ import type {
   WorkspacePatch,
 } from './types';
 import type { TimelineProject, WordTimestamp } from './timeline';
+import type { PressJob, PressStyleId } from './press';
 
 export interface AutoEditStats {
   originalDurationSec: number;
@@ -590,7 +591,7 @@ Respond ONLY with pure JSON matching this exact structure:
     return d.data as { video_id: string; segments: unknown[] };
   },
 
-  async getSubtitles(videoId: string) {
+  async getSubtitles(videoId: string, signal?: AbortSignal) {
     const d = await json<{
       success: boolean;
       // null is the ordinary answer for a take nobody has captioned yet.
@@ -602,7 +603,7 @@ Respond ONLY with pure JSON matching this exact structure:
         language: string;
         segments: Array<{ id: number; start: string | number; end: string | number; text: string }>;
       } | null;
-    }>(await fetch(`/api/transcribe/${videoId}`));
+    }>(await fetch(`/api/transcribe/${videoId}`, { signal }));
     if (!d.data) return null;
     // The stored row names the words `transcript_text`, while every reader in this app asks for
     // `transcript`. Left unmapped, auto-edit saw real cues as having no speech and wrote copy from
@@ -747,6 +748,52 @@ Respond ONLY with pure JSON matching this exact structure:
       await fetch(`/api/script/saved-ideas/${id}`, { method: 'DELETE' }),
     );
     return Array.isArray(d.data) ? d.data : [];
+  },
+
+  // ---- Press ----
+  // One click that comes back with a reel, a carousel and caption files. The server picks the span
+  // and writes everything it can reach; the reel itself is encoded in this tab and filed afterwards.
+  async startPress(input: {
+    videoId: string;
+    style: PressStyleId;
+    tone?: string;
+    context?: string;
+    model?: string;
+  }): Promise<PressJob> {
+    const d = await json<{ data: PressJob }>(
+      await fetch('/api/press', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    );
+    return d.data;
+  },
+
+  async getPresses(): Promise<PressJob[]> {
+    const d = await json<{ data: PressJob[] }>(await fetch('/api/press'));
+    return Array.isArray(d.data) ? d.data : [];
+  },
+
+  async getPress(id: string): Promise<PressJob | null> {
+    const d = await json<{ data: PressJob | null }>(await fetch(`/api/press/${id}`));
+    return d.data ?? null;
+  },
+
+  /**
+   * Say what the browser's encode came out as: either the clip it uploaded, or the reason it did
+   * not. The reply is the settled job, read back from the vault — the length and size a press
+   * reports are the server's own numbers, never the ones the tab claimed.
+   */
+  async settlePressReel(id: string, reel: { clipVideoId?: string; error?: string }): Promise<PressJob> {
+    const d = await json<{ data: PressJob }>(
+      await fetch(`/api/press/${id}/reel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reel),
+      }),
+    );
+    return d.data;
   },
 };
 

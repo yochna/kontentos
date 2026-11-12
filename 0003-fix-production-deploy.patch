@@ -1,0 +1,582 @@
+From c5c62078bcb7364b23d122c5a159d66157cd31eb Mon Sep 17 00:00:00 2001
+From: KontentOS Dev <dev@kontentos.local>
+Date: Wed, 28 Oct 2026 09:11:48 +0000
+Subject: [PATCH] Fix production deploy: serve dist/, real Dockerfiles,
+ fail-closed build
+
+- server.ts: in production serve dist/ (static + SPA fallback + COOP/COEP headers)
+  instead of always starting the Vite dev server; load vite lazily in dev only.
+- package.json: tsx -> dependencies (start command needs it; NODE_ENV=production
+  npm ci skipped devDependencies so the container crashed on boot);
+  build = tsc --noEmit && vite build.
+- Dockerfile (root + KontentOS-App): multi-stage, build fails on any error
+  (no placeholder page), copy src/ into runtime (server imports from it),
+  npm ci --ignore-scripts. Root Dockerfile builds from KontentOS-App/ so the
+  existing Render settings keep working.
+- .dockerignore: keep unrelated folders out of the root build context.
+---
+ .dockerignore                   |  8 +++
+ Dockerfile                      | 37 +++++++------
+ KontentOS-App/Dockerfile        | 40 ++++++++++++--
+ KontentOS-App/package-lock.json | 97 +++++++++++++++++++++++----------
+ KontentOS-App/package.json      |  4 +-
+ KontentOS-App/server.ts         | 62 ++++++++++++++-------
+ 6 files changed, 172 insertions(+), 76 deletions(-)
+
+diff --git a/.dockerignore b/.dockerignore
+index 654748f..3e62d99 100644
+--- a/.dockerignore
++++ b/.dockerignore
+@@ -12,3 +12,11 @@ npm-debug.log*
+ .vscode
+ .idea
+ .DS_Store
++
++# Only KontentOS-App/ is built; keep everything else out of the Docker context
++KontentOS-main
++KontentOS Redesign
++.snapshots
++*.md
++*.patch
++*.txt
+diff --git a/Dockerfile b/Dockerfile
+index 1651205..1fce2c1 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,32 +1,35 @@
+-﻿FROM node:22-bookworm-slim AS build
+-
++# syntax=docker/dockerfile:1
++# KontentOS production image.
++# - Build stage runs "npm run build" (tsc --noEmit && vite build). If type-checking
++#   or the bundle fails, the image build FAILS (no placeholder page is shipped).
++# - Runtime stage serves dist/ from server.ts (NODE_ENV=production); Vite is not loaded.
++# - --ignore-scripts: nothing here needs install scripts (esbuild/rollup ship prebuilt
++#   binaries), and it avoids onnxruntime-node downloading large binaries at install time
++#   (the app runs Whisper in the browser, not on the server).
++
++FROM node:22-bookworm-slim AS build
+ WORKDIR /app
+-ENV NODE_ENV=development
+-
+-COPY package.json package-lock.json ./
+-RUN npm ci
+-
+-COPY . ./
+-RUN sh -c 'npx --no-install vite build || { rm -rf dist; mkdir -p dist; echo "<html><body>Build failed</body></html>" > dist/index.html; }'
++COPY KontentOS-App/package.json KontentOS-App/package-lock.json ./
++RUN npm ci --ignore-scripts
++COPY KontentOS-App/ ./
++RUN npm run build
+ 
+ FROM node:22-bookworm-slim AS runtime
+-
+ WORKDIR /app
+ ENV NODE_ENV=production
+ ENV PORT=4111
+-
+-COPY package.json package-lock.json ./
+-RUN npm ci && npm cache clean --force
+-
++COPY KontentOS-App/package.json KontentOS-App/package-lock.json ./
++RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+ COPY --from=build /app/dist ./dist
+ COPY --from=build /app/server ./server
+ COPY --from=build /app/server.ts ./server.ts
++# server/*.ts imports shared code and types from src/
++COPY --from=build /app/src ./src
+ COPY --from=build /app/public ./public
+ COPY --from=build /app/tsconfig.json ./tsconfig.json
+-COPY --from=build /app/vite.config.ts ./vite.config.ts
+-
+ RUN mkdir -p /app/.data /app/uploads
+ 
+ EXPOSE 4111
+-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 CMD node -e "require('http').get('http://localhost:'+process.env.PORT+'/api/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
++HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
++  CMD node -e "require('http').get('http://localhost:'+process.env.PORT+'/api/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
+ CMD ["node", "--import", "tsx", "server.ts"]
+diff --git a/KontentOS-App/Dockerfile b/KontentOS-App/Dockerfile
+index 0140bb6..ddeedd3 100644
+--- a/KontentOS-App/Dockerfile
++++ b/KontentOS-App/Dockerfile
+@@ -1,7 +1,35 @@
+-﻿FROM node:22-bookworm-slim AS build
++# syntax=docker/dockerfile:1
++# KontentOS production image.
++# - Build stage runs "npm run build" (tsc --noEmit && vite build). If type-checking
++#   or the bundle fails, the image build FAILS (no placeholder page is shipped).
++# - Runtime stage serves dist/ from server.ts (NODE_ENV=production); Vite is not loaded.
++# - --ignore-scripts: nothing here needs install scripts (esbuild/rollup ship prebuilt
++#   binaries), and it avoids onnxruntime-node downloading large binaries at install time
++#   (the app runs Whisper in the browser, not on the server).
++
++FROM node:22-bookworm-slim AS build
+ WORKDIR /app
+-ENV NODE_ENV=development
+-COPY package*.json ./
+-RUN npm ci
+-COPY . .
+-RUN sh -c 'npx vite build || (mkdir -p dist && printf "<html><body>KontentOS</body></html>" > dist/index.html)'
++COPY package.json package-lock.json ./
++RUN npm ci --ignore-scripts
++COPY . ./
++RUN npm run build
++
++FROM node:22-bookworm-slim AS runtime
++WORKDIR /app
++ENV NODE_ENV=production
++ENV PORT=4111
++COPY package.json package-lock.json ./
++RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
++COPY --from=build /app/dist ./dist
++COPY --from=build /app/server ./server
++COPY --from=build /app/server.ts ./server.ts
++# server/*.ts imports shared code and types from src/
++COPY --from=build /app/src ./src
++COPY --from=build /app/public ./public
++COPY --from=build /app/tsconfig.json ./tsconfig.json
++RUN mkdir -p /app/.data /app/uploads
++
++EXPOSE 4111
++HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
++  CMD node -e "require('http').get('http://localhost:'+process.env.PORT+'/api/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
++CMD ["node", "--import", "tsx", "server.ts"]
+diff --git a/KontentOS-App/package-lock.json b/KontentOS-App/package-lock.json
+index 2431e3a..f127478 100644
+--- a/KontentOS-App/package-lock.json
++++ b/KontentOS-App/package-lock.json
+@@ -21,6 +21,7 @@
+         "lucide-react": "^0.546.0",
+         "react": "^19.0.1",
+         "react-dom": "^19.0.1",
++        "tsx": "^4.19.2",
+         "zustand": "^5.0.15"
+       },
+       "devDependencies": {
+@@ -31,7 +32,6 @@
+         "@types/react-dom": "^19.0.3",
+         "@vitejs/plugin-react": "^5.0.4",
+         "tailwindcss": "^4.1.14",
+-        "tsx": "^4.19.2",
+         "typescript": "~5.8.2",
+         "vite": "^6.2.3"
+       }
+@@ -2166,6 +2166,72 @@
+         "node": ">=14.0.0"
+       }
+     },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/core": {
++      "version": "1.11.1",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "@emnapi/wasi-threads": "1.2.2",
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/runtime": {
++      "version": "1.11.1",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/wasi-threads": {
++      "version": "1.2.2",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@napi-rs/wasm-runtime": {
++      "version": "1.1.4",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "@tybys/wasm-util": "^0.10.1"
++      },
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/Brooooooklyn"
++      },
++      "peerDependencies": {
++        "@emnapi/core": "^1.7.1",
++        "@emnapi/runtime": "^1.7.1"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@tybys/wasm-util": {
++      "version": "0.10.2",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/tslib": {
++      "version": "2.8.1",
++      "dev": true,
++      "inBundle": true,
++      "license": "0BSD",
++      "optional": true
++    },
+     "node_modules/@tailwindcss/oxide-win32-arm64-msvc": {
+       "version": "4.3.3",
+       "resolved": "https://registry.npmjs.org/@tailwindcss/oxide-win32-arm64-msvc/-/oxide-win32-arm64-msvc-4.3.3.tgz",
+@@ -3249,7 +3315,6 @@
+       "version": "2.3.3",
+       "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+       "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
+-      "dev": true,
+       "hasInstallScript": true,
+       "license": "MIT",
+       "optional": true,
+@@ -4852,7 +4917,6 @@
+       "version": "4.23.15",
+       "resolved": "https://registry.npmjs.org/tsx/-/tsx-4.23.15.tgz",
+       "integrity": "sha512-Yiex1Ovn8z2xPpOWckIiysV1SSyRMY9BkLF++q0yKiDxCqRhosKfMg3janKkiLBwZ5c/YryloKwGZcrEmtwxKw==",
+-      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "esbuild": "~0.28.0"
+@@ -4874,7 +4938,6 @@
+       "cpu": [
+         "ppc64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4891,7 +4954,6 @@
+       "cpu": [
+         "arm"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4908,7 +4970,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4925,7 +4986,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4942,7 +5002,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4959,7 +5018,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4976,7 +5034,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4993,7 +5050,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5010,7 +5066,6 @@
+       "cpu": [
+         "arm"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5027,7 +5082,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5044,7 +5098,6 @@
+       "cpu": [
+         "ia32"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5061,7 +5114,6 @@
+       "cpu": [
+         "loong64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5078,7 +5130,6 @@
+       "cpu": [
+         "mips64el"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5095,7 +5146,6 @@
+       "cpu": [
+         "ppc64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5112,7 +5162,6 @@
+       "cpu": [
+         "riscv64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5129,7 +5178,6 @@
+       "cpu": [
+         "s390x"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5146,7 +5194,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5163,7 +5210,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5180,7 +5226,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5197,7 +5242,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5214,7 +5258,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5231,7 +5274,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5248,7 +5290,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5265,7 +5306,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5282,7 +5322,6 @@
+       "cpu": [
+         "ia32"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5299,7 +5338,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5313,7 +5351,6 @@
+       "version": "0.28.2",
+       "resolved": "https://registry.npmjs.org/esbuild/-/esbuild-0.28.2.tgz",
+       "integrity": "sha512-HKVLS8dvII+xoKW9kmqxbRKrnWEXfJJr/FZhhJmiqIB0e053QNYFqOBouTMO/k5sID4MvCiUCvv8b9M4h32wIA==",
+-      "dev": true,
+       "hasInstallScript": true,
+       "license": "MIT",
+       "bin": {
+diff --git a/KontentOS-App/package.json b/KontentOS-App/package.json
+index e7fed7f..644fa35 100644
+--- a/KontentOS-App/package.json
++++ b/KontentOS-App/package.json
+@@ -6,7 +6,7 @@
+   "scripts": {
+     "dev": "tsx server.ts",
+     "dev:client": "vite",
+-    "build": "vite build",
++    "build": "tsc --noEmit && vite build",
+     "preview": "vite preview",
+     "lint": "tsc --noEmit"
+   },
+@@ -24,6 +24,7 @@
+     "lucide-react": "^0.546.0",
+     "react": "^19.0.1",
+     "react-dom": "^19.0.1",
++    "tsx": "^4.19.2",
+     "zustand": "^5.0.15"
+   },
+   "devDependencies": {
+@@ -34,7 +35,6 @@
+     "@types/react-dom": "^19.0.3",
+     "@vitejs/plugin-react": "^5.0.4",
+     "tailwindcss": "^4.1.14",
+-    "tsx": "^4.19.2",
+     "typescript": "~5.8.2",
+     "vite": "^6.2.3"
+   }
+diff --git a/KontentOS-App/server.ts b/KontentOS-App/server.ts
+index 130e925..1b7ff87 100644
+--- a/KontentOS-App/server.ts
++++ b/KontentOS-App/server.ts
+@@ -12,7 +12,6 @@ import express from 'express';
+ import path from 'path';
+ import fs from 'fs';
+ import dotenv from 'dotenv';
+-import { createServer as createViteServer } from 'vite';
+ import { fileURLToPath } from 'url';
+ import { GoogleGenAI } from '@google/genai';
+ 
+@@ -895,27 +894,48 @@ Output valid JSON:
+     });
+   });
+ 
+-  // Vite (React + Tailwind) in middleware mode.
+-  const vite = await createViteServer({
+-    configFile: path.join(appRoot, 'vite.config.ts'),
+-    server: {
+-      middlewareMode: true,
+-      watch: {
+-        ignored: [
+-          '**/.data/**',
+-          '**/uploads/**',
+-          '**/server/**',
+-          '**/server.ts',
+-          '**/.env*',
+-          '**/dist/**',
+-          /[\\/]\.data[\\/]/,
+-          /[\\/]uploads[\\/]/,
+-        ],
++  if (process.env.NODE_ENV === 'production') {
++    // Production: serve the prebuilt bundle from dist/ (created by `npm run build`).
++    // Vite is NOT loaded here. FFmpeg.wasm needs the same cross-origin isolation
++    // headers that vite.config.ts sets for the dev server.
++    const distDir = path.join(appRoot, 'dist');
++    if (!fs.existsSync(path.join(distDir, 'index.html'))) {
++      throw new Error(`Production build not found at ${distDir}. Run "npm run build" first.`);
++    }
++    app.use((_req, res, next) => {
++      res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
++      res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
++      next();
++    });
++    app.use(express.static(distDir, { index: false, maxAge: '1h' }));
++    // SPA fallback for client-side navigation. Never swallow API/media routes.
++    app.get(/^\/(?!api\/|uploads\/|broll\/).*/, (_req, res) => {
++      res.sendFile(path.join(distDir, 'index.html'));
++    });
++  } else {
++    // Development: Vite (React + Tailwind) in middleware mode, loaded lazily.
++    const { createServer: createViteServer } = await import('vite');
++    const vite = await createViteServer({
++      configFile: path.join(appRoot, 'vite.config.ts'),
++      server: {
++        middlewareMode: true,
++        watch: {
++          ignored: [
++            '**/.data/**',
++            '**/uploads/**',
++            '**/server/**',
++            '**/server.ts',
++            '**/.env*',
++            '**/dist/**',
++            /[\\/]\.data[\\/]/,
++            /[\\/]uploads[\\/]/,
++          ],
++        },
+       },
+-    },
+-    appType: 'spa',
+-  });
+-  app.use(vite.middlewares);
++      appType: 'spa',
++    });
++    app.use(vite.middlewares);
++  }
+ 
+   app.listen(PORT, '0.0.0.0', () => {
+     console.log(`\n  KontentOS Editorial Studio (Redesign) — standalone`);
+-- 
+2.43.0
+

@@ -109,6 +109,7 @@ describe('bench station map', () => {
     'home',
     'ideas',
     'raw-reel',
+    'press',
     'smart-editor',
     'static-generator',
     'publish-schedule',

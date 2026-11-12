@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { spanCaptions, srtTimestamp } from './captions';
+import { spanCaptions, spanVtt, srtTimestamp, vttTimestamp } from './captionFiles';
 
 const cue = (start: string, end: string, text: string) => ({ start, end, text });
 
@@ -64,5 +64,27 @@ describe('spanCaptions', () => {
     expect(spanCaptions([cue('00:00:01,000', '00:00:01,000', 'zero length')], 0, 30)).toBe('');
     expect(spanCaptions([cue('00:00:02,000', '00:00:09,000', '   ')], 0, 30)).toBe('');
     expect(spanCaptions([cue('00:00:02,000', '00:00:09,000', 'word')], 9, 30)).toBe('');
+  });
+});
+
+describe('the WebVTT twin', () => {
+  it('puts a dot where the SRT puts a comma, and names itself first', () => {
+    expect(vttTimestamp(1.5)).toBe('00:00:01.500');
+    const vtt = spanVtt([cue('00:01:05,000', '00:01:07,500', 'the first line')], 65, 70);
+    expect(vtt).toBe('WEBVTT\n\n1\n00:00:00.000 --> 00:00:02.500\nthe first line\n');
+  });
+
+  it('refuses an empty span instead of shipping a header no player can use', () => {
+    expect(spanVtt([], 0, 30)).toBe('');
+    expect(spanVtt([cue('00:00:40,000', '00:00:44,000', 'outside')], 0, 30)).toBe('');
+  });
+
+  it('numbers the same cues the SRT file carries', () => {
+    const cues = [
+      cue('00:00:04,000', '00:00:06,000', 'one'),
+      cue('00:00:06,000', '00:00:09,000', 'two'),
+    ];
+    expect(spanVtt(cues, 4, 9).split('\n\n')).toHaveLength(3);
+    expect(spanVtt(cues, 4, 9)).toContain('2\n00:00:02.000 --> 00:00:05.000\ntwo');
   });
 });

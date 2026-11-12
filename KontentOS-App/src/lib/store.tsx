@@ -90,7 +90,12 @@ interface StoreValue {
   undo: () => void;
   redo: () => void;
   refresh: () => Promise<void>;
-  uploadVideo: (file: File, onProgress: (pct: number) => void) => Promise<Video | null>;
+  uploadVideo: (
+    file: File,
+    onProgress: (pct: number) => void,
+    /** Pass `transcribe: false` when the clip arrives with its caption track already written. */
+    options?: { transcribe?: boolean }
+  ) => Promise<Video | null>;
   relinkMedia: (
     videoId: string,
     file: File,
@@ -380,11 +385,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const uploadVideo = useCallback<StoreValue['uploadVideo']>(async (file, onProgress) => {
+  const uploadVideo = useCallback<StoreValue['uploadVideo']>(async (file, onProgress, options) => {
     try {
       const video = await api.uploadVideo(file, onProgress);
       setVideos((prev) => [video, ...prev]);
-      void transcribeOnIntake(video.id);
+      // A press files the reel's caption track from the span's own cues, so reading the audio again
+      // would spend a second engine call to overwrite the track it just wrote.
+      if (options?.transcribe !== false) void transcribeOnIntake(video.id);
       return video;
     } catch (err) {
       console.error('Upload failed:', err);

@@ -102,7 +102,7 @@ export function clipPathOnDisk(fileUrl: string | undefined): string | null {
  * Re-encoding, not stream-copying: `-c copy` can only begin on a keyframe, so the cut would open on
  * the previous thought. `ultrafast` is the cheapest preset that still keeps up with the deadline.
  */
-export function cutArgs(span: Span, srcPath: string, outPath: string): string[] {
+export function cutArgs(span: Span, srcPath: string, outPath: string, filter?: string | null): string[] {
   return [
     '-hide_banner',
     '-nostdin',
@@ -124,6 +124,7 @@ export function cutArgs(span: Span, srcPath: string, outPath: string): string[] 
     'libx264',
     '-preset',
     'ultrafast',
+    ...(filter ? ['-vf', filter] : []),
     '-pix_fmt',
     'yuv420p',
     '-c:a',
@@ -190,6 +191,8 @@ export interface BeginCutInput {
   span: Span;
   srcPath: string;
   outPath: string;
+  /** What ffmpeg does to every frame before encoding — see `cutFilter`. */
+  filter?: string | null;
   /** Called when the encode is over, either way, with what the file ended up weighing. */
   settle: (outcome: { ok: true; bytes: number } | { ok: false; reason: string }) => void;
 }
@@ -223,7 +226,7 @@ export function beginCut(input: BeginCutInput): void {
   };
 
   try {
-    child = spawn('ffmpeg', cutArgs(input.span, input.srcPath, input.outPath));
+    child = spawn('ffmpeg', cutArgs(input.span, input.srcPath, input.outPath, input.filter));
   } catch {
     fail('ffmpeg is not available on this server, so the cut could not be made here.');
     return;

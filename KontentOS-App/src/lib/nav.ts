@@ -5,6 +5,7 @@ export type ScreenId =
   | 'home'
   | 'ideas'
   | 'raw-reel'
+  | 'press'
   | 'smart-editor'
   | 'static-generator'
   | 'publish-schedule'

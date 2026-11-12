@@ -114,16 +114,32 @@ export function scoreMoment(text: string): number {
   return Math.min(100, score);
 }
 
+/** How long a moment may run, in seconds. The Press narrows these; the Studio keeps the defaults. */
+export interface MomentRange {
+  minSeconds: number;
+  maxSeconds: number;
+}
+
+const DEFAULT_RANGE: MomentRange = { minSeconds: 18, maxSeconds: 70 };
+
 /**
- * Walk the segments and take up to `count` non-overlapping windows of 18–70 seconds, each scoring
- * on its own. Segments without usable times fall back to equal windows over the raw transcript, and
- * the caller is told the timecodes are estimates.
+ * Walk the segments and take up to `count` non-overlapping windows, each scoring on its own. The
+ * window is a complete thought rather than a fixed length: it grows until it holds
+ * `minSeconds`, stops before it passes `maxSeconds`. Segments without usable times fall back to
+ * equal windows over the raw transcript, and the caller is told the timecodes are estimates.
  */
 export function findMoments(
   segments: TranscriptSegment[],
   transcript: string,
-  count: number
+  count: number,
+  range?: MomentRange
 ): { moments: Moment[]; timecodesExact: boolean } {
+  const bounds: MomentRange = range
+    ? {
+        minSeconds: Math.max(3, Math.round(range.minSeconds)),
+        maxSeconds: Math.max(Math.max(3, Math.round(range.minSeconds)) + 1, Math.round(range.maxSeconds)),
+      }
+    : DEFAULT_RANGE;
   const usable = segments
     .map((s) => ({
       start: toSeconds(s.start),
@@ -139,10 +155,10 @@ export function findMoments(
     while (from < usable.length) {
       let to = from;
       let span = 0;
-      while (to + 1 < usable.length && usable[to + 1].end - usable[from].start < 70) to += 1;
+      while (to + 1 < usable.length && usable[to + 1].end - usable[from].start < bounds.maxSeconds) to += 1;
       span = usable[to].end - usable[from].start;
       // Extend until the window is long enough to hold a complete thought.
-      while (span < 18 && to + 1 < usable.length) {
+      while (span < bounds.minSeconds && to + 1 < usable.length) {
         to += 1;
         span = usable[to].end - usable[from].start;
       }
@@ -339,11 +355,18 @@ export async function buildRepurposeJob(input: {
   temperature: number;
   model?: string;
   platform?: string;
+  /**
+   * Moments the caller already picked. The Press supplies the one span it is about to cut, so the
+   * words describe the reel instead of a different stretch of the same take.
+   */
+  moments?: Moment[];
 }): Promise<RepurposeEngineResult> {
   const platform = (input.platform || 'instagram').trim() || 'instagram';
   const spec = platformSpec(platform);
   const wanted = Math.max(3, Math.min(8, Math.round(input.clipCount) || 5));
-  const { moments } = findMoments(input.segments, input.transcript, wanted);
+  const moments = input.moments?.length
+    ? input.moments.map((m, i) => ({ ...m, index: i }))
+    : findMoments(input.segments, input.transcript, wanted).moments;
 
   if (!moments.length) {
     return { clips: [], engineModel: 'none', engineSource: 'local' };

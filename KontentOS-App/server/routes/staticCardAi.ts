@@ -180,7 +180,7 @@ Return ONLY valid JSON with keys: "headline", "supportingText", "socialCaption".
   }
 });
 
-interface GeneratedSlide {
+export interface GeneratedSlide {
   id: number;
   headline: string;
   supportingText: string;
@@ -210,21 +210,24 @@ function parseGeneratedDeck(rawText: string, expectedCount: number = 5): { slide
 }
 
 /**
- * POST /api/static-card/generate-deck
- * A whole carousel arc — one slide per beat, in the creator's voice.
+ * One slide per beat, in the creator's voice. Answers null when no engine replied — the caller
+ * then says so, because a carousel pattern with the topic dropped into it is not a deck.
+ *
+ * Both the Card station's own button and the Press come through here, which is why the whole deck
+ * arrives in one call rather than slide by slide: a six-card press that asked six times would spend
+ * six engine timeouts to write one thought.
  */
-router.post('/generate-deck', async (req, res) => {
-  try {
-    const { prompt, slideCount = 5, tone, context, model } = req.body || {};
+export async function generateDeck(input: {
+  prompt: string;
+  slideCount: number;
+  tone?: unknown;
+  context?: unknown;
+  model?: unknown;
+}): Promise<{ slides: GeneratedSlide[]; socialCaption: string; modelUsed: string } | null> {
+  const count = Math.min(Math.max(Math.round(Number(input.slideCount) || 5), 3), 8);
 
-    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
-      return res.status(400).json({ error: 'Please provide a topic or prompt for the carousel deck.' });
-    }
-
-    const count = Math.min(Math.max(Number(slideCount) || 5, 3), 8);
-
-    const systemPrompt = `You are writing a ${count}-slide carousel about one topic, in the creator's own voice.
-${voiceLines(tone, context).join('\n')}
+  const systemPrompt = `You are writing a ${count}-slide carousel about one topic, in the creator's own voice.
+${voiceLines(input.tone, input.context).join('\n')}
 
 The deck's shape:
 - Slide 1 makes the claim. One to two sentences, max 16 words.
@@ -247,23 +250,45 @@ Return ONLY valid JSON with this exact schema:
   "socialCaption": "..."
 }`;
 
-    const generated = await askEngine(
-      getEffectiveApiKey(),
-      systemPrompt,
-      `USER TOPIC:\n"${prompt.trim()}"`,
-      model,
-      (rawText) => {
-        const parsed = parseGeneratedDeck(rawText, count);
-        return parsed && parsed.slides.length >= 3 ? parsed : null;
-      }
-    );
+  const generated = await askEngine(
+    getEffectiveApiKey(),
+    systemPrompt,
+    `USER TOPIC:\n"${input.prompt.trim()}"`,
+    input.model,
+    (rawText) => {
+      const parsed = parseGeneratedDeck(rawText, count);
+      return parsed && parsed.slides.length >= 3 ? parsed : null;
+    }
+  );
 
-    if (generated) {
+  if (!generated) return null;
+  return {
+    slides: generated.result.slides,
+    socialCaption: generated.result.socialCaption,
+    modelUsed: generated.modelUsed,
+  };
+}
+
+/**
+ * POST /api/static-card/generate-deck
+ * A whole carousel arc — one slide per beat, in the creator's voice.
+ */
+router.post('/generate-deck', async (req, res) => {
+  try {
+    const { prompt, slideCount = 5, tone, context, model } = req.body || {};
+
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+      return res.status(400).json({ error: 'Please provide a topic or prompt for the carousel deck.' });
+    }
+
+    const deck = await generateDeck({ prompt, slideCount, tone, context, model });
+
+    if (deck) {
       return res.json({
         success: true,
-        slides: generated.result.slides,
-        socialCaption: generated.result.socialCaption,
-        modelUsed: generated.modelUsed,
+        slides: deck.slides,
+        socialCaption: deck.socialCaption,
+        modelUsed: deck.modelUsed,
       });
     }
 

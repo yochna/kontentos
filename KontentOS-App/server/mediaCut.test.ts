@@ -15,6 +15,7 @@ import {
   reconcile,
   resetCutEngineProbe,
 } from './mediaCut.js';
+import { cutFilter, parseAspect } from '../src/lib/frameFit.js';
 
 /** The image build runs this suite on a base node image with no ffmpeg — those cases skip, they do not fail. */
 function tool(name: string): boolean {
@@ -32,6 +33,16 @@ const secondsOf = (file: string): number => {
     encoding: 'utf8',
   });
   return Number((out.stdout || '').trim());
+};
+
+/** The frame the file actually holds, as "widthxheight". */
+const dimsOf = (file: string): string => {
+  const out = spawnSync(
+    'ffprobe',
+    ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=s=x:p=0', file],
+    { encoding: 'utf8' }
+  );
+  return (out.stdout || '').trim();
 };
 
 describe('planning a span', () => {
@@ -93,6 +104,37 @@ describe('the ffmpeg command', () => {
 
   it('writes the output last, over an existing partial', () => {
     expect(args.slice(-2)).toEqual(['-y', '/uploads/b.mp4']);
+  });
+
+  it('only inserts the filter when one is asked for', () => {
+    expect(args).not.toContain('-vf');
+    const framed = cutArgs({ start: 0, duration: 5, shortOfSpan: false }, '/uploads/a.mp4', '/uploads/b.mp4', 'crop=1080:1920');
+    expect(framed[framed.indexOf('-vf') + 1]).toBe('crop=1080:1920');
+    expect(framed.slice(-2)).toEqual(['-y', '/uploads/b.mp4']);
+  });
+});
+
+describe('the frame a reel is cut into', () => {
+  it('reads the shapes the vault records', () => {
+    expect(parseAspect('9:16')).toBeCloseTo(9 / 16, 6);
+    expect(parseAspect('16:9')).toBeCloseTo(16 / 9, 6);
+    expect(parseAspect('1.7778')).toBeCloseTo(1.7778, 6);
+    expect(parseAspect('square')).toBe(0);
+  });
+
+  it('crops a wide take to vertical and leaves a vertical one alone', () => {
+    expect(cutFilter('9:16', '16:9')).toMatch(/crop=1080:1920/);
+    expect(cutFilter('9:16', undefined)).toMatch(/crop=1080:1920/);
+    expect(cutFilter('9:16', '9:16')).toBeNull();
+    expect(cutFilter('9:16', '1.7778')).toMatch(/crop=1080:1920/);
+    // A reel is vertical by definition; no other target rewrites the frame.
+    expect(cutFilter('1:1', '16:9')).toBeNull();
+    expect(cutFilter(undefined, '16:9')).toBeNull();
+  });
+
+  it('ends on a fixed even crop, so no source shape can produce an odd frame', () => {
+    const chain = cutFilter('9:16', '4:3')!;
+    expect(chain.split(',').slice(-2)).toEqual(['crop=1080:1920', 'setsar=1']);
   });
 });
 
@@ -198,6 +240,69 @@ describe.skipIf(!hasFfmpeg)('cutting a real file', () => {
       const seconds = secondsOf(out);
       expect(Math.abs(seconds - 2)).toBeLessThan(0.35);
     }
+  }, 120_000);
+
+  it('fills a 4:3 take with a vertical reel instead of refusing it', async () => {
+    const vertical = path.join(dir, 'vertical.mp4');
+    const settled = await new Promise<{ ok: boolean; reason?: string }>((resolve) => {
+      beginCut({
+        videoId: 'vid_media_vertical',
+        userId: 'user_media_test',
+        span: { start: 1, duration: 2, shortOfSpan: false },
+        srcPath: src,
+        outPath: vertical,
+        filter: cutFilter('9:16', '4:3'),
+        settle: (outcome) => resolve(outcome.ok ? { ok: true } : { ok: false, reason: outcome.reason }),
+      });
+    });
+
+    expect(settled.ok).toBe(true);
+    if (hasFfprobe) expect(dimsOf(vertical)).toBe('1080x1920');
+  }, 120_000);
+
+  it.skipIf(!hasFfprobe).each([
+    { sar: '2/1', label: '2:1', boxWidth: 40 },
+    { sar: '1/2', label: '1:2', boxWidth: 160 },
+  ])('preserves picture proportions when cutting a $label anamorphic take', ({ sar, label, boxWidth }) => {
+    const anamorphic = path.join(dir, `anamorphic-${boxWidth}.mp4`);
+    const vertical = path.join(dir, `anamorphic-${boxWidth}-vertical.mp4`);
+    // A display-square marker exposes stretched pixels even when the output SAR says 1:1.
+    const make = spawnSync('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-y',
+      '-f', 'lavfi', '-i', 'color=c=black:s=320x240:r=1:d=1',
+      '-vf', `drawbox=x=(iw-${boxWidth})/2:y=80:w=${boxWidth}:h=80:color=white:t=fill,setsar=${sar}`,
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', anamorphic,
+    ], { encoding: 'utf8' });
+    expect(make.status, make.stderr).toBe(0);
+
+    const encode = spawnSync('ffmpeg', cutArgs(
+      { start: 0, duration: 1, shortOfSpan: false }, anamorphic, vertical, cutFilter('9:16', undefined)
+    ), { encoding: 'utf8' });
+    expect(encode.status, encode.stderr).toBe(0);
+    expect(dimsOf(anamorphic)).toBe('320x240');
+    expect(dimsOf(vertical)).toBe('1080x1920');
+    for (const [file, expectedSar] of [[anamorphic, label], [vertical, '1:1']]) {
+      const probe = spawnSync('ffprobe', [
+        '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=sample_aspect_ratio',
+        '-of', 'csv=p=0', file,
+      ], { encoding: 'utf8' });
+      expect(probe.status, probe.stderr).toBe(0);
+      expect(probe.stdout.trim()).toBe(expectedSar);
+    }
+
+    const frame = spawnSync('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-i', vertical,
+      '-frames:v', '1', '-pix_fmt', 'gray', '-f', 'rawvideo', 'pipe:1',
+    ], { maxBuffer: 1080 * 1920 * 2 });
+    expect(frame.status, frame.stderr.toString()).toBe(0);
+    expect(frame.stdout.length).toBe(1080 * 1920);
+    let pictureWidth = 0;
+    let pictureHeight = 0;
+    for (let x = 0; x < 1080; x++) if (frame.stdout[960 * 1080 + x] > 128) pictureWidth++;
+    for (let y = 0; y < 1920; y++) if (frame.stdout[y * 1080 + 540] > 128) pictureHeight++;
+    expect(Math.abs(pictureWidth - 640)).toBeLessThanOrEqual(2);
+    expect(Math.abs(pictureHeight - 640)).toBeLessThanOrEqual(2);
+    expect(Math.abs(pictureWidth / pictureHeight - 1)).toBeLessThan(0.01);
   }, 120_000);
 
   it('clears the partial file and says why when the source is unreadable', async () => {
