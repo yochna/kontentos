@@ -190,7 +190,7 @@ export default function ContentLibrary() {
             </div>
             <p className="mt-0.5 text-[12px] leading-relaxed text-ink-muted">
               {dbStatus.media.provider === 'bucket'
-                ? `${dbStatus.media.note} Check the MEDIA_* values in the hosting dashboard — until the bucket answers, an upload has nowhere to put your footage.`
+                ? `${dbStatus.media.note} Check the MEDIA_* values in the hosting dashboard, and what that key is allowed to reach — until the bucket answers, an upload has nowhere to put your footage.`
                 : `${dbStatus.media.note} Download anything you still need before the service next restarts — ${
                     dbStatus.provider === 'mongodb'
                       ? 'the records, captions and queue stay; the footage does not.'

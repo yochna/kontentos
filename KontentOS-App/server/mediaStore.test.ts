@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -206,6 +208,93 @@ describe('a server with no bucket', () => {
       expect(await hasClipBytes('/uploads/vid_missing1.mp4')).toBe(false);
       expect(await ensureLocalCopy('/uploads/vid_missing1.mp4')).toBeNull();
     });
+  });
+});
+
+/**
+ * A bucket that answers like Backblaze B2 does: with a status the S3 error model has no name for.
+ *
+ * B2 refuses a key that is restricted to one bucket, and an unmodeled refusal reaches the SDK as an
+ * error literally called `Unknown` — so the banner used to print that word and stop. These cases hold
+ * both halves of the fix: the question asked is a listing under our own prefix (which a restricted
+ * key can answer, unlike the bucket-level `HeadBucket` this app has no use for), and the answer is
+ * read as a cause rather than as a name.
+ */
+describe('what a bucket says when it refuses', () => {
+  let asked: string[] = [];
+  let answer: (res: { writeHead: (s: number, h?: any) => any; end: (b?: string) => void }) => void = () => {};
+  let server: Server;
+  let endpoint = '';
+
+  const LIST_XML =
+    '<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Name>kontentos-clips</Name>' +
+    '<Prefix>clips/</Prefix><KeyCount>0</KeyCount><MaxKeys>1</MaxKeys><IsTruncated>false</IsTruncated></ListBucketResult>';
+
+  beforeAll(
+    () =>
+      new Promise<void>((resolve) => {
+        server = createServer((_req, res) => {
+          asked.push(`${_req.method} ${_req.url}`);
+          answer(res);
+        });
+        server.listen(0, '127.0.0.1', () => {
+          endpoint = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+          resolve();
+        });
+      }),
+  );
+
+  afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
+
+  /** Points the whole module at the stub, probes once, and reports what the creator would read. */
+  async function probe(status: number, body?: string) {
+    asked = [];
+    answer = (res) => {
+      if (body === undefined) res.writeHead(status).end();
+      else res.writeHead(status, { 'content-type': 'application/xml' }).end(body);
+    };
+    let said = '';
+    await withEnv({ ...COMPLETE, MEDIA_ENDPOINT: endpoint, RENDER: 'true' }, async () => {
+      const a = await probeBucket();
+      said = mediaStatus().note;
+      expect(a?.ok).toBe(status < 400);
+    });
+    return { asked, said };
+  }
+
+  it('asks for a listing of its own prefix, not for the whole bucket', async () => {
+    const { asked } = await probe(200, LIST_XML);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toMatch(/^GET /);
+    expect(asked[0]).toContain('list-type=2');
+    expect(asked[0]).toContain('prefix=clips');
+  });
+
+  it('reads a 403 as an access problem instead of as the word Unknown', async () => {
+    // The 403 with no body is exactly what B2's answer looks like, and is the one the live banner
+    // mis-reported as "Unknown".
+    const { said } = await probe(403);
+    expect(said).toContain('the keys do not have access to it');
+    expect(said).not.toMatch(/Unknown/);
+  });
+
+  it('names a refused key, an absent bucket and an unreachable address as three different problems', async () => {
+    expect((await probe(401)).said).toContain('key id or secret was refused');
+    expect((await probe(404)).said).toContain('no bucket by that name');
+    expect((await probe(500)).said).toContain('trouble right now');
+    await withEnv({ ...COMPLETE, MEDIA_ENDPOINT: 'http://127.0.0.1:1', RENDER: 'true' }, async () => {
+      const a = await probeBucket();
+      expect(a?.ok).toBe(false);
+      expect(a?.reason).toMatch(/could not be reached|never answered/);
+    });
+  });
+
+  it('keeps a secret and an address out of the sentence', async () => {
+    const { said } = await probe(403);
+    expect(said).not.toContain('a-secret');
+    expect(said).not.toContain('a-key-id');
+    expect(said).not.toContain('127.0.0.1');
+    expect(said).toContain('kontentos-clips');
   });
 });
 

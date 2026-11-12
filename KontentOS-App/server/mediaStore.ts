@@ -77,15 +77,24 @@ export function provider(): MediaProvider {
 let bucketAnswer: { ok: boolean; reason: string } | null = null;
 
 /**
- * Ask the bucket, with the keys exactly as configured, whether it will have us. The reason is an
- * error name (`Forbidden`, `NoSuchBucket`, `TimeoutError`) — never a key, a secret or a URL.
+ * Ask the bucket, with the keys exactly as configured, whether it will have us.
+ *
+ * The check is a one-key listing under our own prefix, not `HeadBucket`. HeadBucket asks for a
+ * bucket-level permission this app never uses elsewhere, and Backblaze B2 refuses it for a key
+ * restricted to a single bucket — which is the shape a creator is told to create, because a
+ * full-access key can reach every bucket he owns. Such a key really can store and read his clips,
+ * and a probe built on HeadBucket would report it as broken. The listing asks only for what the
+ * clips themselves need.
+ *
+ * The reason is a cause the creator can act on — never a key, a secret, a host name or a status
+ * page.
  */
 export async function probeBucket(): Promise<{ ok: boolean; reason: string } | null> {
   const store = await bucket();
   if (!store) return null;
   try {
     await store.s3.send(
-      new store.sdk.HeadBucketCommand({ Bucket: store.cfg.bucket }),
+      new store.sdk.ListObjectsV2Command({ Bucket: store.cfg.bucket, Prefix: KEY_PREFIX, MaxKeys: 1 }),
       { abortSignal: AbortSignal.timeout(15_000) },
     );
     bucketAnswer = { ok: true, reason: '' };
@@ -96,13 +105,33 @@ export async function probeBucket(): Promise<{ ok: boolean; reason: string } | n
 }
 
 /**
- * A name the creator can act on. A bad key arrives as `Forbidden` and a wrong bucket as
- * `NoSuchBucket`, but a socket that never connected keeps Node's generic `Error` and hides the real
- * cause in `Code`, so both are read. Nothing from the error is echoed beyond the name.
+ * Why the bucket said no, as one short phrase.
+ *
+ * An S3-compatible store that refuses us does so in three different places, and only the first is
+ * reliable: the modeled error names (`Forbidden`, `NoSuchBucket`) are missing for any code the S3
+ * model does not define, which is most of what B2, R2 and MinIO return. A refusal from B2 arrives as
+ * an error literally named `Unknown` — faithful, and useless to read — so the HTTP status carries the
+ * answer instead. A socket that never connected has no status at all and is told apart by Node's
+ * error code, which is read rather than echoed: `getaddrinfo ENOTFOUND s3.…` names the host we were
+ * told to reach, and a host is not something this banner prints.
  */
 function probeReason(err: any): string {
-  const name = String(err?.name ?? '');
-  return (name && name !== 'Error' ? name : String(err?.Code ?? err?.__type ?? 'Error')).slice(0, 40);
+  const status: number | undefined = err?.$metadata?.httpStatusCode;
+  const names = [err?.name, err?.Code, err?.__type].map((v) => String(v ?? ''));
+
+  if (names.includes('TimeoutError') || names.includes('AbortError')) return 'it did not answer within 15 seconds';
+  if (!status) {
+    const code = String(err?.cause?.code ?? err?.code ?? '');
+    return /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ETIMEDOUT|ECONNABORTED|EPROTO|CERT|HOST_UNRESOLVED/i.test(code)
+      ? 'its address could not be reached'
+      : 'it never answered';
+  }
+  if (status === 403) return 'the keys do not have access to it';
+  if (status === 401) return 'the key id or secret was refused';
+  if (status === 404) return 'there is no bucket by that name';
+  if (status === 301 || status === 307 || status === 421) return 'the bucket lives somewhere else than this address';
+  if (status >= 500) return 'the bucket service is having trouble right now';
+  return names.find((n) => n && n !== 'Error' && n !== 'Unknown') ?? `it answered with ${status}`;
 }
 
 /**
@@ -138,8 +167,8 @@ export function mediaStatus(): MediaStatus {
         provider: 'bucket',
         durable: false,
         note:
-          `The “${bucket.bucket}” bucket answered with ${bucketAnswer.reason}, ` +
-          'so this server cannot store clips there yet.',
+          `The “${bucket.bucket}” bucket refused this server — ${bucketAnswer.reason} — ` +
+          'so it cannot store clips there yet.',
       };
     }
     return {
