@@ -476,6 +476,14 @@ async function createApp() {
       port: PORT,
       authRequired: true,
       timestamp: new Date().toISOString(),
+      // Whether footage written here survives the container is the one durability question with no
+      // other outside answer, and the creator should not have to sign in and read a banner for a
+      // supporter to check it. Only the clause: not the bucket name, and never a key.
+      media: {
+        provider: mediaStore.provider(),
+        durable: mediaStore.bytesAreDurable(),
+        problem: mediaStore.bucketProblem(),
+      },
     });
   });
 

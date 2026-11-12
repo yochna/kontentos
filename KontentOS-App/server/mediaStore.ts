@@ -163,6 +163,16 @@ export function missingBucketKeys(): string[] {
   return ['MEDIA_ENDPOINT', 'MEDIA_BUCKET', 'MEDIA_ACCESS_KEY_ID', 'MEDIA_SECRET_ACCESS_KEY'].filter((k) => !env(k));
 }
 
+/**
+ * Why the bucket will not take clips, in one clause — empty when it will, or when it has not been
+ * asked. `/api/health` answers with this so a refusal can be read from outside the app: the bucket
+ * name and the sentence around it stay on the signed-in Vault, where the creator is the only one who
+ * can act on them anyway.
+ */
+export function bucketProblem(): string {
+  return bucketAnswer?.ok === false ? bucketAnswer.reason : '';
+}
+
 export function mediaStatus(): MediaStatus {
   const bucket = bucketConfig();
   if (bucket) {

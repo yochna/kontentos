@@ -6,6 +6,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   bucketConfig,
+  bucketProblem,
   bytesAreDurable,
   ensureLocalCopy,
   hasClipBytes,
@@ -254,12 +255,14 @@ describe('what a bucket says when it refuses', () => {
       else res.writeHead(status, { 'content-type': 'application/xml' }).end(body);
     };
     let said = '';
+    let problem = '';
     await withEnv({ ...COMPLETE, MEDIA_ENDPOINT: endpoint, RENDER: 'true' }, async () => {
       const a = await probeBucket();
       said = mediaStatus().note;
+      problem = bucketProblem();
       expect(a?.ok).toBe(status >= 200 && status < 300);
     });
-    return { asked, said };
+    return { asked, said, problem };
   }
 
   it('asks for a listing of its own prefix, not for the whole bucket', async () => {
@@ -300,6 +303,14 @@ describe('what a bucket says when it refuses', () => {
     expect(said).not.toContain('a-key-id');
     expect(said).not.toContain('127.0.0.1');
     expect(said).toContain('kontentos-clips');
+  });
+
+  it('gives the anonymous health answer the clause, and never the bucket name', async () => {
+    const { problem, said } = await probe(403, '<Error><Code>InvalidAccessKeyId</Code><Message>no</Message></Error>');
+    expect(problem).toBe('the key id was not recognised by it');
+    expect(problem).not.toContain('kontentos-clips');
+    expect(said).toContain('kontentos-clips');
+    expect((await probe(200, LIST_XML)).problem).toBe('');
   });
 });
 
