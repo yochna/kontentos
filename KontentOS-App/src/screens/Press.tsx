@@ -16,7 +16,16 @@ import { fmtBytes, selectCut, useSelectedCutId } from '@/lib/bench';
 import { copyVoice } from '@/lib/brandKit';
 import { copyModel, copyModelLabel } from '@/lib/prefs';
 import { checkCut, cutSpan, type CutProgress, type CutRequest } from '@/lib/browserCut';
-import { PRESS_STYLES, pressStyle, pressTimecode, type PressJob, type PressStep } from '@/lib/press';
+import {
+  PRESS_STYLES,
+  plainHighlights,
+  pressStyle,
+  pressTimecode,
+  type PressBundle,
+  type PressJob,
+  type PressStep,
+} from '@/lib/press';
+import { makeZip, type ZipEntry } from '@/lib/zip';
 
 /**
  * The Press — the one button this app is pitched on.
@@ -74,6 +83,40 @@ function saveTextFile(text: string, fileName: string, mime: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function saveBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** The words a creator pastes beside the reel, in the order the post reads. Empty when there are none. */
+function postCopyText(bundle: PressBundle): string {
+  const deckCaption = bundle.deck?.socialCaption?.trim() ?? '';
+  return [
+    bundle.hook && `HOOK\n${bundle.hook}`,
+    bundle.caption && `CAPTION\n${bundle.caption}`,
+    deckCaption && `CAROUSEL CAPTION\n${deckCaption}`,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+/** The carousel as plain words, one block per card — what survives when the PDF could not be drawn. */
+function carouselText(deck: NonNullable<PressBundle['deck']>): string {
+  return deck.slides
+    .map((slide, i) =>
+      [`${i + 1}/${deck.slides.length}`, plainHighlights(slide.headline), plainHighlights(slide.supportingText)]
+        .filter(Boolean)
+        .join('\n')
+    )
+    .join('\n\n');
+}
+
 async function copyField(text: string, label: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -100,6 +143,9 @@ export default function Press() {
   const [reelPct, setReelPct] = useState<number | null>(null);
   const [polling, setPolling] = useState(false);
   const [note, setNote] = useState<{ kind: 'info' | 'bad'; text: string } | null>(null);
+
+  const deckPdfRef = useRef<(() => Promise<Blob>) | null>(null);
+  const [bundling, setBundling] = useState(false);
 
   const pollRef = useRef<number | null>(null);
   const readVersion = useRef(0);
@@ -338,6 +384,70 @@ export default function Press() {
   }, [videoId, knownTranscript, cueRead]);
 
   useEffect(() => setScriptText(''), [videoId]);
+
+  /**
+   * One file with everything the press made: the reel, both caption files, the post copy and the
+   * carousel. Each piece is read from where it actually lives (the vault, the press record, the
+   * rendered deck) and anything that could not be read is named in the message rather than quietly
+   * left out of a zip that looks complete.
+   */
+  async function downloadBundle() {
+    if (!job || !bundle || bundling) return;
+    setBundling(true);
+    const base = fileBase(bundle.title || job.sourceTitle);
+    const files: ZipEntry[] = [];
+    const left: string[] = [];
+    const encoder = new TextEncoder();
+    const addText = (name: string, content: string) => files.push({ name, data: encoder.encode(content) });
+
+    try {
+      if (bundle.clipVideoId && reelUrl) {
+        try {
+          const res = await fetch(reelUrl);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          files.push({ name: `${base}.mp4`, data: new Uint8Array(await res.arrayBuffer()) });
+        } catch {
+          left.push('the reel');
+        }
+      } else {
+        left.push('the reel');
+      }
+
+      if (bundle.srt.trim()) addText(`${base}.srt`, bundle.srt);
+      else left.push('the .srt');
+      if (bundle.vtt.trim()) addText(`${base}.vtt`, bundle.vtt);
+      else left.push('the .vtt');
+
+      const copy = postCopyText(bundle);
+      if (copy) addText('post-copy.txt', copy);
+      else left.push('the post copy');
+
+      if (bundle.deck) {
+        addText('carousel.txt', carouselText(bundle.deck));
+        try {
+          const render = deckPdfRef.current;
+          if (!render) throw new Error('The carousel is still preparing.');
+          files.push({ name: `${base}-carousel.pdf`, data: new Uint8Array(await (await render()).arrayBuffer()) });
+        } catch (err) {
+          left.push(`the carousel PDF (${err instanceof Error ? err.message : 'it could not be drawn'})`);
+        }
+      } else {
+        left.push('the carousel');
+      }
+
+      if (files.length === 0) {
+        notify.bad('Nothing from this press could be read, so there is no bundle to save.');
+        return;
+      }
+      saveBlob(makeZip(files), `${base}-press.zip`);
+      if (left.length) notify.bad(`Bundle saved without ${left.join(', ')}.`);
+      else notify.ok(`Bundle saved: ${files.length} files.`);
+    } catch (err) {
+      notify.bad(err instanceof Error ? err.message : 'The bundle could not be built.');
+    } finally {
+      setBundling(false);
+    }
+  }
 
   async function saveScriptNow() {
     if (!video || !scriptText.trim()) return;
@@ -625,6 +735,24 @@ export default function Press() {
 
           {job && reelStep?.state === 'done' && bundle && (
             <Card className="p-4">
+              <h3 className="mb-1.5 text-[13px] font-semibold text-ink">Everything, together</h3>
+              <p className="mb-3 text-[12px] text-ink-muted">
+                The reel, the .srt and .vtt, the post copy and the carousel PDF in one zip.
+              </p>
+              <Button
+                size="sm"
+                icon={bundling ? 'progress_activity' : 'download'}
+                iconSpin={bundling}
+                disabled={bundling || isWriting(job)}
+                onClick={() => void downloadBundle()}
+              >
+                {bundling ? 'Building the bundle…' : isWriting(job) ? 'Waiting for the writing to finish…' : 'Download the bundle'}
+              </Button>
+            </Card>
+          )}
+
+          {job && reelStep?.state === 'done' && bundle && (
+            <Card className="p-4">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h3 className="text-[13px] font-semibold text-ink">Reel</h3>
                 <Badge tone="primary">9:16</Badge>
@@ -703,7 +831,7 @@ export default function Press() {
               </div>
               {deck ? (
                 <>
-                  <PressDeck deck={deck} title={bundle?.title || job.sourceTitle} />
+                  <PressDeck deck={deck} title={bundle?.title || job.sourceTitle} exportPdfRef={deckPdfRef} />
                   <p className="mt-2 text-[11px] text-ink-dim">Written by {deck.modelUsed}.</p>
                 </>
               ) : (
