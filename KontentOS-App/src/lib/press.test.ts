@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { plainHighlights, splitHighlights } from './press';
+import { deckByline, plainHighlights, splitHighlights } from './press';
 
 describe('splitHighlights', () => {
   it('lights the bracketed words and drops the brackets', () => {
@@ -26,5 +26,18 @@ describe('splitHighlights', () => {
 
   it('plainHighlights never leaves a marker behind on a well-formed line', () => {
     expect(plainHighlights('Step 1: record [one take], then [press it]')).toBe('Step 1: record one take, then press it');
+  });
+});
+
+describe('deckByline', () => {
+  const deck = { slides: [], socialCaption: '', modelUsed: 'gemini-test' };
+
+  it('names the engine that wrote the deck', () => {
+    expect(deckByline(deck)).toBe('Written by gemini-test.');
+  });
+
+  it('says plainly when the cards were cut from the transcript, and when the creator edited them', () => {
+    expect(deckByline({ ...deck, modelUsed: 'transcript' })).toMatch(/no engine answered/);
+    expect(deckByline({ ...deck, edited: true })).toBe('Written by gemini-test, then edited by you.');
   });
 });
