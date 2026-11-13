@@ -785,6 +785,18 @@ Respond ONLY with pure JSON matching this exact structure:
    * not. The reply is the settled job, read back from the vault — the length and size a press
    * reports are the server's own numbers, never the ones the tab claimed.
    */
+  /** Save the creator's edits to the carousel text. Every card, in order; the server keeps the count fixed. */
+  async savePressDeck(id: string, slides: { headline: string; supportingText: string }[]): Promise<PressJob> {
+    const d = await json<{ data: PressJob }>(
+      await fetch(`/api/press/${id}/deck`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slides }),
+      }),
+    );
+    return d.data;
+  },
+
   async settlePressReel(id: string, reel: { clipVideoId?: string; error?: string }): Promise<PressJob> {
     const d = await json<{ data: PressJob }>(
       await fetch(`/api/press/${id}/reel`, {
