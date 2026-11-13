@@ -91,6 +91,17 @@ export interface PressDeck {
   socialCaption: string;
   /** The engine that wrote the deck, printed so the panel cannot claim an answer it did not get. */
   modelUsed: string;
+  /** True once the creator has changed the words, so the byline stops claiming they are the engine's. */
+  edited?: boolean;
+}
+
+/** One honest line on where a deck's words came from. */
+export function deckByline(deck: PressDeck): string {
+  const origin =
+    deck.modelUsed === 'transcript'
+      ? 'Built from the clip’s own words, because no engine answered'
+      : `Written by ${deck.modelUsed}`;
+  return deck.edited ? `${origin}, then edited by you.` : `${origin}.`;
 }
 
 /** Everything one press produced, in the order a creator reaches for it. */
