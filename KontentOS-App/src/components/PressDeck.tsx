@@ -15,6 +15,11 @@ export interface PressDeckProps {
    * button — a deck whose copy does not fit refuses here too, instead of shipping a cut-off page.
    */
   exportPdfRef?: MutableRefObject<(() => Promise<Blob>) | null>;
+  /**
+   * When given, the creator can edit a card's words. Receives every card, in order, and resolves
+   * once the server has saved them; a rejection keeps the editor open with what they typed.
+   */
+  onSaveSlides?: (slides: { headline: string; supportingText: string }[]) => Promise<void>;
 }
 
 const WIDTH = 1080;
@@ -46,7 +51,7 @@ function copyFits(card: HTMLElement) {
   return copy.scrollHeight <= bounds.clientHeight && copy.scrollWidth <= bounds.clientWidth;
 }
 
-export default function PressDeck({ deck, title, exportPdfRef }: PressDeckProps) {
+export default function PressDeck({ deck, title, exportPdfRef, onSaveSlides }: PressDeckProps) {
   const { slides } = deck;
   const viewport = useRef<HTMLDivElement>(null);
   const cards = useRef<(HTMLElement | null)[]>([]);
@@ -57,6 +62,9 @@ export default function PressDeck({ deck, title, exportPdfRef }: PressDeckProps)
   const [fits, setFits] = useState<boolean[] | null>(null);
   const [fontError, setFontError] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
+  const [draft, setDraft] = useState<{ headline: string; supportingText: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const editing = draft !== null;
   const current = Math.min(index, Math.max(0, slides.length - 1));
 
   useLayoutEffect(() => {
@@ -73,7 +81,7 @@ export default function PressDeck({ deck, title, exportPdfRef }: PressDeckProps)
     const version = ++revision.current;
     exporting.current = false;
     setProgress(null);
-    setIndex(0);
+    setIndex((i) => Math.min(i, Math.max(0, slides.length - 1)));
     setFits(null);
     setFontError(false);
     const nodes = cards.current.slice(0, slides.length).filter((node): node is HTMLElement => !!node);
@@ -179,6 +187,29 @@ export default function PressDeck({ deck, title, exportPdfRef }: PressDeckProps)
     };
   });
 
+  async function saveDraft() {
+    if (!onSaveSlides || !draft || saving) return;
+    const next = slides.map((slide, i) =>
+      i === current
+        ? { headline: draft.headline.trim(), supportingText: draft.supportingText.trim() }
+        : { headline: slide.headline, supportingText: slide.supportingText }
+    );
+    if (!next[current].headline) {
+      notify.bad('A card needs a headline.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSaveSlides(next);
+      setDraft(null);
+      notify.ok(`Card ${current + 1} saved.`);
+    } catch (error) {
+      notify.bad(error instanceof Error ? error.message : 'The card could not be saved. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function download(format: 'png' | 'pdf') {
     if (exporting.current || !fits || !slides.length) return;
     const version = revision.current;
@@ -279,10 +310,52 @@ export default function PressDeck({ deck, title, exportPdfRef }: PressDeckProps)
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <Button variant="secondary" size="sm" disabled={!!progress || current === 0} onClick={() => setIndex(current - 1)}>Previous</Button>
+        <Button variant="secondary" size="sm" disabled={!!progress || editing || current === 0} onClick={() => setIndex(current - 1)}>Previous</Button>
         <span className="text-sm text-ink-muted" aria-live="polite">Slide {current + 1} of {slides.length}</span>
-        <Button variant="secondary" size="sm" disabled={!!progress || current === slides.length - 1} onClick={() => setIndex(current + 1)}>Next</Button>
+        <Button variant="secondary" size="sm" disabled={!!progress || editing || current === slides.length - 1} onClick={() => setIndex(current + 1)}>Next</Button>
       </div>
+      {onSaveSlides && (
+        <div className="text-left">
+          {!editing ? (
+            <div className="flex justify-center">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!!progress}
+                onClick={() => setDraft({ headline: slides[current].headline, supportingText: slides[current].supportingText })}
+              >
+                Edit card {current + 1}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2 rounded-card border border-line bg-surface-2/50 p-3">
+              <label className="block text-[12px] font-semibold text-ink" htmlFor="press-card-headline">Headline</label>
+              <textarea
+                id="press-card-headline"
+                rows={2}
+                value={draft.headline}
+                maxLength={220}
+                onChange={(e) => setDraft({ ...draft, headline: e.target.value })}
+                className="kt-focus w-full rounded-btn border border-line bg-surface-2 p-3 text-[13px] text-ink"
+              />
+              <label className="block text-[12px] font-semibold text-ink" htmlFor="press-card-body">Text under it</label>
+              <textarea
+                id="press-card-body"
+                rows={4}
+                value={draft.supportingText}
+                maxLength={600}
+                onChange={(e) => setDraft({ ...draft, supportingText: e.target.value })}
+                className="kt-focus w-full rounded-btn border border-line bg-surface-2 p-3 text-[13px] text-ink"
+              />
+              <p className="text-[11px] text-ink-muted">Put [square brackets] around the words you want lit. The brackets themselves are not shown on the card.</p>
+              <div className="flex gap-2">
+                <Button size="sm" disabled={saving} onClick={() => void saveDraft()}>{saving ? 'Saving…' : 'Save card'}</Button>
+                <Button size="sm" variant="secondary" disabled={saving} onClick={() => setDraft(null)}>Cancel</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {blocked && (
         <div className="space-y-2 text-sm" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
           <p role="alert" className="text-danger-ink">{fontError
