@@ -4,6 +4,7 @@ import * as db from '../db.js';
 import * as store from '../pressStore.js';
 import { buildRepurposeJob, findMoments, scoreMoment, type Moment, type TranscriptSegment } from '../repurposeEngine.js';
 import { generateDeck } from './staticCardAi.js';
+import { deckFromTranscript } from '../transcriptDeck.js';
 import { safeMessage } from '../errorText.js';
 import { spanCaptions, spanCues, spanVtt, srtTimestamp, type CaptionCue } from '../../src/lib/captionFiles.js';
 import {
@@ -229,21 +230,27 @@ async function writePress(
     steps: [{ id: 'deck', state: 'running', detail: `Writing ${style.slides} cards…` }],
   });
 
-  const deck = await generateDeck({
+  const engineDeck = await generateDeck({
     prompt: excerpt.slice(0, 6000),
     slideCount: style.slides,
     tone: writing.tone,
     context: writing.brandVoice,
     model: writing.model,
   });
+  // No engine answered: cut the cards from the creator's own sentences rather than ship a bundle
+  // with no carousel. The step says plainly which of the two it got, and the cards stay editable.
+  const deck = engineDeck ?? deckFromTranscript(excerpt, style.slides);
+  const fromTranscript = !engineDeck && !!deck;
   await store.patchJob(userId, jobId, {
     steps: [
       {
         id: 'deck',
         state: deck ? 'done' : 'failed',
         detail: deck
-          ? `${deck.slides.length} cards · ${deck.modelUsed}`
-          : 'No copy engine answered, so the deck stayed unwritten.',
+          ? fromTranscript
+            ? `${deck.slides.length} cards · built from the transcript, no engine answered`
+            : `${deck.slides.length} cards · ${deck.modelUsed}`
+          : 'No copy engine answered, and this span holds too little speech to build cards from.',
       },
     ],
     bundle: {
@@ -251,6 +258,45 @@ async function writePress(
     },
   });
 }
+
+const MAX_HEADLINE = 220;
+const MAX_SUPPORT = 600;
+
+// The creator fixing a card: a misheard name, a clumsy line. Same cards, same count — only the words move.
+router.put('/:id/deck', async (req, res) => {
+  try {
+    const job = await store.getJob(req.userId, req.params.id);
+    if (!job) return res.status(404).json({ error: 'Press not found.' });
+    const deck = job.bundle?.deck;
+    if (!deck) return res.status(409).json({ error: 'This press has no carousel to edit.' });
+
+    const incoming = req.body?.slides;
+    if (!Array.isArray(incoming) || incoming.length !== deck.slides.length) {
+      return res.status(400).json({ error: `Send all ${deck.slides.length} cards, in order.` });
+    }
+
+    const slides = [];
+    for (let i = 0; i < incoming.length; i += 1) {
+      const headline = String(incoming[i]?.headline ?? '').trim();
+      const supportingText = String(incoming[i]?.supportingText ?? '').trim();
+      if (!headline) return res.status(400).json({ error: `Card ${i + 1} needs a headline.` });
+      if (headline.length > MAX_HEADLINE || supportingText.length > MAX_SUPPORT) {
+        return res.status(400).json({
+          error: `Card ${i + 1} is too long: keep the headline under ${MAX_HEADLINE} characters and the text under ${MAX_SUPPORT}.`,
+        });
+      }
+      slides.push({ id: i + 1, headline, supportingText });
+    }
+
+    const updated = await store.patchJob(req.userId, job.id, {
+      bundle: { deck: { ...deck, slides, edited: true } },
+    });
+    if (!updated) return res.status(404).json({ error: 'Press not found.' });
+    res.json({ success: true, data: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: safeMessage(err, 'Failed to save the carousel.') });
+  }
+});
 
 // Read encoded metadata from the vault, not the browser's settlement payload.
 router.post('/:id/reel', async (req, res) => {
