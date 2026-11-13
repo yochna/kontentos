@@ -167,3 +167,37 @@ export function pressTimecode(seconds: number): string {
   const total = Math.max(0, Math.round(seconds));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
+
+export interface HighlightRun {
+  text: string;
+  /** True for the words the model wrapped in [square brackets] — the ones a card lights up. */
+  hot: boolean;
+}
+
+/**
+ * The deck prompt asks the engine to wrap one to three words per slide in [square brackets] so the
+ * card can light them. A renderer that prints the string as-is shows the brackets themselves on the
+ * card and in the exported PNG/PDF, so every surface that draws deck copy goes through here.
+ *
+ * Unbalanced or empty brackets are left as ordinary text: a stray "[" is the engine's mistake, not
+ * an instruction, and dropping it would change what the creator's words say.
+ */
+export function splitHighlights(text: string): HighlightRun[] {
+  const runs: HighlightRun[] = [];
+  const marker = /\[([^\[\]]+)\]/g;
+  let last = 0;
+  for (let hit = marker.exec(text); hit; hit = marker.exec(text)) {
+    if (hit.index > last) runs.push({ text: text.slice(last, hit.index), hot: false });
+    runs.push({ text: hit[1], hot: true });
+    last = hit.index + hit[0].length;
+  }
+  if (last < text.length) runs.push({ text: text.slice(last), hot: false });
+  return runs;
+}
+
+/** The same copy with the markers taken out, for plain-text surfaces: files, the fallback view, a clipboard. */
+export function plainHighlights(text: string): string {
+  return splitHighlights(text)
+    .map((run) => run.text)
+    .join('');
+}
