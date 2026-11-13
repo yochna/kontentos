@@ -18,6 +18,7 @@ import { copyModel, copyModelLabel } from '@/lib/prefs';
 import { checkCut, cutSpan, type CutProgress, type CutRequest } from '@/lib/browserCut';
 import {
   PRESS_STYLES,
+  deckByline,
   plainHighlights,
   pressStyle,
   pressTimecode,
@@ -831,8 +832,15 @@ export default function Press() {
               </div>
               {deck ? (
                 <>
-                  <PressDeck deck={deck} title={bundle?.title || job.sourceTitle} exportPdfRef={deckPdfRef} />
-                  <p className="mt-2 text-[11px] text-ink-dim">Written by {deck.modelUsed}.</p>
+                  <PressDeck
+                    deck={deck}
+                    title={bundle?.title || job.sourceTitle}
+                    exportPdfRef={deckPdfRef}
+                    onSaveSlides={async (slides) => {
+                      setJob(await api.savePressDeck(job.id, slides));
+                    }}
+                  />
+                  <p className="mt-2 text-[11px] text-ink-dim">{deckByline(deck)}</p>
                 </>
               ) : (
                 <p className="text-[12px] text-ink-muted">
