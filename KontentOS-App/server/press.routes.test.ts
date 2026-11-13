@@ -89,7 +89,7 @@ async function signup(email: string) {
   return { cookie: cookieFrom(res), userId: body.data?.id as string };
 }
 
-function call(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', route: string, body?: unknown, cookie?: string | null) {
+function call(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', route: string, body?: unknown, cookie?: string | null) {
   return fetch(base + route, {
     method,
     headers: {
@@ -210,7 +210,7 @@ describe('press endpoints', () => {
     expect(await dataOf(await call('GET', '/api/press', undefined, cookie))).toHaveLength(0);
   });
 
-  it('answers a press with the plan the tab has to encode, and admits the deck went unwritten', async () => {
+  it('answers a press with the plan the tab has to encode, and says the deck was built from the transcript', async () => {
     const { cookie, userId } = await signup('press-plan@test.example');
     const video = await seedClip(userId, { title: 'The hook take', duration: 60 });
 
@@ -246,17 +246,62 @@ describe('press endpoints', () => {
     });
     expect(written.steps.find((step: any) => step.id === 'copy').state).toBe('done');
     expect(written.steps.find((step: any) => step.id === 'copy').detail).toMatch(/no engine answered/i);
+    // No engine answered, so the carousel is cut from the span's own sentences — and says so.
     expect(written.steps.find((step: any) => step.id === 'deck')).toMatchObject({
-      state: 'failed',
-      detail: 'No copy engine answered, so the deck stayed unwritten.',
+      state: 'done',
+      detail: '4 cards · built from the transcript, no engine answered',
     });
     expect(written.bundle.engineSource).toBe('local');
-    expect(written.bundle.deck).toBeNull();
+    expect(written.bundle.deck.modelUsed).toBe('transcript');
+    expect(written.bundle.deck.slides).toHaveLength(4);
+    const spoken = written.bundle.deck.slides
+      .map((slide: any) => `${slide.headline} ${slide.supportingText}`.trim())
+      .join(' ')
+      .replace(/[\[\]]/g, '');
+    // Every word on a card was said in the span: the first six sentences, nothing else.
+    expect(spoken.replace(/\s+/g, ' ')).toBe(SENTENCES.slice(0, 6).join(' '));
     expect(written.bundle.caption.length).toBeGreaterThan(0);
     // The files are the span's own clock, not the middle of the take.
     expect(written.bundle.srt).toContain('00:00:00,000 --> 00:00:05,000');
     expect(written.bundle.vtt).toContain('00:00:00.000 --> 00:00:05.000');
     expect(written.bundle.srt).not.toContain('00:00:35,000');
+  });
+
+  it('lets the creator edit the carousel text, and nothing else about it', async () => {
+    const { cookie, userId } = await signup('press-edit@test.example');
+    const video = await seedClip(userId, { title: 'The edit take', duration: 60 });
+    const job = await dataOf(await call('POST', '/api/press', { videoId: video.id, style: 'hook' }, cookie));
+    const written = await readUntilWritten(cookie, job.id);
+    const slides = written.bundle.deck.slides.map((slide: any) => ({
+      headline: slide.headline,
+      supportingText: slide.supportingText,
+    }));
+
+    slides[0] = { headline: 'Why most [content] flops on Swapiki', supportingText: '  Fixed the product name.  ' };
+    const saved = await call('PUT', `/api/press/${job.id}/deck`, { slides }, cookie);
+    expect(saved.status).toBe(200);
+    const edited = await dataOf(saved);
+    expect(edited.bundle.deck.slides[0]).toEqual({
+      id: 1,
+      headline: 'Why most [content] flops on Swapiki',
+      supportingText: 'Fixed the product name.',
+    });
+    expect(edited.bundle.deck.edited).toBe(true);
+    expect(edited.bundle.deck.modelUsed).toBe('transcript');
+    // The captions and copy the edit did not touch are still there.
+    expect(edited.bundle.srt).toBe(written.bundle.srt);
+    expect(edited.bundle.hook).toBe(written.bundle.hook);
+
+    const reread = await dataOf(await call('GET', `/api/press/${job.id}`, undefined, cookie));
+    expect(reread.bundle.deck.slides[0].headline).toBe('Why most [content] flops on Swapiki');
+
+    const tooFew = await call('PUT', `/api/press/${job.id}/deck`, { slides: slides.slice(1) }, cookie);
+    expect(tooFew.status).toBe(400);
+    const blank = await call('PUT', `/api/press/${job.id}/deck`, { slides: slides.map((s: any, i: number) => (i === 2 ? { ...s, headline: '   ' } : s)) }, cookie);
+    expect(blank.status).toBe(400);
+    expect((await json(blank)).error).toMatch(/Card 3 needs a headline/);
+    const huge = await call('PUT', `/api/press/${job.id}/deck`, { slides: slides.map((s: any, i: number) => (i === 1 ? { ...s, supportingText: 'x'.repeat(601) } : s)) }, cookie);
+    expect(huge.status).toBe(400);
   });
 
   it('shortens the span to the film that exists instead of promising frames that are not there', async () => {
@@ -316,7 +361,7 @@ describe('press endpoints', () => {
     expect(final.status).toBe('complete');
     expect(final.error).toBe('');
     expect(final.steps.find((step: any) => step.id === 'reel')).toMatchObject({ state: 'done' });
-    expect(final.steps.find((step: any) => step.id === 'deck').state).toBe('failed');
+    expect(final.steps.find((step: any) => step.id === 'deck').state).toBe('done');
     expect(final.steps.find((step: any) => step.id === 'captions').state).toBe('done');
 
     // The reel step reports the vault's numbers, not the plan's: a 12s file is 12s.
@@ -352,6 +397,8 @@ describe('press endpoints', () => {
       404
     );
     expect(await dataOf(await call('GET', '/api/press', undefined, intruder.cookie))).toHaveLength(0);
+    // Nor is the carousel theirs to edit.
+    expect((await call('PUT', `/api/press/${job.id}/deck`, { slides: [] }, intruder.cookie)).status).toBe(404);
 
     const sourceCaptions = await db.getSubtitles(source.id, owner.userId);
     const original = await call('POST', `/api/press/${job.id}/reel`, { clipVideoId: source.id }, owner.cookie);
