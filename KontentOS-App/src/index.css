@@ -872,6 +872,14 @@ h4 {
   outline: none;
 }
 
+/* The palette's search field is always focused the moment it opens, so a boxed ring around it is
+   a permanent amber frame rather than a signal. It carries its focus on the row's bottom edge
+   instead (see CommandInput), and the global ring above must not draw on top of that. This sits
+   after the global rule on purpose: both are zero-specificity `:where` rules, so order decides. */
+:where([cmdk-input]):focus-visible {
+  outline: none;
+}
+
 /* ==========================================================================
    Toasts
    sonner injects its own stylesheet at runtime, after this one, so plain
