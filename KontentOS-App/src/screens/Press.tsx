@@ -27,6 +27,9 @@ import {
   type PressStep,
 } from '@/lib/press';
 import { makeZip, type ZipEntry } from '@/lib/zip';
+import { canBurn } from '@/lib/burnCaptions';
+import { spanCues } from '@/lib/captionFiles';
+import { Switch } from '@/components/ui/switch';
 
 /**
  * The Press — the one button this app is pitched on.
@@ -72,6 +75,18 @@ function cutRequestFor(pressed: PressJob): CutRequest {
     sourceAspect: pressed.plan.source.aspectRatio,
   };
 }
+
+/**
+ * The sample take: a short silent clip that ships with the app, plus a script written about this
+ * very product. It exists so anyone can watch a whole press run without owning a video first. The
+ * script is the "transcript" and is labelled as a sample; nothing here pretends the footage says it.
+ */
+const SAMPLE_CLIP_URL = '/broll/tech_system.mp4';
+const SAMPLE_SCRIPT =
+  'Most creators film one clip and post it once. That is the mistake. One clip can feed a reel, a carousel and your captions. ' +
+  'Here is the trick. Upload the take, pick a style and press one button. ' +
+  'In a minute you get a vertical reel, four swipeable cards and caption files. ' +
+  'No timeline, no switching tools, no starting from a blank page. Film once. Publish everywhere.';
 
 function saveTextFile(text: string, fileName: string, mime: string) {
   const url = URL.createObjectURL(new Blob([text], { type: `${mime};charset=utf-8` }));
@@ -140,6 +155,11 @@ export default function Press() {
   const [job, setJob] = useState<PressJob | null>(null);
   const [intakePct, setIntakePct] = useState<number | null>(null);
   const [pressing, setPressing] = useState(false);
+  // On by default: most people watch a short with the sound off. A ref carries it into the encoder,
+  // which is memoized and must not be rebuilt every time the switch moves.
+  const [burnCaptions, setBurnCaptions] = useState(true);
+  const burnRef = useRef(true);
+  const [burnedIn, setBurnedIn] = useState<string | null>(null);
   const [encode, setEncode] = useState<CutProgress | null>(null);
   const [reelPct, setReelPct] = useState<number | null>(null);
   const [polling, setPolling] = useState(false);
@@ -171,6 +191,9 @@ export default function Press() {
   // the creator just made in this station.
   const litCutId = useSelectedCutId();
   const followed = useRef<string | null>(null);
+  const [sampling, setSampling] = useState(false);
+  // The take a sample just created: once its transcript is ready, the press runs by itself.
+  const autoPress = useRef<string | null>(null);
   useEffect(() => {
     if (!litCutId || litCutId === followed.current) return;
     followed.current = litCutId;
@@ -259,11 +282,31 @@ export default function Press() {
           notify.bad(blocked.message);
           return;
         }
+        // The words to draw are the span's own cues: the same ones the .srt and .vtt are written from.
+        // Anything that stops them being drawn is said to the creator, never silently skipped.
+        let burnNote: string | null = null;
+        if (burnRef.current) {
+          try {
+            const track = await api.getSubtitles(pressed.sourceVideoId, controller.signal);
+            const cues = track ? spanCues(track.segments, pressed.plan.span.start, pressed.plan.span.end) : [];
+            if (cues.length === 0) burnNote = 'This span has no speech to burn in, so the reel has no captions in its frames.';
+            else if (!canBurn(cues)) {
+              burnNote =
+                'Captions were not burned in: this transcript uses a script the burn-in font cannot draw yet. The .srt and .vtt carry the words.';
+            } else request.captions = cues;
+          } catch {
+            if (controller.signal.aborted) return;
+            burnNote = 'The transcript could not be read, so the captions were not burned in.';
+          }
+        }
+        setBurnedIn(null);
         setEncode({ stage: 'preparing', fraction: null, message: 'Loading the cut bench…' });
-        const { blob } = await cutSpan(request, setEncode, controller.signal);
+        const { blob, captionsBurned } = await cutSpan(request, setEncode, controller.signal);
         controller.signal.throwIfAborted();
         setEncode(null);
         setReelPct(0);
+        if (captionsBurned) setBurnedIn('Captions are burned into this video.');
+        else if (burnNote) notify.info(burnNote);
         // The reel's caption track is the span's own cues, which the settle writes. Re-transcribing
         // the file would spend a second engine call to produce a track that then overwrites it.
         const clip = await uploadVideo(
@@ -285,7 +328,7 @@ export default function Press() {
         setReelPct(null);
         setJob(settled);
         if (settled.steps.find((step) => step.id === 'reel')?.state === 'done') {
-          notify.ok(`The reel is in your vault — ${fmtBytes(clip.file_size)}.`);
+          notify.ok(`The reel is in your vault — ${fmtBytes(clip.file_size)}${captionsBurned ? ', captions burned in' : ''}.`);
         } else {
           notify.bad(settled.error || 'The reel could not be filed against this press.');
         }
@@ -464,6 +507,43 @@ export default function Press() {
     }
   }
 
+  async function trySample() {
+    if (sampling || pressing || intakePct !== null) return;
+    stopPolling();
+    setNote(null);
+    setSampling(true);
+    setIntakePct(10);
+    try {
+      const res = await fetch(SAMPLE_CLIP_URL);
+      if (!res.ok) throw new Error('The sample footage could not be loaded.');
+      const file = new File([await res.blob()], 'Sample take - film once, publish everywhere.mp4', { type: 'video/mp4' });
+      const uploaded = await uploadVideo(file, setIntakePct, { transcribe: false });
+      if (!uploaded) throw new Error('The sample could not be taken in.');
+      const saved = await saveScript(uploaded.id, SAMPLE_SCRIPT);
+      if (!saved) throw new Error('The sample script could not be saved.');
+      followed.current = uploaded.id;
+      selectCut(uploaded.id);
+      setVideoId(uploaded.id);
+      setJob(null);
+      autoPress.current = uploaded.id;
+      notify.ok('Sample ready: pressing it now.');
+    } catch (err) {
+      notify.bad(err instanceof Error ? err.message : 'The sample could not be set up.');
+    } finally {
+      setSampling(false);
+      setIntakePct(null);
+    }
+  }
+
+  useEffect(() => {
+    if (autoPress.current && video?.id === autoPress.current && canPress) {
+      autoPress.current = null;
+      void pressIt();
+    }
+    // pressIt reads the latest state each render; only the readiness of this one take matters here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video?.id, canPress]);
+
   async function saveScriptNow() {
     if (!video || !scriptText.trim()) return;
     setSavingScript(true);
@@ -520,7 +600,7 @@ export default function Press() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={intakePct !== null || pressing}
               >
-                {intakePct !== null ? `Uploading ${intakePct}%…` : '+ Ingest clip'}
+                {intakePct !== null ? (sampling ? 'Setting up the sample…' : `Uploading ${intakePct}%…`) : '+ Ingest clip'}
               </Button>
             </div>
 
@@ -531,9 +611,14 @@ export default function Press() {
                 title="Nothing on the bench to press"
                 body="The press cuts from a take that is already uploaded and already transcribed. Bring one in and the button becomes live."
                 action={
-                  <Button size="sm" icon="upload" onClick={() => fileInputRef.current?.click()}>
-                    Ingest a clip
-                  </Button>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Button size="sm" icon="upload" onClick={() => fileInputRef.current?.click()} disabled={sampling}>
+                      Ingest a clip
+                    </Button>
+                    <Button size="sm" variant="secondary" icon="auto_awesome" onClick={() => void trySample()} disabled={sampling}>
+                      {sampling ? 'Setting up the sample…' : 'Try with a sample clip'}
+                    </Button>
+                  </div>
                 }
               />
             ) : (
@@ -633,6 +718,23 @@ export default function Press() {
           {/* Step 3 — the one button */}
           <Card className="p-5">
             <StepLabel n={3} title="Press it" />
+            <label className="mb-3 flex cursor-pointer items-start gap-3" htmlFor="press-burn-captions">
+              <Switch
+                id="press-burn-captions"
+                checked={burnCaptions}
+                onCheckedChange={(on) => {
+                  setBurnCaptions(on);
+                  burnRef.current = on;
+                }}
+                disabled={pressing}
+              />
+              <span className="min-w-0 text-[12.5px] text-ink">
+                <span className="font-semibold">Burn the captions into the reel</span>
+                <span className="block text-[11.5px] text-ink-muted">
+                  The words appear on the video itself. Works for Latin-script speech; the .srt and .vtt are always included.
+                </span>
+              </span>
+            </label>
             <div className="flex flex-wrap items-center gap-3">
               <Button
                 icon={pressing ? 'progress_activity' : 'print'}
@@ -792,6 +894,7 @@ export default function Press() {
                 Cut in your own tab and filed in your vault. Span {pressTimecode(bundle.span.start)}–
                 {pressTimecode(bundle.span.end)} of “{job.sourceTitle}”.
               </p>
+              {burnedIn && <p className="mt-2 text-[11.5px] text-ink-muted">{burnedIn}</p>}
               <a href={reelUrl} download={`${fileBase(bundle.title || job.sourceTitle)}.mp4`} className="kt-focus mt-3 inline-block rounded-btn border border-line px-3 py-2 text-[12px] font-semibold text-ink">
                 Download reel
               </a>

@@ -12,7 +12,9 @@
  * 30s span, this tab takes seconds and reports real progress.
  */
 
-import { cutFilter } from './frameFit';
+import { buildCaptionBurn } from './burnCaptions';
+import type { TimedCue } from './captionFiles';
+import { captionedCutFilter, cutFilter } from './frameFit';
 
 /** A source larger than this cannot be read into a browser tab's memory and reported on honestly. */
 export const MAX_CUT_SOURCE_BYTES = 400 * 1024 * 1024;
@@ -43,11 +45,19 @@ export interface CutRequest {
   targetAspect?: string;
   /** The source's aspect_ratio, when its record knows it. */
   sourceAspect?: string;
+  /**
+   * The span's own cues, already re-timed to it, to draw into the frames. Honoured only for a
+   * vertical target and only when every cue can be drawn; `CutResult.captionsBurned` says whether
+   * it happened, so a caller never claims words that are not in the video.
+   */
+  captions?: TimedCue[];
 }
 
 export interface CutResult {
   blob: Blob;
   byteLength: number;
+  /** True only when the captions were actually drawn into the frames. */
+  captionsBurned: boolean;
 }
 
 /** What has to be true before a span can be cut here, in the creator's terms. */
@@ -220,6 +230,7 @@ export async function cutSpan(
   }
 
   signal?.throwIfAborted();
+  const burn = req.targetAspect === '9:16' && req.captions ? buildCaptionBurn(req.captions) : null;
   const { worker: w, ready } = ensureWorker();
   const id = `cut_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -270,6 +281,7 @@ export async function cutSpan(
           succeed({
             blob: new Blob([data.buffer], { type: 'video/mp4' }),
             byteLength: Number(data.byteLength) || 0,
+            captionsBurned: !!burn,
           });
           break;
         case 'CUT_ERROR':
@@ -301,7 +313,10 @@ export async function cutSpan(
             inputFileName: 'input.mp4',
             start: req.start,
             duration: req.duration,
-            filter: cutFilter(req.targetAspect, sourceAspect) ?? undefined,
+            filter: burn
+              ? `${captionedCutFilter(req.targetAspect)},${burn.filter}`
+              : cutFilter(req.targetAspect, sourceAspect) ?? undefined,
+            captionFiles: burn?.files,
           },
           [buffer]
         );

@@ -22,6 +22,15 @@ export function cutFilter(targetAspect: string | undefined, sourceAspect: string
   return VERTICAL_FILTER_CHAIN;
 }
 
+/**
+ * The chain a captioned reel is cut with. Burned-in text is sized for a 1080 × 1920 frame, so it
+ * always runs the full chain, even on a source that is already vertical but smaller than that.
+ * Null for any other shape: the caption layout is only defined for the vertical reel.
+ */
+export function captionedCutFilter(targetAspect: string | undefined): string | null {
+  return targetAspect === '9:16' ? VERTICAL_FILTER_CHAIN : null;
+}
+
 /** "9:16", "4:3", "1.78" — anything unreadable returns 0, which never matches a target. */
 export function parseAspect(value: string): number {
   const [w, h] = value.split(':').map((n) => Number(n));

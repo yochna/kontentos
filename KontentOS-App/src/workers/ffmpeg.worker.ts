@@ -358,10 +358,12 @@ async function cutSpan(
   fileName: string,
   start: number,
   duration: number,
-  filter?: string
+  filter?: string,
+  captionFiles?: Array<{ name: string; text: string }>
 ): Promise<void> {
   let writtenInput = false;
   let outputFileName = '';
+  const writtenCaptionFiles: string[] = [];
 
   try {
     if (!ffmpeg || !ffmpeg.loaded) {
@@ -383,6 +385,19 @@ async function cutSpan(
 
     await ffmpeg.writeFile(fileName, new Uint8Array(inputBuffer));
     writtenInput = true;
+
+    // Captions burned into the frames need the font and one text file per page next to the source.
+    // A missing font is an error, not a quiet fallback to a reel without the words the creator asked for.
+    if (captionFiles && captionFiles.length > 0) {
+      const fontRes = await fetch('/fonts/font.ttf');
+      if (!fontRes.ok) throw new Error('The caption font could not be loaded, so the captions could not be burned in.');
+      await ffmpeg.writeFile('font.ttf', new Uint8Array(await fontRes.arrayBuffer()));
+      writtenCaptionFiles.push('font.ttf');
+      for (const file of captionFiles) {
+        await ffmpeg.writeFile(file.name, new TextEncoder().encode(file.text));
+        writtenCaptionFiles.push(file.name);
+      }
+    }
 
     self.postMessage({
       type: 'EXPORT_PROGRESS',
@@ -444,6 +459,7 @@ async function cutSpan(
     try {
       await ffmpeg.deleteFile(fileName);
       await ffmpeg.deleteFile(outputFileName);
+      for (const name of writtenCaptionFiles) await ffmpeg.deleteFile(name);
     } catch {
       // Non-fatal cleanup
     }
@@ -464,6 +480,7 @@ async function cutSpan(
       if (ffmpeg?.loaded) {
         if (writtenInput) await ffmpeg.deleteFile(fileName);
         if (outputFileName) await ffmpeg.deleteFile(outputFileName);
+        for (const name of writtenCaptionFiles) await ffmpeg.deleteFile(name);
       }
     } catch {
       /* leaving the virtual filesystem is not worth failing the answer over */
@@ -520,7 +537,8 @@ self.onmessage = async (event: MessageEvent) => {
         event.data.inputFileName || 'input.mp4',
         Number(event.data.start) || 0,
         Number(event.data.duration) || 0,
-        typeof event.data.filter === 'string' ? event.data.filter : undefined
+        typeof event.data.filter === 'string' ? event.data.filter : undefined,
+        Array.isArray(event.data.captionFiles) ? event.data.captionFiles : undefined
       );
       break;
 
