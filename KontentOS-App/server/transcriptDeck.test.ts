@@ -53,4 +53,9 @@ describe('deckFromTranscript', () => {
     expect(deck.slides).toHaveLength(3);
     expect(deck.slides.map((s) => plain(s.headline)).join(' ')).not.toContain('music]');
   });
+
+  it('does not cut a time like “2 a.m.” off as a one-word card', () => {
+    const deck = deckFromTranscript('2 a.m. You finally fixed the bug. Three days of grit went into it. Nobody saw any of it.', 3)!;
+    expect(plain(deck.slides[0].headline)).toBe('2 a.m. You finally fixed the bug.');
+  });
 });
