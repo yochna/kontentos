@@ -301,9 +301,9 @@ export default function Calendar() {
         {/* Calendar Grid */}
         <Card className="p-3 sm:p-5 overflow-hidden">
           <div className="overflow-x-auto scrollbar-none -mx-1 px-1">
-            <div className="min-w-[540px] sm:min-w-[720px]">
+            <div className="min-w-0">
           {/* Day Headers (Mon - Sun) */}
-          <div className="grid grid-cols-7 gap-2 mb-2">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName) => (
               <div
                 key={dayName}
@@ -316,12 +316,12 @@ export default function Calendar() {
           </div>
 
           {/* Days Grid */}
-          <div className="kt-stagger--fade grid grid-cols-7 gap-2">
+          <div className="kt-stagger--fade grid grid-cols-7 gap-1 sm:gap-2">
             {/* Blank lead days */}
             {Array.from({ length: leadDays }).map((_, i) => (
               <div
                 key={`lead-${i}`}
-                className="min-h-[86px] sm:min-h-[105px] rounded-card bg-surface-2/30 border border-dashed border-line/50 opacity-40"
+                className="min-h-[64px] sm:min-h-[105px] rounded-card bg-surface-2/30 border border-dashed border-line/50 opacity-40"
               />
             ))}
 
@@ -346,7 +346,7 @@ export default function Calendar() {
                       setSelectedDay(d);
                     }
                   }}
-                  className={`group relative kt-focus min-h-[92px] sm:min-h-[110px] rounded-card border p-2 text-left transition-all duration-150 cursor-pointer flex flex-col justify-between ${
+                  className={`group relative kt-focus min-h-[64px] sm:min-h-[110px] min-w-0 rounded-card border p-1 sm:p-2 text-left transition-all duration-150 cursor-pointer flex flex-col justify-between ${
                     isSelected
                       ? 'border-primary ring-2 ring-primary/20 bg-primary-soft/40'
                       : 'border-line hover:border-line-strong bg-surface hover:bg-surface-2/40'
@@ -371,7 +371,7 @@ export default function Calendar() {
                         handleQuickScheduleForDay(d);
                       }}
                       aria-label={`Schedule a post for ${MONTH_NAMES[month]} ${d}`}
-                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 kt-focus p-1 rounded hover:bg-surface text-ink-dim hover:text-primary transition-opacity"
+                      className="hidden sm:block opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 kt-focus p-1 rounded hover:bg-surface text-ink-dim hover:text-primary transition-opacity"
                       title="Schedule for this date"
                     >
                       <Icon name="add" size={14} />
@@ -408,7 +408,7 @@ export default function Calendar() {
                             className={`kt-focus flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[11px] font-medium border leading-tight truncate transition-colors ${cfg.bg} ${cfg.color} ${cfg.border}`}
                           >
                             <Icon name={cfg.icon} size={12} className="shrink-0" />
-                            <span className="truncate flex-1">
+                            <span className="hidden sm:inline truncate flex-1">
                               {ev.video_title || 'Untitled drop'}
                             </span>
                           </div>
@@ -424,7 +424,7 @@ export default function Calendar() {
 
                   {/* Bottom Day Status Indicator */}
                   <div className="flex items-center justify-between text-[11px] text-ink-dim pt-1 border-t border-line/30">
-                    <span>{evs.length > 0 ? `${evs.length} drops` : '—'}</span>
+                    <span>{evs.length > 0 ? <>{evs.length}<span className="hidden sm:inline"> drops</span></> : '—'}</span>
                     {evs.some((e) => e.status === 'published') && (
                       <span
                         role="img"
