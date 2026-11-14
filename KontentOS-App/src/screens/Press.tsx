@@ -224,7 +224,9 @@ export default function Press() {
       try {
         const fresh = await api.getPress(id);
         if (version !== readVersion.current) return;
-        if (fresh) setJob(fresh);
+        // Two reads can be in flight at once (the encode's own settle, and this loop), and the slower
+        // one must not overwrite the newer: a press only ever moves forward, so the later stamp wins.
+        if (fresh) setJob((current) => (current && current.id === fresh.id && current.updatedAt > fresh.updatedAt ? current : fresh));
         if (!fresh || !isWriting(fresh)) {
           setPolling(false);
           return;
@@ -268,7 +270,10 @@ export default function Press() {
    */
   const encodeReel = useCallback(
     async (pressed: PressJob) => {
-      stopPolling();
+      // The captions, the cards and the post copy are written on the server while this tab encodes
+      // the reel, and take a few seconds. Reading the press from the start puts each of them on the
+      // screen the moment it is done, instead of after the (much longer) encode.
+      poll(pressed.id);
       setPressing(true);
       const controller = new AbortController();
       abortRef.current = controller;
