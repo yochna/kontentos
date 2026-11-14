@@ -146,6 +146,8 @@ export default function Press() {
   const [note, setNote] = useState<{ kind: 'info' | 'bad'; text: string } | null>(null);
 
   const deckPdfRef = useRef<(() => Promise<Blob>) | null>(null);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+  const awaitingResults = useRef(false);
   const [bundling, setBundling] = useState(false);
 
   const pollRef = useRef<number | null>(null);
@@ -310,8 +312,20 @@ export default function Press() {
     [poll, stopPolling, uploadVideo]
   );
 
+  // Stacked layouts (phones, narrow windows) put the results a long scroll below the button, so a
+  // press the creator just started brings its own results into view once the reel lands. The
+  // two-column layout already shows them beside the setup, so it is left where it is.
+  const reelLanded = job?.steps.find((step) => step.id === 'reel')?.state === 'done';
+  useEffect(() => {
+    if (!reelLanded || !awaitingResults.current) return;
+    awaitingResults.current = false;
+    if (window.matchMedia('(min-width: 1280px)').matches) return;
+    resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [reelLanded]);
+
   async function pressIt() {
     if (!video || pressing) return;
+    awaitingResults.current = true;
     stopPolling();
     setNote(null);
     setPressing(true);
@@ -601,7 +615,7 @@ export default function Press() {
                   key={option.id}
                   value={option.id}
                   variant="none"
-                  className="flex items-start gap-3 rounded-card border border-line bg-surface-2/50 p-3 text-left data-[state=on]:border-primary data-[state=on]:bg-primary-soft"
+                  className="flex h-auto w-full items-start gap-3 whitespace-normal rounded-card border border-line bg-surface-2/50 p-3 text-left data-[state=on]:border-primary data-[state=on]:bg-primary-soft"
                 >
                   <Icon name={option.icon} size={18} className="mt-0.5 shrink-0 text-ink-muted" />
                   <span className="min-w-0">
@@ -722,7 +736,7 @@ export default function Press() {
         </div>
 
         {/* Results */}
-        <div className="space-y-5">
+        <div ref={resultsRef} className="scroll-mt-24 space-y-5">
           {!job && (
             <Card className="p-5">
               <EmptyState
