@@ -9,6 +9,8 @@
  * the transcript, and the creator can edit any card afterwards.
  */
 
+import { splitSentences } from './sentences.js';
+
 export interface TranscriptSlide {
   id: number;
   headline: string;
@@ -26,14 +28,6 @@ const SUPPORT_WORDS = 36;
 const MIN_SLIDES = 2;
 
 const words = (value: string): string[] => value.split(/\s+/).filter(Boolean);
-
-/** Sentence ends in Latin and Devanagari script; a clause with no end mark is still one sentence. */
-function sentencesOf(excerpt: string): string[] {
-  return excerpt
-    .split(/(?<=[.!?।॥])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
-}
 
 /** Contiguous groups of sentences, each close to an equal share of the spoken words. */
 function groupSentences(sentences: string[], count: number): string[][] {
@@ -89,7 +83,7 @@ function lightOneWord(headline: string): string {
 export function deckFromTranscript(excerpt: string, slideCount: number): TranscriptDeck | null {
   // Square brackets in speech ("[music]") would read as highlight markers on the card.
   const clean = excerpt.replace(/[\[\]]/g, '').replace(/\s+/g, ' ').trim();
-  const sentences = sentencesOf(clean);
+  const sentences = splitSentences(clean);
   if (sentences.length < MIN_SLIDES) return null;
 
   const wanted = Math.min(Math.max(Math.round(Number(slideCount) || 4), MIN_SLIDES), 8, sentences.length);
