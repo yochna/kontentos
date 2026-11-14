@@ -29,7 +29,7 @@ export function CommandInput({
   trailing?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 border-b border-line px-4">
+    <div className="flex items-center gap-2 border-b border-line px-4 transition-colors focus-within:border-primary/60">
       <Icon name="search" size={18} className="shrink-0 text-ink-dim" />
       <CommandPrimitive.Input
         {...rest}
