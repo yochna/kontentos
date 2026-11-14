@@ -8,6 +8,7 @@ import {
   preferredModelFrom,
 } from './routes/caption.js';
 import { envGeminiKey } from './geminiKey.js';
+import { splitSentences } from './sentences.js';
 
 /**
  * Repurpose engine: one long recording's transcript in, several standalone shorts out.
@@ -232,7 +233,7 @@ function clipWords(text: string, max: number): string {
 }
 
 function firstSentence(excerpt: string): string {
-  return (excerpt.split(/(?<=[.!?])\s+/)[0] || excerpt).replace(/^["'“]+/, '').trim();
+  return (splitSentences(excerpt)[0] || excerpt).replace(/^["'“]+/, '').trim();
 }
 
 function localTitle(excerpt: string): string {
@@ -293,7 +294,7 @@ function beatWindows(m: Moment): string[] {
 }
 
 function localBeats(m: Moment): RepurposeBeat[] {
-  const parts = m.excerpt.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const parts = splitSentences(m.excerpt);
   const [first, second, third] = beatWindows(m);
   return [
     {
