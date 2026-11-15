@@ -192,6 +192,9 @@ export default function Press() {
   const litCutId = useSelectedCutId();
   const followed = useRef<string | null>(null);
   const [sampling, setSampling] = useState(false);
+  // Once a press exists the take and style fold into one line so the results are on screen, not
+  // below two tall setup cards. "Change" opens them again.
+  const [changeSetup, setChangeSetup] = useState(false);
   // The take a sample just created: once its transcript is ready, the press runs by itself.
   const autoPress = useRef<string | null>(null);
   useEffect(() => {
@@ -373,6 +376,7 @@ export default function Press() {
 
   async function pressIt() {
     if (!video || pressing) return;
+    setChangeSetup(false);
     awaitingResults.current = true;
     stopPolling();
     setNote(null);
@@ -432,6 +436,15 @@ export default function Press() {
   const knownTranscript = video ? transcripts[video.id] : undefined;
   const transcriptState = knownTranscript ?? (cueCheck?.videoId === videoId ? cueCheck.state : 'checking');
   const reelStep = job?.steps.find((step) => step.id === 'reel') ?? null;
+  // The folded line must tell the truth about what "Press another" will do, so the full setup stays
+  // open whenever the chosen take or style is not the one the shown press was made from.
+  const showSetup =
+    !job ||
+    job.status === 'failed' ||
+    changeSetup ||
+    !video ||
+    job.sourceVideoId !== video.id ||
+    job.styleId !== style.id;
   const canPress = Boolean(video) && !pressing && intakePct === null && !savingScript && transcriptState === 'ready';
 
   useEffect(() => {
@@ -594,131 +607,150 @@ export default function Press() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-6">
         <div className="space-y-5 min-w-0">
-          {/* Step 1 — the take */}
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-3 gap-3">
-              <StepLabel n={1} title="Pick the take" />
-              <Button
-                size="sm"
-                variant="secondary"
-                icon="upload"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={intakePct !== null || pressing}
-              >
-                {intakePct !== null ? (sampling ? 'Setting up the sample…' : `Uploading ${intakePct}%…`) : '+ Ingest clip'}
-              </Button>
-            </div>
-
-            {sources.length === 0 ? (
-              <EmptyState
-                compact
-                icon="smart_display"
-                title="Nothing on the bench to press"
-                body="The press cuts from a take that is already uploaded and already transcribed. Bring one in and the button becomes live."
-                action={
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    <Button size="sm" icon="upload" onClick={() => fileInputRef.current?.click()} disabled={sampling}>
-                      Ingest a clip
-                    </Button>
-                    <Button size="sm" variant="secondary" icon="auto_awesome" onClick={() => void trySample()} disabled={sampling}>
-                      {sampling ? 'Setting up the sample…' : 'Try with a sample clip'}
-                    </Button>
-                  </div>
-                }
-              />
-            ) : (
-              <>
-                <Select value={videoId} onValueChange={setVideoId} disabled={pressing || savingScript || intakePct !== null}>
-                  <SelectTrigger aria-label="Take to press">
-                    <span className="truncate">
-                      {video ? `${video.title} · ${pressTimecode(video.duration || 0)}` : 'Choose a take'}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sources.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.title} · {pressTimecode(v.duration || 0)}
-                        {v.file_size ? ` · ${fmtBytes(v.file_size)}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink-muted">
-                  {transcriptState === 'checking' && <span>Checking saved cues…</span>}
-                  {transcriptState === 'error' && (
-                    <>
-                      <span className="text-danger-ink">Saved cues could not be checked.</span>
-                      <Button size="sm" variant="ghost" onClick={() => setCueRead((value) => value + 1)}>Retry cue check</Button>
-                    </>
-                  )}
-                  {transcriptState === 'working' && <span>Reading its audio — the press needs the cues.</span>}
-                  {transcriptState === 'none' && (
-                    <span className="text-danger-ink">No speech transcript came back. Paste the spoken words below to continue here.</span>
-                  )}
-                  {transcriptState === 'ready' && <span>Cues on file.</span>}
-                  {video && video.file_size && video.file_size > 400 * 1024 * 1024 && (
-                    <span className="text-danger-ink">
-                      {fmtBytes(video.file_size)} is past what a browser cut can hold — trim it on the Bench instead.
-                    </span>
-                  )}
+          {showSetup ? (
+            <>
+              {/* Step 1 — the take */}
+              <Card className="p-5">
+                <div className="flex items-center justify-between mb-3 gap-3">
+                  <StepLabel n={1} title="Pick the take" />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon="upload"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={intakePct !== null || pressing}
+                  >
+                    {intakePct !== null ? (sampling ? 'Setting up the sample…' : `Uploading ${intakePct}%…`) : '+ Ingest clip'}
+                  </Button>
                 </div>
-                {transcriptState === 'none' && (
-                  <div className="mt-3 space-y-2">
-                    <label htmlFor="press-script" className="block text-[12px] text-ink-muted">
-                      Spoken script — timing will be approximate; review the captions before posting.
-                    </label>
-                    <textarea
-                      id="press-script"
-                      value={scriptText}
-                      onChange={(event) => setScriptText(event.target.value)}
-                      disabled={savingScript}
-                      rows={4}
-                      className="kt-focus w-full rounded-btn border border-line bg-surface-2 p-3 text-[13px] text-ink"
-                    />
-                    <Button size="sm" variant="secondary" disabled={savingScript || scriptText.trim().length < 3} onClick={() => void saveScriptNow()}>
-                      {savingScript ? 'Saving script…' : 'Use this script'}
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </Card>
 
-          {/* Step 2 — the style */}
-          <Card className="p-5">
-            <StepLabel n={2} title="Pick the style" />
-            <p className="mb-3 text-[12.5px] text-ink-muted">
-              Each style is a real setting, not a label: it bounds the span the press searches for, sizes the deck, and
-              sets the register the copy is written in.
-            </p>
-            <ToggleGroup
-              variant="none"
-              value={styleId}
-              onValueChange={(next) => next && setStyleId(next)}
-              aria-label="Press style"
-              disabled={pressing}
-              className="flex-col items-stretch gap-2"
-            >
-              {PRESS_STYLES.map((option) => (
-                <ToggleGroupItem
-                  key={option.id}
-                  value={option.id}
+                {sources.length === 0 ? (
+                  <EmptyState
+                    compact
+                    icon="smart_display"
+                    title="Nothing on the bench to press"
+                    body="The press cuts from a take that is already uploaded and already transcribed. Bring one in and the button becomes live."
+                    action={
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <Button size="sm" icon="upload" onClick={() => fileInputRef.current?.click()} disabled={sampling}>
+                          Ingest a clip
+                        </Button>
+                        <Button size="sm" variant="secondary" icon="auto_awesome" onClick={() => void trySample()} disabled={sampling}>
+                          {sampling ? 'Setting up the sample…' : 'Try with a sample clip'}
+                        </Button>
+                      </div>
+                    }
+                  />
+                ) : (
+                  <>
+                    <Select value={videoId} onValueChange={setVideoId} disabled={pressing || savingScript || intakePct !== null}>
+                      <SelectTrigger aria-label="Take to press">
+                        <span className="truncate">
+                          {video ? `${video.title} · ${pressTimecode(video.duration || 0)}` : 'Choose a take'}
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sources.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.title} · {pressTimecode(v.duration || 0)}
+                            {v.file_size ? ` · ${fmtBytes(v.file_size)}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink-muted">
+                      {transcriptState === 'checking' && <span>Checking saved cues…</span>}
+                      {transcriptState === 'error' && (
+                        <>
+                          <span className="text-danger-ink">Saved cues could not be checked.</span>
+                          <Button size="sm" variant="ghost" onClick={() => setCueRead((value) => value + 1)}>Retry cue check</Button>
+                        </>
+                      )}
+                      {transcriptState === 'working' && <span>Reading its audio — the press needs the cues.</span>}
+                      {transcriptState === 'none' && (
+                        <span className="text-danger-ink">No speech transcript came back. Paste the spoken words below to continue here.</span>
+                      )}
+                      {transcriptState === 'ready' && <span>Cues on file.</span>}
+                      {video && video.file_size && video.file_size > 400 * 1024 * 1024 && (
+                        <span className="text-danger-ink">
+                          {fmtBytes(video.file_size)} is past what a browser cut can hold — trim it on the Bench instead.
+                        </span>
+                      )}
+                    </div>
+                    {transcriptState === 'none' && (
+                      <div className="mt-3 space-y-2">
+                        <label htmlFor="press-script" className="block text-[12px] text-ink-muted">
+                          Spoken script — timing will be approximate; review the captions before posting.
+                        </label>
+                        <textarea
+                          id="press-script"
+                          value={scriptText}
+                          onChange={(event) => setScriptText(event.target.value)}
+                          disabled={savingScript}
+                          rows={4}
+                          className="kt-focus w-full rounded-btn border border-line bg-surface-2 p-3 text-[13px] text-ink"
+                        />
+                        <Button size="sm" variant="secondary" disabled={savingScript || scriptText.trim().length < 3} onClick={() => void saveScriptNow()}>
+                          {savingScript ? 'Saving script…' : 'Use this script'}
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </Card>
+
+              {/* Step 2 — the style */}
+              <Card className="p-5">
+                <StepLabel n={2} title="Pick the style" />
+                <p className="mb-3 text-[12.5px] text-ink-muted">
+                  Each style is a real setting, not a label: it bounds the span the press searches for, sizes the deck, and
+                  sets the register the copy is written in.
+                </p>
+                <ToggleGroup
                   variant="none"
-                  className="flex h-auto w-full items-start gap-3 whitespace-normal rounded-card border border-line bg-surface-2/50 p-3 text-left data-[state=on]:border-primary data-[state=on]:bg-primary-soft"
+                  value={styleId}
+                  onValueChange={(next) => next && setStyleId(next)}
+                  aria-label="Press style"
+                  disabled={pressing}
+                  className="flex-col items-stretch gap-2"
                 >
-                  <Icon name={option.icon} size={18} className="mt-0.5 shrink-0 text-ink-muted" />
-                  <span className="min-w-0">
-                    <span className="block text-[13.5px] font-semibold text-ink">{option.label}</span>
-                    <span className="mt-0.5 block text-[12px] leading-relaxed text-ink-muted">{option.note}</span>
-                    <span className="mt-1.5 block font-mono text-[11px] text-ink-dim">
-                      {option.minSeconds}–{option.maxSeconds}s span · {option.slides} cards · {option.tone}
-                    </span>
-                  </span>
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </Card>
+                  {PRESS_STYLES.map((option) => (
+                    <ToggleGroupItem
+                      key={option.id}
+                      value={option.id}
+                      variant="none"
+                      className="flex h-auto w-full items-start gap-3 whitespace-normal rounded-card border border-line bg-surface-2/50 p-3 text-left data-[state=on]:border-primary data-[state=on]:bg-primary-soft"
+                    >
+                      <Icon name={option.icon} size={18} className="mt-0.5 shrink-0 text-ink-muted" />
+                      <span className="min-w-0">
+                        <span className="block text-[13.5px] font-semibold text-ink">{option.label}</span>
+                        <span className="mt-0.5 block text-[12px] leading-relaxed text-ink-muted">{option.note}</span>
+                        <span className="mt-1.5 block font-mono text-[11px] text-ink-dim">
+                          {option.minSeconds}–{option.maxSeconds}s span · {option.slides} cards · {option.tone}
+                        </span>
+                      </span>
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </Card>
+            </>
+          ) : (
+            <Card className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">Setup</p>
+                  <p className="mt-1 truncate text-[13.5px] font-semibold text-ink">{video?.title}</p>
+                  <p className="mt-0.5 text-[12px] text-ink-muted">
+                    {style.label} · {style.minSeconds}–{style.maxSeconds}s · {style.slides} cards
+                  </p>
+                </div>
+                <Button size="sm" variant="secondary" disabled={pressing} onClick={() => setChangeSetup(true)}>
+                  Change
+                </Button>
+              </div>
+            </Card>
+          )}
 
           {/* Step 3 — the one button */}
           <Card className="p-5">
@@ -888,7 +920,7 @@ export default function Press() {
                   playsInline
                   onError={reelMedia.onError}
                   onLoadedData={reelMedia.onLoadedData}
-                  className="aspect-[9/16] w-full max-h-[380px] rounded-card bg-black"
+                  className="mx-auto aspect-[9/16] h-[min(440px,62vh)] max-w-full rounded-card bg-black object-contain"
                 />
               )}
               <p className="mt-2 text-[12px] text-ink-muted">
@@ -909,11 +941,32 @@ export default function Press() {
           {job && (!reelStep || reelStep.state === 'waiting') && (
             <Card className="p-4">
               <h3 className="mb-1.5 text-[13px] font-semibold text-ink">Reel</h3>
-              <p className="text-[12px] text-ink-muted">
-                {pressing
-                  ? 'Encoding in this tab now.'
-                  : 'The reel is the one piece this tab has to encode. Press the retry beside the step above — it works from the span the server already picked.'}
-              </p>
+              {pressing ? (
+                <>
+                  <p className="text-[12.5px] font-semibold text-ink">Making your video. This usually takes a minute or two.</p>
+                  <p className="mt-1 text-[12px] text-ink-muted">
+                    Keep this tab open and in front.{' '}
+                    {bundle && (bundle.srt || deck)
+                      ? 'The captions and carousel are already done below.'
+                      : 'The captions and carousel are being written at the same time.'}
+                  </p>
+                  {encode && (
+                    <div className="mt-3">
+                      <Progress
+                        value={encode.fraction === null ? 0 : Math.round(encode.fraction * 100)}
+                        live
+                        label="Making the video"
+                      />
+                      <span className="mt-1 block text-[11px] text-ink-dim">{encode.message}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-[12px] text-ink-muted">
+                  The reel is the one piece this tab has to encode. Press the retry beside the step above — it works from
+                  the span the server already picked.
+                </p>
+              )}
             </Card>
           )}
 
