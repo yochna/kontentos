@@ -41,6 +41,7 @@ export function CommandDeck({
   onToggleTheme,
   onIntake,
   onSignOut,
+  onTour,
 }: {
   open: boolean;
   onClose: () => void;
@@ -49,6 +50,7 @@ export function CommandDeck({
   onToggleTheme: () => void;
   onIntake: () => void;
   onSignOut: () => void;
+  onTour: () => void;
 }) {
   const [query, setQuery] = useState('');
   const hits = useHits(query);
@@ -87,6 +89,7 @@ export function CommandDeck({
         heading: 'Actions',
         rows: [
           { key: 'act-intake', label: 'Intake footage', detail: 'Start a cut from a file', icon: 'file_upload', run: onIntake },
+          { key: 'act-tour', label: 'Take the tour', detail: 'A thirty-second walkthrough', icon: 'help', run: onTour },
           { key: 'act-clear', label: 'Clear the bench', detail: 'Put the lit cut down', icon: 'highlight_off', run: () => selectCut(null) },
           {
             key: 'act-theme',
@@ -100,7 +103,7 @@ export function CommandDeck({
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [theme, onStation, onIntake, onToggleTheme, onSignOut],
+    [theme, onStation, onIntake, onToggleTheme, onSignOut, onTour],
   );
 
   const stationRows = useMemo(() => groups.flatMap((g) => g.rows), [groups]);

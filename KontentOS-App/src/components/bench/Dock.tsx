@@ -25,6 +25,7 @@ export function Dock({
   onOpenDeck,
   inspectorOpen,
   onToggleInspector,
+  onTour,
   theme,
   onToggleTheme,
   selectedTitle,
@@ -38,6 +39,7 @@ export function Dock({
   onOpenDeck: () => void;
   inspectorOpen: boolean;
   onToggleInspector: () => void;
+  onTour: () => void;
   theme: Theme;
   onToggleTheme: () => void;
   selectedTitle: string | null;
@@ -66,7 +68,7 @@ export function Dock({
   return (
     <footer className="shrink-0 border-t border-line bg-surface">
       {/* Below lg the spine is gone, so the station keys become the dock's middle row. */}
-      <div className="relative border-b border-line px-2 py-1.5 lg:hidden">
+      <div data-tour="dock-stations" className="relative border-b border-line px-2 py-1.5 lg:hidden">
         <div className="flex gap-1.5">
           {primary.map((s) => (
             <button
@@ -165,6 +167,15 @@ export function Dock({
         )}
 
         <span className="flex-1" />
+
+        <button
+          type="button"
+          onClick={onTour}
+          aria-label="Take the tour"
+          className="kt-focus grid h-6 w-6 place-items-center rounded-[5px] text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink"
+        >
+          <Icon name="help" size={16} />
+        </button>
 
         <button
           type="button"

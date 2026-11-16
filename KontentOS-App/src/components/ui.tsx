@@ -239,15 +239,19 @@ export function Card({
   className = '',
   hover = false,
   onClick,
+  'data-tour': dataTour,
 }: {
   children?: ReactNode;
   className?: string;
   hover?: boolean;
   onClick?: () => void;
+  /** Marks the card as something the first-run walkthrough can point at. */
+  'data-tour'?: string;
 }) {
   const interactive = !!onClick;
   return (
     <div
+      data-tour={dataTour}
       onClick={onClick}
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}

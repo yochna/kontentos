@@ -17,7 +17,7 @@ export function Spine({
   const profile = useDisplayProfile();
 
   return (
-    <aside className="hidden w-[84px] shrink-0 flex-col border-r border-line bg-surface lg:flex">
+    <aside data-tour="spine" className="hidden w-[84px] shrink-0 flex-col border-r border-line bg-surface lg:flex">
       <div className="flex h-[52px] items-center justify-center border-b border-line">
         <span className="kt-grow grid h-7 w-7 place-items-center rounded-[4px] bg-primary font-display text-[13px] font-bold text-on-primary">
           K

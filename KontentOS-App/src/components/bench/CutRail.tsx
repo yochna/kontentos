@@ -146,7 +146,7 @@ export function CutRail({
   const expanded = open && cuts.length > 0;
 
   return (
-    <div className="shrink-0 border-b border-line bg-surface/80">
+    <div data-tour="rail" className="shrink-0 border-b border-line bg-surface/80">
       <input
         ref={fileRef}
         type="file"

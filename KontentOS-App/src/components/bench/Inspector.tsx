@@ -38,7 +38,7 @@ export function Inspector({
   const meta = STATION_BY_ID[station];
 
   return (
-    <aside className="kt-readable hidden w-[320px] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface xl:flex">
+    <aside data-tour="inspector" className="kt-readable hidden w-[320px] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface xl:flex">
       <header className="border-b border-line px-4 py-3">
         <div className="flex items-center gap-2">
           <Icon name={meta.icon} size={15} className="text-primary" />

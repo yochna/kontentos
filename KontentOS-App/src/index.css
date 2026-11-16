@@ -1007,3 +1007,23 @@ h4 {
 .kt-readable .kt-compact .text-\[11px\] {
   font-size: 11px;
 }
+
+/* The tour card's text eases in on each step; the card and spotlight themselves slide. */
+@keyframes kt-tour-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.kt-tour-in {
+  animation: kt-tour-in 280ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kt-tour-in {
+    animation: none;
+  }
+}

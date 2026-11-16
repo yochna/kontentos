@@ -14,6 +14,8 @@ import { CutRail } from './CutRail';
 import { Inspector } from './Inspector';
 import { Dock, type BenchJob } from './Dock';
 import { CommandDeck } from './CommandDeck';
+import { Tour } from './Tour';
+import { TOUR_SAMPLE_KEY, isTourDone, markTourDone } from '@/lib/tour';
 
 // The engines stay lazy: they are the bulk of the bundle and only one is ever open.
 const CommandCenter = lazy(() => import('@/screens/CommandCenter'));
@@ -68,6 +70,7 @@ export function Bench({
   const [jobs, setJobs] = useState<BenchJob[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [dropping, setDropping] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   // The details panel is a fifth of the width on every station. It starts open, and a creator who
   // wants the room folds it away; the choice is remembered on this browser.
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(() => {
@@ -154,6 +157,34 @@ export function Bench({
     },
     [selectedId]
   );
+
+  // A first visit opens the walkthrough once the room has settled; after that it only opens when
+  // asked (the ? key in the dock, or "Take the tour" in the command deck).
+  useEffect(() => {
+    if (isTourDone()) return;
+    const timer = window.setTimeout(() => setTourOpen(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const closeTour = useCallback(() => {
+    markTourDone();
+    setTourOpen(false);
+  }, []);
+
+  // The tour's last step presses the built-in sample. The Press screen is lazy and may not be
+  // mounted yet, so the request is left where it will find it on mount, and announced for the case
+  // where it already is.
+  const trySampleFromTour = useCallback(() => {
+    markTourDone();
+    setTourOpen(false);
+    try {
+      sessionStorage.setItem(TOUR_SAMPLE_KEY, '1');
+    } catch {
+      // Without session storage the creator just presses the sample button themselves.
+    }
+    goTo('press');
+    window.dispatchEvent(new Event('kt:try-sample'));
+  }, [goTo]);
 
   const intake = useCallback(
     async (file: File) => {
@@ -308,6 +339,7 @@ export function Bench({
           onOpenDeck={() => setDeck(true)}
           inspectorOpen={inspectorOpen}
           onToggleInspector={toggleInspector}
+          onTour={() => setTourOpen(true)}
           theme={theme}
           onToggleTheme={onToggleTheme}
           selectedTitle={litCut?.title ?? null}
@@ -322,6 +354,15 @@ export function Bench({
         onToggleTheme={onToggleTheme}
         onIntake={() => intakeRef.current?.click()}
         onSignOut={signOut}
+        onTour={() => setTourOpen(true)}
+      />
+
+      <Tour
+        open={tourOpen}
+        station={station}
+        onNavigate={(id) => goTo(id)}
+        onClose={closeTour}
+        onTrySample={trySampleFromTour}
       />
 
       <input

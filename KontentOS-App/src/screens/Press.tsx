@@ -28,6 +28,7 @@ import {
 } from '@/lib/press';
 import { makeZip, type ZipEntry } from '@/lib/zip';
 import { canBurn } from '@/lib/burnCaptions';
+import { TOUR_SAMPLE_KEY } from '@/lib/tour';
 import { spanCues } from '@/lib/captionFiles';
 import { Switch } from '@/components/ui/switch';
 
@@ -553,6 +554,25 @@ export default function Press() {
     }
   }
 
+  // The walkthrough's last step asks for the sample. This screen loads lazily, so the request waits
+  // in session storage until it mounts, and is also announced for when it is already open.
+  const trySampleRef = useRef<() => void>(() => {});
+  trySampleRef.current = () => void trySample();
+  useEffect(() => {
+    const run = () => {
+      try {
+        if (sessionStorage.getItem(TOUR_SAMPLE_KEY) !== '1') return;
+        sessionStorage.removeItem(TOUR_SAMPLE_KEY);
+      } catch {
+        return;
+      }
+      trySampleRef.current();
+    };
+    run();
+    window.addEventListener('kt:try-sample', run);
+    return () => window.removeEventListener('kt:try-sample', run);
+  }, []);
+
   useEffect(() => {
     if (autoPress.current && video?.id === autoPress.current && canPress) {
       autoPress.current = null;
@@ -610,7 +630,7 @@ export default function Press() {
           {showSetup ? (
             <>
               {/* Step 1 — the take */}
-              <Card className="p-5">
+              <Card data-tour="press-take" className="p-5">
                 <div className="flex items-center justify-between mb-3 gap-3">
                   <StepLabel n={1} title="Pick the take" />
                   <Button
@@ -701,7 +721,7 @@ export default function Press() {
               </Card>
 
               {/* Step 2 — the style */}
-              <Card className="p-5">
+              <Card data-tour="press-style" className="p-5">
                 <StepLabel n={2} title="Pick the style" />
                 <p className="mb-3 text-[12.5px] text-ink-muted">
                   Each style is a real setting, not a label: it bounds the span the press searches for, sizes the deck, and
@@ -736,7 +756,7 @@ export default function Press() {
               </Card>
             </>
           ) : (
-            <Card className="p-4">
+            <Card data-tour="press-take" className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">Setup</p>
@@ -753,7 +773,7 @@ export default function Press() {
           )}
 
           {/* Step 3 — the one button */}
-          <Card className="p-5">
+          <Card data-tour="press-go" className="p-5">
             <StepLabel n={3} title="Press it" />
             <label className="mb-3 flex cursor-pointer items-start gap-3" htmlFor="press-burn-captions">
               <Switch
@@ -877,7 +897,7 @@ export default function Press() {
         {/* Results */}
         <div ref={resultsRef} className="scroll-mt-24 space-y-5">
           {!job && (
-            <Card className="p-5">
+            <Card data-tour="press-results" className="p-5">
               <EmptyState
                 compact
                 icon="print"
@@ -888,7 +908,7 @@ export default function Press() {
           )}
 
           {job && reelStep?.state === 'done' && bundle && (
-            <Card className="p-4">
+            <Card data-tour="press-results" className="p-4">
               <h3 className="mb-1.5 text-[13px] font-semibold text-ink">Everything, together</h3>
               <p className="mb-3 text-[12px] text-ink-muted">
                 The reel, the .srt and .vtt, the post copy and the carousel PDF in one zip.
