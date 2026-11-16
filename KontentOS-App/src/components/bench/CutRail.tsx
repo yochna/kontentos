@@ -49,6 +49,8 @@ interface RailProps {
 
 type Filter = 'all' | LedgerStage;
 
+const RAIL_OPEN_KEY = 'kt.rail.open';
+
 /** The stations that actually work on one cut, in the order the bench does. */
 const OPEN_IN: { station: StationId; label: string; icon: string }[] = [
   { station: 'raw-reel', label: 'Open in Intake', icon: 'smart_display' },
@@ -82,6 +84,26 @@ export function CutRail({
   // A right-click lights the cut it landed on and asks what to do with it, at the pointer.
   const [menu, setMenu] = useState<{ video: Video; x: number; y: number } | null>(null);
   const [confirming, setConfirming] = useState<Video | null>(null);
+  // The full strip of tiles is a quarter of the screen on every station, and most of the time the
+  // creator only needs to know which cut is lit. So it rests as one slim row and opens on request;
+  // the choice is remembered on this browser.
+  const [open, setOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(RAIL_OPEN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleOpen = () =>
+    setOpen((was) => {
+      const next = !was;
+      try {
+        localStorage.setItem(RAIL_OPEN_KEY, next ? '1' : '0');
+      } catch {
+        // A browser that will not store it just starts slim again next time.
+      }
+      return next;
+    });
 
   const cuts = useMemo(
     () =>
@@ -121,8 +143,114 @@ export function CutRail({
     });
   };
 
+  const expanded = open && cuts.length > 0;
+
   return (
     <div className="shrink-0 border-b border-line bg-surface/80">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="video/*"
+        className="sr-only"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onIntake(file);
+          e.target.value = '';
+        }}
+      />
+
+      {!expanded && (
+        <div className="flex items-center gap-2 px-3 py-1.5">
+          <span className="hidden shrink-0 font-mono text-[11px] uppercase tracking-[0.2em] text-ink-dim sm:block">
+            On the bench
+          </span>
+
+          {cuts.length === 0 ? (
+            <>
+              <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-muted">
+                {intakeBusy ? 'Intaking the footage…' : 'Nothing on the bench yet. Drop a video anywhere, or choose one.'}
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={intakeBusy ? 'hourglass_top' : 'file_upload'}
+                iconSpin={intakeBusy}
+                disabled={intakeBusy}
+                onClick={() => fileRef.current?.click()}
+              >
+                {intakeBusy ? 'Working…' : 'Intake a clip'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => step(-1)}
+                aria-label="Previous cut"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-btn text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink kt-focus"
+              >
+                <Icon name="chevron_left" size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => step(1)}
+                aria-label="Next cut"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-btn text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink kt-focus"
+              >
+                <Icon name="chevron_right" size={18} />
+              </button>
+              <span className="flex min-w-0 flex-1 items-center gap-2 text-[12.5px]">
+                {selected ? (
+                  <>
+                    <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                    <span className="truncate font-semibold text-ink">{selected.video.title}</span>
+                    {selected.stage && (
+                      <span className="hidden shrink-0 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim sm:block">
+                        {selected.stage}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="truncate text-ink-muted">No cut lit. Pick one with the arrows, or open the bench.</span>
+                )}
+              </span>
+              <span className="hidden shrink-0 font-mono text-[11px] text-ink-dim sm:block">
+                {cuts.length} {cuts.length === 1 ? 'cut' : 'cuts'}
+              </span>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={intakeBusy}
+                aria-label="Intake raw footage"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-btn text-ink-dim transition-colors hover:bg-surface-2 hover:text-primary disabled:opacity-50 kt-focus"
+              >
+                <Icon name={intakeBusy ? 'hourglass_top' : 'file_upload'} size={17} className={intakeBusy ? 'kt-spin' : ''} />
+              </button>
+              <button
+                type="button"
+                onClick={onOpenVault}
+                aria-label="Open the vault"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-btn text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink kt-focus"
+              >
+                <Icon name="grid_view" size={17} />
+              </button>
+              <button
+                type="button"
+                onClick={toggleOpen}
+                aria-expanded={false}
+                aria-label="Show all cuts"
+                className="flex shrink-0 items-center gap-1 rounded-btn px-2 py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink kt-focus"
+              >
+                all cuts
+                <Icon name="expand_more" size={16} />
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {expanded && (
+        <>
       <div className="flex items-center gap-3 px-3 pt-2">
         <span className="hidden shrink-0 font-mono text-[11px] uppercase tracking-[0.2em] text-ink-dim sm:block">
           On the bench
@@ -148,48 +276,20 @@ export function CutRail({
             clear
           </button>
         )}
+        <button
+          type="button"
+          onClick={toggleOpen}
+          aria-expanded
+          aria-label="Hide the cut strip"
+          className="flex shrink-0 items-center gap-1 rounded-btn px-2 py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink kt-focus"
+        >
+          hide
+          <Icon name="expand_less" size={16} />
+        </button>
       </div>
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="video/*"
-        className="sr-only"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onIntake(file);
-          e.target.value = '';
-        }}
-      />
 
-      {cuts.length === 0 ? (
-        /* An empty bench is the whole story, so it takes the row: what is missing and how to fix it. */
-        <div className="px-3 pb-3 pt-2">
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={intakeBusy}
-            className="flex w-full flex-col items-start gap-1.5 rounded-[6px] border border-dashed border-line-strong bg-surface-2/40 px-4 py-3 text-left transition-colors hover:border-primary disabled:opacity-50 kt-focus sm:flex-row sm:items-center sm:gap-x-4"
-          >
-            <span className="flex items-center gap-2.5">
-              <Icon
-                name={intakeBusy ? 'hourglass_top' : 'file_upload'}
-                size={18}
-                className={intakeBusy ? 'kt-spin text-primary' : 'text-ink-muted'}
-              />
-              <span className="text-[13px] font-semibold text-ink">
-                {intakeBusy ? 'Intaking the footage…' : 'Nothing on the bench yet'}
-              </span>
-            </span>
-            <span className="text-[12px] text-ink-muted sm:min-w-0 sm:flex-1">
-              Choose a file, or drop one anywhere on the bench. Each video becomes a cut with its own ledger.
-            </span>
-            <span className="hidden font-mono text-[11px] uppercase tracking-[0.12em] text-primary sm:block">
-              {intakeBusy ? 'working' : 'intake'}
-            </span>
-          </button>
-        </div>
-      ) : (
+      {(
         <div
           ref={stripRef}
           role="toolbar"
@@ -262,8 +362,10 @@ export function CutRail({
           )}
         </div>
       )}
+        </>
+      )}
 
-      {cuts.length > 0 && visible.length === 0 && (
+      {expanded && visible.length === 0 && (
         <p className="px-3 pb-3 text-[12px] text-ink-dim">
           No cut sits at “{filter}” yet — those four lights only turn on when a row proves the step.
         </p>

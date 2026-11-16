@@ -68,6 +68,26 @@ export function Bench({
   const [jobs, setJobs] = useState<BenchJob[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [dropping, setDropping] = useState(false);
+  // The details panel is a fifth of the width on every station. It starts open, and a creator who
+  // wants the room folds it away; the choice is remembered on this browser.
+  const [inspectorOpen, setInspectorOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('kt.inspector.open') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const toggleInspector = useCallback(() => {
+    setInspectorOpen((was) => {
+      const next = !was;
+      try {
+        localStorage.setItem('kt.inspector.open', next ? '1' : '0');
+      } catch {
+        // A browser that will not store it just opens the panel again next time.
+      }
+      return next;
+    });
+  }, []);
   const stageRef = useRef<HTMLDivElement>(null);
   const intakeRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
@@ -253,7 +273,7 @@ export function Bench({
           <main className="relative flex min-w-0 flex-1 flex-col">
             {/* Table the cut sits on: light from above, so the stage floor reads as a surface. */}
             <span aria-hidden className="kt-graph pointer-events-none absolute inset-0" />
-            <div ref={stageRef} className="relative min-w-0 flex-1 overflow-y-auto">
+            <div ref={stageRef} className="kt-readable relative min-w-0 flex-1 overflow-y-auto">
               <Suspense fallback={<StageSkeleton />}>
                 {/* Keyed by station: the swap animation replays per hop, once the engine is real. */}
                 <div key={station} className="kt-station">
@@ -263,16 +283,19 @@ export function Bench({
             </div>
           </main>
 
-          <Inspector
-            video={litCut}
-            scheduled={store.scheduled}
-            history={store.history}
-            project={store.project}
-            savedIdeas={store.savedIdeas.length}
-            activeDraft={store.activeDraft}
-            station={station}
-            onJump={goTo}
-          />
+          {inspectorOpen && (
+            <Inspector
+              video={litCut}
+              scheduled={store.scheduled}
+              history={store.history}
+              project={store.project}
+              savedIdeas={store.savedIdeas.length}
+              activeDraft={store.activeDraft}
+              station={station}
+              onJump={goTo}
+              onHide={toggleInspector}
+            />
+          )}
         </div>
 
         <Dock
@@ -283,6 +306,8 @@ export function Bench({
           station={station}
           onStation={goTo}
           onOpenDeck={() => setDeck(true)}
+          inspectorOpen={inspectorOpen}
+          onToggleInspector={toggleInspector}
           theme={theme}
           onToggleTheme={onToggleTheme}
           selectedTitle={litCut?.title ?? null}

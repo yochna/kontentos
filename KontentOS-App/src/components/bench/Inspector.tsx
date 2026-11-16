@@ -14,6 +14,8 @@ interface InspectorProps {
   activeDraft: ActiveDraft | null;
   station: StationId;
   onJump: (station: StationId, payload?: unknown) => void;
+  /** Folds the panel away; the dock's panel key brings it back. */
+  onHide: () => void;
 }
 
 /**
@@ -30,16 +32,25 @@ export function Inspector({
   activeDraft,
   station,
   onJump,
+  onHide,
 }: InspectorProps) {
   const profile = useDisplayProfile();
   const meta = STATION_BY_ID[station];
 
   return (
-    <aside className="hidden w-[320px] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface xl:flex">
+    <aside className="kt-readable hidden w-[320px] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface xl:flex">
       <header className="border-b border-line px-4 py-3">
         <div className="flex items-center gap-2">
           <Icon name={meta.icon} size={15} className="text-primary" />
           <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">{meta.label}</span>
+          <button
+            type="button"
+            onClick={onHide}
+            aria-label="Hide the details panel"
+            className="kt-focus ml-auto grid h-6 w-6 place-items-center rounded-[5px] text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink"
+          >
+            <Icon name="right_panel_close" size={16} />
+          </button>
         </div>
         <p className="mt-1 text-[12px] leading-snug text-ink-muted">{meta.hint}</p>
       </header>

@@ -293,7 +293,7 @@ export default function Ideas() {
                     <span className="absolute bottom-2 left-2">
                       <Badge tone={idea.categoryTone}>{idea.category}</Badge>
                     </span>
-                    <span className="absolute bottom-2 right-2 text-[11px] font-bold text-white/95 bg-black/70 rounded-full px-2 py-0.5 flex items-center gap-1">
+                    <span className="kt-compact absolute bottom-2 right-2 text-[11px] font-bold text-white/95 bg-black/70 rounded-full px-2 py-0.5 flex items-center gap-1">
                       <Icon name="bolt" size={12} fill={1} /> {idea.metric}
                     </span>
                   </Thumb>

@@ -992,3 +992,18 @@ h4 {
   ::view-transition-new(root) { animation: none; }
 }
 
+/* Secondary labels, captions and counts are set at 11px in hundreds of places, and the work area is
+   where they are read for long stretches. Their colours already pass contrast (4.7:1 or better in
+   both themes), so the fix is size: a step up inside the stage and the details panel, while the
+   chrome around them (spine, rail, dock) stays compact. Unlayered on purpose, so it outranks the
+   utility class it lifts. */
+.kt-readable .text-\[11px\] {
+  font-size: 12.5px;
+}
+
+/* Pills (badges, status pills, the chips on idea cards) are compact by design and sit in rows with
+   no room to grow, so they stay at 11px inside the larger stage text. */
+.kt-readable .kt-compact.text-\[11px\],
+.kt-readable .kt-compact .text-\[11px\] {
+  font-size: 11px;
+}
