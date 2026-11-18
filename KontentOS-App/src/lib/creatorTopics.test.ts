@@ -39,6 +39,11 @@ describe('creatorTopics', () => {
     ).toEqual(['Minimalist Systems']);
   });
 
+  it('uses a clip description when its filename is not a real subject', () => {
+    const clip = { ...video('IMG_2049.mp4'), description: 'Morning studio walkthrough' } as Video;
+    expect(creatorTopics({ videos: [clip] })).toEqual(['Morning studio walkthrough']);
+  });
+
   it('returns nothing when the creator has not given the app anything to work with', () => {
     expect(creatorTopics({ user: user(), savedIdeas: [], videos: [] })).toEqual([]);
   });
@@ -52,7 +57,9 @@ describe('creatorTopics', () => {
 describe('creatorBrief', () => {
   it('carries the niche and the subjects into generation', () => {
     expect(creatorBrief(['Editorial Systems', 'Notebook workflow'], user('Editorial Systems'))).toBe(
-      'Creator niche: Editorial Systems\nSubjects this creator already makes: Editorial Systems, Notebook workflow'
+      'Creator niche: Editorial Systems\n' +
+        'Subjects this creator already makes: Editorial Systems, Notebook workflow\n' +
+        'Keep every idea tied to those subjects and to making content; do not drift into generic industry trends.'
     );
   });
 

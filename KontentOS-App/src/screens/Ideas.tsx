@@ -14,13 +14,15 @@ import { copyVoice, voiceTone } from '@/lib/brandKit';
 import { creatorBrief, creatorTopics } from '@/lib/creatorTopics';
 import { copyModel, readAiPrefs } from '@/lib/prefs';
 
-/** Shown only while the creator has no niche, saved ideas or clips to draw from. */
+/** Shown only while the creator has no niche, saved ideas or clips to draw from. Even the
+ *  last-resort prompts are about making content, never generic business trends. */
 const FALLBACK_TOPICS = [
-  'AI Workflows',
-  'Founder Bottlenecks',
-  'SaaS Growth',
-  'Minimalist Systems',
-  'Creator Fatigue',
+  'Short-form video',
+  'Hooks & storytelling',
+  'Editing workflow',
+  'Captions & subtitles',
+  'Repurposing content',
+  'Behind the scenes',
 ];
 
 export default function Ideas() {
@@ -36,7 +38,9 @@ export default function Ideas() {
 
   // Opening the station shows six empty structures rather than someone's finished ideas: nothing here
   // is invented copy, and nothing is scored, because no model has read it yet.
-  const [ideasList, setIdeasList] = useState<Idea[]>(() => generateScaffoldIdeas(undefined, user?.niche));
+  const [ideasList, setIdeasList] = useState<Idea[]>(() =>
+    generateScaffoldIdeas(myTopics[0] ?? FALLBACK_TOPICS[0], user?.niche)
+  );
   const [filter, setFilter] = useState('all');
   const [open, setOpen] = useState<Idea | null>(null);
   const [searchTopic, setSearchTopic] = useState('');
@@ -314,7 +318,7 @@ export default function Ideas() {
                     <span className="absolute bottom-2 left-2">
                       <Badge tone={idea.categoryTone}>{idea.category}</Badge>
                     </span>
-                    <span className="kt-compact absolute bottom-2 right-2 text-[11px] font-bold text-white/95 bg-black/70 rounded-full px-2 py-0.5 flex items-center gap-1">
+                    <span className="absolute bottom-2 right-2 text-[11px] font-bold text-white/95 bg-black/70 rounded-full px-2 py-0.5 flex items-center gap-1">
                       <Icon name="bolt" size={12} fill={1} /> {idea.metric}
                     </span>
                   </Thumb>

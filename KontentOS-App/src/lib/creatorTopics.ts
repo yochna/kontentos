@@ -51,7 +51,10 @@ export function creatorTopics({ user, savedIdeas = [], videos = [] }: CreatorTop
     add(idea.title);
     add(idea.blueprint?.focus);
   }
-  for (const video of videos) add(video.title);
+  for (const video of videos) {
+    add(video.title);
+    add(video.description);
+  }
 
   return topics.slice(0, MAX_TOPICS);
 }
@@ -64,6 +67,9 @@ export function creatorBrief(topics: string[], user?: User | null): string {
   const lines: string[] = [];
   const niche = typeof user?.niche === 'string' ? user.niche.trim().slice(0, 120) : '';
   if (niche) lines.push(`Creator niche: ${niche}`);
-  if (topics.length) lines.push(`Subjects this creator already makes: ${topics.slice(0, 5).join(', ')}`);
+  if (topics.length) {
+    lines.push(`Subjects this creator already makes: ${topics.slice(0, 5).join(', ')}`);
+    lines.push('Keep every idea tied to those subjects and to making content; do not drift into generic industry trends.');
+  }
   return lines.join('\n');
 }
