@@ -21,6 +21,7 @@ import type { Video } from '@/lib/types';
 import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
+import { VIDEO_ACCEPT, uploadFileError } from '@/lib/uploadFile';
 
 const SUBTITLE_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Hindi', 'Japanese'];
 
@@ -100,26 +101,41 @@ export default function ContentLibrary() {
 
   async function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
-    const list = Array.from(files);
-
-    for (let i = 0; i < list.length; i++) {
-      const file = list[i];
-      setBusy(true);
-      setCurrentFile(file.name);
-      setProgress(0);
-      try {
-        const created = await uploadVideo(file, (pct) => setProgress(pct));
-        if (!created) {
-          notify.bad(`Upload failed for ${file.name} — the clip never reached the workspace.`);
-        }
-      } catch (err: any) {
-        notify.bad(`Upload of ${file.name} stopped: ${err?.message || 'no answer from the server'}`);
+    // Check the whole batch before moving a byte, and ignore the same file reaching us twice from a
+    // drop that bubbled or a second selection. The input is reset below, so this is about real dupes.
+    const seen = new Set<string>();
+    const candidates: File[] = [];
+    let firstProblem: string | null = null;
+    for (const file of Array.from(files)) {
+      const problem = uploadFileError(file);
+      if (problem) {
+        firstProblem ??= problem;
+        continue;
       }
+      const key = `${file.name}:${file.size}:${file.lastModified}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      candidates.push(file);
     }
+    if (firstProblem) notify.bad(firstProblem);
+    if (!candidates.length) return;
 
-    setBusy(false);
-    setCurrentFile(null);
-    setTimeout(() => setProgress(0), 800);
+    setBusy(true);
+    try {
+      for (const file of candidates) {
+        setCurrentFile(file.name);
+        setProgress(0);
+        try {
+          await uploadVideo(file, (pct) => setProgress(pct));
+        } catch (err: any) {
+          notify.bad(`Upload of ${file.name} stopped: ${err?.message || 'no answer from the server'}`);
+        }
+      }
+    } finally {
+      setBusy(false);
+      setCurrentFile(null);
+      setTimeout(() => setProgress(0), 800);
+    }
   }
 
   const handleOpenInRawStudio = (video: Video) => {
@@ -157,10 +173,13 @@ export default function ContentLibrary() {
             <input
               ref={fileRef}
               type="file"
-              accept="video/*,audio/*"
+              accept={VIDEO_ACCEPT}
               multiple
               hidden
-              onChange={(e) => handleFiles(e.target.files)}
+              onChange={(e) => {
+                void handleFiles(e.target.files);
+                e.target.value = '';
+              }}
             />
             <Button
               icon="cloud_upload"
@@ -249,7 +268,7 @@ export default function ContentLibrary() {
             </span>
             <div className="truncate">
               <div className="text-sm font-semibold text-ink truncate">
-                Uploading {currentFile || 'media asset'}...
+                {progress >= 95 ? 'Finishing' : 'Uploading'} {currentFile || 'media asset'}...
               </div>
               <div className="text-xs text-ink-dim font-mono">
                 <AnimatedNumber text={`${progress}% completed`} duration={300} />
@@ -416,10 +435,16 @@ export default function ContentLibrary() {
           <Card className="p-5">
             <button
               onClick={() => fileRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
+              onDragEnter={(e) => e.stopPropagation()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               onDrop={(e) => {
                 e.preventDefault();
-                handleFiles(e.dataTransfer.files);
+                // The bench has a global drop zone; without this the same files are intaked twice.
+                e.stopPropagation();
+                void handleFiles(e.dataTransfer.files);
               }}
               className="w-full rounded-card border-2 border-dashed border-line hover:border-primary bg-surface-2/40 grid place-items-center text-center py-8 px-4 transition-colors kt-focus"
             >

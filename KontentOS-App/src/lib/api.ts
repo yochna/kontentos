@@ -13,6 +13,7 @@ import type {
 } from './types';
 import type { TimelineProject, WordTimestamp } from './timeline';
 import type { PressJob, PressStyleId } from './press';
+import { assertUploadableFile } from './uploadFile';
 
 export interface AutoEditStats {
   originalDurationSec: number;
@@ -197,14 +198,18 @@ export const api = {
     onProgress: (pct: number) => void = () => {},
     relinkId?: string
   ): Promise<Video> {
+    // Refuse the file here, before a session or a row exists — the server repeats these checks,
+    // but a drop that cannot possibly land should say so immediately.
+    assertUploadableFile(file);
     const CHUNK = 5 * 1024 * 1024;
     const title = file.name.replace(/\.[^/.]+$/, '');
-    const probedDuration = await probeVideoDuration(file);
+    const probe = await probeVideoMetadata(file);
+    const probedDuration = probe.duration;
 
     if (file.size < 10 * 1024 * 1024) {
-      onProgress(20);
+      onProgress(10);
       const b64 = await fileToBase64(file);
-      onProgress(60);
+      onProgress(65);
       const d = await json<{ video: Video }>(
         await fetch('/api/upload/direct', {
           method: 'POST',
@@ -215,18 +220,24 @@ export const api = {
             mimeType: file.type || 'video/mp4',
             title,
             duration: probedDuration > 0 ? probedDuration : undefined,
+            aspectRatio: probe.aspectRatio,
             videoId: relinkId,
           }),
         }),
       );
-      onProgress(100);
+      onProgress(95);
       if (probedDuration > 0 && !d.video.duration) {
         d.video.duration = probedDuration;
       }
+      if (probe.aspectRatio && !d.video.aspect_ratio) {
+        d.video.aspect_ratio = probe.aspectRatio;
+      }
+      onProgress(100);
       return d.video;
     }
 
     const totalChunks = Math.ceil(file.size / CHUNK);
+    onProgress(5);
     const init = await json<{ uploadId: string }>(
       await fetch('/api/upload/init', {
         method: 'POST',
@@ -250,7 +261,9 @@ export const api = {
           body: JSON.stringify({ uploadId: init.uploadId, chunkIndex: i, chunkData: chunkB64.split(',')[1] || chunkB64 }),
         }),
       );
-      onProgress(Math.round(((i + 1) / totalChunks) * 100));
+      // 5% for the session, 87% for the bytes, 8% left for assembly and the record write. A bar
+      // that hits 100% before /complete answers is how an offline clip pretends to have landed.
+      onProgress(Math.round(5 + ((i + 1) / totalChunks) * 87));
     }
     const done = await json<{ video: Video }>(
       await fetch('/api/upload/complete', {
@@ -260,13 +273,18 @@ export const api = {
           uploadId: init.uploadId,
           title,
           duration: probedDuration > 0 ? probedDuration : undefined,
+          aspectRatio: probe.aspectRatio,
         }),
       }),
     );
-    onProgress(100);
+    onProgress(95);
     if (probedDuration > 0 && !done.video.duration) {
       done.video.duration = probedDuration;
     }
+    if (probe.aspectRatio && !done.video.aspect_ratio) {
+      done.video.aspect_ratio = probe.aspectRatio;
+    }
+    onProgress(100);
     return done.video;
   },
 
@@ -826,32 +844,50 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-export function probeVideoDuration(file: File): Promise<number> {
+export interface VideoProbe {
+  duration: number;
+  aspectRatio?: '9:16' | '16:9' | '1:1';
+}
+
+/**
+ * The browser already decoded the file's header to play it; reading the frame shape here means the
+ * row lands with the creator's real aspect instead of every upload being called 9:16.
+ */
+export function probeVideoMetadata(file: File): Promise<VideoProbe> {
   return new Promise((resolve) => {
     try {
       const video = document.createElement('video');
       video.preload = 'metadata';
       const url = URL.createObjectURL(file);
-      const timer = setTimeout(() => {
+      let timer = 0;
+      const finish = (probe: VideoProbe) => {
+        window.clearTimeout(timer);
         try { URL.revokeObjectURL(url); } catch {}
-        resolve(0);
-      }, 6000);
+        resolve(probe);
+      };
+      timer = window.setTimeout(() => finish({ duration: 0 }), 6000);
       video.onloadedmetadata = () => {
-        clearTimeout(timer);
         const dur = video.duration;
-        try { URL.revokeObjectURL(url); } catch {}
-        resolve(Number.isFinite(dur) && dur > 0 ? Number(dur.toFixed(2)) : 0);
+        const w = video.videoWidth;
+        const h = video.videoHeight;
+        const aspectRatio = w > 0 && h > 0
+          ? w > h ? '16:9' : w === h ? '1:1' : '9:16'
+          : undefined;
+        finish({
+          duration: Number.isFinite(dur) && dur > 0 ? Number(dur.toFixed(2)) : 0,
+          aspectRatio,
+        });
       };
-      video.onerror = () => {
-        clearTimeout(timer);
-        try { URL.revokeObjectURL(url); } catch {}
-        resolve(0);
-      };
+      video.onerror = () => finish({ duration: 0 });
       video.src = url;
     } catch {
-      resolve(0);
+      resolve({ duration: 0 });
     }
   });
+}
+
+export function probeVideoDuration(file: File): Promise<number> {
+  return probeVideoMetadata(file).then((probe) => probe.duration);
 }
 
 export function probeUrlDuration(url: string): Promise<number> {

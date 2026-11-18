@@ -125,3 +125,54 @@ describe('re-attaching media to a clip that already exists', () => {
     expect(attempt.json.error).toMatch(/not a clip id/i);
   });
 });
+
+describe('upload validation and stored metadata', () => {
+  it('refuses an empty upload without creating a row', async () => {
+    const cookie = await signup('empty-upload@creator.test');
+    const before: any = await fetch(`${base}/api/videos`, { headers: { cookie } }).then((r) => r.json());
+
+    const attempt = await directUpload(cookie, { fileName: 'empty.mp4', fileData: '' });
+
+    expect(attempt.status).toBe(400);
+    expect(attempt.json.error).toMatch(/empty/i);
+    const after: any = await fetch(`${base}/api/videos`, { headers: { cookie } }).then((r) => r.json());
+    expect(after.data).toHaveLength(before.data.length);
+  });
+
+  it('refuses a malformed aspect ratio before any bytes are stored', async () => {
+    const cookie = await signup('ratio-guard@creator.test');
+    const before: any = await fetch(`${base}/api/videos`, { headers: { cookie } }).then((r) => r.json());
+
+    const attempt = await directUpload(cookie, {
+      fileName: 'wide.mp4',
+      fileData: tinyClip(1024),
+      aspectRatio: '../../evil',
+    });
+
+    expect(attempt.status).toBe(400);
+    expect(attempt.json.error).toMatch(/aspect ratio/i);
+    const after: any = await fetch(`${base}/api/videos`, { headers: { cookie } }).then((r) => r.json());
+    expect(after.data).toHaveLength(before.data.length);
+  });
+
+  it('keeps the real frame shape when a clip is re-linked', async () => {
+    const cookie = await signup('aspect-relink@creator.test');
+    const first = await directUpload(cookie, {
+      fileName: 'take.mp4',
+      fileData: tinyClip(2048),
+      aspectRatio: '9:16',
+    });
+    expect(first.status).toBe(200);
+    expect(first.json.video.aspect_ratio).toBe('9:16');
+
+    const second = await directUpload(cookie, {
+      fileName: 'take.mp4',
+      fileData: tinyClip(4096),
+      videoId: first.json.video.id,
+      aspectRatio: '16:9',
+    });
+    expect(second.status).toBe(200);
+    expect(second.json.video.id).toBe(first.json.video.id);
+    expect(second.json.video.aspect_ratio).toBe('16:9');
+  });
+});

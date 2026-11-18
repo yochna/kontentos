@@ -8,6 +8,7 @@ import { useStore } from '@/lib/store';
 import { useNavPayload } from '@/lib/nav';
 import { selectCut, useSelectedCutId } from '@/lib/bench';
 import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
+import { notify } from '@/components/ui/toast';
 
 const STEPS = [
   { icon: 'graphic_eq', label: 'Analyzing audio waveform & speech cadences' },
@@ -130,7 +131,9 @@ export default function RawReel() {
         selectCut(uploaded.id);
       }
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'That file did not reach the bench.';
       console.error('File upload failed in RawReel:', err);
+      notify.bad(message);
     } finally {
       setUploadingPct(null);
       if (fileInputRef.current) fileInputRef.current.value = '';

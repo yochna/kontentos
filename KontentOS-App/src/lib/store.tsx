@@ -386,17 +386,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const uploadVideo = useCallback<StoreValue['uploadVideo']>(async (file, onProgress, options) => {
-    try {
-      const video = await api.uploadVideo(file, onProgress);
-      setVideos((prev) => [video, ...prev]);
-      // A press files the reel's caption track from the span's own cues, so reading the audio again
-      // would spend a second engine call to overwrite the track it just wrote.
-      if (options?.transcribe !== false) void transcribeOnIntake(video.id);
-      return video;
-    } catch (err) {
-      console.error('Upload failed:', err);
-      return null;
-    }
+    // Let the server's reason reach the creator. Swallowing it as `null` turned a 2 GB refusal, an
+    // expired session and a dead backend into the same useless "upload failed" everywhere.
+    const video = await api.uploadVideo(file, onProgress);
+    setVideos((prev) => [video, ...prev]);
+    // A press files the reel's caption track from the span's own cues, so reading the audio again
+    // would spend a second engine call to overwrite the track it just wrote.
+    if (options?.transcribe !== false) void transcribeOnIntake(video.id);
+    return video;
   }, [transcribeOnIntake]);
 
   /**
@@ -405,14 +402,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
    * creator starting a second copy of a take they already cut.
    */
   const relinkMedia = useCallback<StoreValue['relinkMedia']>(async (videoId, file, onProgress) => {
-    try {
-      const video = await api.uploadVideo(file, onProgress ?? (() => {}), videoId);
-      setVideos((prev) => prev.map((v) => (v.id === video.id ? { ...v, ...video, media_available: true } : v)));
-      return video;
-    } catch (err) {
-      console.error('Re-link failed:', err);
-      return null;
-    }
+    const video = await api.uploadVideo(file, onProgress ?? (() => {}), videoId);
+    setVideos((prev) => prev.map((v) => (v.id === video.id ? { ...v, ...video, media_available: true } : v)));
+    return video;
   }, []);
 
   // The vault's three writes answer the same way a failed bookmark does: the row on screen is the

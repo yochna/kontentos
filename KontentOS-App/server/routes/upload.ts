@@ -82,6 +82,39 @@ function parseIndex(value: unknown): number | null {
   return Number(s);
 }
 
+/**
+ * A frame shape is a tiny piece of metadata, but it still goes into a row that drives the editor's
+ * canvas. Accept a plain `width:height` (the studio also makes 4:5 cards); refuse anything else.
+ */
+function safeAspectRatio(value: unknown): { value?: string; error?: string } {
+  if (value === undefined || value === null || value === '') return {};
+  if (typeof value !== 'string') return { error: 'Aspect ratio must look like 9:16.' };
+  const parts = value.split(':');
+  if (parts.length !== 2 || parts.some((p) => !/^\d{1,3}$/.test(p) || Number(p) < 1)) {
+    return { error: 'Aspect ratio must look like 9:16.' };
+  }
+  return { value: `${Number(parts[0])}:${Number(parts[1])}` };
+}
+
+/** A bad duration is no duration; it must never become NaN in a row the editor reads back. */
+function safeDuration(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Number(number.toFixed(2)) : undefined;
+}
+
+/** A failed DB write must not leave an orphaned object behind, nor delete a file the old row still needs. */
+async function discardUploadedClip(finalFilePath: string, publicUrl: string, keepObject = false) {
+  if (!keepObject) await mediaStore.removeBucketClip(publicUrl);
+  fs.rmSync(finalFilePath, { force: true });
+}
+
+/** The chunks are only a retry buffer; release them once the bytes and the row both exist. */
+function finishSession(session: UploadSession) {
+  fs.rmSync(path.join(CHUNKS_DIR, session.uploadId), { recursive: true, force: true });
+  activeSessions.delete(session.uploadId);
+}
+
 /** Removes sessions (and their chunk folders) that were never completed. */
 export function sweepExpiredSessions() {
   const now = Date.now();
@@ -143,7 +176,11 @@ router.post('/init', async (req, res) => {
     if (chunkCount === null || chunkCount < 1 || chunkCount > MAX_TOTAL_CHUNKS) {
       return res.status(400).json({ error: `totalChunks must be an integer between 1 and ${MAX_TOTAL_CHUNKS}` });
     }
-    if ((parseInt(totalSize, 10) || 0) > MAX_FILE_BYTES) {
+    const declaredBytes = Number(totalSize);
+    if (!Number.isInteger(declaredBytes) || declaredBytes < 1) {
+      return res.status(400).json({ error: 'That file is empty — nothing was uploaded.' });
+    }
+    if (declaredBytes > MAX_FILE_BYTES) {
       return res.status(413).json({ error: 'File too large (max 2 GB)' });
     }
 
@@ -169,7 +206,7 @@ router.post('/init', async (req, res) => {
       fileName,
       totalChunks: chunkCount,
       receivedChunks: new Set<number>(),
-      totalSize: parseInt(totalSize, 10) || 0,
+      totalSize: declaredBytes,
       receivedBytes: 0,
       createdAt: Date.now(),
       lastActivityAt: Date.now(),
@@ -220,6 +257,9 @@ router.post('/chunk', async (req, res) => {
 
     // chunkData can be base64 string
     const buffer = Buffer.from(chunkData, 'base64');
+    if (buffer.length === 0) {
+      return res.status(400).json({ error: 'That chunk was empty — no bytes were stored.' });
+    }
     // The declared totalSize is only a promise; a session that keeps sending past the ceiling
     // would fill the disk every creator shares.
     if (!session.receivedChunks.has(idx)) {
@@ -253,6 +293,8 @@ router.post('/chunk', async (req, res) => {
 router.post('/complete', async (req, res) => {
   try {
     const { uploadId, title, description, aspectRatio, duration } = req.body;
+    const ratio = safeAspectRatio(aspectRatio);
+    if (ratio.error) return res.status(400).json({ error: ratio.error });
     const session = ownSession(uploadId, req.userId);
 
     if (!session) {
@@ -310,11 +352,11 @@ router.post('/complete', async (req, res) => {
       throw err;
     }
 
-    // Cleanup chunks
-    fs.rmSync(sessionDir, { recursive: true, force: true });
-    activeSessions.delete(session.uploadId);
-
     const fileStats = fs.statSync(finalFilePath);
+    if (fileStats.size === 0) {
+      fs.rmSync(finalFilePath, { force: true });
+      return res.status(400).json({ error: 'That upload assembled to an empty file — nothing was stored.' });
+    }
     // The assembled clip is written to the media store — this container's uploads folder for a local
     // server, the bucket when one is configured. Only then does the row claim it: a record that
     // points at bytes nobody stored is the exact failure this whole path exists to avoid.
@@ -322,42 +364,52 @@ router.post('/complete', async (req, res) => {
     try {
       await mediaStore.persistClip(finalFilePath, publicUrl);
     } catch (err: any) {
+      await discardUploadedClip(finalFilePath, publicUrl);
       return res.status(502).json({ error: safeMessage(err, 'The clip could not be written to media storage.') });
     }
 
     let video: Video;
-    if (existing) {
-      // The replacement is on disk, so the file the row used to point at is now dead weight.
-      if (existing.file_url && existing.file_url !== publicUrl) {
-        db.removeUploadedVideoFile(existing.file_url);
-      }
-      const updated = await db.updateVideoStatus(
-        videoId,
-        'ready',
-        {
+    try {
+      if (existing) {
+        const updated = await db.updateVideoStatus(
+          videoId,
+          'ready',
+          {
+            file_url: publicUrl,
+            file_size: fileStats.size,
+            duration: safeDuration(duration) ?? existing.duration,
+            ...(ratio.value ? { aspect_ratio: ratio.value } : {}),
+          },
+          req.userId
+        );
+        if (!updated) {
+          await discardUploadedClip(finalFilePath, publicUrl, existing.file_url === publicUrl);
+          return res.status(404).json({ error: 'No clip with that id is on your account.' });
+        }
+        video = updated;
+        // Only now that the row points at the replacement is the old file dead weight. Removing it
+        // before the write would leave a failed re-link with no playable file at all.
+        if (existing.file_url && existing.file_url !== publicUrl) {
+          db.removeUploadedVideoFile(existing.file_url);
+        }
+      } else {
+        video = await db.createVideo({
+          id: videoId,
+          user_id: req.userId,
+          title: title || session.fileName.replace(/\.[^/.]+$/, ''),
+          description: description || '',
           file_url: publicUrl,
           file_size: fileStats.size,
-          duration: duration ? Number(duration) : existing.duration,
-        },
-        req.userId
-      );
-      if (!updated) {
-        return res.status(404).json({ error: 'No clip with that id is on your account.' });
+          duration: safeDuration(duration) ?? 0,
+          aspect_ratio: ratio.value || '9:16',
+          status: 'ready',
+        });
       }
-      video = updated;
-    } else {
-      video = await db.createVideo({
-        id: videoId,
-        user_id: req.userId,
-        title: title || session.fileName.replace(/\.[^/.]+$/, ''),
-        description: description || '',
-        file_url: publicUrl,
-        file_size: fileStats.size,
-        duration: duration ? Number(duration) : 0,
-        aspect_ratio: aspectRatio || '9:16',
-        status: 'ready',
-      });
+    } catch (err: any) {
+      await discardUploadedClip(finalFilePath, publicUrl, existing?.file_url === publicUrl);
+      throw err;
     }
+    finishSession(session);
 
     res.json({
       success: true,
@@ -374,8 +426,10 @@ router.post('/complete', async (req, res) => {
 router.post('/direct', async (req, res) => {
   try {
     const { fileName, fileData, title, aspectRatio, duration, videoId } = req.body;
-    if (!fileData || !fileName) {
-      return res.status(400).json({ error: 'Missing fileData or fileName' });
+    const ratio = safeAspectRatio(aspectRatio);
+    if (ratio.error) return res.status(400).json({ error: ratio.error });
+    if (!fileName) {
+      return res.status(400).json({ error: 'Missing fileName' });
     }
 
     const fileExt = safeExtension(fileName);
@@ -388,6 +442,16 @@ router.post('/direct', async (req, res) => {
       return res.status(400).json({ error: 'fileData must be a base64 string' });
     }
 
+    const cleanBase64 = fileData.includes(',') ? fileData.split(',')[1] : fileData;
+    const buffer = Buffer.from(cleanBase64, 'base64');
+    // An empty clip used to be written over a real file and given a `ready` row. Refuse it here.
+    if (buffer.length === 0) {
+      return res.status(400).json({ error: 'That upload is empty — no bytes were stored.' });
+    }
+    if (buffer.length > MAX_DIRECT_BYTES) {
+      return res.status(413).json({ error: 'File too large for direct upload (max 100 MB). Use chunked upload.' });
+    }
+
     const relink = await findRelinkRow(videoId, req.userId);
     if (relink && 'error' in relink) {
       return res.status(relink.status).json({ error: relink.error });
@@ -397,12 +461,6 @@ router.post('/direct', async (req, res) => {
     const videoIdFinal = existing?.id || `vid_${crypto.randomUUID()}`;
     const finalFileName = `${videoIdFinal}${fileExt}`;
     const finalFilePath = path.join(UPLOADS_DIR, finalFileName);
-
-    const cleanBase64 = fileData.includes(',') ? fileData.split(',')[1] : fileData;
-    const buffer = Buffer.from(cleanBase64, 'base64');
-    if (buffer.length > MAX_DIRECT_BYTES) {
-      return res.status(413).json({ error: 'File too large for direct upload (max 100 MB). Use chunked upload.' });
-    }
     fs.writeFileSync(finalFilePath, buffer);
 
     const fileStats = fs.statSync(finalFilePath);
@@ -410,39 +468,47 @@ router.post('/direct', async (req, res) => {
     try {
       await mediaStore.persistClip(finalFilePath, publicUrl);
     } catch (err: any) {
+      await discardUploadedClip(finalFilePath, publicUrl, existing?.file_url === publicUrl);
       return res.status(502).json({ error: safeMessage(err, 'The clip could not be written to media storage.') });
     }
 
     let video: Video;
-    if (existing) {
-      if (existing.file_url && existing.file_url !== publicUrl) {
-        db.removeUploadedVideoFile(existing.file_url);
-      }
-      const updated = await db.updateVideoStatus(
-        videoIdFinal,
-        'ready',
-        {
+    try {
+      if (existing) {
+        const updated = await db.updateVideoStatus(
+          videoIdFinal,
+          'ready',
+          {
+            file_url: publicUrl,
+            file_size: fileStats.size,
+            duration: safeDuration(duration) ?? existing.duration,
+            ...(ratio.value ? { aspect_ratio: ratio.value } : {}),
+          },
+          req.userId
+        );
+        if (!updated) {
+          await discardUploadedClip(finalFilePath, publicUrl, existing.file_url === publicUrl);
+          return res.status(404).json({ error: 'No clip with that id is on your account.' });
+        }
+        video = updated;
+        if (existing.file_url && existing.file_url !== publicUrl) {
+          db.removeUploadedVideoFile(existing.file_url);
+        }
+      } else {
+        video = await db.createVideo({
+          id: videoIdFinal,
+          user_id: req.userId,
+          title: title || fileName.replace(/\.[^/.]+$/, ''),
           file_url: publicUrl,
           file_size: fileStats.size,
-          duration: duration ? Number(duration) : existing.duration,
-        },
-        req.userId
-      );
-      if (!updated) {
-        return res.status(404).json({ error: 'No clip with that id is on your account.' });
+          duration: safeDuration(duration) ?? 0,
+          aspect_ratio: ratio.value || '9:16',
+          status: 'ready',
+        });
       }
-      video = updated;
-    } else {
-      video = await db.createVideo({
-        id: videoIdFinal,
-        user_id: req.userId,
-        title: title || fileName.replace(/\.[^/.]+$/, ''),
-        file_url: publicUrl,
-        file_size: fileStats.size,
-        duration: duration ? Number(duration) : 0,
-        aspect_ratio: aspectRatio || '9:16',
-        status: 'ready',
-      });
+    } catch (err: any) {
+      await discardUploadedClip(finalFilePath, publicUrl, existing?.file_url === publicUrl);
+      throw err;
     }
 
     res.json({

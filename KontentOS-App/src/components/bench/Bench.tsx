@@ -16,6 +16,7 @@ import { Dock, type BenchJob } from './Dock';
 import { CommandDeck } from './CommandDeck';
 import { Tour } from './Tour';
 import { TOUR_SAMPLE_KEY, isTourDone, markTourDone } from '@/lib/tour';
+import { MAX_PARALLEL_UPLOADS, VIDEO_ACCEPT, uploadFileError } from '@/lib/uploadFile';
 
 // The engines stay lazy: they are the bulk of the bundle and only one is ever open.
 const CommandCenter = lazy(() => import('@/screens/CommandCenter'));
@@ -188,17 +189,30 @@ export function Bench({
 
   const intake = useCallback(
     async (file: File) => {
+      const problem = uploadFileError(file);
+      if (problem) {
+        flag(problem);
+        return;
+      }
       const id = `${file.name}-${file.size}-${Date.now()}`;
-      setJobs((j) => [...j, { id, label: `intaking ${file.name}`, pct: 0 }]);
-      const video = await store.uploadVideo(file, (pct) =>
-        setJobs((j) => j.map((x) => (x.id === id ? { ...x, pct } : x)))
-      );
-      setJobs((j) => j.filter((x) => x.id !== id));
-      if (video) {
+      setJobs((j) => [...j, { id, label: `uploading ${file.name}`, pct: 0 }]);
+      try {
+        const video = await store.uploadVideo(file, (pct) =>
+          setJobs((j) =>
+            j.map((x) =>
+              x.id === id
+                ? { ...x, pct, label: pct >= 93 ? `finishing ${file.name}` : `uploading ${file.name}` }
+                : x
+            )
+          )
+        );
+        if (!video) throw new Error('The upload ended without a clip record.');
         selectCut(video.id);
         goTo('raw-reel', { videoId: video.id });
-      } else {
-        flag('Upload failed — the file never reached the workspace.');
+      } catch (err) {
+        flag(err instanceof Error ? err.message : 'Upload failed — the file never reached the workspace.');
+      } finally {
+        setJobs((j) => j.filter((x) => x.id !== id));
       }
     },
     [store, goTo, flag]
@@ -229,14 +243,21 @@ export function Bench({
 
   const dropFiles = useCallback(
     (files: File[]) => {
-      const clips = files.filter((f) => f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(f.name));
-      if (!clips.length) {
-        flag('That is not footage — the bench only takes video files.');
-        return;
+      const clips: File[] = [];
+      let firstProblem: string | null = null;
+      for (const file of files) {
+        const problem = uploadFileError(file);
+        if (problem) firstProblem ??= problem;
+        else clips.push(file);
       }
-      // Five at once is already a shoot day; more than that would flood the upload queue.
-      clips.slice(0, 5).forEach(intake);
-      if (clips.length > 5) flag(`Intaking the first 5 of ${clips.length} files.`, 'info');
+      if (firstProblem) flag(firstProblem);
+      if (!clips.length) return;
+      // The server holds at most three sessions per creator. Starting a fourth would be refused,
+      // so the bench queues the rest behind a clear message rather than failing halfway through.
+      if (clips.length > MAX_PARALLEL_UPLOADS) {
+        flag(`Intaking the first ${MAX_PARALLEL_UPLOADS} of ${clips.length} files.`, 'info');
+      }
+      clips.slice(0, MAX_PARALLEL_UPLOADS).forEach(intake);
     },
     [intake, flag]
   );
@@ -368,7 +389,7 @@ export function Bench({
       <input
         ref={intakeRef}
         type="file"
-        accept="video/*"
+        accept={VIDEO_ACCEPT}
         className="sr-only"
         onChange={(e) => {
           const file = e.target.files?.[0];
