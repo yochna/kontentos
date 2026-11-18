@@ -252,6 +252,81 @@ h4 {
   box-shadow: var(--shadow-1);
 }
 
+/* A plate catches the safelight along its top edge. Hover strengthens the edge, never lifts the card. */
+.kt-plate {
+  box-shadow: var(--shadow-1), inset 0 1px 0 var(--kt-shimmer);
+}
+.kt-plate:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-2), inset 0 1px 0 var(--kt-shimmer);
+}
+
+/* The hero is the one lit panel in the room: a slow sheen and a hairline safelight at its crown. */
+.kt-sheen {
+  background-image:
+    linear-gradient(115deg, transparent 8%, var(--kt-shimmer) 44%, transparent 64%),
+    radial-gradient(70% 130% at 100% 0%, var(--primary-soft), transparent 72%);
+}
+.kt-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  opacity: 0.55;
+}
+
+.kt-hero-title::after {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 2px;
+  margin-top: 10px;
+  border-radius: 2px;
+  background: var(--primary);
+  opacity: 0.8;
+}
+
+.kt-topic {
+  transition: transform 180ms var(--kt-ease-out), background-color 180ms, border-color 180ms, color 180ms;
+}
+.kt-topic:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+  color: var(--primary);
+}
+
+/* Signal motif: a quiet readout on the hero, not a chart. */
+.kt-signal {
+  position: absolute;
+  right: 24px;
+  top: 22px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 34px;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.kt-signal span {
+  width: 3px;
+  border-radius: 3px;
+  background: linear-gradient(to top, var(--primary), transparent);
+  animation: ktSignal 1.9s ease-in-out infinite alternate;
+}
+.kt-signal span:nth-child(1) { height: 34%; animation-delay: -200ms; }
+.kt-signal span:nth-child(2) { height: 68%; animation-delay: -520ms; }
+.kt-signal span:nth-child(3) { height: 100%; animation-delay: -80ms; }
+.kt-signal span:nth-child(4) { height: 58%; animation-delay: -700ms; }
+.kt-signal span:nth-child(5) { height: 84%; animation-delay: -360ms; }
+@keyframes ktSignal {
+  from { transform: scaleY(0.55); opacity: 0.5; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+@media (max-width: 639px) {
+  .kt-signal { display: none; }
+}
+
 /* One quiet label face for the whole room. Tiny uppercase mono with wide tracking made every
    panel shout; the body face at a readable size keeps station eyebrows legible without noise. */
 .kt-eyebrow {
@@ -710,16 +785,51 @@ h4 {
   }
   .kt-station { animation: ktStationIn 320ms var(--kt-ease-out) backwards; }
 
+  /* A hairline bus runs behind the station keys; the active icon gets its own lit socket. */
+  .kt-spine-nav { position: relative; }
+  .kt-spine-nav::before {
+    content: '';
+    position: absolute;
+    top: 18px;
+    bottom: 18px;
+    left: 13px;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--line) 12%, var(--line) 88%, transparent);
+  }
+  .kt-station-icon {
+    display: grid;
+    place-items: center;
+    transition: background-color 180ms, color 180ms, transform 180ms var(--kt-ease-out);
+  }
+  .kt-station-key[data-active='true'] .kt-station-icon {
+    border-radius: 6px;
+    background: var(--primary-soft);
+    color: var(--primary);
+  }
+  .kt-station-key:hover .kt-station-icon { transform: translateY(-1px); }
+
   /* --- machine table backdrop ----------------------------------------------
      Light falling from a lamp above the bench: brightest under the rail, gone
      before the dock. A tiled hairline grid would say "blueprint", and nothing
      here is drawn to scale — the only measured surface is the card canvas. */
   .kt-graph {
-    background-image: radial-gradient(
-      125% 72% at 50% -10%,
-      color-mix(in srgb, var(--surface-2) 85%, transparent),
-      transparent 60%
-    );
+    background-image:
+      radial-gradient(
+        48% 34% at 14% -6%,
+        color-mix(in srgb, var(--primary) 12%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        125% 72% at 50% -10%,
+        color-mix(in srgb, var(--surface-2) 85%, transparent),
+        transparent 60%
+      ),
+      linear-gradient(
+        to bottom,
+        transparent 0%,
+        color-mix(in srgb, var(--app) 38%, transparent) 78%,
+        var(--app) 100%
+      );
   }
 
   /* --- cut tile -------------------------------------------------------------
@@ -990,6 +1100,7 @@ h4 {
   }
 
   .kt-station,
+  .kt-signal span,
   .kt-led--now,
   .kt-hero-in,
   .kt-dialog,
@@ -1016,6 +1127,8 @@ h4 {
   .kt-cut-tile,
   .kt-cut-tile::after,
   .kt-key::before,
+  .kt-topic,
+  .kt-station-icon,
   .kt-bar { transition: none; }
   .kt-cut-tile:hover { transform: none; }
   ::view-transition-old(root),

@@ -24,7 +24,7 @@ export function Spine({
         </span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-2" aria-label="Bench stations">
+      <nav className="kt-spine-nav flex-1 overflow-y-auto py-2" aria-label="Bench stations">
         {PHASES.map((phase) => (
           <div key={phase.id} className="mb-1">
             <div
@@ -87,11 +87,13 @@ function StationKey({
         onClick={() => onStation(id)}
         data-active={active}
         aria-current={active ? 'page' : undefined}
-        className={`kt-key flex h-[54px] w-full flex-col items-center justify-center gap-1 pl-[2px] kt-focus ${
+        className={`kt-key kt-station-key flex h-[54px] w-full flex-col items-center justify-center gap-1 pl-[2px] kt-focus ${
           active ? 'bg-surface-2 text-ink' : 'text-ink-dim hover:bg-surface-2/60 hover:text-ink-muted'
         }`}
       >
-        <Icon name={meta.icon} size={19} weight={active ? 600 : 400} fill={active ? 1 : 0} />
+        <span className="kt-station-icon grid h-7 w-7 place-items-center">
+          <Icon name={meta.icon} size={19} weight={active ? 600 : 400} fill={active ? 1 : 0} />
+        </span>
         <span className={`font-body text-[13px] leading-none tracking-normal ${active ? 'font-semibold text-primary' : 'font-medium'}`}>
           {meta.label}
         </span>

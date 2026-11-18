@@ -157,15 +157,22 @@ export default function Ideas() {
   return (
     <PageShell>
       {/* Spark engine banner */}
-      <Card className="p-5 sm:p-6 mb-6 overflow-hidden relative">
+      <Card className="kt-sheen p-5 sm:p-6 mb-6 overflow-hidden relative">
         <div
           className="absolute -right-10 -top-10 w-64 h-64 rounded-full opacity-[0.14]"
           style={{ background: 'radial-gradient(circle,var(--primary),transparent 70%)' }}
         />
+        <div className="kt-signal" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
         <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="max-w-2xl">
             <Eyebrow icon="auto_awesome">In · Ideas</Eyebrow>
-            <h1 className="mt-1 font-display text-[21px] font-semibold leading-tight text-ink sm:text-[24px]">
+            <h1 className="kt-hero-title mt-1 font-display text-[21px] font-semibold leading-tight text-ink sm:text-[24px]">
               What should you create next?
             </h1>
             <p className="mt-1.5 text-ink-muted text-[13px] leading-relaxed">
@@ -219,7 +226,7 @@ export default function Ideas() {
                     setSearchTopic(tag);
                     handleGenerate(tag);
                   }}
-                  className="text-[12px] font-medium text-ink-muted hover:text-primary bg-surface-2 hover:bg-primary-soft border border-line rounded-full px-2.5 py-1 transition-colors"
+                  className="kt-topic text-[12px] font-medium text-ink-muted hover:text-primary bg-surface-2 hover:bg-primary-soft border border-line rounded-full px-2.5 py-1"
                 >
                   {tag}
                 </button>

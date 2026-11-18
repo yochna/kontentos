@@ -266,7 +266,7 @@ export function Card({
             }
           : undefined
       }
-      className={`bg-surface border border-line rounded-card shadow-[var(--shadow-1)] ${
+      className={`kt-plate bg-surface border border-line rounded-card shadow-[var(--shadow-1)] ${
         hover || interactive ? 'transition-colors duration-200 ' : ''
       }${hover ? 'hover:border-line-strong ' : ''}${
         interactive ? 'cursor-pointer kt-focus active:border-primary ' : ''
