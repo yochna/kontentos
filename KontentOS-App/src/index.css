@@ -266,27 +266,29 @@ h4 {
    allowed in chrome: the amber lift makes them landmarks, not another stack of labels. */
 .kt-phase-label {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  line-height: 1.1;
+  line-height: 1.2;
   color: var(--primary);
 }
 
-/* The rail marker is a chip, not a whisper: a soft amber plate makes all four phases readable
-   at a glance, and the current phase flips to a filled marker. */
-.kt-phase-chip {
+/* A small dot carries the highlight; no pill, no border, no filled block. The current phase
+   gets the full dot, the others keep a quiet one so the rail stays calm. */
+.kt-phase-label[data-active]::before {
+  content: '';
   display: inline-block;
-  min-width: 54px;
-  padding: 2px 8px;
-  border: 1px solid var(--primary);
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
   border-radius: 999px;
-  background: var(--primary-soft);
+  background: currentColor;
+  vertical-align: 0.08em;
+  opacity: 0.45;
 }
 
-.kt-phase-chip[data-active='true'] {
-  background: var(--primary);
-  color: var(--on-primary);
+.kt-phase-label[data-active='true']::before {
+  opacity: 1;
 }
 
 @keyframes ktSpin { to { transform: rotate(360deg); } }

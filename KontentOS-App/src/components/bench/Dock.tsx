@@ -78,8 +78,8 @@ export function Dock({
                 setMoreOpen(false);
                 onStation(s.id);
               }}
-              className={`kt-focus min-w-0 flex-1 rounded-[4px] border px-1 py-1.5 font-body text-[13px] transition-colors ${
-                station === s.id ? 'border-primary bg-primary-soft font-semibold text-ink' : 'border-line text-ink-dim hover:text-ink-muted'
+              className={`kt-focus min-w-0 flex-1 rounded-[4px] border px-1 py-1.5 font-body text-[12px] transition-colors ${
+                station === s.id ? 'border-primary bg-primary-soft font-semibold text-ink' : 'border-line font-medium text-ink-dim hover:text-ink-muted'
               }`}
             >
               {s.label}
@@ -90,8 +90,8 @@ export function Dock({
             onClick={() => setMoreOpen((was) => !was)}
             aria-expanded={moreOpen}
             aria-label="More stations"
-            className={`kt-focus flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-[4px] border px-1 py-1.5 font-body text-[13px] transition-colors ${
-              inOverflow || moreOpen ? 'border-primary bg-primary-soft font-semibold text-ink' : 'border-line text-ink-dim hover:text-ink-muted'
+            className={`kt-focus flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-[4px] border px-1 py-1.5 font-body text-[12px] transition-colors ${
+              inOverflow || moreOpen ? 'border-primary bg-primary-soft font-semibold text-ink' : 'border-line font-medium text-ink-dim hover:text-ink-muted'
             }`}
           >
             <span className="truncate">{inOverflow ? inOverflow.label : 'More'}</span>
@@ -109,8 +109,8 @@ export function Dock({
                   setMoreOpen(false);
                   onStation(s.id);
                 }}
-                className={`kt-focus flex items-center justify-center gap-1.5 rounded-[4px] border px-2 py-2 font-body text-[13px] transition-colors ${
-                  station === s.id ? 'border-primary bg-primary-soft font-semibold text-ink' : 'border-line text-ink-muted hover:text-ink'
+                className={`kt-focus flex items-center justify-center gap-1.5 rounded-[4px] border px-2 py-2 font-body text-[12px] transition-colors ${
+                  station === s.id ? 'border-primary bg-primary-soft font-semibold text-ink' : 'border-line font-medium text-ink-muted hover:text-ink'
                 }`}
               >
                 <Icon name={s.icon} size={14} />

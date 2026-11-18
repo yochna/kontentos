@@ -28,7 +28,7 @@ export function Spine({
         {PHASES.map((phase) => (
           <div key={phase.id} className="mb-1">
             <div
-              className="kt-phase-chip kt-phase-label pb-1 pt-3 text-center"
+              className="kt-phase-label pb-1 pt-3 text-center"
               data-active={phase.stations.some((s) => s.id === station)}
               title={phase.note}
             >
@@ -92,7 +92,7 @@ function StationKey({
         }`}
       >
         <Icon name={meta.icon} size={19} weight={active ? 600 : 400} fill={active ? 1 : 0} />
-        <span className={`font-body text-[13px] leading-none tracking-normal ${active ? 'font-semibold' : 'font-medium'}`}>
+        <span className={`font-body text-[13px] leading-none tracking-normal ${active ? 'font-semibold text-primary' : 'font-medium'}`}>
           {meta.label}
         </span>
       </button>
