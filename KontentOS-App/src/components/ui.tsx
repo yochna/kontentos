@@ -330,7 +330,7 @@ export function Badge({
 }) {
   return (
     <span
-      className={`kt-compact inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[12px] font-semibold ${
         toneMap[tone] || toneMap.neutral
       }`}
     >

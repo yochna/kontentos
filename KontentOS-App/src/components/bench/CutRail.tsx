@@ -324,9 +324,7 @@ export function CutRail({
                 size={18}
                 className={intakeBusy ? 'kt-spin' : 'kt-grow'}
               />
-              <span className="font-body text-[12px] font-medium">
-                {intakeBusy ? 'loading' : 'upload'}
-              </span>
+              <span className="kt-phase-label">{intakeBusy ? 'loading' : 'upload'}</span>
             </span>
           </button>
 

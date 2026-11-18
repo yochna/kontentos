@@ -256,9 +256,9 @@ h4 {
    panel shout; the body face at a readable size keeps station eyebrows legible without noise. */
 .kt-eyebrow {
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   color: var(--ink-muted);
 }
 
@@ -266,10 +266,27 @@ h4 {
    allowed in chrome: the amber lift makes them landmarks, not another stack of labels. */
 .kt-phase-label {
   font-family: var(--font-display);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.01em;
+  line-height: 1.1;
   color: var(--primary);
+}
+
+/* The rail marker is a chip, not a whisper: a soft amber plate makes all four phases readable
+   at a glance, and the current phase flips to a filled marker. */
+.kt-phase-chip {
+  display: inline-block;
+  min-width: 54px;
+  padding: 2px 8px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: var(--primary-soft);
+}
+
+.kt-phase-chip[data-active='true'] {
+  background: var(--primary);
+  color: var(--on-primary);
 }
 
 @keyframes ktSpin { to { transform: rotate(360deg); } }

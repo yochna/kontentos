@@ -324,7 +324,7 @@ export default function Ideas() {
                   </Thumb>
 
                   <div className="p-4 flex flex-col gap-2 flex-1">
-                    <div className="text-[11px] uppercase tracking-wider text-ink-dim">{idea.format}</div>
+                    <div className="kt-eyebrow">{idea.format}</div>
                     <h3 className="font-semibold text-[15px] text-ink leading-snug group-hover:text-primary transition-colors line-clamp-2">
                       {idea.title}
                     </h3>

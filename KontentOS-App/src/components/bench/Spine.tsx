@@ -27,7 +27,11 @@ export function Spine({
       <nav className="flex-1 overflow-y-auto py-2" aria-label="Bench stations">
         {PHASES.map((phase) => (
           <div key={phase.id} className="mb-1">
-            <div className="kt-phase-label pb-1 pt-3 text-center" title={phase.note}>
+            <div
+              className="kt-phase-chip kt-phase-label pb-1 pt-3 text-center"
+              data-active={phase.stations.some((s) => s.id === station)}
+              title={phase.note}
+            >
               {phase.label}
             </div>
             {phase.stations.map((s) => (
@@ -88,7 +92,9 @@ function StationKey({
         }`}
       >
         <Icon name={meta.icon} size={19} weight={active ? 600 : 400} fill={active ? 1 : 0} />
-        <span className="font-body text-[12px] font-medium leading-none tracking-normal">{meta.label}</span>
+        <span className={`font-body text-[13px] leading-none tracking-normal ${active ? 'font-semibold' : 'font-medium'}`}>
+          {meta.label}
+        </span>
       </button>
     </Tooltip>
   );
