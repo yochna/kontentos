@@ -78,7 +78,7 @@ export function Dock({
                 setMoreOpen(false);
                 onStation(s.id);
               }}
-              className={`kt-focus min-w-0 flex-1 rounded-[4px] border px-1 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] transition-colors ${
+              className={`kt-focus min-w-0 flex-1 rounded-[4px] border px-1 py-1.5 font-body text-[12px] font-medium transition-colors ${
                 station === s.id ? 'border-primary bg-primary-soft text-ink' : 'border-line text-ink-dim hover:text-ink-muted'
               }`}
             >
@@ -90,7 +90,7 @@ export function Dock({
             onClick={() => setMoreOpen((was) => !was)}
             aria-expanded={moreOpen}
             aria-label="More stations"
-            className={`kt-focus flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-[4px] border px-1 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] transition-colors ${
+            className={`kt-focus flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-[4px] border px-1 py-1.5 font-body text-[12px] font-medium transition-colors ${
               inOverflow || moreOpen ? 'border-primary bg-primary-soft text-ink' : 'border-line text-ink-dim hover:text-ink-muted'
             }`}
           >
@@ -109,7 +109,7 @@ export function Dock({
                   setMoreOpen(false);
                   onStation(s.id);
                 }}
-                className={`kt-focus flex items-center justify-center gap-1.5 rounded-[4px] border px-2 py-2 font-mono text-[11px] uppercase tracking-[0.06em] transition-colors ${
+                className={`kt-focus flex items-center justify-center gap-1.5 rounded-[4px] border px-2 py-2 font-body text-[12px] font-medium transition-colors ${
                   station === s.id ? 'border-primary bg-primary-soft text-ink' : 'border-line text-ink-muted hover:text-ink'
                 }`}
               >
@@ -129,7 +129,7 @@ export function Dock({
           aria-label="Open the command deck"
         >
           <Icon name="search" size={14} />
-          <span className="hidden font-mono text-[11px] uppercase tracking-[0.12em] sm:inline">command</span>
+          <span className="kt-eyebrow hidden sm:inline">command</span>
           <kbd className="rounded-[3px] border border-line-strong px-1 font-mono text-[11px] text-ink-muted">⌘K</kbd>
         </button>
 

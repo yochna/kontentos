@@ -5,9 +5,9 @@
 /* ------------------------------- Command Center ------------------------------- */
 
 export const quickActions = [
-  { id: 'ideas', icon: 'lightbulb', title: 'Seed an angle', body: 'Decide what the cut is about before you shoot it.', tag: 'In · Seeds' },
-  { id: 'raw-reel', icon: 'play_circle', title: 'Intake a take', body: 'Drop the footage, read the transcript, cut the first vertical pass.', tag: 'In · Intake' },
-  { id: 'smart-editor', icon: 'tune', title: 'Cut it', body: 'Trim, zoom and caption on a frame-accurate timeline.', tag: 'Cut · Bench' },
+  { id: 'ideas', icon: 'lightbulb', title: 'Pick an angle', body: 'Decide what the cut is about before you shoot it.', tag: 'In · Ideas' },
+  { id: 'raw-reel', icon: 'play_circle', title: 'Upload a take', body: 'Drop the footage, read the transcript, cut the first vertical pass.', tag: 'In · Upload' },
+  { id: 'smart-editor', icon: 'tune', title: 'Cut it', body: 'Trim, zoom and caption on a frame-accurate timeline.', tag: 'Cut · Editor' },
   { id: 'publish-schedule', icon: 'send', title: 'Queue it', body: 'Write the caption once, set the date you will post.', tag: 'Out · Ship' },
 ];
 

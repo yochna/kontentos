@@ -53,9 +53,9 @@ const RAIL_OPEN_KEY = 'kt.rail.open';
 
 /** The stations that actually work on one cut, in the order the bench does. */
 const OPEN_IN: { station: StationId; label: string; icon: string }[] = [
-  { station: 'raw-reel', label: 'Open in Intake', icon: 'smart_display' },
-  { station: 'press', label: 'Open in Press', icon: 'print' },
-  { station: 'smart-editor', label: 'Open in Bench', icon: 'content_cut' },
+  { station: 'raw-reel', label: 'Open in Upload', icon: 'smart_display' },
+  { station: 'press', label: 'Open in Export', icon: 'print' },
+  { station: 'smart-editor', label: 'Open in Editor', icon: 'content_cut' },
   { station: 'static-generator', label: 'Open in Card', icon: 'photo_size_select_actual' },
   { station: 'publish-schedule', label: 'Open in Ship', icon: 'schedule_send' },
 ];
@@ -161,14 +161,14 @@ export function CutRail({
 
       {!expanded && (
         <div className="flex items-center gap-2 px-3 py-1.5">
-          <span className="hidden shrink-0 font-mono text-[11px] uppercase tracking-[0.2em] text-ink-dim sm:block">
+          <span className="kt-eyebrow hidden shrink-0 sm:block">
             On the bench
           </span>
 
           {cuts.length === 0 ? (
             <>
               <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-muted">
-                {intakeBusy ? 'Intaking the footage…' : 'Nothing on the bench yet. Drop a video anywhere, or choose one.'}
+                {intakeBusy ? 'Uploading the footage…' : 'Nothing on the bench yet. Drop a video anywhere, or choose one.'}
               </span>
               <Button
                 size="sm"
@@ -178,7 +178,7 @@ export function CutRail({
                 disabled={intakeBusy}
                 onClick={() => fileRef.current?.click()}
               >
-                {intakeBusy ? 'Working…' : 'Intake a clip'}
+                {intakeBusy ? 'Working…' : 'Upload a clip'}
               </Button>
             </>
           ) : (
@@ -205,7 +205,7 @@ export function CutRail({
                     <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-primary" />
                     <span className="truncate font-semibold text-ink">{selected.video.title}</span>
                     {selected.stage && (
-                      <span className="hidden shrink-0 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim sm:block">
+                      <span className="font-body text-[12px] font-medium hidden shrink-0 sm:block">
                         {selected.stage}
                       </span>
                     )}
@@ -221,7 +221,7 @@ export function CutRail({
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={intakeBusy}
-                aria-label="Intake raw footage"
+                aria-label="Upload raw footage"
                 className="grid h-7 w-7 shrink-0 place-items-center rounded-btn text-ink-dim transition-colors hover:bg-surface-2 hover:text-primary disabled:opacity-50 kt-focus"
               >
                 <Icon name={intakeBusy ? 'hourglass_top' : 'file_upload'} size={17} className={intakeBusy ? 'kt-spin' : ''} />
@@ -239,7 +239,7 @@ export function CutRail({
                 onClick={toggleOpen}
                 aria-expanded={false}
                 aria-label="Show all cuts"
-                className="flex shrink-0 items-center gap-1 rounded-btn px-2 py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink kt-focus"
+                className="kt-focus flex shrink-0 items-center gap-1 rounded-btn px-2 py-1 font-body text-[12px] font-medium text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink"
               >
                 all cuts
                 <Icon name="expand_more" size={16} />
@@ -252,7 +252,7 @@ export function CutRail({
       {expanded && (
         <>
       <div className="flex items-center gap-3 px-3 pt-2">
-        <span className="hidden shrink-0 font-mono text-[11px] uppercase tracking-[0.2em] text-ink-dim sm:block">
+        <span className="kt-eyebrow hidden shrink-0 sm:block">
           On the bench
         </span>
         <ToggleGroup
@@ -271,7 +271,7 @@ export function CutRail({
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className="shrink-0 rounded-[4px] px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink kt-focus"
+            className="kt-focus shrink-0 rounded-[4px] px-1.5 py-0.5 font-body text-[12px] font-medium text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink"
           >
             clear
           </button>
@@ -281,7 +281,7 @@ export function CutRail({
           onClick={toggleOpen}
           aria-expanded
           aria-label="Hide the cut strip"
-          className="flex shrink-0 items-center gap-1 rounded-btn px-2 py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink kt-focus"
+          className="kt-focus flex shrink-0 items-center gap-1 rounded-btn px-2 py-1 font-body text-[12px] font-medium text-ink-dim transition-colors hover:bg-surface-2 hover:text-ink"
         >
           hide
           <Icon name="expand_less" size={16} />
@@ -316,7 +316,7 @@ export function CutRail({
             onClick={() => fileRef.current?.click()}
             disabled={intakeBusy}
             className="grid w-[92px] shrink-0 place-items-center rounded-[6px] border border-dashed border-line-strong bg-surface-2/40 text-ink-dim transition-colors hover:border-primary hover:text-primary disabled:opacity-50 kt-focus"
-            aria-label="Intake raw footage"
+            aria-label="Upload raw footage"
           >
             <span className="flex flex-col items-center gap-1 py-6">
               <Icon
@@ -324,8 +324,8 @@ export function CutRail({
                 size={18}
                 className={intakeBusy ? 'kt-spin' : 'kt-grow'}
               />
-              <span className="font-mono text-[11px] uppercase tracking-[0.1em]">
-                {intakeBusy ? 'loading' : 'intake'}
+              <span className="font-body text-[12px] font-medium">
+                {intakeBusy ? 'loading' : 'upload'}
               </span>
             </span>
           </button>
@@ -357,7 +357,7 @@ export function CutRail({
               aria-label="Open the vault"
             >
               <Icon name="grid_view" size={17} />
-              <span className="font-mono text-[11px] uppercase tracking-[0.1em]">vault</span>
+              <span className="font-body text-[12px] font-medium">vault</span>
             </button>
           )}
         </div>
@@ -438,7 +438,7 @@ function Chip({ label, count, value }: { label: string; count: number; value: st
     <ToggleGroupItem
       variant="none"
       value={value}
-      className="kt-focus group shrink-0 rounded-[4px] border border-line px-1.5 py-[3px] font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim transition-colors hover:border-line-strong hover:text-ink-muted data-[state=on]:border-primary data-[state=on]:bg-primary-soft data-[state=on]:text-primary"
+      className="kt-focus group shrink-0 rounded-[4px] border border-line px-1.5 py-[3px] font-body text-[12px] font-medium text-ink-dim transition-colors hover:border-line-strong hover:text-ink-muted data-[state=on]:border-primary data-[state=on]:bg-primary-soft data-[state=on]:text-primary"
     >
       {label}
       <span className="ml-1 text-ink-muted group-data-[state=on]:text-primary">{count}</span>
@@ -480,7 +480,7 @@ function CutTile({
         <dl className="mt-1 space-y-0.5">
           {steps.map((s) => (
             <div key={s.label} className="flex items-baseline gap-2">
-              <dt className="shrink-0 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim">{s.label}</dt>
+              <dt className="shrink-0 font-body text-[12px] font-medium text-ink-dim">{s.label}</dt>
               <dd className={s.state === 'next' ? 'min-w-0 truncate text-ink-dim' : 'min-w-0 truncate text-ink-muted'}>
                 {s.detail}
               </dd>
@@ -555,7 +555,7 @@ function CutTile({
         </div>
 
         {stage && (
-          <span className="mt-1 block truncate font-mono text-[11px] uppercase tracking-[0.1em] text-ink-dim">
+          <span className="mt-1 block truncate font-body text-[12px] font-medium text-ink-dim">
             {stage}
           </span>
         )}

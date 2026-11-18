@@ -38,11 +38,11 @@ export const PHASES: Phase[] = [
     label: 'In',
     note: 'Find the angle, bring the footage onto the bench.',
     stations: [
-      { id: 'ideas', label: 'Seeds', icon: 'auto_awesome', hint: 'Prompts worth shooting.' },
-      { id: 'raw-reel', label: 'Intake', icon: 'smart_display', hint: 'Raw footage in, first cut out.' },
+      { id: 'ideas', label: 'Ideas', icon: 'auto_awesome', hint: 'Topics worth shooting.' },
+      { id: 'raw-reel', label: 'Upload', icon: 'smart_display', hint: 'Bring in your footage and read its transcript.' },
       {
         id: 'press',
-        label: 'Press',
+        label: 'Export',
         icon: 'print',
         hint: 'One click: a reel, the cards and the caption files.',
       },
@@ -53,7 +53,7 @@ export const PHASES: Phase[] = [
     label: 'Cut',
     note: 'Trim it, caption it, give it a look.',
     stations: [
-      { id: 'smart-editor', label: 'Bench', icon: 'content_cut', hint: 'Timeline, keyframes, captions.' },
+      { id: 'smart-editor', label: 'Editor', icon: 'content_cut', hint: 'Timeline, keyframes, captions.' },
       { id: 'static-generator', label: 'Card', icon: 'photo_size_select_actual', hint: 'Slide-post studio.' },
     ],
   },
@@ -160,7 +160,7 @@ export function useSelectedCutId(): string | null {
 export type LedgerState = 'done' | 'now' | 'next';
 
 /** The stage names, in order — the rail filters and the ledger share this so they can't drift. */
-export const LEDGER_STAGES = ['Intake', 'Cut', 'Queued', 'Shipped'] as const;
+export const LEDGER_STAGES = ['Upload', 'Cut', 'Queued', 'Shipped'] as const;
 
 export type LedgerStage = (typeof LEDGER_STAGES)[number];
 
@@ -203,7 +203,7 @@ export function buildLedger(
   const raw: LedgerStep[] = [
     {
       phase: 'in',
-      label: 'Intake',
+      label: 'Upload',
       state: 'done',
       detail: video.file_size ? `${fmtBytes(video.file_size)} on disk` : 'On the bench',
       station: 'raw-reel',

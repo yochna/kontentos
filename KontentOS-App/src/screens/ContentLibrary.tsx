@@ -846,7 +846,7 @@ function VideoDetailModal({
               Cut on the bench
             </Button>
             <Button icon="play_circle" onClick={onOpenRawStudio}>
-              Open in Intake
+              Open in Upload
             </Button>
           </div>
         </div>

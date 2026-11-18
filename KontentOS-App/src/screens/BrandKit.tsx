@@ -276,7 +276,7 @@ export default function BrandKit() {
                     className="opacity-0 w-full h-full cursor-pointer"
                   />
                 </div>
-                <div className="text-[11px] text-ink-dim mt-1.5 font-mono uppercase font-semibold">
+                <div className="kt-eyebrow mt-1.5">
                   {c}
                 </div>
               </div>

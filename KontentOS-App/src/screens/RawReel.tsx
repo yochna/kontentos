@@ -212,7 +212,7 @@ export default function RawReel() {
       />
 
       <PageHeader
-        eyebrow="In · Intake"
+        eyebrow="In · Upload"
         icon="smart_display"
         title="Bring the raw take onto the bench"
         description="Everything starts here — the take, its transcript, and the first cut. Dead-air trims, kinetic captions and punch zooms fire when you press them."

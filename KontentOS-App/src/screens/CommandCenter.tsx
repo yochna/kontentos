@@ -25,7 +25,7 @@ export default function CommandCenter() {
 
     return [
       {
-        phase: 'In · Seeds',
+        phase: 'In · Ideas',
         icon: 'auto_awesome',
         title: 'Find the angle',
         headline: activeDraft?.idea
@@ -33,12 +33,12 @@ export default function CommandCenter() {
           : savedIdeas.length > 0
             ? `${savedIdeas.length} idea${savedIdeas.length === 1 ? '' : 's'} saved`
             : 'Nothing saved yet',
-        meta: activeDraft?.idea ? '1 blueprint active' : savedIdeas.length > 0 ? 'Ready to shoot' : 'Open Seeds and generate',
+        meta: activeDraft?.idea ? '1 blueprint active' : savedIdeas.length > 0 ? 'Ready to shoot' : 'Open Ideas and generate',
         screenId: 'ideas' as ScreenId,
         done: hasIdeas,
       },
       {
-        phase: 'In · Intake',
+        phase: 'In · Upload',
         icon: 'smart_display',
         title: 'Bring the take in',
         headline: hasVideos ? `${videos.length} clip${videos.length === 1 ? '' : 's'} on the bench` : 'No footage yet',
@@ -47,7 +47,7 @@ export default function CommandCenter() {
         done: hasVideos,
       },
       {
-        phase: 'Cut · Bench',
+        phase: 'Cut · Editor',
         icon: 'content_cut',
         title: 'Cut & caption',
         headline: activeDraft?.project ? 'Timeline project active' : 'No timeline saved yet',
@@ -102,7 +102,7 @@ export default function CommandCenter() {
         eyebrow={`${greeting}, ${firstName}`}
         icon="space_dashboard"
         title="Cutting room desk"
-        description="Four phases, one cut at a time: seed the angle, intake the footage, cut and caption it, queue it to ship."
+        description="Four phases, one cut at a time: pick the angle, upload the footage, cut and caption it, queue it to ship."
       />
 
       {/* Pipeline */}

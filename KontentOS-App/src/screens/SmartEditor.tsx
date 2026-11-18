@@ -1040,12 +1040,12 @@ export default function SmartEditor() {
 
         <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div className="min-w-0">
-            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">Bench</span>
+            <span className="kt-eyebrow">Editor</span>
             <h2 className="mt-1.5 font-display text-[19px] leading-snug text-ink">No timeline open</h2>
             <p className="mt-1.5 max-w-[58ch] text-[13px] leading-relaxed text-ink-muted">
               A timeline is one clip laid end to end with its captions running under it. Light a cut in the rail
-              and choose <b className="text-ink">Open in Bench</b> to assemble it here, or drop a file anywhere in
-              the room to intake it first.
+              and choose <b className="text-ink">Open in Editor</b> to assemble it here, or drop a file anywhere in
+              the room to upload it first.
             </p>
           </div>
           <div className="shrink-0">
@@ -1057,7 +1057,7 @@ export default function SmartEditor() {
               }}
               disabled={uploadingVideo}
             >
-              {uploadingVideo ? `Uploading (${uploadProgress ?? 0}%)` : 'Intake a clip'}
+              {uploadingVideo ? `Uploading (${uploadProgress ?? 0}%)` : 'Upload a clip'}
             </Button>
             {uploadProgress !== null && (
               <div className="mt-3 h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-surface-3">
@@ -1098,7 +1098,7 @@ export default function SmartEditor() {
 
         {ready.length > 0 && !assembling && (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
-            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">In the vault</span>
+            <span className="kt-eyebrow">In the vault</span>
             {ready.slice(0, 6).map((v) => (
               <button
                 key={v.id}
@@ -2553,7 +2553,7 @@ function Header({
 }) {
   return (
     <PageHeader
-      eyebrow="Cut · Bench · Multi-track"
+      eyebrow="Cut · Editor · Multi-track"
       icon="content_cut"
       title={hasProject && title ? title : 'Cut & caption on the timeline'}
       className="mb-6"

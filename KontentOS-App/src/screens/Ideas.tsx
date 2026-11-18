@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { AnimatedNumber, Badge, Button, Card, Chip, Eyebrow, PageShell, Progress, Reveal, Thumb } from '@/components/ui';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -11,9 +11,11 @@ import { useStore } from '@/lib/store';
 import { useNavPayload } from '@/lib/nav';
 import { api } from '@/lib/api';
 import { copyVoice, voiceTone } from '@/lib/brandKit';
+import { creatorBrief, creatorTopics } from '@/lib/creatorTopics';
 import { copyModel, readAiPrefs } from '@/lib/prefs';
 
-const QUICK_TOPICS = [
+/** Shown only while the creator has no niche, saved ideas or clips to draw from. */
+const FALLBACK_TOPICS = [
   'AI Workflows',
   'Founder Bottlenecks',
   'SaaS Growth',
@@ -22,11 +24,19 @@ const QUICK_TOPICS = [
 ];
 
 export default function Ideas() {
-  const { savedIdeas, saveIdea, removeSavedIdea, isSavedIdea, startProductionFromIdea, videos } = useStore();
+  const { user, savedIdeas, saveIdea, removeSavedIdea, isSavedIdea, startProductionFromIdea, videos } = useStore();
+
+  // The chips in this station are the creator's own subjects: their Room niche first, then what
+  // they have already saved or uploaded. Generic prompts are a last resort, never the default.
+  const myTopics = useMemo(
+    () => creatorTopics({ user, savedIdeas, videos }),
+    [user, savedIdeas, videos]
+  );
+  const suggestedTopics = myTopics.length ? myTopics : FALLBACK_TOPICS;
 
   // Opening the station shows six empty structures rather than someone's finished ideas: nothing here
   // is invented copy, and nothing is scored, because no model has read it yet.
-  const [ideasList, setIdeasList] = useState<Idea[]>(() => generateScaffoldIdeas());
+  const [ideasList, setIdeasList] = useState<Idea[]>(() => generateScaffoldIdeas(undefined, user?.niche));
   const [filter, setFilter] = useState('all');
   const [open, setOpen] = useState<Idea | null>(null);
   const [searchTopic, setSearchTopic] = useState('');
@@ -50,8 +60,9 @@ export default function Ideas() {
     try {
       const generated = await api.generateIdeas({
         topic: q,
+        niche: user?.niche || undefined,
         tone: voiceTone(),
-        context: copyVoice(),
+        context: [copyVoice(), creatorBrief(myTopics, user)].filter(Boolean).join('\n'),
         temperature: readAiPrefs().temperature,
         model: copyModel(),
       });
@@ -149,14 +160,14 @@ export default function Ideas() {
         />
         <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="max-w-2xl">
-            <Eyebrow icon="auto_awesome">In · Seeds</Eyebrow>
-            <h1 className="mt-1 font-display text-[21px] font-bold leading-tight text-ink sm:text-[24px]">
+            <Eyebrow icon="auto_awesome">In · Ideas</Eyebrow>
+            <h1 className="mt-1 font-display text-[21px] font-semibold leading-tight text-ink sm:text-[24px]">
               What should you create next?
             </h1>
             <p className="mt-1.5 text-ink-muted text-[13px] leading-relaxed">
               Give it a topic and KontentOS writes the angles, hooks and three-beat scripts — in the
-              voice from your Kit, on the engine you picked in the Room. Without a configured key it
-              falls back to local templates. Nothing here is scored against live audience data.
+              voice from your Kit, on the engine you picked in the Room. The suggestions start with
+              your own niche and archive. Nothing here is scored against live audience data.
             </p>
 
             {/* Keyword / Topic input */}
@@ -174,7 +185,9 @@ export default function Ideas() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleGenerate();
                   }}
-                  placeholder="Enter a topic, keyword, or audience pain point..."
+                  placeholder={
+                    myTopics.length ? `e.g. ${myTopics[0]}` : 'Enter a topic, keyword, or audience pain point...'
+                  }
                   className="w-full pl-9 pr-4 py-2.5 rounded-btn bg-surface-2 border border-line text-sm text-ink placeholder:text-ink-dim/70 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
                 />
               </div>
@@ -189,22 +202,30 @@ export default function Ideas() {
               </Button>
             </div>
 
-            {/* Quick suggestion prompt chips */}
+            {/* Suggestions come from the creator's niche, saved ideas and uploaded clips. */}
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <span className="text-[12px] font-semibold text-ink-dim uppercase tracking-wider mr-1">Trending:</span>
-              {QUICK_TOPICS.map((tag) => (
+              <span className="mr-1 text-[12px] font-semibold text-ink-muted">
+                {myTopics.length ? 'Your topics:' : 'Starter topics:'}
+              </span>
+              {suggestedTopics.map((tag) => (
                 <button
                   key={tag}
+                  title={`Generate ideas for ${tag}`}
                   onClick={() => {
                     setSearchTopic(tag);
                     handleGenerate(tag);
                   }}
-                  className="text-[12px] font-medium text-ink-muted hover:text-primary bg-surface-2 hover:bg-primary-soft border border-line rounded-full px-2.5 py-0.5 transition-colors"
+                  className="text-[12px] font-medium text-ink-muted hover:text-primary bg-surface-2 hover:bg-primary-soft border border-line rounded-full px-2.5 py-1 transition-colors"
                 >
                   {tag}
                 </button>
               ))}
             </div>
+            {!myTopics.length && (
+              <p className="mt-2 text-[12px] text-ink-dim">
+                Set a niche in Room or save a few ideas to see topics picked for you.
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row lg:flex-col gap-2 w-full lg:w-auto shrink-0 self-start lg:self-center">

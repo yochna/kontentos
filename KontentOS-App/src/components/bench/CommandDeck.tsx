@@ -88,7 +88,7 @@ export function CommandDeck({
         id: 'act',
         heading: 'Actions',
         rows: [
-          { key: 'act-intake', label: 'Intake footage', detail: 'Start a cut from a file', icon: 'file_upload', run: onIntake },
+          { key: 'act-intake', label: 'Upload footage', detail: 'Start a cut from a file', icon: 'file_upload', run: onIntake },
           { key: 'act-tour', label: 'Take the tour', detail: 'A thirty-second walkthrough', icon: 'help', run: onTour },
           { key: 'act-clear', label: 'Clear the bench', detail: 'Put the lit cut down', icon: 'highlight_off', run: () => selectCut(null) },
           {
@@ -186,7 +186,7 @@ export function CommandDeck({
           <CommandShortcut>
             <Kbd>enter</Kbd> open
           </CommandShortcut>
-          <span className="ml-auto font-mono text-[11px] uppercase tracking-[0.12em] text-ink-dim">
+          <span className="kt-eyebrow ml-auto">
             {q ? `${total} matching` : `${total} in the deck`}
           </span>
         </footer>

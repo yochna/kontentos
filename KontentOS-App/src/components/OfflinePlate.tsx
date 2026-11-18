@@ -41,7 +41,7 @@ export function OfflinePlate({
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={busy}
-              className="kt-focus mt-2 inline-flex items-center gap-1.5 rounded-[4px] border border-line-strong px-2 py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+              className="kt-focus mt-2 inline-flex items-center gap-1.5 rounded-[4px] border border-line-strong px-2 py-1 font-body text-[12px] font-medium text-ink-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
             >
               <Icon name={busy ? 'hourglass_top' : 'link'} size={13} className={busy ? 'kt-spin' : ''} />
               {busy ? 're-linking' : 're-link the file'}

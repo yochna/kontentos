@@ -198,7 +198,7 @@ export function Bench({
         selectCut(video.id);
         goTo('raw-reel', { videoId: video.id });
       } else {
-        flag('Intake failed — the file never reached the workspace.');
+        flag('Upload failed — the file never reached the workspace.');
       }
     },
     [store, goTo, flag]
@@ -385,7 +385,7 @@ export function Bench({
           <div className="kt-drop-card flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-primary/70 bg-surface px-10 py-8 text-center shadow-[var(--shadow-2)]">
             <Icon name="file_upload" size={26} className="text-primary" />
             <p className="font-display text-[18px] font-bold text-ink">Drop the footage on the bench</p>
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-dim">
+            <p className="kt-eyebrow">
               Video files only · each one becomes a new cut
             </p>
           </div>

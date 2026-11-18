@@ -42,7 +42,7 @@ export function Inspector({
       <header className="border-b border-line px-4 py-3">
         <div className="flex items-center gap-2">
           <Icon name={meta.icon} size={15} className="text-primary" />
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">{meta.label}</span>
+          <span className="kt-eyebrow">{meta.label}</span>
           <button
             type="button"
             onClick={onHide}
@@ -92,7 +92,7 @@ function Dossier({
       <dl className="mt-3 space-y-1.5 border-y border-line py-3">
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-baseline gap-2">
-            <dt className="w-14 shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-dim">{k}</dt>
+            <dt className="kt-eyebrow w-14 shrink-0">{k}</dt>
             <Tooltip content={v} side="left">
               <dd className="min-w-0 flex-1 truncate text-[12px] text-ink-muted">{v}</dd>
             </Tooltip>
@@ -101,7 +101,7 @@ function Dossier({
       </dl>
 
       <div className="mt-3">
-        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">Ledger</span>
+        <span className="kt-eyebrow">Ledger</span>
         <ol className="mt-2 space-y-[3px]">
           {steps.map((s) => (
             <li key={s.label}>
@@ -129,7 +129,7 @@ function Dossier({
       </div>
 
       <div className="mt-3">
-        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">Its own rows</span>
+        <span className="kt-eyebrow">Its own rows</span>
         {queued.length + shipped.length === 0 ? (
           /* An empty ledger for this cut is the truth, so it gets said rather than hidden. */
           <p className="mt-2 rounded-[5px] border border-dashed border-line px-2.5 py-2 text-[12px] leading-snug text-ink-dim">
@@ -256,7 +256,7 @@ function DaysBoard({
 
       <section className="mt-5">
         <div className="flex items-baseline justify-between">
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-dim">Next out</span>
+          <span className="kt-eyebrow">Next out</span>
           <span className="font-mono text-[11px] text-ink-dim">{upcoming.length ? `${upcoming.length} queued` : 'empty'}</span>
         </div>
         {upcoming.length ? (
@@ -273,7 +273,7 @@ function DaysBoard({
                   >
                     <span className="w-9 shrink-0 text-center">
                       <span className="block font-display text-[15px] font-bold leading-none text-ink">{when.getDate()}</span>
-                      <span className="block font-mono text-[11px] uppercase text-ink-dim">
+                      <span className="kt-eyebrow block">
                         {when.toLocaleDateString(undefined, { month: 'short' })}
                       </span>
                     </span>
@@ -298,7 +298,7 @@ function DaysBoard({
 
       <section className="mt-5 grid grid-cols-2 gap-[3px]">
         <Stat label="shipped" value={shipped.length ? String(shipped.length) : '0'} onClick={() => onJump('analytics')} />
-        <Stat label="seeds" value={savedIdeas ? String(savedIdeas) : '0'} onClick={() => onJump('ideas')} />
+        <Stat label="ideas" value={savedIdeas ? String(savedIdeas) : '0'} onClick={() => onJump('ideas')} />
       </section>
     </div>
   );
@@ -312,7 +312,7 @@ function Stat({ label, value, onClick }: { label: string; value: string; onClick
       className="kt-focus rounded-[5px] border border-line bg-surface-2/40 px-2.5 py-2 text-left transition-colors hover:border-line-strong"
     >
       <span className="block font-display text-[20px] font-bold leading-none text-ink">{value}</span>
-      <span className="mt-1 block font-mono text-[11px] uppercase tracking-[0.14em] text-ink-dim">{label}</span>
+      <span className="kt-eyebrow mt-1 block">{label}</span>
     </button>
   );
 }

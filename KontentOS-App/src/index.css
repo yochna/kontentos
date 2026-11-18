@@ -174,7 +174,7 @@ body {
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   transition: background-color 0.25s ease, color 0.25s ease;
@@ -185,9 +185,10 @@ h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  /* Syne only shows its character at 600+; at the old serif weight it reads as a thin generic sans. */
-  font-weight: 650;
-  letter-spacing: -0.022em;
+  /* Syne only shows its character at 600+, but tight tracking at small sizes makes headings
+     crowd their own letters. Keep the display face and give each word room to breathe. */
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--ink);
   margin: 0;
 }
@@ -251,14 +252,24 @@ h4 {
   box-shadow: var(--shadow-1);
 }
 
-/* Labels on machines, not editorial kickers: set in the mono face with wide tracking. */
+/* One quiet label face for the whole room. Tiny uppercase mono with wide tracking made every
+   panel shout; the body face at a readable size keeps station eyebrows legible without noise. */
 .kt-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink-muted);
+}
+
+/* Phase markers on the rail (In / Cut / Out / Read) are the one place the display face is
+   allowed in chrome: the amber lift makes them landmarks, not another stack of labels. */
+.kt-phase-label {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--primary);
 }
 
 @keyframes ktSpin { to { transform: rotate(360deg); } }

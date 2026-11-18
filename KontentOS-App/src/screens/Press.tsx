@@ -602,7 +602,7 @@ export default function Press() {
       />
 
       <PageHeader
-        eyebrow="In · Press"
+        eyebrow="In · Export"
         icon="print"
         title="One click out: the reel, the cards and the caption files"
         description="Pick a take and a style. The press finds the span, cuts it vertical in this tab, and writes the copy, the deck and the .srt around it — the four screens you used to walk in order, answered by one button."
@@ -694,7 +694,7 @@ export default function Press() {
                       {transcriptState === 'ready' && <span>Cues on file.</span>}
                       {video && video.file_size && video.file_size > 400 * 1024 * 1024 && (
                         <span className="text-danger-ink">
-                          {fmtBytes(video.file_size)} is past what a browser cut can hold — trim it on the Bench instead.
+                          {fmtBytes(video.file_size)} is past what a browser cut can hold — trim it in the Editor instead.
                         </span>
                       )}
                     </div>
