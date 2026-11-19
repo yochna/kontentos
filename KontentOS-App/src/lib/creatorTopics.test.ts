@@ -44,6 +44,14 @@ describe('creatorTopics', () => {
     expect(creatorTopics({ videos: [clip] })).toEqual(['Morning studio walkthrough']);
   });
 
+  it('rejects numeric camera filenames instead of showing them as topics', () => {
+    expect(creatorTopics({ videos: [video('81496-576306063 (1)')] })).toEqual([]);
+  });
+
+  it('keeps a renamed clip with words in it', () => {
+    expect(creatorTopics({ videos: [video('Studio tour take 3')] })).toEqual(['Studio tour take']);
+  });
+
   it('returns nothing when the creator has not given the app anything to work with', () => {
     expect(creatorTopics({ user: user(), savedIdeas: [], videos: [] })).toEqual([]);
   });

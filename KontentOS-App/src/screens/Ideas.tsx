@@ -259,7 +259,7 @@ export default function Ideas() {
             </div>
             {!myTopics.length && (
               <p className="mt-2 text-[12px] text-ink-dim">
-                Set a niche in Room or save a few ideas to see topics picked for you.
+                Give a clip a real title in Upload, or set a niche in Room, to see topics picked for you.
               </p>
             )}
           </div>

@@ -15,15 +15,27 @@ const TRAILING_FORMAT = /\s*[·|—–-]\s*(reel|short|video|carousel|post|episo
 const TRAILING_NUMBER = /\s*#?\d+\s*$/;
 const PLACEHOLDER = /^\[[^\]]+\]\s*/;
 const GENERIC_FILE = /^(img|vid|dsc|mov|screen(?:shot| recording)?)[\s_-]?\d+$/i;
+const COPY_SUFFIX = /\s*\(\d+\)\s*$/;
+
+/** A run of digits and punctuation is a filename, never a subject the creator can make a reel about. */
+function hasRealWords(text: string): boolean {
+  const letters = text.match(/\p{L}/gu)?.length ?? 0;
+  const digits = text.match(/\d/g)?.length ?? 0;
+  return letters >= 3 && digits <= letters * 2;
+}
 
 function tidy(raw: unknown): string {
   if (typeof raw !== 'string') return '';
   let text = raw.replace(/\s+/g, ' ').trim();
   text = text.replace(PLACEHOLDER, '').replace(LEADING_NOISE, '');
   text = text.replace(TRAILING_FORMAT, '').replace(TRAILING_NUMBER, '');
-  // Raw uploads often arrive as IMG_2049.mp4; those are filenames, not subjects.
-  text = text.replace(/\.[a-z0-9]{2,4}$/i, '').replace(/[.,;:!?]+$/g, '').trim();
-  if (text.length < 3 || GENERIC_FILE.test(text)) return '';
+  // Raw uploads often arrive as IMG_2049.mp4 or 81496-576306063 (1). Neither is a subject.
+  text = text
+    .replace(/\.[a-z0-9]{2,4}$/i, '')
+    .replace(COPY_SUFFIX, '')
+    .replace(/[.,;:!?]+$/g, '')
+    .trim();
+  if (text.length < 3 || GENERIC_FILE.test(text) || !hasRealWords(text)) return '';
   return text.length > 48 ? `${text.slice(0, 47).trimEnd()}…` : text;
 }
 
