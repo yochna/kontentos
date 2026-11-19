@@ -6,7 +6,7 @@ import type { DbStatus } from '@/lib/types';
 import type { Theme } from '@/lib/theme';
 
 /** Shown in the dock so a stale dev server can be spotted without guessing. */
-const BUILD_TAG = 'vault-cap';
+const BUILD_TAG = 'vault-seq';
 
 export interface BenchJob {
   id: string;

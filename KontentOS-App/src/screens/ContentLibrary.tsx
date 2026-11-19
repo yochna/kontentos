@@ -21,7 +21,7 @@ import type { Video } from '@/lib/types';
 import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
-import { MAX_PARALLEL_UPLOADS, VIDEO_ACCEPT, uploadFileError } from '@/lib/uploadFile';
+import { VIDEO_ACCEPT, uploadFileError } from '@/lib/uploadFile';
 
 const SUBTITLE_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Hindi', 'Japanese'];
 
@@ -119,15 +119,11 @@ export default function ContentLibrary() {
     }
     if (firstProblem) notify.bad(firstProblem);
     if (!candidates.length) return;
-    // The vault picker shares one intake contract with the bench and Upload station: a single
-    // batch never opens more than three upload sessions, even when uploads run one by one.
-    if (candidates.length > MAX_PARALLEL_UPLOADS) {
-      notify.info(`Intaking the first ${MAX_PARALLEL_UPLOADS} of ${candidates.length} files.`);
-    }
-
+    // The vault uploads one file at a time, so it never opens more than the server's three
+    // concurrent sessions. A larger selection is a queue here, not a reason to drop clips.
     setBusy(true);
     try {
-      for (const file of candidates.slice(0, MAX_PARALLEL_UPLOADS)) {
+      for (const file of candidates) {
         setCurrentFile(file.name);
         setProgress(0);
         try {
