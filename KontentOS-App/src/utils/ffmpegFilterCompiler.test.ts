@@ -142,7 +142,34 @@ describe('compileTimelineToFiltergraph', () => {
   it('surfaces captions the bundled font cannot draw instead of shipping empty boxes', () => {
     expect(() =>
       compileTimelineToFiltergraph(project({ captions: [caption({ content: 'नमस्ते दोस्तों', style: { ...caption().style, words: [] } })] }))
-    ).toThrow(/font cannot draw/);
+    ).toThrow(/no readable text/);
+  });
+
+  it('strips emoji decoration from generated captions and keeps the readable words', () => {
+    const compiled = compileTimelineToFiltergraph(
+      project({
+        captions: [
+          caption({
+            content: '🚨 Ship it 🔥 1️⃣ today',
+            style: {
+              ...caption().style,
+              words: [
+                { word: '🚨 Ship', start: 0, end: 0.5 },
+                { word: 'it', start: 0.5, end: 0.8 },
+                { word: '🔥 1️⃣ today', start: 0.8, end: 1.4 },
+              ],
+            },
+          }),
+        ],
+      }),
+      { sourceHasAudio: { '/uploads/a.mp4': false } }
+    );
+
+    expect(compiled.hasCaptions).toBe(true);
+    const burned = compiled.captionFiles.map((file) => file.text).join(' ');
+    expect(burned).toContain('Ship it');
+    expect(burned).toContain('1 today');
+    expect(burned).not.toMatch(/[\u{1F000}-\u{1FAFF}]/u);
   });
 
   it('places segments at their timeline positions, including gaps', () => {

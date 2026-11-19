@@ -6,8 +6,9 @@
  * ffmpeg `drawtext` chain that the browser cut appends to its filter, so the words are in the video.
  *
  * Two constraints shape it:
- *  - The font the worker loads (/fonts/font.ttf) draws Latin script only. A cue it cannot draw would
- *    come out as empty boxes, so `canBurn` refuses the whole track and the Press says so instead.
+ *  - The font the worker loads (/fonts/font.ttf) draws Latin script only. Emoji decoration is
+ *    stripped because it would come out as empty boxes; a cue left with no readable text, or one
+ *    holding a script the font cannot draw at all, is refused rather than exported as boxes.
  *  - `drawtext` does not wrap. Each cue is broken into short lines here, and a cue too long for the
  *    safe area is split into timed pages rather than cut off, so no spoken word is dropped.
  */
@@ -43,13 +44,37 @@ const MIN_PAGE_SECONDS = 0.7; // a page shorter than this flashes by faster than
 
 /**
  * Latin letters (with accents), digits and ordinary punctuation, symbols and the typographic
- * quotes and dashes a transcript uses. Anything else — Devanagari, Arabic, CJK, emoji — is outside
- * what the bundled font draws.
+ * quotes and dashes a transcript uses. Anything else — Devanagari, Arabic, CJK — is outside what the
+ * bundled font draws. Emoji is decoration, not language, and is removed before this check.
  */
 const DRAWABLE = /^[\u0020-\u007E\u00A0-\u024F\u2010-\u2027\u2030-\u205E\u20A0-\u20BF\u2122\u2190-\u2193\s]*$/;
 
+/**
+ * Drops emoji decoration without touching the words around it. Generated copy often sprinkles
+ * 🚨, 🔥 and 1️⃣ through an otherwise readable line; failing a whole export over those glyphs
+ * punishes the creator for punctuation the caption font never claimed to draw. Scripts the font
+ * genuinely cannot draw are left in place so `canBurn` can refuse them honestly.
+ */
+export function stripCaptionDecoration(text: string): string {
+  return text
+    .replace(
+      /[\uFE0F\u200D\u20E3]|\p{Regional_Indicator}|\p{Emoji_Modifier}|\p{Extended_Pictographic}/gu,
+      ' '
+    )
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+}
+
+export function isDrawableCaptionText(text: string): boolean {
+  return DRAWABLE.test(text);
+}
+
 export function canBurn(cues: TimedCue[]): boolean {
-  return cues.length > 0 && cues.every((cue) => DRAWABLE.test(cue.text));
+  if (cues.length === 0) return false;
+  return cues.every((cue) => {
+    const text = stripCaptionDecoration(cue.text);
+    return text.length > 0 && isDrawableCaptionText(text);
+  });
 }
 
 function greedyWrap(words: string[], lineChars: number): string[] {
@@ -120,7 +145,7 @@ export function buildCaptionBurn(cues: TimedCue[]): BurnPlan | null {
 
   const pages: Page[] = [];
   for (const cue of cues) {
-    for (const page of paginate(cue)) {
+    for (const page of paginate({ ...cue, text: stripCaptionDecoration(cue.text) })) {
       const last = pages[pages.length - 1];
       const merged = last ? `${last.text}\n${page.text}` : '';
       // Merged only when every line still fits on screen: a flash that cannot join is shown as it

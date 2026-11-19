@@ -3,7 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { wrapWords } from '@/lib/burnCaptions';
+import {
+  isDrawableCaptionText,
+  stripCaptionDecoration,
+  wrapWords,
+} from '@/lib/burnCaptions';
 import type {
   TimelineProject,
   VideoClip,
@@ -56,7 +60,6 @@ export interface FilterCompilerOptions {
 }
 
 const CAPTION_FONT = 'font.ttf';
-const DRAWABLE = /^[\u0020-\u007E\u00A0-\u024F\u2010-\u2027\u2030-\u205E\u20A0-\u20BF\u2122\u2190-\u2193\s]*$/;
 const MAX_HIGHLIGHT_CUES = 80;
 
 const seconds = (value: number) => Math.max(0, Number.isFinite(value) ? value : 0).toFixed(3);
@@ -106,11 +109,24 @@ function buildCaptionOverlay(
     .sort((a, b) => a.startOnTimeline - b.startOnTimeline);
   if (cues.length === 0) return { filter: '', files: [], hasCaptions: false };
 
-  for (const cue of cues) {
-    const words = cue.style?.words?.map((word) => word.word) ?? [];
-    if (!DRAWABLE.test(cue.content) || words.some((word) => !DRAWABLE.test(word))) {
+  // Emoji decoration is not language. Strip it before validating so a line like "🚨 Ship it 🔥"
+  // exports as "Ship it" instead of failing the whole reel, while a script the font truly cannot
+  // draw is still refused rather than burned as empty boxes.
+  const preparedCues = cues.map((cue) => ({
+    cue,
+    content: stripCaptionDecoration(cue.content),
+    words: (cue.style?.words ?? [])
+      .map((word) => ({ ...word, word: stripCaptionDecoration(word.word) }))
+      .filter((word) => word.word.length > 0),
+  }));
+
+  for (const item of preparedCues) {
+    const undrawable =
+      (item.content.length > 0 && !isDrawableCaptionText(item.content)) ||
+      item.words.some((word) => !isDrawableCaptionText(word.word));
+    if (undrawable || (item.content.length === 0 && item.words.length === 0)) {
       throw new Error(
-        'A caption uses characters the bundled caption font cannot draw. Edit that caption to Latin text before exporting.'
+        'A caption has no readable text the bundled caption font can draw. Add readable text before exporting.'
       );
     }
   }
@@ -131,13 +147,12 @@ function buildCaptionOverlay(
   const files: CaptionFile[] = [];
   const nodes: string[] = [];
 
-  cues.forEach((cue, cueIndex) => {
+  preparedCues.forEach(({ cue, content, words: cleanWords }, cueIndex) => {
     const cueStart = Math.max(0, cue.startOnTimeline);
     const cueEnd = cueStart + Math.max(0.1, cue.duration);
-    const styledWords = cue.style?.words?.filter((word) => word.word.trim());
-    const words: WordTimestamp[] = styledWords?.length
-      ? styledWords
-      : cue.content
+    const words: WordTimestamp[] = cleanWords.length
+      ? cleanWords
+      : content
           .split(/\s+/)
           .filter(Boolean)
           .map((word, index, all) => ({

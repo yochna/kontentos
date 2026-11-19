@@ -10,8 +10,15 @@ describe('canBurn', () => {
 
   it('refuses a track holding a script the bundled font cannot draw, and an empty track', () => {
     expect(canBurn([cue(0, 2, 'Hello'), cue(2, 4, 'नमस्ते दोस्तों')])).toBe(false);
-    expect(canBurn([cue(0, 2, 'Hello 🎬')])).toBe(false);
+    expect(canBurn([cue(0, 2, '🎬 🔥 🚨')])).toBe(false);
     expect(canBurn([])).toBe(false);
+  });
+
+  it('strips emoji decoration instead of failing a readable cue', () => {
+    expect(canBurn([cue(0, 2, 'Hello 🎬')])).toBe(true);
+    expect(buildCaptionBurn([cue(0, 2, '🚨 Ship it 🔥 1️⃣')])!.files.map((f) => f.text)).toEqual([
+      'Ship it 1',
+    ]);
   });
 });
 

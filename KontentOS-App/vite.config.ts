@@ -10,6 +10,12 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // FFmpeg creates its own worker with `new URL('./worker.js', import.meta.url)`. Prebundling the
+  // package breaks that URL in dev (it points at a missing /node_modules/.vite/deps/worker.js), so
+  // let Vite transform the package source and generate the nested worker URL instead.
+  optimizeDeps: {
+    exclude: ['@ffmpeg/ffmpeg'],
+  },
   worker: {
     format: 'es',
   },
