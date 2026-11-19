@@ -3,28 +3,43 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { wrapWords } from '@/lib/burnCaptions';
 import type {
   TimelineProject,
   VideoClip,
   SFXClip,
   TextClip,
+  WordTimestamp,
 } from '@/lib/timeline';
 
+export interface CaptionFile {
+  /** Name inside the worker's virtual filesystem. */
+  name: string;
+  /** One line or one word. Text files keep `%`, quotes and commas out of the filter string. */
+  text: string;
+}
+
 export interface CompiledFiltergraph {
-  /** Array of input file arguments needed by FFmpeg (e.g. ['-i', 'input.mp4', '-i', 'sfx_vine_boom.wav', ...]) */
+  /** Array of input file arguments needed by FFmpeg (e.g. ['-i', 'input.mp4']) */
   inputArgs: string[];
-  /** Mapping of asset ID or input name to input index in FFmpeg command */
+  /** Mapping of asset ID or input name to input index in the FFmpeg command */
   inputIndexMap: Map<string, number>;
   /** The generated -filter_complex string */
   filterComplex: string;
-  /** The final video output map label (e.g. '[vout]') */
+  /** The final video output map label */
   outputVideoLabel: string;
-  /** The final audio output map label (e.g. '[aout]') */
+  /** The final audio output map label */
   outputAudioLabel: string;
-  /** List of source video files required in virtual FS */
+  /** Source video files required in the virtual filesystem */
   requiredVideoFiles: Array<{ fileName: string; sourceUrl: string; inputIndex: number }>;
-  /** List of SFX files required in virtual FS */
+  /** Synthetic SFX/BGM files required in the virtual filesystem */
   requiredSfxFiles: string[];
+  /** Text files the drawtext chain reads; a missing file must fail the export, not hide the words */
+  requiredCaptionFiles: string[];
+  /** Contents of those files, so the worker can write them before ffmpeg starts */
+  captionFiles: CaptionFile[];
+  /** True only when a non-muted caption track actually produced drawtext nodes */
+  hasCaptions: boolean;
   /** Total computed target video duration */
   totalDuration: number;
 }
@@ -34,449 +49,473 @@ export interface FilterCompilerOptions {
   width?: number;
   height?: number;
   fps?: number;
+  /** Keyed by source URL and/or virtual file name. A probed silent source gets silence, not a failed map. */
+  sourceHasAudio?: Record<string, boolean>;
+  /** Keeps caption file names unique when a long project is compiled into chunks. */
+  captionFilePrefix?: string;
+}
+
+const CAPTION_FONT = 'font.ttf';
+const DRAWABLE = /^[\u0020-\u007E\u00A0-\u024F\u2010-\u2027\u2030-\u205E\u20A0-\u20BF\u2122\u2190-\u2193\s]*$/;
+const MAX_HIGHLIGHT_CUES = 80;
+
+const seconds = (value: number) => Math.max(0, Number.isFinite(value) ? value : 0).toFixed(3);
+const even = (value: number) => Math.max(2, Math.trunc(value / 2) * 2);
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+function normalizeHexColor(hex: string | undefined, fallback: string): string {
+  if (!hex) return fallback;
+  const clean = hex.trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{6}$/.test(clean) || /^[0-9a-fA-F]{8}$/.test(clean)) return `0x${clean}`;
+  return fallback;
+}
+
+function pad3(value: number): string {
+  return String(value).padStart(3, '0');
+}
+
+function atempoFilters(speed: number): string[] {
+  if (Math.abs(speed - 1) < 0.001) return [];
+  if (speed >= 0.5 && speed <= 2) return [`atempo=${speed.toFixed(3)}`];
+  if (speed > 2) return ['atempo=2.000', `atempo=${(speed / 2).toFixed(3)}`];
+  return ['atempo=0.500', `atempo=${(speed / 0.5).toFixed(3)}`];
+}
+
+interface CaptionOverlay {
+  filter: string;
+  files: CaptionFile[];
+  hasCaptions: boolean;
 }
 
 /**
- * Escapes characters for FFmpeg filter text parameters
+ * Kinetic captions as drawtext nodes over text files.
+ *
+ * `drawtext` does not wrap and cannot colour one word of a line on its own, so each cue is wrapped
+ * here, drawn once as a readable base line, then each timed word is drawn again in the active colour
+ * for exactly its own window. The text lives in files rather than inside the graph: creator copy can
+ * contain `%`, quotes and punctuation that would otherwise be reinterpreted as filter syntax.
  */
-function escapeFFmpegText(str: string): string {
-  return str
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, '’')
-    .replace(/"/g, '”')
-    .replace(/:/g, '\\:')
-    .replace(/%/g, '\\%')
-    .replace(/\[/g, '\\[')
-    .replace(/\]/g, '\\]')
-    .replace(/;/g, '\\;')
-    .replace(/,/g, '\\,');
+function buildCaptionOverlay(
+  clips: TextClip[],
+  width: number,
+  height: number,
+  prefix: string
+): CaptionOverlay {
+  const cues = clips
+    .filter((clip) => clip.content.trim())
+    .sort((a, b) => a.startOnTimeline - b.startOnTimeline);
+  if (cues.length === 0) return { filter: '', files: [], hasCaptions: false };
+
+  for (const cue of cues) {
+    const words = cue.style?.words?.map((word) => word.word) ?? [];
+    if (!DRAWABLE.test(cue.content) || words.some((word) => !DRAWABLE.test(word))) {
+      throw new Error(
+        'A caption uses characters the bundled caption font cannot draw. Edit that caption to Latin text before exporting.'
+      );
+    }
+  }
+
+  const minDim = Math.min(width, height);
+  const fontScale = minDim / 1080;
+  const sampleStyle = cues[0].style;
+  const fontSize = Math.round(clamp((sampleStyle?.fontSize || 60) * fontScale, 26, 116));
+  const lineHeight = Math.round(fontSize * 1.18);
+  const lineChars = Math.round(clamp(20 * (width / 1080), 12, 34));
+  const primaryColor = normalizeHexColor(sampleStyle?.colorHex, '0xFFFFFF');
+  const activeColor = normalizeHexColor(sampleStyle?.activeWordColorHex, '0xFFE066');
+  const borderColor = normalizeHexColor(sampleStyle?.strokeColorHex, '0x000000');
+  const borderWidth = Math.max(2, Math.round((sampleStyle?.strokeWidth ?? 6) * fontScale));
+  const boxBorder = Math.round(fontSize * 0.28);
+  const charWidth = fontSize * 0.52;
+
+  const files: CaptionFile[] = [];
+  const nodes: string[] = [];
+
+  cues.forEach((cue, cueIndex) => {
+    const cueStart = Math.max(0, cue.startOnTimeline);
+    const cueEnd = cueStart + Math.max(0.1, cue.duration);
+    const styledWords = cue.style?.words?.filter((word) => word.word.trim());
+    const words: WordTimestamp[] = styledWords?.length
+      ? styledWords
+      : cue.content
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((word, index, all) => ({
+            word,
+            start: (index / all.length) * (cue.duration || 0.1),
+            end: ((index + 1) / all.length) * (cue.duration || 0.1),
+          }));
+
+    const lines = wrapWords(
+      words.map((word) => word.word.trim()),
+      lineChars
+    );
+    if (lines.length === 0) return;
+
+    const position = cue.style?.position || 'bottom';
+    const centerY =
+      position === 'top' ? height * 0.2 : position === 'middle' ? height * 0.5 : height * 0.78;
+    const padY = Math.round(fontSize * 0.24);
+    const blockHeight = lines.length * lineHeight + padY * 2;
+    const firstLineTop = Math.round(centerY - blockHeight / 2 + padY);
+
+    let wordCursor = 0;
+    const placements = lines.map((line) => {
+      const count = line.split(/\s+/).filter(Boolean).length;
+      const placement = { line, startWord: wordCursor, endWord: wordCursor + count };
+      wordCursor += count;
+      return placement;
+    });
+
+    lines.forEach((line, lineIndex) => {
+      const name = `${prefix}cap_${pad3(cueIndex)}_${lineIndex}.txt`;
+      files.push({ name, text: line });
+      nodes.push(
+        [
+          `drawtext=fontfile=${CAPTION_FONT}`,
+          `textfile=${name}`,
+          'expansion=none',
+          `fontcolor=${primaryColor}`,
+          `fontsize=${fontSize}`,
+          `borderw=${borderWidth}`,
+          `bordercolor=${borderColor}`,
+          'box=1',
+          'boxcolor=black@0.58',
+          `boxborderw=${boxBorder}`,
+          'shadowcolor=black@0.9',
+          'shadowx=3',
+          'shadowy=3',
+          'x=(w-text_w)/2',
+          `y=${firstLineTop + lineIndex * lineHeight}`,
+          `enable='between(t,${seconds(cueStart)},${seconds(cueEnd)})'`,
+        ].join(':')
+      );
+    });
+
+    if (cueIndex >= MAX_HIGHLIGHT_CUES) return;
+    words.forEach((word, wordIndex) => {
+      const placement = placements.find(
+        (item) => wordIndex >= item.startWord && wordIndex < item.endWord
+      );
+      if (!placement) return;
+      const lineIndex = placements.indexOf(placement);
+      const before = words.slice(placement.startWord, wordIndex).map((item) => item.word.trim());
+      const offsetChars = before.length ? before.join(' ').length + 1 : 0;
+      const estimatedLineWidth = placement.line.length * charWidth;
+      const x = Math.round((width - estimatedLineWidth) / 2 + offsetChars * charWidth);
+      const start = cueStart + Math.max(0, word.start);
+      const end = Math.min(cueEnd, cueStart + Math.max(word.end, word.start + 0.08));
+      if (end <= start) return;
+      const name = `${prefix}word_${pad3(cueIndex)}_${pad3(wordIndex)}.txt`;
+      files.push({ name, text: word.word.trim() });
+      nodes.push(
+        [
+          `drawtext=fontfile=${CAPTION_FONT}`,
+          `textfile=${name}`,
+          'expansion=none',
+          `fontcolor=${activeColor}`,
+          `fontsize=${fontSize}`,
+          `borderw=${Math.max(1, Math.round(borderWidth * 0.6))}`,
+          `bordercolor=${borderColor}`,
+          'shadowcolor=black@0.9',
+          'shadowx=2',
+          'shadowy=2',
+          `x=${clamp(x, 0, Math.max(0, width - Math.round(charWidth)))}`,
+          `y=${firstLineTop + lineIndex * lineHeight}`,
+          `enable='between(t,${seconds(start)},${seconds(end)})'`,
+        ].join(':')
+      );
+    });
+  });
+
+  return { filter: nodes.join(','), files, hasCaptions: nodes.length > 0 };
 }
 
-/**
- * Maps standard hex colors to FFmpeg color syntax
- */
-function normalizeHexColor(hex: string): string {
-  if (!hex) return '0xFFFFFF';
-  const clean = hex.replace('#', '');
-  if (clean.length === 6) return `0x${clean}`;
-  if (clean.length === 8) return `0x${clean}`;
-  return '0xFFFFFF';
+interface Segment {
+  video: string;
+  audio: string;
+  duration: number;
 }
 
 /**
  * Compiles a full multi-track TimelineProject into an FFmpeg -filter_complex graph.
+ *
+ * Every frame and every audio sample is addressed by its timeline time. Nothing here depends on a
+ * browser tab staying awake, a video element seeking accurately, or a MediaRecorder clock.
  */
 export function compileTimelineToFiltergraph(
   project: TimelineProject,
   options: FilterCompilerOptions = {}
 ): CompiledFiltergraph {
   const inputVideoFileName = options.inputVideoFileName || 'input.mp4';
-  const targetWidth = Math.trunc((options.width || project.projectMetadata.width || 1080) / 2) * 2;
-  const targetHeight = Math.trunc((options.height || project.projectMetadata.height || 1920) / 2) * 2;
-  const fps = options.fps || project.projectMetadata.frameRate || 30;
+  const targetWidth = even(options.width || project.projectMetadata.width || 1080);
+  const targetHeight = even(options.height || project.projectMetadata.height || 1920);
+  const fps = Math.max(1, options.fps || project.projectMetadata.frameRate || 30);
+  const prefix = options.captionFilePrefix || '';
 
-  const videoTrack = project.tracks.find((t) => t.type === 'video');
-  const sfxTrack = project.tracks.find((t) => t.type === 'sfx');
-  const textTrack = project.tracks.find((t) => t.type === 'text');
-  const videoClips = (videoTrack?.clips || []) as VideoClip[];
-  const brollTrack = project.tracks.find((t) => t.id === 'track-broll');
-  const brollClips = (!brollTrack?.isMuted ? (brollTrack?.clips || []) : []) as VideoClip[];
+  const videoTrack = project.tracks.find((track) => track.type === 'video');
+  const sfxTrack = project.tracks.find((track) => track.type === 'sfx');
+  const textTrack = project.tracks.find((track) => track.type === 'text');
+  const brollTrack = project.tracks.find((track) => track.id === 'track-broll');
+  const videoClips = ((videoTrack?.clips || []) as VideoClip[])
+    .filter((clip) => clip.duration > 0)
+    .sort((a, b) => a.startOnTimeline - b.startOnTimeline);
+  const brollClips = ((!brollTrack?.isMuted ? brollTrack?.clips : []) || []) as VideoClip[];
+  const textClips = ((textTrack?.clips || []) as TextClip[]).filter((clip) => clip.duration > 0);
 
-  // Collect distinct video files from primary video clips and b-roll clips
+  const lastClip = videoClips[videoClips.length - 1];
+  const declaredDuration = project.projectMetadata.totalDuration;
+  const fallbackDuration = lastClip ? lastClip.startOnTimeline + lastClip.duration : 5;
+  const totalDuration = Math.max(
+    0.1,
+    Number((declaredDuration || fallbackDuration || 5).toFixed(3)) || 0.1
+  );
+
+  // Collect distinct source files first: an input index must never change because a caption was added.
   const requiredVideoFiles: Array<{ fileName: string; sourceUrl: string; inputIndex: number }> = [];
-  const videoUrlToInputIndex = new Map<string, number>();
+  const sourceIndex = new Map<string, number>();
+  const registerSource = (sourceUrl: string, index: number, fileName: string) => {
+    requiredVideoFiles.push({ fileName, sourceUrl, inputIndex: index });
+    sourceIndex.set(sourceUrl, index);
+  };
 
-  videoClips.forEach((c) => {
-    const url = c.sourceUrl || options.inputVideoFileName || 'input.mp4';
-    if (!videoUrlToInputIndex.has(url)) {
-      const idx = requiredVideoFiles.length;
-      const fileName = idx === 0 ? (options.inputVideoFileName || 'input.mp4') : `input_${idx}.mp4`;
-      requiredVideoFiles.push({ fileName, sourceUrl: url, inputIndex: idx });
-      videoUrlToInputIndex.set(url, idx);
+  videoClips.forEach((clip) => {
+    const url = clip.sourceUrl || inputVideoFileName;
+    if (!sourceIndex.has(url)) {
+      const index = requiredVideoFiles.length;
+      registerSource(url, index, index === 0 ? inputVideoFileName : `input_${index}.mp4`);
     }
   });
-
-  brollClips.forEach((c) => {
-    const url = c.sourceUrl;
-    if (url && !videoUrlToInputIndex.has(url)) {
-      const idx = requiredVideoFiles.length;
-      const fileName = `broll_${idx}.mp4`;
-      requiredVideoFiles.push({ fileName, sourceUrl: url, inputIndex: idx });
-      videoUrlToInputIndex.set(url, idx);
+  brollClips.forEach((clip) => {
+    if (clip.sourceUrl && !sourceIndex.has(clip.sourceUrl)) {
+      const index = requiredVideoFiles.length;
+      registerSource(clip.sourceUrl, index, `broll_${index}.mp4`);
     }
   });
-
   if (requiredVideoFiles.length === 0) {
-    const defaultName = options.inputVideoFileName || 'input.mp4';
-    requiredVideoFiles.push({ fileName: defaultName, sourceUrl: defaultName, inputIndex: 0 });
-    videoUrlToInputIndex.set(defaultName, 0);
+    registerSource(inputVideoFileName, 0, inputVideoFileName);
   }
 
   const inputArgs: string[] = [];
-  const inputIndexMap = new Map<string, number>();
+  requiredVideoFiles.forEach((file) => inputArgs.push('-i', file.fileName));
 
-  requiredVideoFiles.forEach((v) => {
-    inputArgs.push('-i', v.fileName);
-    inputIndexMap.set(`video_${v.inputIndex}`, v.inputIndex);
-  });
+  const inputIndexMap = new Map<string, number>();
+  requiredVideoFiles.forEach((file) => inputIndexMap.set(`video_${file.inputIndex}`, file.inputIndex));
   inputIndexMap.set('primary_video', 0);
 
   const filterSteps: string[] = [];
+  const sourceAudio = options.sourceHasAudio || {};
+  const hasAudio = (sourceUrl: string, fileName: string) => sourceAudio[sourceUrl] ?? sourceAudio[fileName] ?? false;
 
-  // Collect SFX assets needed
-  const requiredSfxFilesSet = new Set<string>();
-  const sfxClips: SFXClip[] = [];
-  if (sfxTrack && !sfxTrack.isMuted) {
-    sfxTrack.clips.forEach((c) => {
-      const sfx = c as SFXClip;
-      const assetId = sfx.sfxAssetId || 'pop';
-      const fileName = `sfx_${assetId}.wav`;
-      requiredSfxFilesSet.add(fileName);
-      sfxClips.push(sfx);
-    });
-  }
+  const audioFormat = 'aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo';
+  const silence = (duration: number, label: string) =>
+    `anullsrc=r=44100:cl=stereo:d=${seconds(duration)},${audioFormat}[${label}]`;
 
-  // Register SFX inputs in ffmpeg inputArgs (offset after all video inputs)
-  const sfxInputIndices = new Map<string, number>();
-  let nextInputIdx = requiredVideoFiles.length;
-  for (const sfxFileName of requiredSfxFilesSet) {
-    inputArgs.push('-i', sfxFileName);
-    sfxInputIndices.set(sfxFileName, nextInputIdx);
-    nextInputIdx++;
-  }
-
-  // Register Background Music (BGM) input if active
-  const bgmAssetId = project.globalAudioTracks?.backgroundMusicAssetId;
-  let bgmInputIdx: number | null = null;
-  if (bgmAssetId) {
-    const bgmFileName = `bgm_${bgmAssetId}.wav`;
-    requiredSfxFilesSet.add(bgmFileName);
-    inputArgs.push('-i', bgmFileName);
-    bgmInputIdx = nextInputIdx;
-    nextInputIdx++;
-  }
-
-  // 1. Process Video Clips with normalized sequential labels
-  const videoSegmentLabels: string[] = [];
-  const audioSegmentLabels: string[] = [];
-
-  if (videoClips.length === 0) {
-    const totalDur = Math.max(1, project.projectMetadata.totalDuration || 5);
-    filterSteps.push(
-      `color=c=black:s=${targetWidth}x${targetHeight}:r=${fps}:d=${totalDur}[v_fallback]`,
-      `anullsrc=r=44100:cl=stereo:d=${totalDur}[a_fallback]`
-    );
-    videoSegmentLabels.push('[v_fallback]');
-    audioSegmentLabels.push('[a_fallback]');
-  } else {
-    videoClips.forEach((clip, index) => {
-      const vLabel = `[v_seg_${index}]`;
-      const aLabel = `[a_seg_${index}]`;
-      const speed = Math.max(0.25, Math.min(4.0, clip.speedMultiplier || 1.0));
-      const sourceStart = Math.max(0, clip.sourceStartOffset);
-      const originalSourceDuration = clip.duration * speed;
-      const sourceEnd = sourceStart + originalSourceDuration;
-
-      let zoomScale = 1.0;
-      if (clip.keyframes && clip.keyframes.length > 0) {
-        const punchKeyframe = clip.keyframes.find((kf) => kf.scale > 1.05);
-        if (punchKeyframe) {
-          zoomScale = Math.min(2.0, punchKeyframe.scale);
-        }
-      }
-
-      const vFilters: string[] = [
-        `trim=start=${sourceStart.toFixed(3)}:end=${sourceEnd.toFixed(3)}`,
-        `setpts=PTS-STARTPTS`,
-      ];
-
-      if (Math.abs(speed - 1.0) > 0.01) {
-        vFilters.push(`setpts=PTS/${speed.toFixed(3)}`);
-      }
-
-      // Enforce even dimension alignment for H.264 encoder
-      if (zoomScale > 1.05) {
-        const cropW = Math.trunc((targetWidth / zoomScale) / 2) * 2;
-        const cropH = Math.trunc((targetHeight / zoomScale) / 2) * 2;
-        vFilters.push(
-          `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease`,
-          `scale=trunc(iw/2)*2:trunc(ih/2)*2`,
-          `pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2:color=black`,
-          `crop=${cropW}:${cropH}:(in_w-${cropW})/2:(in_h-${cropH})/2`,
-          `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease`,
-          `scale=trunc(iw/2)*2:trunc(ih/2)*2`
-        );
-      } else {
-        vFilters.push(
-          `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease`,
-          `scale=trunc(iw/2)*2:trunc(ih/2)*2`,
-          `pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2:color=black`
-        );
-      }
-
-      const clipSource = clip.sourceUrl || requiredVideoFiles[0].sourceUrl;
-      const inIdx = videoUrlToInputIndex.get(clipSource) ?? 0;
-
-      vFilters.push(`fps=${fps}`);
-      filterSteps.push(`[${inIdx}:v]${vFilters.join(',')}${vLabel}`);
-      videoSegmentLabels.push(vLabel);
-
-      const aFilters: string[] = [
-        `atrim=start=${sourceStart.toFixed(3)}:end=${sourceEnd.toFixed(3)}`,
-        `asetpts=PTS-STARTPTS`,
-      ];
-
-      if (Math.abs(speed - 1.0) > 0.01) {
-        if (speed >= 0.5 && speed <= 2.0) {
-          aFilters.push(`atempo=${speed.toFixed(3)}`);
-        } else if (speed > 2.0) {
-          aFilters.push(`atempo=2.0,atempo=${(speed / 2.0).toFixed(3)}`);
-        } else if (speed < 0.5) {
-          aFilters.push(`atempo=0.5,atempo=${(speed / 0.5).toFixed(3)}`);
-        }
-      }
-
-      if (videoTrack?.isMuted) {
-        aFilters.push('volume=0.0');
-      } else if (clip.audioModifiers) {
-        const vol = clip.audioModifiers.volume ?? 1.0;
-        if (Math.abs(vol - 1.0) > 0.01) {
-          aFilters.push(`volume=${vol.toFixed(2)}`);
-        }
-      }
-
-      filterSteps.push(`[${inIdx}:a]${aFilters.join(',')}${aLabel}`);
-      audioSegmentLabels.push(aLabel);
-    });
-  }
-
-  // 2. Concatenate Video & Audio Segments (Standard Concat or xfade Visual Transitions)
-  let currentVideoOut = '[v_concat]';
-  let currentAudioOut = '[a_concat]';
-
-  const hasAnyTransition = videoClips.some(
-    (c, idx) => idx > 0 && c.transition?.type && c.transition.type !== 'none'
-  );
-
-  if (videoSegmentLabels.length === 1) {
-    currentVideoOut = videoSegmentLabels[0];
-    currentAudioOut = audioSegmentLabels[0];
-  } else if (!hasAnyTransition) {
-    // Ultra-fast standard concatenation when no transitions are specified
-    const concatInputs = videoSegmentLabels
-      .map((v, i) => `${v}${audioSegmentLabels[i]}`)
-      .join('');
-    filterSteps.push(
-      `${concatInputs}concat=n=${videoSegmentLabels.length}:v=1:a=1${currentVideoOut}${currentAudioOut}`
-    );
-  } else {
-    // Dynamic xfade transition chain
-    let prevV = videoSegmentLabels[0];
-    let prevA = audioSegmentLabels[0];
-    let accumulatedDuration = Math.max(0.1, videoClips[0].duration);
-
-    for (let i = 1; i < videoClips.length; i++) {
-      const clip = videoClips[i];
-      const trans = clip.transition;
-      const isTransActive = trans && trans.type && trans.type !== 'none';
-      const transType = isTransActive
-        ? trans.type === 'flash'
-          ? 'fadewhite'
-          : trans.type
-        : 'fade';
-
-      const transDur = isTransActive
-        ? Math.min(
-            Math.min(clip.duration * 0.45, videoClips[i - 1].duration * 0.45),
-            Math.max(0.1, trans.durationSec || 0.3)
-          )
-        : 0.005;
-
-      const offset = Math.max(0, accumulatedDuration - transDur);
-      const outV = i === videoClips.length - 1 ? '[v_concat]' : `[v_xfade_${i}]`;
-      const outA = i === videoClips.length - 1 ? '[a_concat]' : `[a_xfade_${i}]`;
-
-      filterSteps.push(
-        `${prevV}${videoSegmentLabels[i]}xfade=transition=${transType}:duration=${transDur.toFixed(
-          3
-        )}:offset=${offset.toFixed(3)}${outV}`
+  const fitFrame = (zoom = 1) => {
+    const steps = [
+      `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase`,
+      `crop=${targetWidth}:${targetHeight}`,
+      'setsar=1',
+    ];
+    if (zoom > 1.05) {
+      steps.push(
+        `crop=w=${even(targetWidth / zoom)}:h=${even(targetHeight / zoom)}:x=(iw-ow)/2:y=(ih-oh)/2`,
+        `scale=${targetWidth}:${targetHeight}`
       );
-      filterSteps.push(
-        `${prevA}${audioSegmentLabels[i]}acrossfade=d=${transDur.toFixed(3)}${outA}`
-      );
+    }
+    steps.push(`fps=${fps}`);
+    return steps.join(',');
+  };
 
-      accumulatedDuration = offset + clip.duration;
-      prevV = outV;
-      prevA = outA;
+  // 1. Primary video segments, including honest black/silent gaps where the EDL has holes.
+  const segments: Segment[] = [];
+  let cursor = 0;
+  videoClips.forEach((clip, index) => {
+    const start = Math.max(0, clip.startOnTimeline);
+    const end = Math.min(totalDuration, start + clip.duration);
+    if (end <= start) return;
+    if (start - cursor > 0.02) {
+      const gapDuration = start - cursor;
+      const gapIndex = `gap_${index}`;
+      filterSteps.push(
+        `color=c=black:s=${targetWidth}x${targetHeight}:r=${fps}:d=${seconds(gapDuration)}[v_${gapIndex}]`,
+        silence(gapDuration, `a_${gapIndex}`)
+      );
+      segments.push({ video: `[v_${gapIndex}]`, audio: `[a_${gapIndex}]`, duration: gapDuration });
     }
 
+    const duration = end - start;
+    const speed = clamp(clip.speedMultiplier || 1, 0.25, 4);
+    const sourceSpan = Math.max(0.04, duration * speed);
+    const sourceStart = Math.max(0, clip.sourceStartOffset);
+    const sourceUrl = clip.sourceUrl || inputVideoFileName;
+    const inputIndex = sourceIndex.get(sourceUrl) ?? 0;
+    const sourceFile = requiredVideoFiles[inputIndex];
+    const zoom = clip.keyframes?.reduce((max, keyframe) => Math.max(max, keyframe.scale || 1), 1) ?? 1;
+
+    const vLabel = `v_seg_${index}`;
+    filterSteps.push(
+      `[${inputIndex}:v:0]trim=start=${seconds(sourceStart)}:duration=${seconds(sourceSpan)},setpts=PTS-STARTPTS${
+        speed !== 1 ? `,setpts=PTS/${speed.toFixed(3)}` : ''
+      },${fitFrame(zoom)},trim=duration=${seconds(duration)},setpts=PTS-STARTPTS[${vLabel}]`
+    );
+
+    const aLabel = `a_seg_${index}`;
+    if (hasAudio(sourceUrl, sourceFile.fileName) && !videoTrack?.isMuted) {
+      const volume = (videoTrack?.volume ?? 1) * (clip.audioModifiers?.volume ?? 1);
+      const chain = [
+        `[${inputIndex}:a:0]atrim=start=${seconds(sourceStart)}:duration=${seconds(sourceSpan)}`,
+        'asetpts=PTS-STARTPTS',
+        ...atempoFilters(speed),
+        ...(Math.abs(volume - 1) > 0.001 ? [`volume=${volume.toFixed(3)}`] : []),
+        `atrim=duration=${seconds(duration)}`,
+        'asetpts=PTS-STARTPTS',
+        audioFormat,
+        `[${aLabel}]`,
+      ];
+      filterSteps.push(chain.join(','));
+    } else {
+      filterSteps.push(silence(duration, aLabel));
+    }
+    segments.push({ video: `[${vLabel}]`, audio: `[${aLabel}]`, duration });
+    cursor = end;
+  });
+
+  if (segments.length === 0 || totalDuration - cursor > 0.02) {
+    const duration = segments.length === 0 ? totalDuration : totalDuration - cursor;
+    filterSteps.push(
+      `color=c=black:s=${targetWidth}x${targetHeight}:r=${fps}:d=${seconds(duration)}[v_tail]`,
+      silence(duration, 'a_tail')
+    );
+    segments.push({ video: '[v_tail]', audio: '[a_tail]', duration });
+  }
+
+  // 2. Concatenate on the timeline clock. A straight cut is more faithful to the EDL than a
+  // crossfade that silently shortens the declared duration.
+  let currentVideoOut = segments[0].video;
+  let currentAudioOut = segments[0].audio;
+  if (segments.length > 1) {
     currentVideoOut = '[v_concat]';
     currentAudioOut = '[a_concat]';
+    const concatInputs = segments.map((segment) => `${segment.video}${segment.audio}`).join('');
+    filterSteps.push(
+      `${concatInputs}concat=n=${segments.length}:v=1:a=1${currentVideoOut}${currentAudioOut}`
+    );
   }
 
-  // 2b. Overlay B-Roll Clips on top of concatenated video
-  if (brollClips.length > 0) {
-    brollClips.forEach((bClip, bIdx) => {
-      const bSource = bClip.sourceUrl;
-      if (!bSource) return;
-      const bInIdx = videoUrlToInputIndex.get(bSource) ?? 0;
-      const bStart = Math.max(0, bClip.startOnTimeline).toFixed(3);
-      const bEnd = Math.max(0, bClip.startOnTimeline + bClip.duration).toFixed(3);
-      const bOffset = Math.max(0, bClip.sourceStartOffset || 0).toFixed(3);
-      const bDur = Math.max(0.1, bClip.duration).toFixed(3);
+  // 3. B-roll overlays are shifted onto their timeline start before the overlay window runs.
+  brollClips.forEach((clip, index) => {
+    if (!clip.sourceUrl || clip.duration <= 0) return;
+    const inputIndex = sourceIndex.get(clip.sourceUrl) ?? 0;
+    const start = Math.max(0, clip.startOnTimeline);
+    const end = Math.min(totalDuration, start + clip.duration);
+    if (end <= start) return;
+    const bStart = seconds(start);
+    const bEnd = seconds(end);
+    const bDuration = seconds(end - start);
+    const sourceStart = Math.max(0, clip.sourceStartOffset);
+    const bLabel = `v_broll_${index}`;
+    const outLabel = `v_broll_out_${index}`;
+    filterSteps.push(
+      `[${inputIndex}:v:0]trim=start=${seconds(sourceStart)}:duration=${bDuration},setpts=PTS-STARTPTS+${bStart}/TB,${fitFrame()}[${bLabel}]`,
+      `${currentVideoOut}[${bLabel}]overlay=enable='between(t,${bStart},${bEnd})':shortest=0[${outLabel}]`
+    );
+    currentVideoOut = `[${outLabel}]`;
+  });
 
-      const bPrepLabel = `[v_broll_prep_${bIdx}]`;
-      const bOutLabel = `[v_broll_out_${bIdx}]`;
-
-      filterSteps.push(
-        `[${bInIdx}:v]trim=start=${bOffset}:duration=${bDur},setpts=PTS-STARTPTS,scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=${fps}${bPrepLabel}`
-      );
-      filterSteps.push(
-        `${currentVideoOut}${bPrepLabel}overlay=enable='between(t,${bStart},${bEnd})':shortest=0${bOutLabel}`
-      );
-      currentVideoOut = bOutLabel;
-    });
-  }
-
-  // 3. Burn-in Kinetic Captions Overlay
-  const textClips = (textTrack?.clips || []) as TextClip[];
-  if (textTrack && !textTrack.isMuted && textClips.length > 0) {
-    let prevVideoStage = currentVideoOut;
-
-    textClips.forEach((tClip, idx) => {
-      const textStageOut = `[v_text_${idx}]`;
-      const cleanText = escapeFFmpegText(tClip.content || '');
-      const startSec = Math.max(0, tClip.startOnTimeline).toFixed(3);
-      const endSec = Math.max(0, tClip.startOnTimeline + tClip.duration).toFixed(3);
-      const isWidescreen = targetWidth > targetHeight;
-      const minDim = Math.min(targetWidth, targetHeight);
-      const fontScale = minDim / 1080;
-      let fontSize = Math.round(Math.max(18, Math.min(96, (tClip.style?.fontSize || 56) * fontScale)));
-
-      // If text line is long, gently reduce font size to prevent line clipping
-      if (cleanText.length > 28) {
-        fontSize = Math.round(fontSize * 0.85);
-      }
-
-      let yExpr = '(h-text_h)/2';
-      if (tClip.style?.position === 'top') {
-        yExpr = isWidescreen ? 'h*0.14' : 'h*0.18';
-      } else if (tClip.style?.position === 'bottom') {
-        yExpr = isWidescreen ? 'h*0.84' : 'h*0.78';
-      } else if (tClip.style?.position === 'middle') {
-        yExpr = '(h-text_h)/2';
-      }
-
-      const fontColor = normalizeHexColor(tClip.style?.colorHex || '#FFFF00');
-      const borderw = Math.max(0, tClip.style?.strokeWidth ?? 4);
-      const borderColor = normalizeHexColor(tClip.style?.strokeColorHex || '#000000');
-      const hasPill = !!tClip.style?.bannerPillColorHex || tClip.style?.animation === 'bannerPill';
-
-      const drawTextParams: string[] = [
-        `drawtext=fontfile='font.ttf'`,
-        `fontsize=${fontSize}`,
-        `text='${cleanText}'`,
-        `fontcolor=${fontColor}`,
-        `borderw=${borderw}`,
-        `bordercolor=${borderColor}`,
-        `shadowx=2`,
-        `shadowy=2`,
-        `shadowcolor=black@0.8`,
-        `x=(w-text_w)/2`,
-        `y=${yExpr}`,
-        `enable='between(t\\,${startSec}\\,${endSec})'`,
-      ];
-
-      if (hasPill) {
-        drawTextParams.push('box=1', 'boxcolor=black@0.65', 'boxborderw=12');
-      }
-
-      const drawTextFilter = drawTextParams.join(':');
-
-      filterSteps.push(`${prevVideoStage}${drawTextFilter}${textStageOut}`);
-      prevVideoStage = textStageOut;
-    });
-
-    currentVideoOut = prevVideoStage;
+  const captionOverlay = buildCaptionOverlay(textClips, targetWidth, targetHeight, prefix);
+  if (captionOverlay.hasCaptions) {
+    const captionedLabel = '[v_captioned]';
+    filterSteps.push(`${currentVideoOut}${captionOverlay.filter}[v_captioned]`);
+    currentVideoOut = captionedLabel;
   }
 
   filterSteps.push(`${currentVideoOut}format=yuv420p[vout]`);
 
-  // 4. Audio Mixing with Delayed SFX Overlays & Ducked Background Music
+  // 4. Audio mix. SFX and BGM stay in the export even when the source itself was silent.
   const audioMixInputs: string[] = [currentAudioOut];
-  const totalDuration = Math.max(0.1, Number((project.projectMetadata.totalDuration || 1).toFixed(3)));
+  const bgmAssetId = project.globalAudioTracks?.backgroundMusicAssetId;
+  let bgmInputIndex: number | null = null;
+  const requiredSfxFiles = new Set<string>();
+  const sfxClips = (!sfxTrack?.isMuted ? ((sfxTrack?.clips || []) as SFXClip[]) : []).filter(
+    (clip) => clip.duration > 0
+  );
 
-  // If BGM is enabled, loop and dynamically duck under speech audio
-  if (bgmInputIdx !== null && bgmAssetId) {
-    const bgmVol = Math.max(0.01, Math.min(1.0, project.globalAudioTracks.bgmVolume || 0.25));
-    const isDucking = project.globalAudioTracks.duckingEnabled ?? true;
+  sfxClips.forEach((clip) => {
+    requiredSfxFiles.add(`sfx_${clip.sfxAssetId || 'pop'}.wav`);
+  });
+  if (bgmAssetId) {
+    requiredSfxFiles.add(`bgm_${bgmAssetId}.wav`);
+    // BGM is appended before the SFX inputs, whatever the set's insertion order was.
+    bgmInputIndex = requiredVideoFiles.length;
+    inputArgs.push('-i', `bgm_${bgmAssetId}.wav`);
+  }
+  const sfxInputIndices = new Map<string, number>();
+  let nextInputIndex = requiredVideoFiles.length + (bgmInputIndex === null ? 0 : 1);
+  sfxClips.forEach((clip) => {
+    const fileName = `sfx_${clip.sfxAssetId || 'pop'}.wav`;
+    inputArgs.push('-i', fileName);
+    sfxInputIndices.set(fileName, nextInputIndex++);
+  });
 
-    if (isDucking && videoClips.length > 0 && !videoTrack?.isMuted) {
+  if (bgmInputIndex !== null && bgmAssetId) {
+    const volume = clamp(project.globalAudioTracks.bgmVolume ?? 0.25, 0.01, 1);
+    const ducking = project.globalAudioTracks.duckingEnabled ?? true;
+    if (ducking && segments.length > 0) {
       filterSteps.push(
         `${currentAudioOut}asplit=2[a_speech_mix][a_speech_sc]`,
-        `[${bgmInputIdx}:a]aloop=loop=-1:size=2e+09,atrim=0:${totalDuration.toFixed(3)},volume=${bgmVol.toFixed(2)}[bgm_raw]`,
+        `[${bgmInputIndex}:a:0]aloop=loop=-1:size=2e+09,atrim=0:${seconds(totalDuration)},volume=${volume.toFixed(3)}[bgm_raw]`,
         `[bgm_raw][a_speech_sc]sidechaincompress=threshold=0.08:ratio=4:attack=60:release=350[bgm_ducked]`
       );
       audioMixInputs[0] = '[a_speech_mix]';
       audioMixInputs.push('[bgm_ducked]');
     } else {
       filterSteps.push(
-        `[${bgmInputIdx}:a]aloop=loop=-1:size=2e+09,atrim=0:${totalDuration.toFixed(3)},volume=${bgmVol.toFixed(2)}[bgm_unducked]`
+        `[${bgmInputIndex}:a:0]aloop=loop=-1:size=2e+09,atrim=0:${seconds(totalDuration)},volume=${volume.toFixed(3)}[bgm_plain]`
       );
-      audioMixInputs.push('[bgm_unducked]');
+      audioMixInputs.push('[bgm_plain]');
     }
   }
 
-  if (sfxClips.length > 0) {
-    sfxClips.forEach((sfx, idx) => {
-      const fileName = `sfx_${sfx.sfxAssetId || 'pop'}.wav`;
-      const inIdx = sfxInputIndices.get(fileName);
-      if (inIdx !== undefined) {
-        const sfxLabel = `[sfx_delayed_${idx}]`;
-        const delayMs = Math.max(0, Math.round(sfx.startOnTimeline * 1000));
-        const vol = sfx.audioModifiers?.volume ?? 1.0;
-
-        filterSteps.push(
-          `[${inIdx}:a]adelay=${delayMs}:all=1,volume=${vol.toFixed(2)}${sfxLabel}`
-        );
-        audioMixInputs.push(sfxLabel);
-      }
-    });
-  }
+  sfxClips.forEach((clip, index) => {
+    const fileName = `sfx_${clip.sfxAssetId || 'pop'}.wav`;
+    const inputIndex = sfxInputIndices.get(fileName);
+    if (inputIndex === undefined) return;
+    const volume = clip.audioModifiers?.volume ?? 1;
+    filterSteps.push(
+      `[${inputIndex}:a:0]adelay=${Math.max(0, Math.round(clip.startOnTimeline * 1000))}:all=1,volume=${volume.toFixed(3)},atrim=0:${seconds(clip.duration)},${audioFormat}[sfx_out_${index}]`
+    );
+    audioMixInputs.push(`[sfx_out_${index}]`);
+  });
 
   if (audioMixInputs.length === 1) {
     filterSteps.push(
-      `${currentAudioOut}atrim=0:${totalDuration.toFixed(3)},aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[aout]`
+      `${currentAudioOut}atrim=0:${seconds(totalDuration)},${audioFormat}[aout]`
     );
   } else {
-    const inputsStr = audioMixInputs.join('');
-    // normalize=0 prevents FFmpeg amix from dividing volume by number of inputs (1/N), keeping dialogue at 100% full clarity
     filterSteps.push(
-      `${inputsStr}amix=inputs=${audioMixInputs.length}:duration=longest:dropout_transition=0:normalize=0,atrim=0:${totalDuration.toFixed(3)},aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[aout]`
+      `${audioMixInputs.join('')}amix=inputs=${audioMixInputs.length}:duration=longest:dropout_transition=0:normalize=0,atrim=0:${seconds(totalDuration)},${audioFormat}[aout]`
     );
   }
-
-  const filterComplex = filterSteps.join(';');
 
   return {
     inputArgs,
     inputIndexMap,
-    filterComplex,
+    filterComplex: filterSteps.join(';'),
     outputVideoLabel: '[vout]',
     outputAudioLabel: '[aout]',
     requiredVideoFiles,
-    requiredSfxFiles: Array.from(requiredSfxFilesSet),
-    totalDuration: project.projectMetadata.totalDuration || 1,
+    requiredSfxFiles: Array.from(requiredSfxFiles),
+    requiredCaptionFiles: captionOverlay.files.map((file) => file.name),
+    captionFiles: captionOverlay.files,
+    hasCaptions: captionOverlay.hasCaptions,
+    totalDuration,
   };
 }
 
-/**
- * Checks whether a TimelineProject is longer than threshold (default 60s)
- * requiring chunked segment export to conserve WebAssembly RAM.
- */
+/** Long projects are compiled in windows so WebAssembly does not have to hold an entire render at once. */
 export function isChunkedProcessingRequired(project: TimelineProject, thresholdSec = 60): boolean {
-  const dur = project.projectMetadata.totalDuration || 0;
-  return dur > thresholdSec;
+  return (project.projectMetadata.totalDuration || 0) > thresholdSec;
 }
 
 export interface ChunkedFiltergraphPlan {
@@ -496,95 +535,84 @@ export interface ChunkedFiltergraphPlan {
   };
 }
 
-/**
- * Compiles a long project into sequential intermediate segments (< 45s each)
- * before a final concat pass to prevent WebAssembly RAM exhaustion.
- */
 export function compileChunkedTimelineFiltergraphs(
   project: TimelineProject,
   options: FilterCompilerOptions & { maxChunkDurationSec?: number } = {}
 ): ChunkedFiltergraphPlan {
-  const totalDur = project.projectMetadata.totalDuration || 0;
-  const chunkDur = options.maxChunkDurationSec || 45;
+  const totalDuration = project.projectMetadata.totalDuration || 0;
+  const chunkDuration = options.maxChunkDurationSec || 45;
 
-  if (totalDur <= 60) {
-    const single = compileTimelineToFiltergraph(project, options);
+  if (totalDuration <= 60) {
     return {
       isChunked: false,
       chunks: [
         {
           chunkIndex: 0,
           startTime: 0,
-          endTime: totalDur,
-          filtergraph: single,
+          endTime: totalDuration,
+          filtergraph: compileTimelineToFiltergraph(project, options),
           outputFileName: 'chunk_0.mp4',
         },
       ],
     };
   }
 
-  const numChunks = Math.ceil(totalDur / chunkDur);
+  const chunkCount = Math.ceil(totalDuration / chunkDuration);
   const chunks: ChunkedFiltergraphPlan['chunks'] = [];
 
-  for (let c = 0; c < numChunks; c++) {
-    const startTime = c * chunkDur;
-    const endTime = Math.min(totalDur, (c + 1) * chunkDur);
-
-    // Create a sub-project scoped to this chunk window
+  for (let index = 0; index < chunkCount; index++) {
+    const startTime = index * chunkDuration;
+    const endTime = Math.min(totalDuration, (index + 1) * chunkDuration);
     const chunkProject: TimelineProject = {
       ...project,
       projectMetadata: {
         ...project.projectMetadata,
         totalDuration: endTime - startTime,
       },
-      tracks: project.tracks.map((tr) => ({
-        ...tr,
-        clips: tr.clips
+      tracks: project.tracks.map((track) => ({
+        ...track,
+        clips: track.clips
           .filter((clip) => clip.startOnTimeline + clip.duration > startTime && clip.startOnTimeline < endTime)
           .map((clip) => {
-            const clipStart = Math.max(0, clip.startOnTimeline - startTime);
-            const clipDur = Math.min(clip.duration, endTime - (clip.startOnTimeline));
+            const clipStart = Math.max(clip.startOnTimeline, startTime);
+            const clipEnd = Math.min(clip.startOnTimeline + clip.duration, endTime);
+            const speed = 'speedMultiplier' in clip ? clip.speedMultiplier || 1 : 1;
             return {
               ...clip,
-              startOnTimeline: clipStart,
-              duration: clipDur,
+              startOnTimeline: clipStart - startTime,
+              duration: Math.max(0.04, clipEnd - clipStart),
+              sourceStartOffset:
+                (clip.sourceStartOffset || 0) + (clipStart - clip.startOnTimeline) * speed,
             };
           }),
       })),
     };
 
-    const fg = compileTimelineToFiltergraph(chunkProject, options);
     chunks.push({
-      chunkIndex: c,
+      chunkIndex: index,
       startTime,
       endTime,
-      filtergraph: fg,
-      outputFileName: `chunk_${c}.mp4`,
+      filtergraph: compileTimelineToFiltergraph(chunkProject, {
+        ...options,
+        captionFilePrefix: `chunk_${index}_`,
+      }),
+      outputFileName: `chunk_${index}.mp4`,
     });
   }
 
-  // Final concatenation plan for the intermediate chunk outputs
-  const chunkInputArgs: string[] = [];
-  const chunkVideoInputs: string[] = [];
-  const chunkAudioInputs: string[] = [];
-
+  const inputArgs: string[] = [];
+  const concatInputs: string[] = [];
   chunks.forEach((chunk) => {
-    chunkInputArgs.push('-i', chunk.outputFileName);
-    chunkVideoInputs.push(`[${chunk.chunkIndex}:v]`);
-    chunkAudioInputs.push(`[${chunk.chunkIndex}:a]`);
+    inputArgs.push('-i', chunk.outputFileName);
+    concatInputs.push(`[${chunk.chunkIndex}:v:0][${chunk.chunkIndex}:a:0]`);
   });
-
-  const concatInputs = chunkVideoInputs
-    .map((v, i) => `${v}${chunkAudioInputs[i]}`)
-    .join('');
-  const finalFilterComplex = `${concatInputs}concat=n=${chunks.length}:v=1:a=1[vout][aout]`;
 
   return {
     isChunked: true,
     chunks,
     finalConcatFilter: {
-      inputArgs: chunkInputArgs,
-      filterComplex: finalFilterComplex,
+      inputArgs,
+      filterComplex: `${concatInputs.join('')}concat=n=${chunks.length}:v=1:a=1[vout][aout]`,
       outputVideoLabel: '[vout]',
       outputAudioLabel: '[aout]',
     },

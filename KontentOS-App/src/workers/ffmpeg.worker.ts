@@ -5,10 +5,13 @@
 
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
+import { compileTimelineToFiltergraph } from '../utils/ffmpegFilterCompiler';
 import { generateSyntheticSfxWav, generateSyntheticBgmWav } from '../utils/sfxBufferGenerator';
+import type { TimelineProject } from '../lib/timeline';
 
 let ffmpeg: FFmpeg | null = null;
 let isInitializing = false;
+const logCollectors = new Set<(message: string) => void>();
 
 const LOCAL_CORE_BASE = '/ffmpeg';
 const UNPKG_CORE_BASE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
@@ -39,6 +42,8 @@ async function initFFmpeg(): Promise<void> {
     });
 
     instance.on('log', ({ message }) => {
+      // Probe calls need the same log stream the UI sees, without a second FFmpeg instance.
+      for (const collect of logCollectors) collect(message);
       self.postMessage({
         type: 'LOG',
         message,
@@ -345,6 +350,198 @@ async function exportMP4(
 }
 
 /**
+ * A source with no audio track is not an error: a screen recording can be silent. The filtergraph
+ * still has to know, because a required `[0:a]` map would fail the whole export on such a file.
+ * Log probing is enough here and avoids a second ffprobe binary in the browser bundle.
+ */
+async function probeAudioStreams(fileNames: string[]): Promise<Record<string, boolean>> {
+  if (!ffmpeg) throw new Error('FFmpeg instance is unavailable');
+  const result: Record<string, boolean> = {};
+
+  for (const fileName of fileNames) {
+    const messages: string[] = [];
+    const collect = (message: string) => messages.push(message);
+    logCollectors.add(collect);
+    try {
+      // No output is intentional: FFmpeg prints its stream table and exits with code 1.
+      await ffmpeg.exec(['-hide_banner', '-i', fileName]);
+    } finally {
+      logCollectors.delete(collect);
+    }
+
+    const log = messages.join('\n');
+    const hasVideo = /Stream #\d+:\d+.*\bVideo:/.test(log);
+    const hasAudio = /Stream #\d+:\d+.*\bAudio:/.test(log);
+    if (!hasVideo && !hasAudio) {
+      throw new Error(`The source ${fileName} could not be inspected, so its audio track cannot be reported honestly.`);
+    }
+    result[fileName] = hasAudio;
+  }
+  return result;
+}
+
+interface TimelineExportRequest {
+  project: TimelineProject;
+  sourceBuffers: Array<{ fileName: string; sourceUrl: string; buffer: ArrayBuffer }>;
+  width?: number;
+  height?: number;
+  fps?: number;
+  crf?: number;
+}
+
+/**
+ * Renders an editor timeline straight from its EDL. Unlike the canvas recorder, every output frame
+ * is addressed by source time, so a throttled tab, slow seek or dropped animation frame cannot move
+ * a caption or a cut.
+ */
+async function exportTimeline(id: string, req: TimelineExportRequest): Promise<void> {
+  const writtenFiles: string[] = [];
+  let outputFileName = '';
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  const cleanup = async () => {
+    if (!ffmpeg?.loaded) return;
+    for (const name of writtenFiles) {
+      try { await ffmpeg.deleteFile(name); } catch { /* already gone */ }
+    }
+  };
+
+  try {
+    if (!ffmpeg || !ffmpeg.loaded) await initFFmpeg();
+    if (!ffmpeg) throw new Error('FFmpeg instance is unavailable');
+
+    self.postMessage({
+      type: 'EXPORT_PROGRESS', id, stage: 'preparing_assets', progress: 0.04,
+      message: 'Loading timeline sources into the render bench…',
+    });
+
+    for (const source of req.sourceBuffers) {
+      await ffmpeg.writeFile(source.fileName, new Uint8Array(source.buffer));
+      writtenFiles.push(source.fileName);
+    }
+
+    self.postMessage({
+      type: 'EXPORT_PROGRESS', id, stage: 'preparing_assets', progress: 0.09,
+      message: 'Checking which sources actually carry audio…',
+    });
+    const probed = await probeAudioStreams(req.sourceBuffers.map((source) => source.fileName));
+    const sourceHasAudio: Record<string, boolean> = {};
+    for (const source of req.sourceBuffers) {
+      const hasAudio = probed[source.fileName] ?? false;
+      sourceHasAudio[source.fileName] = hasAudio;
+      sourceHasAudio[source.sourceUrl] = hasAudio;
+    }
+
+    const compiled = compileTimelineToFiltergraph(req.project, {
+      width: req.width,
+      height: req.height,
+      fps: req.fps,
+      sourceHasAudio,
+    });
+
+    if (compiled.hasCaptions) {
+      // Words the creator can read in the editor must be in the file. A missing font or text file
+      // is an error, not a quiet export without captions.
+      const fontRes = await fetch('/fonts/font.ttf');
+      if (!fontRes.ok) throw new Error('The caption font could not be loaded, so captions could not be burned in.');
+      await ffmpeg.writeFile('font.ttf', new Uint8Array(await fontRes.arrayBuffer()));
+      writtenFiles.push('font.ttf');
+      for (const file of compiled.captionFiles) {
+        await ffmpeg.writeFile(file.name, new TextEncoder().encode(file.text));
+        writtenFiles.push(file.name);
+      }
+    }
+
+    for (const audioFileName of compiled.requiredSfxFiles) {
+      if (audioFileName.startsWith('bgm_')) {
+        const bgmId = audioFileName.replace(/^bgm_/, '').replace(/\.wav$/, '');
+        await ffmpeg.writeFile(audioFileName, generateSyntheticBgmWav(bgmId, Math.ceil(compiled.totalDuration) + 1));
+      } else {
+        const sfxId = audioFileName.replace(/^sfx_/, '').replace(/\.wav$/, '');
+        await ffmpeg.writeFile(audioFileName, generateSyntheticSfxWav(sfxId));
+      }
+      writtenFiles.push(audioFileName);
+    }
+
+    self.postMessage({
+      type: 'EXPORT_PROGRESS', id, stage: 'encoding', progress: 0.15,
+      message: `Rendering ${compiled.totalDuration.toFixed(1)}s frame-accurately as H.264…`,
+    });
+
+    outputFileName = `timeline_${Date.now()}.mp4`;
+    writtenFiles.push(outputFileName);
+    const execArgs = [
+      ...compiled.inputArgs,
+      '-filter_complex', compiled.filterComplex,
+      '-map', compiled.outputVideoLabel,
+      '-map', compiled.outputAudioLabel,
+      '-t', compiled.totalDuration.toFixed(3),
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-threads', '1',
+      '-pix_fmt', 'yuv420p',
+      '-crf', String(req.crf ?? 20),
+      '-c:a', 'aac',
+      '-b:a', '256k',
+      '-movflags', '+faststart',
+      '-avoid_negative_ts', 'make_zero',
+      '-y', outputFileName,
+    ];
+
+    const execPromise = ffmpeg.exec(execArgs);
+    const timeoutPromise = new Promise<number>((_, reject) => {
+      timeout = setTimeout(
+        () => reject(new Error('The frame-accurate render timed out after 120 seconds. Try a shorter timeline or a lower resolution.')),
+        120_000
+      );
+    });
+    const exitCode = await Promise.race([execPromise, timeoutPromise]);
+    if (timeout) clearTimeout(timeout);
+    timeout = null;
+    if (exitCode !== 0) {
+      throw new Error(`FFmpeg could not render the timeline (exit code ${exitCode}).`);
+    }
+
+    self.postMessage({
+      type: 'EXPORT_PROGRESS', id, stage: 'finalizing', progress: 0.95,
+      message: 'Writing the finished MP4…',
+    });
+    const outputData = await ffmpeg.readFile(outputFileName);
+    let outputBuffer: ArrayBuffer;
+    if (typeof outputData === 'string') {
+      outputBuffer = new TextEncoder().encode(outputData).buffer;
+    } else if (outputData instanceof Uint8Array) {
+      outputBuffer = outputData.buffer.slice(outputData.byteOffset, outputData.byteOffset + outputData.byteLength);
+    } else {
+      outputBuffer = (outputData as any).buffer || outputData;
+    }
+
+    if (outputBuffer.byteLength === 0) throw new Error('FFmpeg produced an empty MP4.');
+    await cleanup();
+
+    self.postMessage({
+      type: 'EXPORT_PROGRESS', id, stage: 'done', progress: 1,
+      message: 'Frame-accurate render finished.',
+    });
+    (self as any).postMessage(
+      {
+        type: 'EXPORT_SUCCESS', id, buffer: outputBuffer, byteLength: outputBuffer.byteLength,
+        fileName: 'kontentos_timeline.mp4', captionsBurned: compiled.hasCaptions,
+      },
+      [outputBuffer]
+    );
+  } catch (error: any) {
+    if (timeout) clearTimeout(timeout);
+    console.error('[FFmpeg Worker] Timeline export error:', error);
+    await cleanup();
+    self.postMessage({
+      type: 'EXPORT_ERROR', id,
+      error: error?.message || 'The frame-accurate export could not be completed.',
+    });
+  }
+}
+
+/**
  * Cuts one timecode span out of a source clip and re-encodes it as a standalone MP4.
  *
  * `-ss` sits before `-i` so ffmpeg seeks instead of decoding from the top of the file, and the
@@ -532,6 +729,17 @@ self.onmessage = async (event: MessageEvent) => {
       );
       break;
     }
+
+    case 'EXPORT_TIMELINE':
+      await exportTimeline(id, {
+        project: event.data.project,
+        sourceBuffers: event.data.sourceBuffers || [],
+        width: event.data.width,
+        height: event.data.height,
+        fps: event.data.fps,
+        crf: event.data.crf,
+      });
+      break;
 
     case 'CUT_SPAN':
       await cutSpan(

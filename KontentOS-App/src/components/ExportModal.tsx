@@ -4,6 +4,7 @@ import { Button, Eyebrow, Progress, StatusPill } from '@/components/ui';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { fmtBytes } from '@/lib/bench';
+import { exportTimeline } from '@/lib/browserExport';
 import type { TargetAspectRatio, TimelineProject, VideoClip, TextClip } from '@/lib/timeline';
 import {
   activeBrollClipAt,
@@ -42,6 +43,8 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
   const [renderedMimeType, setRenderedMimeType] = useState<string>('video/mp4');
   const [renderedSize, setRenderedSize] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [renderEngine, setRenderEngine] = useState<'ffmpeg' | 'canvas'>('ffmpeg');
+  const [ffmpegFailed, setFfmpegFailed] = useState(false);
 
   const duration = totalDuration(project);
   const clips = videoClips(project);
@@ -57,6 +60,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
   const audioDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const monitorGainRef = useRef<GainNode | null>(null);
   const detachVisibilityRef = useRef<(() => void) | null>(null);
+  const exportAbortRef = useRef<AbortController | null>(null);
 
   /**
    * One export owns one AudioContext and one document-level listener. A browser only allows a
@@ -74,6 +78,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
   useEffect(() => {
     return () => {
       isCancelledRef.current = true;
+      exportAbortRef.current?.abort();
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         try { mediaRecorderRef.current.stop(); } catch {}
       }
@@ -98,7 +103,8 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
     }
   }, [previewAudio]);
 
-  const handleStartExport = async () => {
+  /** Explicit fallback only. The primary path is the frame-accurate FFmpeg renderer below. */
+  const handleCanvasExport = async () => {
     if (!resolvedSourceUrl && clips.length === 0) {
       setErrorMsg('No video source found in the project to export.');
       return;
@@ -110,9 +116,10 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
     }
 
     isCancelledRef.current = false;
+    setRenderEngine('canvas');
     setRendering(true);
     setProgress(0.01);
-    setStageMsg('Initializing High-Definition Canvas & Multi-Track Audio Engine...');
+    setStageMsg('Initializing browser recorder fallback...');
     setErrorMsg(null);
 
     try {
@@ -680,6 +687,82 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
     }
   };
 
+  /** Default path: render the EDL itself with FFmpeg rather than recording a tab in real time. */
+  const handleStartExport = async () => {
+    if (!resolvedSourceUrl && clips.length === 0) {
+      setErrorMsg('No video source found in the project to export.');
+      return;
+    }
+
+    if (renderedBlobUrl) {
+      URL.revokeObjectURL(renderedBlobUrl);
+      setRenderedBlobUrl(null);
+    }
+
+    isCancelledRef.current = false;
+    setRenderEngine('ffmpeg');
+    setFfmpegFailed(false);
+    setRendering(true);
+    setProgress(0.01);
+    setStageMsg('Preparing frame-accurate render…');
+    setErrorMsg(null);
+
+    const controller = new AbortController();
+    exportAbortRef.current = controller;
+    const width = resolution === '9:16' ? 1080 : resolution === '1:1' ? 1080 : resolution === '4:5' ? 1080 : 1920;
+    const height = resolution === '9:16' ? 1920 : resolution === '1:1' ? 1080 : resolution === '4:5' ? 1350 : 1080;
+
+    try {
+      const result = await exportTimeline(
+        {
+          project,
+          defaultSourceUrl: resolvedSourceUrl,
+          width,
+          height,
+          fps,
+          crf: quality === 'high' ? 20 : 23,
+        },
+        (update) => {
+          if (update.fraction !== null) setProgress(update.fraction);
+          setStageMsg(update.message);
+        },
+        controller.signal
+      );
+
+      const blobUrl = URL.createObjectURL(result.blob);
+      setRenderedBlobUrl(blobUrl);
+      setRenderedMimeType('video/mp4');
+      setRenderedSize(result.byteLength || result.blob.size);
+      setProgress(1);
+      setStageMsg('Frame-accurate export complete.');
+    } catch (err: any) {
+      const message = err?.message || 'The frame-accurate export could not be completed.';
+      const cancelled = /cancel/i.test(message);
+      setErrorMsg(cancelled ? message : `${message} Nothing was downgraded automatically.`);
+      setFfmpegFailed(!cancelled);
+    } finally {
+      exportAbortRef.current = null;
+      setRendering(false);
+    }
+  };
+
+  const handleCancelRender = () => {
+    if (renderEngine === 'ffmpeg') {
+      exportAbortRef.current?.abort();
+      return;
+    }
+    isCancelledRef.current = true;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try { mediaRecorderRef.current.stop(); } catch { /* recorder already stopped */ }
+    }
+    if (videoElRef.current) {
+      try { videoElRef.current.pause(); } catch { /* element already gone */ }
+    }
+    sfxEngine.stopBGM();
+    if (audioDestRef.current) sfxEngine.disconnectFromDestination(audioDestRef.current);
+    releaseExportAudio();
+  };
+
   const handleDownload = () => {
     if (!renderedBlobUrl) return;
     const a = document.createElement('a');
@@ -761,13 +844,22 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
               <Icon name="error" size={16} className="shrink-0 mt-0.5" />
               <div className="flex-1">
                 <strong>Render notice:</strong> {errorMsg}
-                <div className="mt-2">
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                  {ffmpegFailed && (
+                    <button
+                      type="button"
+                      onClick={handleCanvasExport}
+                      className="underline font-semibold rounded px-0.5 transition-colors hover:bg-danger/15"
+                    >
+                      Try the browser recorder fallback →
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleDirectDownloadSource}
                     className="underline font-semibold rounded px-0.5 transition-colors hover:bg-danger/15"
                   >
-                    Click here to download source master directly →
+                    Download source master directly →
                   </button>
                 </div>
               </div>
@@ -823,11 +915,11 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                   <label className="kt-eyebrow block mb-1.5" htmlFor="export-quality">Quality Profile</label>
                   <Select value={quality} disabled={rendering} onValueChange={(v) => setQuality(v as 'standard' | 'high')}>
                     <SelectTrigger id="export-quality" size="sm" className="bg-surface-2 text-xs font-medium">
-                      <span className="truncate">{quality ==='high' ? 'High Fidelity Studio (8 Mbps)' : 'Balanced (4.5 Mbps)'}</span>
+                      <span className="truncate">{quality ==='high' ? 'High Fidelity Studio (CRF 20)' : 'Balanced (CRF 23)'}</span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="standard">Balanced (4.5 Mbps)</SelectItem>
-                      <SelectItem value="high">High Fidelity Studio (8 Mbps)</SelectItem>
+                      <SelectItem value="standard">Balanced (CRF 23)</SelectItem>
+                      <SelectItem value="high">High Fidelity Studio (CRF 20)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -857,29 +949,37 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                     barClassName="bg-primary duration-150!"
                   />
 
-                  {/* Live Preview Monitor */}
-                  <div className="flex items-center justify-between pt-1">
-                    <div className="max-w-[140px] mx-auto aspect-[9/16] bg-black rounded-lg overflow-hidden border border-line relative">
-                      <canvas
-                        ref={previewCanvasRef}
-                        width={270}
-                        height={480}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                  </div>
+                  {renderEngine === 'canvas' ? (
+                    <>
+                      {/* Live Preview Monitor, only meaningful for the real-time recorder fallback. */}
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="max-w-[140px] mx-auto aspect-[9/16] bg-black rounded-lg overflow-hidden border border-line relative">
+                          <canvas
+                            ref={previewCanvasRef}
+                            width={270}
+                            height={480}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-ink-dim pt-1 border-t border-line/50">
-                    <button
-                      type="button"
-                      onClick={() => setPreviewAudio(!previewAudio)}
-                      className="flex items-center gap-1 text-primary hover:underline font-medium"
-                    >
-                      <Icon name={previewAudio ? 'volume_up' : 'volume_off'} size={14} />
-                      <span>{previewAudio ? 'Speaker Preview (On)' : 'Mute Speaker Preview (Recording Audio is Active)'}</span>
-                    </button>
-                    <span className="font-mono">{Math.round(progress * duration)}s / {Math.round(duration)}s</span>
-                  </div>
+                      <div className="flex items-center justify-between text-[11px] text-ink-dim pt-1 border-t border-line/50">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewAudio(!previewAudio)}
+                          className="flex items-center gap-1 text-primary hover:underline font-medium"
+                        >
+                          <Icon name={previewAudio ? 'volume_up' : 'volume_off'} size={14} />
+                          <span>{previewAudio ? 'Speaker Preview (On)' : 'Mute Speaker Preview (Recording Audio is Active)'}</span>
+                        </button>
+                        <span className="font-mono">{Math.round(progress * duration)}s / {Math.round(duration)}s</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-[11px] text-ink-dim pt-1 border-t border-line/50">
+                      Frames are being written from the editor timeline, not recorded from a tab. Switching windows cannot change the result.
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -892,7 +992,9 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
               <div>
                 <h4 className="font-semibold text-base text-ink">Video Exported Successfully!</h4>
                 <p className="text-xs text-ink-muted mt-1">
-                  Your composition with burned-in kinetic subtitles, punch zooms, and synchronized audio is ready for download.
+                  {renderEngine === 'ffmpeg'
+                    ? 'Your timeline was rendered frame by frame from the source cuts, captions and audio — no real-time recording was involved.'
+                    : 'Your composition was captured with the browser recorder fallback.'}
                 </p>
                 {renderedSize && (
                   <span className="inline-block mt-2 text-[11px] font-mono font-medium text-ink-dim bg-surface px-2.5 py-1 rounded-full border border-line">
@@ -949,8 +1051,8 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
               Direct Download Source
             </Button>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={onClose} disabled={rendering}>
-                Cancel
+              <Button variant="secondary" onClick={rendering ? handleCancelRender : onClose}>
+                {rendering ? 'Stop render' : 'Cancel'}
               </Button>
               <Button
                 icon="bolt" iconSpin={rendering}
