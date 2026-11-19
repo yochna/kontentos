@@ -21,7 +21,7 @@ import type { Video } from '@/lib/types';
 import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
-import { VIDEO_ACCEPT, uploadFileError } from '@/lib/uploadFile';
+import { MAX_PARALLEL_UPLOADS, VIDEO_ACCEPT, uploadFileError } from '@/lib/uploadFile';
 
 const SUBTITLE_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Hindi', 'Japanese'];
 
@@ -119,10 +119,15 @@ export default function ContentLibrary() {
     }
     if (firstProblem) notify.bad(firstProblem);
     if (!candidates.length) return;
+    // The vault picker shares one intake contract with the bench and Upload station: a single
+    // batch never opens more than three upload sessions, even when uploads run one by one.
+    if (candidates.length > MAX_PARALLEL_UPLOADS) {
+      notify.info(`Intaking the first ${MAX_PARALLEL_UPLOADS} of ${candidates.length} files.`);
+    }
 
     setBusy(true);
     try {
-      for (const file of candidates) {
+      for (const file of candidates.slice(0, MAX_PARALLEL_UPLOADS)) {
         setCurrentFile(file.name);
         setProgress(0);
         try {
