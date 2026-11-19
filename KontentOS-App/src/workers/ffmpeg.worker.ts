@@ -12,6 +12,15 @@ import type { TimelineProject } from '../lib/timeline';
 let ffmpeg: FFmpeg | null = null;
 let isInitializing = false;
 const logCollectors = new Set<(message: string) => void>();
+/** IDs keep progress and logs from a cut job away from an export job sharing this worker. */
+let activeTimelineJobId: string | null = null;
+const recentLogs: string[] = [];
+
+function rememberLog(message: string): void {
+  if (!message.trim()) return;
+  recentLogs.push(message.trim());
+  if (recentLogs.length > 30) recentLogs.shift();
+}
 
 const LOCAL_CORE_BASE = '/ffmpeg';
 const UNPKG_CORE_BASE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
@@ -36,6 +45,7 @@ async function initFFmpeg(): Promise<void> {
     instance.on('progress', ({ progress, time }) => {
       self.postMessage({
         type: 'PROGRESS',
+        id: activeTimelineJobId ?? undefined,
         progress: Math.min(1, Math.max(0, progress)),
         time,
       });
@@ -43,9 +53,11 @@ async function initFFmpeg(): Promise<void> {
 
     instance.on('log', ({ message }) => {
       // Probe calls need the same log stream the UI sees, without a second FFmpeg instance.
+      rememberLog(message);
       for (const collect of logCollectors) collect(message);
       self.postMessage({
         type: 'LOG',
+        id: activeTimelineJobId ?? undefined,
         message,
       });
     });
@@ -398,6 +410,8 @@ async function exportTimeline(id: string, req: TimelineExportRequest): Promise<v
   const writtenFiles: string[] = [];
   let outputFileName = '';
   let timeout: ReturnType<typeof setTimeout> | null = null;
+  activeTimelineJobId = id;
+  recentLogs.length = 0;
 
   const cleanup = async () => {
     if (!ffmpeg?.loaded) return;
@@ -519,6 +533,7 @@ async function exportTimeline(id: string, req: TimelineExportRequest): Promise<v
     if (outputBuffer.byteLength === 0) throw new Error('FFmpeg produced an empty MP4.');
     await cleanup();
 
+    activeTimelineJobId = null;
     self.postMessage({
       type: 'EXPORT_PROGRESS', id, stage: 'done', progress: 1,
       message: 'Frame-accurate render finished.',
@@ -532,11 +547,13 @@ async function exportTimeline(id: string, req: TimelineExportRequest): Promise<v
     );
   } catch (error: any) {
     if (timeout) clearTimeout(timeout);
+    activeTimelineJobId = null;
     console.error('[FFmpeg Worker] Timeline export error:', error);
     await cleanup();
     self.postMessage({
       type: 'EXPORT_ERROR', id,
       error: error?.message || 'The frame-accurate export could not be completed.',
+      logs: recentLogs.slice(-10),
     });
   }
 }

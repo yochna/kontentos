@@ -6,6 +6,8 @@ import type { Idea } from '@/data/mock';
 import { navigate, type ScreenId } from './nav';
 import { copyVoice } from './brandKit';
 import { copyModel, readAiPrefs } from './prefs';
+import { findArchivedVideo, inferExportAspect, suggestedWordsPerCue } from './mediaPlan';
+import { cleanCreatorSubject } from './creatorTopics';
 import { DRAFT_STEP_STATION, applyStoredCut, resetSelectedCut } from './bench';
 import { hydrateWorkspace, readBench, readSlot, resetWorkspace, writeSlot } from './workspace';
 import {
@@ -25,6 +27,15 @@ import type { TimelineProject, EditPreset, TextClip, WordTimestamp } from './tim
 
 const MAX_HISTORY = 50;
 
+/** The archived render travels with its real intake id, so Publish can point at the saved file. */
+export interface HandoffExport {
+  videoUrl: string;
+  byteLength?: number;
+  videoId?: string;
+  title?: string;
+  duration?: number;
+}
+
 export interface AutoEditOutcome {
   ok: boolean;
   project: TimelineProject | null;
@@ -34,6 +45,14 @@ export interface AutoEditOutcome {
   caption: string;
   hashtags: string[];
   message?: string;
+}
+
+/** Real stages from the assembly pipeline, not a cosmetic timer. */
+export type AutoEditStage = 'reading' | 'cuts' | 'captions' | 'polish' | 'done';
+export interface AutoEditProgress {
+  stage: AutoEditStage;
+  fraction: number;
+  message: string;
 }
 
 function deriveStats(project: TimelineProject): AutoEditStats {
@@ -73,7 +92,11 @@ interface StoreValue {
   saveScript: (videoId: string, text: string) => Promise<boolean>;
   project: TimelineProject | null;
   setProject: (p: TimelineProject | null) => void;
-  runAutoEdit: (video: Video, preset: EditPreset) => Promise<AutoEditOutcome>;
+  runAutoEdit: (
+    video: Video,
+    preset: EditPreset,
+    onProgress?: (progress: AutoEditProgress) => void
+  ) => Promise<AutoEditOutcome>;
   /** Editor history stack — Smart Editor mutations. */
   canUndo: boolean;
   canRedo: boolean;
@@ -140,11 +163,15 @@ interface StoreValue {
   setActiveDraft: (draft: ActiveDraft | null) => void;
   updateActiveDraft: (patch: Partial<ActiveDraft>) => void;
   startProductionFromIdea: (idea: any) => void;
-  handoffReelToEditor: (project: TimelineProject, video?: Video) => void;
+  handoffReelToEditor: (
+    project: TimelineProject,
+    video?: Video,
+    copy?: { caption?: string; hashtags?: string[] },
+  ) => void;
   handoffEditorToPublish: (
     project: TimelineProject,
     copy?: { caption?: string; hashtags?: string[] },
-    exported?: { videoUrl: string; byteLength?: number },
+    exported?: HandoffExport,
   ) => void;
   navigate: (screen: ScreenId, payload?: any) => void;
 
@@ -540,12 +567,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   /** Run the Smart-Polish EDL engine for a clip + preset. Server engine first,
    *  deterministic local build if /api is unreachable. Always yields a project. */
-  const runAutoEdit = useCallback<StoreValue['runAutoEdit']>(async (video, preset) => {
+  const runAutoEdit = useCallback<StoreValue['runAutoEdit']>(async (video, preset, onProgress) => {
     const duration = video.duration || 20;
+    const targetAspectRatio = inferExportAspect((video as any).aspect_ratio);
+    // A camera filename is a useful clip label, but it is not something the creator said and not a
+    // subject to write copy from. Only a real title or description may seed the copy engine.
+    const subject =
+      cleanCreatorSubject(video.title) || cleanCreatorSubject((video as any).description);
+    const placeholderCaption = subject
+      ? `${subject}. Here's what actually moves the needle — watch till the end.`
+      : 'New take — open the script field to add your own words before posting.';
+    const adaptedPreset: EditPreset = {
+      ...preset,
+      caption: {
+        ...preset.caption,
+        wordsPerCue: suggestedWordsPerCue(duration, preset.caption.wordsPerCue),
+      },
+    };
     let caption = '';
     let hashtags: string[] = [];
-    let spoken = video.title;
+    let spoken = subject || placeholderCaption;
     let realWords: WordTimestamp[] | null = null;
+
+    onProgress?.({ stage: 'reading', fraction: 0.06, message: 'Reading the take and its transcript…' });
 
     // Prioritize real speech-to-text transcription from AI video analysis
     try {
@@ -592,46 +636,86 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       console.warn('[runAutoEdit] Could not fetch real subtitles, falling back to copy engine:', subErr);
     }
 
+    onProgress?.({
+      stage: 'cuts',
+      fraction: 0.38,
+      message: realWords?.length
+        ? `${realWords.length} spoken words found — cutting on real speech blocks…`
+        : subject
+          ? 'No spoken words found — preparing title-grounded cues…'
+          : 'No spoken words found — preparing honest placeholder cues…',
+    });
+
     if (!realWords || realWords.length === 0) {
-      // Pull title-grounded copy (offline / no speech fallback).
-      try {
-        const copy = await api.copyFromTitle({
-          title: video.title,
-          tone: preset.tone,
-          context: copyVoice(),
-          temperature: readAiPrefs().temperature,
-          model: copyModel(),
-        });
-        caption = copy.caption || '';
-        hashtags = copy.hashtags || [];
-        spoken = [copy.hooks?.[0], copy.caption].filter(Boolean).join(' ').replace(/#[\w]+/g, '').trim() || video.title;
-      } catch {
-        caption = `${video.title}. Here's what actually moves the needle — watch till the end.`;
+      // Pull title-grounded copy only when a title is actually a subject. With a raw filename the
+      // honest fallback is a placeholder the creator can replace, not invented copy and a hashtag
+      // made from the camera's serial number.
+      if (subject) {
+        try {
+          const copy = await api.copyFromTitle({
+            title: subject,
+            tone: preset.tone,
+            context: copyVoice(),
+            temperature: readAiPrefs().temperature,
+            model: copyModel(),
+          });
+          caption = copy.caption || placeholderCaption;
+          hashtags = (copy.hashtags || []).filter((tag) => Boolean(cleanCreatorSubject(tag)));
+          spoken =
+            [copy.hooks?.[0], copy.caption].filter(Boolean).join(' ').replace(/#[\w]+/g, '').trim() ||
+            subject;
+        } catch {
+          caption = placeholderCaption;
+          hashtags = [];
+          spoken = subject;
+        }
+      } else {
+        caption = placeholderCaption;
         hashtags = [];
-        spoken = caption;
+        spoken = placeholderCaption;
       }
     }
 
     const words = realWords && realWords.length > 0 ? realWords : synthesizeWords(spoken, duration);
     const base = { caption, hashtags };
 
+    onProgress?.({
+      stage: 'captions',
+      fraction: 0.64,
+      message: `Building readable captions for ${targetAspectRatio}…`,
+    });
+
     try {
       const res = await api.autoEdit({
-        videoMetadata: { id: video.id, title: video.title, duration, sourceUrl: video.file_url, targetAspectRatio: '9:16' },
+        videoMetadata: { id: video.id, title: video.title, duration, sourceUrl: video.file_url, targetAspectRatio },
         words,
-        options: preset.options,
+        options: adaptedPreset.options,
       });
-      const proj = applyPresetLook(res.project, preset);
+      const proj = applyPresetLook(res.project, adaptedPreset);
       setProject(proj);
+      onProgress?.({ stage: 'done', fraction: 1, message: 'Reel assembled.' });
       return { ok: true, project: proj, stats: res.stats, source: res.source, ...base, message: res.message };
-    } catch {
+    } catch (engineError) {
+      console.warn('[runAutoEdit] Engine unavailable, assembling locally:', engineError);
       const proj = buildLocalProject(
         { id: video.id, title: video.title, file_url: video.file_url, duration },
         words,
-        preset,
+        adaptedPreset,
+        targetAspectRatio,
       );
       setProject(proj);
-      return { ok: true, project: proj, stats: deriveStats(proj), source: 'local_engine', offline: true, ...base, message: 'Assembled locally (offline engine)' };
+      onProgress?.({ stage: 'done', fraction: 1, message: 'Reel assembled locally.' });
+      return {
+        ok: true,
+        project: proj,
+        stats: deriveStats(proj),
+        source: 'local_engine',
+        offline: true,
+        ...base,
+        message: realWords?.length
+          ? 'Engine unavailable — assembled locally from your own words.'
+          : 'Engine unavailable — assembled locally. Add your script for words that are yours.',
+      };
     }
   }, []);
 
@@ -686,7 +770,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const handoffReelToEditor = useCallback(
-    (proj: TimelineProject, video?: Video) => {
+    (proj: TimelineProject, video?: Video, copy?: { caption?: string; hashtags?: string[] }) => {
       loadProject(proj);
       updateActiveDraft({
         title: video?.title || proj.projectMetadata.title,
@@ -699,50 +783,78 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               duration: video.duration,
             }
           : undefined,
+        // The creator may have edited the copy in Upload before fine-tuning the cut. Carry it into
+        // the draft so a later Editor → Publish handoff cannot replace it with transcript copy.
+        publishing: copy
+          ? {
+              caption: copy.caption || proj.projectMetadata.title,
+              hashtags: copy.hashtags || [],
+              platforms: ['instagram', 'youtube', 'tiktok'],
+            }
+          : activeDraft?.publishing,
         step: 'smart-editor',
       });
       navigate('smart-editor');
     },
-    [loadProject, updateActiveDraft],
+    [activeDraft?.publishing, loadProject, updateActiveDraft],
   );
 
   const handoffEditorToPublish = useCallback(
     (
       proj: TimelineProject,
       copy?: { caption?: string; hashtags?: string[] },
-      exported?: { videoUrl: string; byteLength?: number },
+      exported?: HandoffExport,
     ) => {
       // 1. Synthesize transcript summary from text captions if available
       const textTrack = proj.tracks.find((t) => t.type === 'text');
       const textCues = (textTrack?.clips || []) as TextClip[];
       const transcriptSummary = textCues.map((c) => c.content).join(' ').trim();
-      const initialCaption = copy?.caption || transcriptSummary || proj.projectMetadata.title || 'Studio Exported Reel';
+      const draftCopy = activeDraft?.publishing;
+      const initialCaption =
+        copy?.caption || draftCopy?.caption || transcriptSummary || proj.projectMetadata.title || 'Studio Exported Reel';
+      const initialHashtags = copy?.hashtags || draftCopy?.hashtags || [];
 
       // 2. If an exported video URL/blob was rendered, create a registered Video entry
       let sourceVideoRecord = activeDraft?.sourceVideo;
 
       if (exported?.videoUrl) {
-        const videoId = `rendered_${Date.now()}`;
-        const newVideo: Video = {
-          id: videoId,
-          user_id: user?.id || 'local-creator',
-          title: proj.projectMetadata.title || 'Studio Exported Reel',
-          file_url: exported.videoUrl,
-          duration: proj.projectMetadata.totalDuration,
-          file_size: exported.byteLength,
-          aspect_ratio: proj.projectMetadata.targetAspectRatio || '9:16',
-          status: 'ready',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
+        // The intake id is carried in the handoff because React has not necessarily committed the
+        // upload's new `videos` row when this callback runs. Fall back to matching by URL for older
+        // callers, and only invent a record when no real archived clip exists.
+        const archived =
+          (exported.videoId ? videos.find((v) => v.id === exported.videoId) : null) ??
+          findArchivedVideo(videos, exported.videoUrl);
+        if (archived) {
+          sourceVideoRecord = {
+            id: archived.id,
+            title: exported.title || archived.title,
+            file_url: archived.file_url,
+            duration: archived.duration ?? exported.duration,
+            thumbnail_url: archived.thumbnail_url,
+          };
+        } else {
+          const videoId = exported.videoId || `rendered_${Date.now()}`;
+          const newVideo: Video = {
+            id: videoId,
+            user_id: user?.id || 'local-creator',
+            title: exported.title || proj.projectMetadata.title || 'Studio Exported Reel',
+            file_url: exported.videoUrl,
+            duration: exported.duration ?? proj.projectMetadata.totalDuration,
+            file_size: exported.byteLength,
+            aspect_ratio: proj.projectMetadata.targetAspectRatio || '9:16',
+            status: 'ready',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
 
-        setVideos((prev) => [newVideo, ...prev.filter((v) => v.id !== videoId)]);
-        sourceVideoRecord = {
-          id: newVideo.id,
-          title: newVideo.title,
-          file_url: newVideo.file_url,
-          duration: newVideo.duration,
-        };
+          setVideos((prev) => [newVideo, ...prev.filter((v) => v.id !== videoId)]);
+          sourceVideoRecord = {
+            id: newVideo.id,
+            title: newVideo.title,
+            file_url: newVideo.file_url,
+            duration: newVideo.duration,
+          };
+        }
       }
 
       // 3. Update active draft
@@ -753,7 +865,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         project: proj,
         publishing: {
           caption: initialCaption,
-          hashtags: copy?.hashtags || [],
+          hashtags: initialHashtags,
           platforms: ['instagram', 'youtube', 'tiktok'],
         },
         step: 'publish',
@@ -762,7 +874,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // 4. Navigate to publish schedule
       navigate('publish-schedule');
     },
-    [activeDraft?.sourceVideo, navigate, updateActiveDraft, user?.id],
+    [activeDraft?.publishing, activeDraft?.sourceVideo, navigate, updateActiveDraft, user?.id, videos],
   );
 
   // Bookmarks live on the server only — replaying them from this browser would hand the next

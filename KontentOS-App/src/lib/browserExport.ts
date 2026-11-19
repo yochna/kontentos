@@ -8,11 +8,20 @@
 
 import type { TimelineProject } from './timeline';
 import { compileTimelineToFiltergraph } from '@/utils/ffmpegFilterCompiler';
+import { mergeStageProgress } from './progress';
+import { isAbortFailure, readBoundedResponse } from './sourcePreflight';
 
 /** A browser tab cannot honestly hold more than this much source for one render. */
 const MAX_SOURCE_BYTES = 400 * 1024 * 1024;
 const MAX_TOTAL_SOURCE_BYTES = 600 * 1024 * 1024;
 const WORKER_GUARD_MS = 150_000;
+const PROGRESS_ORDER: TimelineExportProgress['stage'][] = [
+  'reading',
+  'preparing',
+  'encoding',
+  'finalizing',
+  'done',
+];
 
 export interface TimelineExportRequest {
   project: TimelineProject;
@@ -39,7 +48,16 @@ export interface TimelineExportResult {
   engine: 'ffmpeg-timeline';
 }
 
-export class TimelineExportError extends Error {}
+export class TimelineExportError extends Error {
+  /** Last FFmpeg log lines, when the worker managed to report them. */
+  diagnostics: string[];
+
+  constructor(message: string, diagnostics: string[] = []) {
+    super(message);
+    this.name = 'TimelineExportError';
+    this.diagnostics = diagnostics;
+  }
+}
 
 let worker: Worker | null = null;
 let workerReady: Promise<void> | null = null;
@@ -104,9 +122,9 @@ async function fetchSourceBytes(sourceUrl: string, signal?: AbortSignal): Promis
             : 'The source file is not on this server any more.'
         );
       }
-      return await response.arrayBuffer();
+      return await readBoundedResponse(response, MAX_SOURCE_BYTES, 'A source', signal);
     } catch (error) {
-      if (signal?.aborted) throw error;
+      if (isAbortFailure(error, signal)) throw new TimelineExportError('The render was cancelled.');
       lastError = error;
     }
   }
@@ -129,7 +147,7 @@ export async function exportTimeline(
   onProgress: (progress: TimelineExportProgress) => void,
   signal?: AbortSignal
 ): Promise<TimelineExportResult> {
-  signal?.throwIfAborted();
+  if (signal?.aborted) throw new TimelineExportError('The render was cancelled.');
 
   // Compile once here to learn which files must be fetched. The worker compiles again after it has
   // probed audio, because a silent source changes the graph. Both calls get identical geometry.
@@ -173,15 +191,30 @@ export async function exportTimeline(
     }
     sourceBuffers.push({ fileName: file.fileName, sourceUrl: file.sourceUrl, buffer });
   }
-  signal?.throwIfAborted();
+  if (signal?.aborted) throw new TimelineExportError('The render was cancelled.');
 
   const { worker: w, ready } = ensureWorker();
   const id = `timeline_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
   return new Promise<TimelineExportResult>((resolve, reject) => {
     let settled = false;
+    const diagnostics: string[] = [];
+    const remember = (line: unknown) => {
+      if (typeof line !== 'string' || !line.trim()) return;
+      diagnostics.push(line.trim());
+      if (diagnostics.length > 40) diagnostics.shift();
+    };
+    let lastProgress: TimelineExportProgress = {
+      stage: 'reading',
+      fraction: 0.05,
+      message: 'Preparing frame-accurate render…',
+    };
+    const report = (update: TimelineExportProgress) => {
+      lastProgress = mergeStageProgress(lastProgress, update, PROGRESS_ORDER);
+      onProgress(lastProgress);
+    };
     const guard = setTimeout(
-      () => fail('The render engine stopped answering. Try a shorter timeline.'),
+      () => fail('The render engine stopped answering. Try a shorter timeline.', { terminate: true }),
       WORKER_GUARD_MS
     );
 
@@ -196,20 +229,27 @@ export async function exportTimeline(
       cleanup();
       resolve(result);
     };
-    const fail = (message: string) => {
+    const fail = (message: string, options?: { terminate?: boolean }) => {
       if (settled) return;
       settled = true;
       cleanup();
-      teardown();
-      reject(new TimelineExportError(message));
+      // A normal FFmpeg error leaves a clean, loaded worker behind, so a retry does not reload the
+      // 32 MB core. A crash or abort must terminate it because pending WASM work cannot be recalled.
+      if (options?.terminate) teardown();
+      reject(new TimelineExportError(message, diagnostics.slice(-10)));
     };
-    const onAbort = () => fail('The render was cancelled.');
+    const onAbort = () => fail('The render was cancelled.', { terminate: true });
 
     const onMessage: Listener = (data) => {
       if (!data || (data.id && data.id !== id)) return;
+      // Undated stream events belong to another job on this worker; only fatal notices are global.
+      if ((data.type === 'PROGRESS' || data.type === 'LOG') && !data.id) return;
       switch (data.type) {
+        case 'LOG':
+          remember(data.message);
+          break;
         case 'PROGRESS':
-          onProgress({
+          report({
             stage: 'encoding',
             fraction: clampFraction(data.progress),
             message: 'Rendering frames…',
@@ -221,10 +261,10 @@ export async function exportTimeline(
               ? 'preparing'
               : data.stage === 'encoding'
                 ? 'encoding'
-                : data.stage === 'finalizing' || data.stage === 'done'
+                : data.stage === 'finalizing' || data.stage === 'done' || data.stage === 'complete'
                   ? 'finalizing'
                   : 'preparing';
-          onProgress({
+          report({
             stage,
             fraction: clampFraction(data.progress),
             message: data.message || 'Working…',
@@ -232,7 +272,7 @@ export async function exportTimeline(
           break;
         }
         case 'EXPORT_SUCCESS':
-          onProgress({ stage: 'done', fraction: 1, message: 'Render finished.' });
+          report({ stage: 'done', fraction: 1, message: 'Render finished.' });
           succeed({
             blob: new Blob([data.buffer], { type: 'video/mp4' }),
             byteLength: Number(data.byteLength) || 0,
@@ -241,10 +281,11 @@ export async function exportTimeline(
           });
           break;
         case 'EXPORT_ERROR':
+          if (Array.isArray(data.logs)) data.logs.forEach(remember);
           fail(data.error || 'The frame-accurate export could not be completed.');
           break;
         case 'WORKER_FATAL':
-          fail(data.error || 'The render engine stopped in this browser.');
+          fail(data.error || 'The render engine stopped in this browser.', { terminate: true });
           break;
         default:
           break;
@@ -271,6 +312,8 @@ export async function exportTimeline(
           sourceBuffers.map((source) => source.buffer)
         );
       })
-      .catch((error: Error) => fail(error.message || 'The render engine could not be loaded.'));
+      .catch((error: Error) =>
+        fail(error.message || 'The render engine could not be loaded.', { terminate: true })
+      );
   });
 }

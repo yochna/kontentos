@@ -24,7 +24,8 @@ function hasRealWords(text: string): boolean {
   return letters >= 3 && digits <= letters * 2;
 }
 
-function tidy(raw: unknown): string {
+/** Exposed so generation never mistakes a camera filename for a creator's subject line. */
+export function cleanCreatorSubject(raw: unknown): string {
   if (typeof raw !== 'string') return '';
   let text = raw.replace(/\s+/g, ' ').trim();
   text = text.replace(PLACEHOLDER, '').replace(LEADING_NOISE, '');
@@ -50,7 +51,7 @@ export function creatorTopics({ user, savedIdeas = [], videos = [] }: CreatorTop
   const topics: string[] = [];
   const seen = new Set<string>();
   const add = (raw: unknown) => {
-    const value = tidy(raw);
+    const value = cleanCreatorSubject(raw);
     if (!value) return;
     const key = value.toLowerCase();
     if (seen.has(key)) return;

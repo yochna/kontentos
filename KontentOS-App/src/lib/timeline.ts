@@ -2,6 +2,8 @@
 // Types mirror the backend `TimelineProject` EDL the /api/editor/auto-edit engine emits
 // (KontentOS-main/src/types/timeline.ts) so a project round-trips with the server unchanged.
 
+import { aspectGeometry, type ExportAspect } from './mediaPlan';
+
 export type MediaType = 'video' | 'audio' | 'sfx' | 'text' | 'adjustment';
 export type KeyframeEasing = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'cubicBezier' | 'instant';
 
@@ -624,9 +626,11 @@ export function buildLocalProject(
   video: { id: string; title: string; file_url: string; duration: number },
   words: WordTimestamp[],
   preset: EditPreset,
+  targetAspectRatio: ExportAspect = '9:16',
 ): TimelineProject {
   const duration = video.duration || (words.length ? words[words.length - 1].end : 12);
   const thr = preset.options.silenceThresholdSec;
+  const geometry = aspectGeometry(targetAspectRatio);
 
   // 1. Group words into speech blocks split by silences > threshold.
   const blocks: WordTimestamp[][] = [];
@@ -714,9 +718,9 @@ export function buildLocalProject(
     projectMetadata: {
       id: `proj_${Date.now()}`,
       title: video.title,
-      targetAspectRatio: '9:16',
-      width: 1080,
-      height: 1920,
+      targetAspectRatio,
+      width: geometry.width,
+      height: geometry.height,
       frameRate: 30,
       totalDuration: total,
       createdAt: new Date().toISOString(),

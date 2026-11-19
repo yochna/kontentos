@@ -378,11 +378,15 @@ export function compileTimelineToFiltergraph(
     const aLabel = `a_seg_${index}`;
     if (hasAudio(sourceUrl, sourceFile.fileName) && !videoTrack?.isMuted) {
       const volume = (videoTrack?.volume ?? 1) * (clip.audioModifiers?.volume ?? 1);
+      const fadeIn = Math.min(duration, Math.max(0, clip.audioModifiers?.fadeInSec ?? 0));
+      const fadeOut = Math.min(duration, Math.max(0, clip.audioModifiers?.fadeOutSec ?? 0));
       const chain = [
         `[${inputIndex}:a:0]atrim=start=${seconds(sourceStart)}:duration=${seconds(sourceSpan)}`,
         'asetpts=PTS-STARTPTS',
         ...atempoFilters(speed),
         ...(Math.abs(volume - 1) > 0.001 ? [`volume=${volume.toFixed(3)}`] : []),
+        ...(fadeIn > 0 ? [`afade=t=in:st=0:d=${seconds(fadeIn)}`] : []),
+        ...(fadeOut > 0 ? [`afade=t=out:st=${seconds(duration - fadeOut)}:d=${seconds(fadeOut)}`] : []),
         `atrim=duration=${seconds(duration)}`,
         'asetpts=PTS-STARTPTS',
         audioFormat,
@@ -456,9 +460,12 @@ export function compileTimelineToFiltergraph(
     (clip) => clip.duration > 0
   );
 
-  sfxClips.forEach((clip) => {
-    requiredSfxFiles.add(`sfx_${clip.sfxAssetId || 'pop'}.wav`);
-  });
+  // One asset is one FFmpeg input even when it fires several times. Duplicate `-i` entries used to
+  // push long timelines toward the input limit while only the last index was ever mixed.
+  const sfxFileNames = Array.from(
+    new Set(sfxClips.map((clip) => `sfx_${clip.sfxAssetId || 'pop'}.wav`))
+  );
+  sfxFileNames.forEach((fileName) => requiredSfxFiles.add(fileName));
   if (bgmAssetId) {
     requiredSfxFiles.add(`bgm_${bgmAssetId}.wav`);
     // BGM is appended before the SFX inputs, whatever the set's insertion order was.
@@ -467,8 +474,7 @@ export function compileTimelineToFiltergraph(
   }
   const sfxInputIndices = new Map<string, number>();
   let nextInputIndex = requiredVideoFiles.length + (bgmInputIndex === null ? 0 : 1);
-  sfxClips.forEach((clip) => {
-    const fileName = `sfx_${clip.sfxAssetId || 'pop'}.wav`;
+  sfxFileNames.forEach((fileName) => {
     inputArgs.push('-i', fileName);
     sfxInputIndices.set(fileName, nextInputIndex++);
   });

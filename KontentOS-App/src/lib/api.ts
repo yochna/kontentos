@@ -53,6 +53,8 @@ export interface TitleCopy {
  *  an offline dev backend. Every route in server/ writes its own human-readable `error`. */
 /** Long enough for a warm model, short enough that the Ideas station never sits on a spinner. */
 const IDEA_REQUEST_TIMEOUT_MS = 8_000;
+/** The editor has a deterministic local cut waiting, so a cold model never blocks assembly. */
+const AUTO_EDIT_TIMEOUT_MS = 14_000;
 
 const STATUS_MESSAGES: Record<number, string> = {
   400: 'The studio could not accept that. Check the fields and try again.',
@@ -555,18 +557,25 @@ Respond ONLY with pure JSON matching this exact structure:
 
   // ---- Editor (Smart-Polish EDL engine) ----
   async autoEdit(payload: {
-    videoMetadata: { id: string; title?: string; duration: number; targetAspectRatio?: '9:16' | '16:9' | '1:1'; sourceUrl?: string };
+    videoMetadata: { id: string; title?: string; duration: number; targetAspectRatio?: '9:16' | '16:9' | '1:1' | '4:5'; sourceUrl?: string };
     words: WordTimestamp[];
     options?: { silenceThresholdSec?: number; sfxEnabled?: boolean; punchZoomEnabled?: boolean; captionsEnabled?: boolean };
   }): Promise<AutoEditResult> {
-    const d = await json<{ data: TimelineProject; source: 'gemini' | 'local_engine'; stats: AutoEditStats; message: string }>(
-      await fetch('/api/editor/auto-edit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }),
-    );
-    return { project: d.data, source: d.source, stats: d.stats, message: d.message };
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), AUTO_EDIT_TIMEOUT_MS);
+    try {
+      const d = await json<{ data: TimelineProject; source: 'gemini' | 'local_engine'; stats: AutoEditStats; message: string }>(
+        await fetch('/api/editor/auto-edit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify(payload),
+        }),
+      );
+      return { project: d.data, source: d.source, stats: d.stats, message: d.message };
+    } finally {
+      window.clearTimeout(timer);
+    }
   },
 
   // ---- Speech-to-Text & Live AI Captions ----

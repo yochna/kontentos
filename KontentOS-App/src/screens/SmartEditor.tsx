@@ -9,7 +9,7 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
 import { ReelPreview, type ReelHandle } from '@/components/ReelPreview';
 import { ExportModal } from '@/components/ExportModal';
-import { useStore } from '@/lib/store';
+import { useStore, type HandoffExport } from '@/lib/store';
 import { api, probeUrlDuration, probeVideoDuration } from '@/lib/api';
 import {
   KINETIC_CAPTION_PRESETS,
@@ -1014,7 +1014,7 @@ export default function SmartEditor() {
     });
   };
 
-  function handleToPublish(exported?: { videoUrl: string; byteLength?: number }) {
+  function handleToPublish(exported?: HandoffExport) {
     if (project) {
       handoffEditorToPublish(project, undefined, exported);
     }

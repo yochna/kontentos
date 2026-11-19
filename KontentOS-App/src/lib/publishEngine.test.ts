@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateMultiPlatformCopy } from './publishEngine';
+import { applyHandoffCopy, generateMultiPlatformCopy } from './publishEngine';
 
 describe('the offline copy scaffold', () => {
   const bundle = generateMultiPlatformCopy('Pricing with teeth', 'I quoted the same number twice and lost both deals.');
@@ -30,5 +30,27 @@ describe('the offline copy scaffold', () => {
     const bare = generateMultiPlatformCopy('');
     expect(bare.instagram.caption).toMatch(/\[the hook/);
     expect(bare.linkedin.slideOutline.length).toBeGreaterThan(0);
+  });
+});
+
+describe('applyHandoffCopy', () => {
+  it('keeps the creator’s edited line when a late AI bundle arrives', () => {
+    const original = generateMultiPlatformCopy('Original title');
+    const late = generateMultiPlatformCopy('AI title');
+    const merged = applyHandoffCopy(late, {
+      caption: '  The line I typed in Upload  ',
+      hashtags: ['#myown'],
+    });
+
+    expect(merged.instagram.caption).toBe('The line I typed in Upload');
+    expect(merged.instagram.hashtags).toEqual(['#myown']);
+    expect(merged.tiktok.caption).toBe(late.tiktok.caption);
+    expect(original.instagram.caption).toContain('Original title');
+  });
+
+  it('leaves a bundle alone when there is no edited copy to preserve', () => {
+    const bundle = generateMultiPlatformCopy('No handoff');
+    expect(applyHandoffCopy(bundle, null)).toBe(bundle);
+    expect(applyHandoffCopy(bundle, { caption: '   ' })).toBe(bundle);
   });
 });

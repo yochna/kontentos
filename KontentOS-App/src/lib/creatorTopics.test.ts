@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { creatorBrief, creatorTopics } from './creatorTopics';
+import { cleanCreatorSubject, creatorBrief, creatorTopics } from './creatorTopics';
 import type { Idea } from '@/data/mock';
 import type { User, Video } from './types';
 
@@ -59,6 +59,17 @@ describe('creatorTopics', () => {
   it('caps the list so the topic row stays compact', () => {
     const videos = Array.from({ length: 12 }, (_, i) => video(`Subject number ${i}`));
     expect(creatorTopics({ videos }).length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe('cleanCreatorSubject', () => {
+  it('reduces a camera filename to no subject at all', () => {
+    expect(cleanCreatorSubject('81496-576306063 (1)')).toBe('');
+    expect(cleanCreatorSubject('IMG_2049.mp4')).toBe('');
+  });
+
+  it('keeps a renamed clip intact', () => {
+    expect(cleanCreatorSubject('Studio tour take 3')).toBe('Studio tour take');
   });
 });
 

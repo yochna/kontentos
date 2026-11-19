@@ -49,6 +49,20 @@ function caption(overrides: Partial<TextClip> = {}): TextClip {
   };
 }
 
+function sfxClip(overrides: Partial<SFXClip> = {}): SFXClip {
+  return {
+    id: 'sfx_0',
+    name: 'Pop',
+    type: 'sfx',
+    sfxAssetId: 'pop',
+    startOnTimeline: 0.5,
+    duration: 0.4,
+    sourceStartOffset: 0,
+    audioModifiers: { pitchShiftCents: 0, volume: 1, fadeInSec: 0, fadeOutSec: 0 },
+    ...overrides,
+  };
+}
+
 function project(overrides: { clips?: VideoClip[]; captions?: TextClip[]; sfx?: SFXClip[]; bgm?: string } = {}): TimelineProject {
   return {
     schemaVersion: '1.0.0',
@@ -137,6 +151,60 @@ describe('compileTimelineToFiltergraph', () => {
     ]);
     expect(compiled.filterComplex).toContain('[1:a:0]aloop=');
     expect(compiled.filterComplex).toContain('[2:a:0]adelay=500:all=1');
+  });
+
+  it('uses one input per SFX asset even when that sound fires repeatedly', () => {
+    const compiled = compileTimelineToFiltergraph(
+      project({
+        captions: [],
+        sfx: [
+          sfxClip({ id: 'sfx_0', startOnTimeline: 0.5 }),
+          sfxClip({ id: 'sfx_1', startOnTimeline: 1.2 }),
+          sfxClip({ id: 'sfx_2', sfxAssetId: 'whoosh', startOnTimeline: 0.8 }),
+        ],
+      }),
+      { sourceHasAudio: { '/uploads/a.mp4': false } }
+    );
+
+    expect(compiled.requiredSfxFiles).toEqual(['sfx_pop.wav', 'sfx_whoosh.wav']);
+    expect(compiled.inputArgs).toEqual([
+      '-i', 'input.mp4',
+      '-i', 'sfx_pop.wav',
+      '-i', 'sfx_whoosh.wav',
+    ]);
+    expect(compiled.filterComplex).toContain('[1:a:0]adelay=500:all=1');
+    expect(compiled.filterComplex).toContain('[1:a:0]adelay=1200:all=1');
+    expect(compiled.filterComplex).toContain('[2:a:0]adelay=800:all=1');
+  });
+
+  it('fades real source audio in and out from the clip modifier values', () => {
+    const compiled = compileTimelineToFiltergraph(
+      project({
+        captions: [],
+        clips: [
+          videoClip({
+            audioModifiers: { pitchShiftCents: 0, volume: 1, fadeInSec: 0.25, fadeOutSec: 0.4 },
+          }),
+        ],
+      }),
+      { sourceHasAudio: { '/uploads/a.mp4': true } }
+    );
+
+    expect(compiled.filterComplex).toContain('afade=t=in:st=0:d=0.250');
+    expect(compiled.filterComplex).toContain('afade=t=out:st=1.600:d=0.400');
+
+    const silent = compileTimelineToFiltergraph(
+      project({
+        captions: [],
+        clips: [
+          videoClip({
+            audioModifiers: { pitchShiftCents: 0, volume: 1, fadeInSec: 0.25, fadeOutSec: 0.4 },
+          }),
+        ],
+      }),
+      { sourceHasAudio: { '/uploads/a.mp4': false } }
+    );
+    expect(silent.filterComplex).not.toContain('afade=');
   });
 
   it('surfaces captions the bundled font cannot draw instead of shipping empty boxes', () => {

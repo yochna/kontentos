@@ -14,6 +14,7 @@ import { copyVoice, voiceTone } from '@/lib/brandKit';
 import { copyModel, readAiPrefs } from '@/lib/prefs';
 import type { SocialPlatform } from '@/lib/types';
 import {
+  applyHandoffCopy,
   generateMultiPlatformCopy,
   exportManualAssistPackage,
   type PlatformCopyBundle,
@@ -188,13 +189,16 @@ export default function PublishSchedule() {
   const [copyBundle, setCopyBundle] = useState<PlatformCopyBundle>(() => {
     const initialTitle = activeDraft?.title || selectedVideo?.title || '5 AI Creator Systems';
     const initialHook = activeDraft?.idea?.hook;
-    const initialCaption = activeDraft?.publishing?.caption;
     const bundle = generateMultiPlatformCopy(initialTitle, initialHook);
-    if (initialCaption) {
-      bundle.instagram.caption = initialCaption;
-    }
-    return bundle;
+    return applyHandoffCopy(bundle, activeDraft?.publishing);
   });
+
+  // The copy request can resolve after a handoff has already landed. Keep the creator's edited line
+  // in a ref so a late response cannot overwrite it with generated copy for the same video id.
+  const handoffCopyRef = useRef(activeDraft?.publishing ?? null);
+  useEffect(() => {
+    handoffCopyRef.current = activeDraft?.publishing ?? null;
+  }, [activeDraft?.publishing]);
 
   const [slot, setSlot] = useState<string>(() => getFormattedSlotDate(1, 9.25));
   const [busy, setBusy] = useState(false);
@@ -283,43 +287,48 @@ export default function PublishSchedule() {
         });
         const data = await res.json();
         if (!cancelled && data && data.success && data.data) {
-          setCopyBundle({
-            instagram: {
-              caption: data.data.instagram?.caption_text || data.data.instagram?.caption || '',
-              hashtags: data.data.instagram?.hashtags || copyBundle.instagram.hashtags,
-            },
-            youtube: {
-              title: data.data.youtube?.suggestedTitle || selectedVideo.title,
-              description: data.data.youtube?.caption_text || data.data.youtube?.caption || '',
-              tags: data.data.youtube?.hashtags || copyBundle.youtube.tags,
-            },
-            tiktok: {
-              caption: data.data.tiktok?.caption_text || data.data.tiktok?.caption || '',
-              hashtags: data.data.tiktok?.hashtags || copyBundle.tiktok.hashtags,
-            },
-            linkedin: {
-              postText: data.data.linkedin?.caption_text || data.data.linkedin?.caption || '',
-              slideOutline: copyBundle.linkedin.slideOutline,
-              hashtags: data.data.linkedin?.hashtags || copyBundle.linkedin.hashtags,
-            },
-            x: {
-              thread: [data.data.x?.caption_text || data.data.x?.caption || ''],
-              hashtags: data.data.x?.hashtags || copyBundle.x.hashtags,
-            },
-            threads: {
-              postText: data.data.threads?.caption_text || data.data.threads?.caption || '',
-              hashtags: data.data.threads?.hashtags || copyBundle.threads.hashtags,
-            },
-            facebook: {
-              postText: data.data.facebook?.caption_text || data.data.facebook?.caption || '',
-              hashtags: data.data.facebook?.hashtags || copyBundle.facebook.hashtags,
-            },
-          });
+          setCopyBundle((prev) =>
+            applyHandoffCopy(
+              {
+                instagram: {
+                  caption: data.data.instagram?.caption_text || data.data.instagram?.caption || '',
+                  hashtags: data.data.instagram?.hashtags || prev.instagram.hashtags,
+                },
+                youtube: {
+                  title: data.data.youtube?.suggestedTitle || selectedVideo.title,
+                  description: data.data.youtube?.caption_text || data.data.youtube?.caption || '',
+                  tags: data.data.youtube?.hashtags || prev.youtube.tags,
+                },
+                tiktok: {
+                  caption: data.data.tiktok?.caption_text || data.data.tiktok?.caption || '',
+                  hashtags: data.data.tiktok?.hashtags || prev.tiktok.hashtags,
+                },
+                linkedin: {
+                  postText: data.data.linkedin?.caption_text || data.data.linkedin?.caption || '',
+                  slideOutline: prev.linkedin.slideOutline,
+                  hashtags: data.data.linkedin?.hashtags || prev.linkedin.hashtags,
+                },
+                x: {
+                  thread: [data.data.x?.caption_text || data.data.x?.caption || ''],
+                  hashtags: data.data.x?.hashtags || prev.x.hashtags,
+                },
+                threads: {
+                  postText: data.data.threads?.caption_text || data.data.threads?.caption || '',
+                  hashtags: data.data.threads?.hashtags || prev.threads.hashtags,
+                },
+                facebook: {
+                  postText: data.data.facebook?.caption_text || data.data.facebook?.caption || '',
+                  hashtags: data.data.facebook?.hashtags || prev.facebook.hashtags,
+                },
+              },
+              handoffCopyRef.current
+            )
+          );
         }
       } catch (e) {
         if (!cancelled) {
           const generated = generateMultiPlatformCopy(selectedVideo.title);
-          setCopyBundle(generated);
+          setCopyBundle(applyHandoffCopy(generated, handoffCopyRef.current));
         }
       }
     }

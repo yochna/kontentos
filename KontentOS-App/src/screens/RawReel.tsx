@@ -3,19 +3,20 @@ import { Icon } from '@/lib/icons';
 import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/components/ui';
 import { ReelPreview } from '@/components/ReelPreview';
 import { PRESETS, fmtTime, totalDuration, type EditPreset } from '@/lib/timeline';
-import type { AutoEditOutcome } from '@/lib/store';
+import type { AutoEditOutcome, AutoEditProgress } from '@/lib/store';
 import { useStore } from '@/lib/store';
 import { useNavPayload } from '@/lib/nav';
 import { selectCut, useSelectedCutId } from '@/lib/bench';
 import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
 import { notify } from '@/components/ui/toast';
-import { MAX_PARALLEL_UPLOADS, VIDEO_ACCEPT, uploadFileError } from '@/lib/uploadFile';
+import { MAX_PARALLEL_UPLOADS, VIDEO_ACCEPT } from '@/lib/uploadFile';
+import { planUploadBatch } from '@/lib/uploadBatch';
 
-const STEPS = [
-  { icon: 'graphic_eq', label: 'Analyzing audio waveform & speech cadences' },
-  { icon: 'content_cut', label: 'Detecting & purging dead-air silences' },
-  { icon: 'subtitles', label: 'Compiling kinetic word-pop captions' },
-  { icon: 'auto_fix_high', label: 'Keyframing punch zooms & audio dynamics' },
+const STEPS: Array<{ icon: string; label: string; stage: AutoEditProgress['stage'] }> = [
+  { icon: 'graphic_eq', label: 'Reading the take and its transcript', stage: 'reading' },
+  { icon: 'content_cut', label: 'Finding speech blocks and dead air', stage: 'cuts' },
+  { icon: 'subtitles', label: 'Building readable kinetic captions', stage: 'captions' },
+  { icon: 'auto_fix_high', label: 'Applying punch zooms and audio polish', stage: 'polish' },
 ];
 
 // Keep these in step with PRESETS in src/lib/timeline.ts. The card must describe the engine that
@@ -88,10 +89,12 @@ export default function RawReel() {
   const [presetId, setPresetId] = useState<string>(PRESETS[0].id);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(0);
+  const [editProgress, setEditProgress] = useState<AutoEditProgress | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<AutoEditOutcome | null>(null);
+  const [editedCaption, setEditedCaption] = useState('');
   const [playing, setPlaying] = useState(false);
   const [playheadSec, setPlayheadSec] = useState(0);
-  const timers = useRef<number[]>([]);
 
   // Keep video selection in sync if active draft updates or initial video loads
   useEffect(() => {
@@ -131,48 +134,48 @@ export default function RawReel() {
     if (e.target) e.target.value = '';
     if (!selected.length) return;
 
-    // A creator can pick several takes at once here. Apply the same contract as a bench drop:
-    // refuse bad files, ignore exact repeats, and never open more sessions than the server allows.
-    const seen = new Set<string>();
-    const files: File[] = [];
-    let firstProblem: string | null = null;
-    for (const file of selected) {
-      const problem = uploadFileError(file);
-      if (problem) {
-        firstProblem ??= problem;
-        continue;
-      }
-      const key = `${file.name}:${file.size}:${file.lastModified}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      files.push(file);
-    }
-    if (firstProblem) notify.bad(firstProblem);
-    if (!files.length) return;
-    if (files.length > MAX_PARALLEL_UPLOADS) {
-      notify.info(`Intaking the first ${MAX_PARALLEL_UPLOADS} of ${files.length} files.`);
-    }
+    const plan = planUploadBatch(
+      selected,
+      ready.map((v) => ({
+        name: v.file_name || v.title,
+        size: v.file_size || 0,
+        lastModified: new Date(v.created_at).getTime(),
+      })),
+      MAX_PARALLEL_UPLOADS,
+    );
+    plan.invalid.forEach((problem) => notify.bad(problem));
+    if (plan.duplicates) notify.info(`${plan.duplicates} repeat ${plan.duplicates === 1 ? 'take was' : 'takes were'} skipped.`);
+    if (plan.deferred) notify.info(`Intaking the first ${MAX_PARALLEL_UPLOADS} of ${plan.files.length + plan.deferred} valid files.`);
+    if (!plan.files.length) return;
 
     setUploadingPct(0);
-    try {
-      let lastId: string | null = null;
-      for (const file of files.slice(0, MAX_PARALLEL_UPLOADS)) {
-        const uploaded = await uploadVideo(file, (pct) => setUploadingPct(pct));
+    let uploadedCount = 0;
+    let lastId: string | null = null;
+    const failures: string[] = [];
+    for (const file of plan.files) {
+      try {
+        const uploaded = await uploadVideo(file as File, (pct) => setUploadingPct(pct));
         if (!uploaded) throw new Error('The upload ended without a clip record.');
+        uploadedCount++;
         lastId = uploaded.id;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'The upload did not finish.';
+        console.error(`File upload failed in RawReel for ${file.name}:`, err);
+        failures.push(`${file.name}: ${message}`);
       }
-      if (lastId) {
-        setVideoId(lastId);
-        setResult(null);
-        selectCut(lastId);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'That file did not reach the bench.';
-      console.error('File upload failed in RawReel:', err);
-      notify.bad(message);
-    } finally {
-      setUploadingPct(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+    setUploadingPct(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    // Earlier good takes stay on the bench even when a later one fails.
+    if (lastId) {
+      setVideoId(lastId);
+      setResult(null);
+      selectCut(lastId);
+      notify.ok(`${uploadedCount} ${uploadedCount === 1 ? 'take' : 'takes'} on the bench.`);
+    }
+    if (failures.length) {
+      notify.bad(`${failures.length} of ${plan.files.length} takes failed — ${failures[0]}`);
     }
   };
 
@@ -200,25 +203,26 @@ export default function RawReel() {
     if (!video || busy) return;
     setBusy(true);
     setResult(null);
+    setEditedCaption('');
+    setGenerationError(null);
     setPlaying(false);
     setPlayheadSec(0);
     setStep(0);
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-
-    // Visual step progression
-    STEPS.forEach((_, i) => {
-      timers.current.push(window.setTimeout(() => setStep(i), i * 380));
-    });
+    setEditProgress({ stage: 'reading', fraction: 0.02, message: 'Reading the take…' });
 
     try {
-      const [outcome] = await Promise.all([
-        runAutoEdit(video, preset),
-        new Promise((r) => setTimeout(r, STEPS.length * 380 + 200)),
-      ]);
+      const outcome = await runAutoEdit(video, preset, (update) => {
+        setEditProgress(update);
+        const index = STEPS.findIndex((s) => s.stage === update.stage);
+        if (index >= 0) setStep(index);
+      });
       setResult(outcome);
+      setEditedCaption(outcome.caption);
     } catch (err) {
       console.error('Auto-edit pipeline error:', err);
+      setGenerationError(
+        err instanceof Error ? err.message : 'The reel could not be assembled. Your original clip is untouched.'
+      );
     } finally {
       setBusy(false);
     }
@@ -226,14 +230,17 @@ export default function RawReel() {
 
   function handleToEditor() {
     if (result?.project) {
-      handoffReelToEditor(result.project, video);
+      handoffReelToEditor(result.project, video, {
+        caption: editedCaption || result.caption,
+        hashtags: result.hashtags,
+      });
     }
   }
 
   function handleToPublish() {
     if (result?.project) {
       handoffEditorToPublish(result.project, {
-        caption: result.caption,
+        caption: editedCaption || result.caption,
         hashtags: result.hashtags,
       });
     }
@@ -496,7 +503,7 @@ export default function RawReel() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {PRESETS.map((p) => {
                 const active = presetId === p.id;
-                const specs = PRESET_SPECS[p.id] || PRESET_SPECS.fast;
+                const specs = PRESET_SPECS[p.id] ?? PRESET_SPECS[PRESETS[0].id];
                 return (
                   <button
                     key={p.id}
@@ -579,12 +586,33 @@ export default function RawReel() {
               )}
             </div>
 
-            {/* Live Progress Stage Feedback */}
+            {generationError && !busy && (
+              <div className="mt-4 flex items-start justify-between gap-3 rounded-btn border border-danger/30 bg-danger/10 px-3.5 py-2.5 text-[12.5px] text-danger-ink">
+                <span className="flex items-start gap-2">
+                  <Icon name="error_outline" size={16} className="mt-0.5 shrink-0" />
+                  {generationError}
+                </span>
+                <button onClick={create} className="shrink-0 font-semibold hover:underline kt-focus">
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {result?.offline && !busy && (
+              <div className="mt-4 flex items-center gap-2 rounded-btn border border-primary/25 bg-primary-soft px-3.5 py-2.5 text-[12.5px] text-ink-muted">
+                <Icon name="info" size={16} className="shrink-0 text-primary" />
+                {result.message || 'Assembled locally from your own words while the engine was unavailable.'}
+              </div>
+            )}
+
+            {/* Live Progress Stage Feedback — driven by the real assembly pipeline. */}
             {busy && (
               <div className="mt-5 p-4 rounded-card bg-surface-2 border border-line space-y-3">
                 <div className="flex items-center justify-between text-xs font-semibold text-ink">
-                  <span>Processing Timeline Pipeline</span>
-                  <span className="tabular-nums font-mono">{Math.round(((step + 1) / STEPS.length) * 100)}%</span>
+                  <span>{editProgress?.message || 'Preparing the bench…'}</span>
+                  <span className="tabular-nums font-mono">
+                    {Math.round((editProgress?.fraction ?? 0.02) * 100)}%
+                  </span>
                 </div>
 
                 <div className="space-y-2.5">
@@ -615,7 +643,7 @@ export default function RawReel() {
                 <div className="h-2 rounded-full bg-surface-3 overflow-hidden mt-2">
                   <div
                     className="h-full bg-primary rounded-full transition-all duration-300"
-                    style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+                    style={{ width: `${Math.max(4, (editProgress?.fraction ?? 0.02) * 100)}%` }}
                   />
                 </div>
               </div>
@@ -712,8 +740,10 @@ export default function RawReel() {
                 </span>
               </div>
               <textarea
-                defaultValue={result.caption}
+                value={editedCaption}
+                onChange={(e) => setEditedCaption(e.target.value)}
                 rows={4}
+                aria-label="Generated caption — edit before scheduling"
                 className="w-full resize-none rounded-btn border border-line bg-surface-2 p-3 text-[13px] text-ink outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans leading-relaxed"
               />
               <div className="flex flex-wrap gap-1.5 mt-2.5">

@@ -4,7 +4,9 @@ import { Button, Eyebrow, Progress, StatusPill } from '@/components/ui';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { fmtBytes } from '@/lib/bench';
-import { exportTimeline } from '@/lib/browserExport';
+import { exportTimeline, type TimelineExportProgress } from '@/lib/browserExport';
+import { mergeStageProgress } from '@/lib/progress';
+import { useStore, type HandoffExport } from '@/lib/store';
 import type { TargetAspectRatio, TimelineProject, VideoClip, TextClip } from '@/lib/timeline';
 import {
   activeBrollClipAt,
@@ -26,10 +28,11 @@ interface ExportModalProps {
   project: TimelineProject;
   defaultSourceUrl?: string;
   onClose: () => void;
-  onSendToPublish: (exported?: { videoUrl: string; byteLength?: number }) => void;
+  onSendToPublish: (exported?: HandoffExport) => void;
 }
 
 export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublish }: ExportModalProps) {
+  const { uploadVideo } = useStore();
   const [resolution, setResolution] = useState<TargetAspectRatio>(
     project.projectMetadata.targetAspectRatio || '9:16'
   );
@@ -43,8 +46,12 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
   const [renderedMimeType, setRenderedMimeType] = useState<string>('video/mp4');
   const [renderedSize, setRenderedSize] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const [renderEngine, setRenderEngine] = useState<'ffmpeg' | 'canvas'>('ffmpeg');
   const [ffmpegFailed, setFfmpegFailed] = useState(false);
+  const [savingExport, setSavingExport] = useState(false);
+  const [savePct, setSavePct] = useState(0);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const duration = totalDuration(project);
   const clips = videoClips(project);
@@ -61,6 +68,19 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
   const monitorGainRef = useRef<GainNode | null>(null);
   const detachVisibilityRef = useRef<(() => void) | null>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
+  const renderedBlobRef = useRef<Blob | null>(null);
+  const renderProgressRef = useRef<TimelineExportProgress>({
+    stage: 'reading',
+    fraction: 0,
+    message: 'Preparing frame-accurate render…',
+  });
+  const RENDER_PROGRESS_ORDER: TimelineExportProgress['stage'][] = [
+    'reading',
+    'preparing',
+    'encoding',
+    'finalizing',
+    'done',
+  ];
 
   /**
    * One export owns one AudioContext and one document-level listener. A browser only allows a
@@ -114,6 +134,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
       URL.revokeObjectURL(renderedBlobUrl);
       setRenderedBlobUrl(null);
     }
+    renderedBlobRef.current = null;
 
     isCancelledRef.current = false;
     setRenderEngine('canvas');
@@ -670,6 +691,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
       releaseExportAudio();
 
       const finalBlob = new Blob(recordedChunks, { type: selectedMimeType });
+      renderedBlobRef.current = finalBlob;
       const blobUrl = URL.createObjectURL(finalBlob);
       setRenderedBlobUrl(blobUrl);
       setRenderedMimeType(selectedMimeType);
@@ -700,12 +722,20 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
     }
 
     isCancelledRef.current = false;
+    renderedBlobRef.current = null;
+    renderProgressRef.current = {
+      stage: 'reading',
+      fraction: 0.01,
+      message: 'Preparing frame-accurate render…',
+    };
     setRenderEngine('ffmpeg');
     setFfmpegFailed(false);
     setRendering(true);
     setProgress(0.01);
     setStageMsg('Preparing frame-accurate render…');
     setErrorMsg(null);
+    setDiagnostics([]);
+    setSaveError(null);
 
     const controller = new AbortController();
     exportAbortRef.current = controller;
@@ -723,12 +753,18 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
           crf: quality === 'high' ? 20 : 23,
         },
         (update) => {
-          if (update.fraction !== null) setProgress(update.fraction);
-          setStageMsg(update.message);
+          renderProgressRef.current = mergeStageProgress(
+            renderProgressRef.current,
+            update,
+            RENDER_PROGRESS_ORDER
+          );
+          setProgress(renderProgressRef.current.fraction ?? 0);
+          setStageMsg(renderProgressRef.current.message);
         },
         controller.signal
       );
 
+      renderedBlobRef.current = result.blob;
       const blobUrl = URL.createObjectURL(result.blob);
       setRenderedBlobUrl(blobUrl);
       setRenderedMimeType('video/mp4');
@@ -739,6 +775,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
       const message = err?.message || 'The frame-accurate export could not be completed.';
       const cancelled = /cancel/i.test(message);
       setErrorMsg(cancelled ? message : `${message} Nothing was downgraded automatically.`);
+      setDiagnostics(Array.isArray(err?.diagnostics) ? err.diagnostics : []);
       setFfmpegFailed(!cancelled);
     } finally {
       exportAbortRef.current = null;
@@ -761,6 +798,44 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
     sfxEngine.stopBGM();
     if (audioDestRef.current) sfxEngine.disconnectFromDestination(audioDestRef.current);
     releaseExportAudio();
+  };
+
+  /**
+   * A blob URL dies with this tab. Archive the rendered MP4 through the same intake path as any
+   * other clip so Publish still has a source after a reload or a device switch.
+   */
+  const handleSendToPublish = async () => {
+    if (!renderedBlobUrl || savingExport) return;
+    if (!renderedBlobRef.current) {
+      setSaveError('The finished file is no longer in memory. Render again before sending it.');
+      return;
+    }
+    setSavingExport(true);
+    setSavePct(0);
+    setSaveError(null);
+    try {
+      const extension = renderedMimeType.toLowerCase().includes('webm') ? 'webm' : 'mp4';
+      const file = new File(
+        [renderedBlobRef.current],
+        `kontentos_finished_reel_${Date.now()}.${extension}`,
+        { type: renderedMimeType }
+      );
+      const uploaded = await uploadVideo(file, setSavePct, { transcribe: false });
+      if (!uploaded?.file_url) throw new Error('The finished reel was rendered but could not be archived.');
+      transferredRef.current = true;
+      onClose();
+      onSendToPublish({
+        videoUrl: uploaded.file_url,
+        byteLength: uploaded.file_size || renderedSize || undefined,
+        videoId: uploaded.id,
+        title: uploaded.title,
+        duration: uploaded.duration,
+      });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'The finished reel could not be archived.');
+    } finally {
+      setSavingExport(false);
+    }
   };
 
   const handleDownload = () => {
@@ -862,7 +937,22 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                     Download source master directly →
                   </button>
                 </div>
+                {diagnostics.length > 0 && (
+                  <details className="mt-3 text-[11px] text-ink-dim">
+                    <summary className="cursor-pointer hover:text-ink">FFmpeg diagnostics</summary>
+                    <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-surface px-2 py-1.5 font-mono text-[10px]">
+                      {diagnostics.join('\n')}
+                    </pre>
+                  </details>
+                )}
               </div>
+            </div>
+          )}
+
+          {saveError && renderedBlobUrl && (
+            <div className="mb-4 flex items-start gap-2 rounded-btn border border-danger/30 bg-danger/10 px-3.5 py-2.5 text-[12.5px] text-danger-ink">
+              <Icon name="error_outline" size={16} className="mt-0.5 shrink-0" />
+              {saveError}
             </div>
           )}
 
@@ -1020,18 +1110,13 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                 </Button>
                 <Button
                   variant="secondary"
-                  icon="schedule_send"
-                  onClick={() => {
-                    transferredRef.current = true;
-                    const exported = renderedBlobUrl
-                      ? { videoUrl: renderedBlobUrl, byteLength: renderedSize || undefined }
-                      : undefined;
-                    onClose();
-                    onSendToPublish(exported);
-                  }}
+                  icon={savingExport ? 'autorenew' : 'schedule_send'}
+                  iconSpin={savingExport}
+                  onClick={handleSendToPublish}
+                  disabled={savingExport}
                   className="w-full"
                 >
-                  Send to Publish
+                  {savingExport ? `Archiving reel ${savePct}%` : 'Send to Publish'}
                 </Button>
               </div>
             </div>

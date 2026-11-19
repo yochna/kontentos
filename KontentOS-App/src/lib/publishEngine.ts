@@ -10,6 +10,33 @@ export interface PlatformCopyBundle {
   facebook: { postText: string; hashtags: string[] };
 }
 
+export interface HandoffCopy {
+  caption?: string;
+  hashtags?: string[];
+}
+
+/**
+ * Copy edited in Upload is the creator's own line, not a suggestion for the copy engine to improve.
+ * A late AI response may still fill the other channels, but it must never replace the words the
+ * creator just hand-edited in the composer's default channel.
+ */
+export function applyHandoffCopy<T extends PlatformCopyBundle>(
+  bundle: T,
+  handoff: HandoffCopy | null | undefined
+): T {
+  const caption = handoff?.caption?.trim();
+  const hashtags = handoff?.hashtags?.filter(Boolean);
+  if (!caption && !hashtags?.length) return bundle;
+  return {
+    ...bundle,
+    instagram: {
+      ...bundle.instagram,
+      caption: caption || bundle.instagram.caption,
+      hashtags: hashtags?.length ? hashtags : bundle.instagram.hashtags,
+    },
+  };
+}
+
 /**
  * The offline scaffold. Nothing here is written *for* the creator: no invented stats, no "90% of
  * creators" claims, no hashtags nobody chose — the only inputs are a title and sometimes a hook the
