@@ -953,9 +953,9 @@ Output valid JSON:
   app.post('/api/script/ideas', async (req, res) => {
     try {
       const { topic, niche, tone, context, temperature, model } = req.body || {};
-      const { generateIdeas } = await import('./server/ideasEngine.js');
+      const { generateIdeas, isScaffoldedIdeas } = await import('./server/ideasEngine.js');
       const generated = await generateIdeas(topic, niche, { tone, context, temperature, model });
-      res.json({ success: true, data: generated });
+      res.json({ success: true, data: generated, fallback: isScaffoldedIdeas(generated) });
     } catch (err: any) {
       console.error('Error generating ideas:', err);
       const { generateScaffoldIdeas } = await import('./server/ideasEngine.js');

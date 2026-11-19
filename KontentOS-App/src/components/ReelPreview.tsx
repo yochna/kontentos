@@ -449,11 +449,23 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
         if (vB && !vB.paused) vB.pause();
         sfxEngine.stopBGM();
         onPlayingChange?.(false);
+
+        // The active player can be the empty standby while a later clip is being preloaded. Park the
+        // finished reel on whichever player actually holds a frame instead of ending on black.
+        const finalPlayer: 'A' | 'B' = vA?.currentSrc ? 'A' : vB?.currentSrc ? 'B' : curPlayer;
+        if (finalPlayer !== curPlayer) {
+          activePlayerRef.current = finalPlayer;
+          setActivePlayer(finalPlayer);
+        }
+        const finalV = finalPlayer === 'A' ? vA : vB;
         const finalTarget = sourceTimeAt(project, duration);
-        const curV = activePlayerRef.current === 'A' ? vA : vB;
-        if (curV && Number.isFinite(finalTarget) && !curV.seeking) {
+        if (finalV && Number.isFinite(finalTarget) && !finalV.seeking) {
+          const clamped =
+            Number.isFinite(finalV.duration) && finalV.duration > 0
+              ? Math.max(0, Math.min(finalTarget, finalV.duration - 0.001))
+              : finalTarget;
           try {
-            curV.currentTime = finalTarget;
+            finalV.currentTime = clamped;
           } catch {}
         }
         return;
@@ -617,6 +629,14 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
   const scale = transform.scale;
   const activeWord = cue ? activeWordIndex(cue, t) : -1;
   const isInGap = project ? isVideoGapAt(project, t) : false;
+  // totalDuration() can end a hair after the last frame. That is not a gap to the viewer, it is the
+  // held final frame, so never dim or hide a player purely because the playhead landed on duration.
+  const holdingFinalFrame = duration > 0 && t >= duration - 0.001;
+  const visualInGap = isInGap && !holdingFinalFrame;
+  const sourceFor = (player: 'A' | 'B') => (player === 'A' ? sourceA : sourceB);
+  const hasSource = (player: 'A' | 'B') => Boolean(normalizeSourceUrl(sourceFor(player)));
+  const standby = activePlayer === 'A' ? 'B' : 'A';
+  const visiblePlayer = hasSource(activePlayer) || !hasSource(standby) ? activePlayer : standby;
   const targetAspect = project?.projectMetadata.targetAspectRatio || '9:16';
   const isWidescreen = targetAspect === '16:9';
 
@@ -668,8 +688,8 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
               playsInline
               preload="auto"
               className={`absolute inset-0 w-full h-full object-contain block transition-opacity duration-150 ${
-                activePlayer === 'A'
-                  ? isInGap
+                visiblePlayer === 'A'
+                  ? visualInGap
                     ? 'opacity-20 brightness-50 z-[2]'
                     : 'opacity-100 z-[2]'
                   : 'opacity-0 pointer-events-none z-[1]'
@@ -688,8 +708,8 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
               playsInline
               preload="auto"
               className={`absolute inset-0 w-full h-full object-contain block transition-opacity duration-150 ${
-                activePlayer === 'B'
-                  ? isInGap
+                visiblePlayer === 'B'
+                  ? visualInGap
                     ? 'opacity-20 brightness-50 z-[2]'
                     : 'opacity-100 z-[2]'
                   : 'opacity-0 pointer-events-none z-[1]'

@@ -464,7 +464,7 @@ h4 {
   background: linear-gradient(105deg, transparent, var(--splash-shine), transparent);
   transform: skewX(-18deg);
   opacity: 0;
-  animation: ktShine 1200ms ease-in-out 1400ms;
+  animation: ktShine 900ms ease-in-out 700ms;
 }
 @keyframes ktShine {
   0% { left: -60%; opacity: 0; }
@@ -504,7 +504,7 @@ h4 {
   opacity: 0;
   pointer-events: none;
   transform-origin: center;
-  animation: ktWand 2100ms ease-in-out 1500ms forwards;
+  animation: ktWand 1100ms ease-in-out 700ms forwards;
 }
 @keyframes ktWand {
   0% { opacity: 0; transform: translate(-140px, 46px) rotate(-40deg) scale(0.6); }
@@ -525,7 +525,7 @@ h4 {
   box-shadow: 0 0 10px 3px var(--tertiary-soft);
   opacity: 0;
   pointer-events: none;
-  animation: ktSpark 1600ms ease-out 1700ms forwards;
+  animation: ktSpark 1100ms ease-out 650ms forwards;
 }
 @keyframes ktSpark {
   0% { opacity: 0; transform: translate(0, 0) scale(0.2); }

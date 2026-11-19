@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { AnimatedNumber, Badge, Button, Card, Chip, Eyebrow, PageShell, Progress, Reveal, Thumb } from '@/components/ui';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -38,17 +38,29 @@ export default function Ideas() {
 
   // Opening the station shows six empty structures rather than someone's finished ideas: nothing here
   // is invented copy, and nothing is scored, because no model has read it yet.
+  const scaffoldTopic = myTopics[0] ?? FALLBACK_TOPICS[0];
   const [ideasList, setIdeasList] = useState<Idea[]>(() =>
-    generateScaffoldIdeas(myTopics[0] ?? FALLBACK_TOPICS[0], user?.niche)
+    generateScaffoldIdeas(scaffoldTopic, user?.niche)
   );
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const lastScaffoldTopicRef = useRef(scaffoldTopic);
+  const generationIdRef = useRef(0);
+  // The archive can finish loading after this screen mounts. Refresh the scaffolds once when the
+  // creator's own first subject appears, but never overwrite an answer the creator asked for.
+  useEffect(() => {
+    if (hasGenerated || lastScaffoldTopicRef.current === scaffoldTopic) return;
+    lastScaffoldTopicRef.current = scaffoldTopic;
+    setIdeasList(generateScaffoldIdeas(scaffoldTopic, user?.niche));
+  }, [hasGenerated, scaffoldTopic, user?.niche]);
+
   const [filter, setFilter] = useState('all');
   const [open, setOpen] = useState<Idea | null>(null);
   const [searchTopic, setSearchTopic] = useState('');
-  const [generating, setGenerating] = useState(false);
   const [showTranscriptPicker, setShowTranscriptPicker] = useState(false);
   // The store rolls a failed bookmark back on its own; without this line the icon simply flips
   // back and the creator has no way to know the archive never received it.
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [ideaNotice, setIdeaNotice] = useState<string | null>(null);
 
   const toggleSaved = (idea: Idea) => {
     const request = isSavedIdea(idea.id) ? removeSavedIdea(idea.id) : saveIdea(idea);
@@ -57,27 +69,42 @@ export default function Ideas() {
     });
   };
 
-  // Trigger idea generation via API with procedural fallback
+  // Show honest scaffolds before the call, then replace them only if the engine actually answers.
+  // A cold model or a dead key can hold the request; the station must not hold the creator with it.
   const handleGenerate = async (topicToUse?: string) => {
-    const q = topicToUse !== undefined ? topicToUse : searchTopic;
-    setGenerating(true);
+    const requestId = ++generationIdRef.current;
+    const typed = (topicToUse !== undefined ? topicToUse : searchTopic).trim();
+    const topic = typed || myTopics[0] || FALLBACK_TOPICS[0];
+    setSearchTopic(topic);
+    setIdeaNotice('Editable scaffolds are ready. Checking whether the idea engine has a sharper angle…');
+    setIdeasList(generateScaffoldIdeas(topic, user?.niche));
+    setHasGenerated(true);
+    if (filter === 'saved') setFilter('all');
     try {
-      const generated = await api.generateIdeas({
-        topic: q,
+      const result = await api.generateIdeas({
+        topic,
         niche: user?.niche || undefined,
         tone: voiceTone(),
         context: [copyVoice(), creatorBrief(myTopics, user)].filter(Boolean).join('\n'),
         temperature: readAiPrefs().temperature,
         model: copyModel(),
       });
-      if (generated && generated.length > 0) {
-        setIdeasList(generated);
-        if (filter === 'saved') setFilter('all');
+      if (requestId !== generationIdRef.current) return;
+      if (result.ideas.length) setIdeasList(result.ideas);
+      if (result.fallback) {
+        setIdeaNotice(
+          result.reason === 'timeout'
+            ? 'The idea engine took too long. These are editable scaffolds built from your topic.'
+            : 'The idea engine was unavailable. These are editable scaffolds built from your topic.'
+        );
+      } else {
+        setIdeaNotice(null);
       }
     } catch (err) {
       console.error('Error generating ideas:', err);
-    } finally {
-      setGenerating(false);
+      if (requestId === generationIdRef.current) {
+        setIdeaNotice('The idea engine could not be reached. These are editable scaffolds built from your topic.');
+      }
     }
   };
 
@@ -204,12 +231,10 @@ export default function Ideas() {
               </div>
               <Button
                 icon="auto_fix_high"
-                iconSpin={generating}
                 onClick={() => handleGenerate()}
-                disabled={generating}
                 className="shrink-0"
               >
-                {generating ? 'Synthesizing…' : 'Generate ideas'}
+                Generate ideas
               </Button>
             </div>
 
@@ -283,6 +308,18 @@ export default function Ideas() {
             {saveNotice}
           </span>
           <button onClick={() => setSaveNotice(null)} className="hover:underline shrink-0 kt-focus">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {ideaNotice && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-card border border-primary/25 bg-primary-soft px-4 py-2.5 text-[12.5px] text-ink-muted">
+          <span className="flex items-center gap-2">
+            <Icon name="info" size={16} className="shrink-0 text-primary" />
+            {ideaNotice}
+          </span>
+          <button onClick={() => setIdeaNotice(null)} className="hover:underline shrink-0 kt-focus">
             Dismiss
           </button>
         </div>

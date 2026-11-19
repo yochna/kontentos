@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 import { Icon } from '@/lib/icons';
 
 const TAGLINE = 'Raw in. Scheduled out.';
-const HOLD_MS = 3700;
+// The intro is a greeting, not a loading gate. Its old 3.7s hold was the largest single slice of
+// "takes a long time to load"; keep the flourish but let the bench arrive in a little over two.
+const HOLD_MS = 2200;
 
 export function Splash({ onDone }: { onDone: () => void }) {
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const total = reduce ? 400 : HOLD_MS;
+    const total = reduce ? 350 : HOLD_MS;
     const leave = setTimeout(() => setLeaving(true), total - 620);
     const end = setTimeout(onDone, total);
     return () => {
@@ -27,7 +29,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
   const sparks = Array.from({ length: 10 }, (_, i) => {
     const angle = (i / 10) * Math.PI * 2;
     const dist = 60 + ((i * 37) % 70);
-    return { dx: Math.cos(angle) * dist, dy: Math.sin(angle) * dist - 10, delay: 1700 + i * 70 };
+    return { dx: Math.cos(angle) * dist, dy: Math.sin(angle) * dist - 10, delay: 650 + i * 55 };
   });
 
   return (
@@ -49,7 +51,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
                   <span
                     key={ci}
                     className="ltr"
-                    style={{ animationDelay: `${1950 + globalIndex * 26}ms` }}
+                    style={{ animationDelay: `${850 + globalIndex * 20}ms` }}
                   >
                     {ch}
                   </span>

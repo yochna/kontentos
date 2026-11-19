@@ -32,6 +32,13 @@ export interface AutoEditResult {
   message: string;
 }
 
+/** Ideas always answer: either the engine's cards or honest, editable scaffolds. */
+export interface IdeaGenerationResult {
+  ideas: import('@/data/mock').Idea[];
+  fallback: boolean;
+  reason?: 'timeout' | 'unavailable' | 'empty' | 'engine';
+}
+
 export interface TitleCopy {
   title: string;
   caption: string;
@@ -44,6 +51,9 @@ export interface TitleCopy {
 
 /** Shown only when a response carries no server-written message — a proxy error page,
  *  an offline dev backend. Every route in server/ writes its own human-readable `error`. */
+/** Long enough for a warm model, short enough that the Ideas station never sits on a spinner. */
+const IDEA_REQUEST_TIMEOUT_MS = 8_000;
+
 const STATUS_MESSAGES: Record<number, string> = {
   400: 'The studio could not accept that. Check the fields and try again.',
   401: 'Your session has ended. Please sign in again.',
@@ -717,11 +727,21 @@ Respond ONLY with pure JSON matching this exact structure:
     context?: string;
     temperature?: number;
     model?: string;
-  }): Promise<import('@/data/mock').Idea[]> {
+  }): Promise<IdeaGenerationResult> {
+    // A cold model can hold this POST far longer than a creator will wait. The station shows
+    // scaffolds immediately, so this ceiling only decides whether they get replaced by engine copy.
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, IDEA_REQUEST_TIMEOUT_MS);
     try {
       const res = await fetch('/api/script/ideas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        signal: controller.signal,
         body: JSON.stringify({
           topic: opts?.topic,
           niche: opts?.niche,
@@ -733,20 +753,35 @@ Respond ONLY with pure JSON matching this exact structure:
       });
       if (res.ok) {
         const d = await res.json();
-        // The server returns finished cards, artwork ids included.
-        if (Array.isArray(d.data) && d.data.length > 0) return d.data;
+        // The server returns finished cards, artwork ids included. A server-side fallback is still
+        // an answer, but the station needs to know it was not written by the engine.
+        if (Array.isArray(d.data) && d.data.length > 0) {
+          return d.fallback
+            ? { ideas: d.data, fallback: true, reason: 'engine' }
+            : { ideas: d.data, fallback: false };
+        }
+        const { generateScaffoldIdeas } = await import('./ideasEngine');
+        return { ideas: generateScaffoldIdeas(opts?.topic, opts?.niche), fallback: true, reason: 'empty' };
       }
     } catch {
       // Fallback handled below
+    } finally {
+      window.clearTimeout(timer);
     }
     const { generateScaffoldIdeas } = await import('./ideasEngine');
-    return generateScaffoldIdeas(opts?.topic, opts?.niche);
+    return {
+      ideas: generateScaffoldIdeas(opts?.topic, opts?.niche),
+      fallback: true,
+      reason: timedOut ? 'timeout' : 'unavailable',
+    };
   },
 
   // Saved ideas belong to the signed-in account and are stored server-side, so there is no
   // browser cache to fall back to — reading one would show the previous creator's briefs.
   async getSavedIdeas(): Promise<import('@/data/mock').Idea[]> {
-    const d = await json<{ data: import('@/data/mock').Idea[] }>(await fetch('/api/script/saved-ideas'));
+    const d = await json<{ data: import('@/data/mock').Idea[] }>(
+      await fetch('/api/script/saved-ideas', { cache: 'no-store' })
+    );
     return Array.isArray(d.data) ? d.data : [];
   },
 

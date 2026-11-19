@@ -39,6 +39,8 @@ export interface GeneratedIdea {
  * the CSP's img-src — every card rendered empty.
  */
 const CARD_PHOTO_IDS = ['curated-ws-3', 'curated-ws-4', 'curated-ws-1', 'curated-neon-2', 'curated-life-3', 'curated-life-4'];
+/** One idea attempt gets less time than a caption: six cards are optional, the station is not. */
+const IDEA_ATTEMPT_TIMEOUT_MS = Math.min(MODEL_ATTEMPT_TIMEOUT_MS, 8_000);
 const CURATED_IMAGES = CARD_PHOTO_IDS.map((id) => {
   const photo = CURATED_STOCK_PHOTOS.find((p) => p.id === id) ?? CURATED_STOCK_PHOTOS[0];
   return { id: photo.id, alt: photo.description };
@@ -129,7 +131,7 @@ Return STRICTLY a JSON array of 6 idea objects with NO markdown formatting, NO b
                 temperature,
               },
             }),
-            MODEL_ATTEMPT_TIMEOUT_MS,
+            IDEA_ATTEMPT_TIMEOUT_MS,
             `Timeout with model ${model}`
           );
           text = res.text?.trim() || '';
@@ -335,5 +337,15 @@ export function generateScaffoldIdeas(topic?: string, niche?: string): Generated
     },
   ];
 
-  return cards.map((c, i) => ({ ...c, id: `scaffold-${i + 1}-${stamp}` }));
+  const scaffolded: ScaffoldedIdeas = cards.map((c, i) => ({ ...c, id: `scaffold-${i + 1}-${stamp}` }));
+  scaffolded[SCAFFOLD_MARKER] = true;
+  return scaffolded;
+}
+
+const SCAFFOLD_MARKER = '__kontentosScaffold';
+type ScaffoldedIdeas = GeneratedIdea[] & { [SCAFFOLD_MARKER]?: true };
+
+/** Lets the route tell the browser when the engine did not actually write the cards it returns. */
+export function isScaffoldedIdeas(ideas: GeneratedIdea[]): boolean {
+  return Boolean((ideas as ScaffoldedIdeas)[SCAFFOLD_MARKER]);
 }
