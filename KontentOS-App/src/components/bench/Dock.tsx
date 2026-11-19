@@ -5,6 +5,9 @@ import { useWorkspaceStatus } from '@/lib/workspace';
 import type { DbStatus } from '@/lib/types';
 import type { Theme } from '@/lib/theme';
 
+/** Shown in the dock so a stale dev server can be spotted without guessing. */
+const BUILD_TAG = '57799b2';
+
 export interface BenchJob {
   id: string;
   label: string;
@@ -167,6 +170,10 @@ export function Dock({
         )}
 
         <span className="flex-1" />
+
+        <span className="shrink-0 font-mono text-[10px] text-ink-dim" title="Running build">
+          build {BUILD_TAG}
+        </span>
 
         <button
           type="button"
