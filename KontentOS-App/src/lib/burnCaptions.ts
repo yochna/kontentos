@@ -36,9 +36,9 @@ const LINE_CHARS = 20; // at 76px in a 1080-wide frame this stays inside the tit
 const MAX_LINES = 3;
 const MAX_PAGES = 60; // a filtergraph with hundreds of drawtext nodes slows the encode more than it helps
 
-const FONT_SIZE = 76;
+const FONT_SIZE = 82; // large enough to read on a phone with the sound off
 const LINE_HEIGHT = 94; // px between baselines at FONT_SIZE in the 1080 × 1920 frame
-const TOP = 1306; // 68% down the frame
+const TOP = 1288; // 67% down the frame, above the platform's bottom UI
 const MIN_PAGE_SECONDS = 0.7; // a page shorter than this flashes by faster than it can be read
 
 /**
@@ -151,7 +151,15 @@ export function buildCaptionBurn(cues: TimedCue[]): BurnPlan | null {
           'fontcolor=white',
           `fontsize=${FONT_SIZE}`,
           'borderw=7',
-          'bordercolor=black@0.9',
+          'bordercolor=black@0.95',
+          // A soft scrim plus a drop shadow keeps words readable over bright footage without
+          // turning the reel into a wall of black rectangles.
+          'box=1',
+          'boxcolor=black@0.55',
+          'boxborderw=18',
+          'shadowcolor=black@0.9',
+          'shadowx=3',
+          'shadowy=3',
           'x=(w-text_w)/2',
           `y=${TOP + l * LINE_HEIGHT}`,
           `enable='between(t,${seconds(page.start)},${seconds(page.end)})'`,

@@ -549,28 +549,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     // Prioritize real speech-to-text transcription from AI video analysis
     try {
-      let subs = await api.getSubtitles(video.id);
+      let subs: any = await api.getSubtitles(video.id);
       if (!subs?.segments?.length && !subs?.transcript) {
-        subs = await api.transcribeVideo({ videoId: video.id, forceRefresh: false }).catch(() => null as any);
+        const fresh = await api.transcribeVideo({ videoId: video.id, forceRefresh: false }).catch(() => null);
+        // The server marks scaffold cues as not persisted. They are layout advice, not something the
+        // creator said, so they must never turn into captions or justify fake silence cuts.
+        if (fresh && fresh.persisted !== false) subs = fresh;
       }
 
-      if (subs && subs.transcript && subs.segments?.length) {
-        const fullTranscript = subs.transcript;
+      // A saved script can still contain a bracketed stage direction. Keep spoken words only.
+      const usable = (subs?.segments || []).filter(
+        (seg: any) => seg?.text && !/^\s*\[[^\]]*\]\s*$/.test(String(seg.text)),
+      );
+      if (subs && subs.transcript && usable.length) {
+        const fullTranscript = usable.map((seg: any) => String(seg.text).trim()).join(' ').replace(/\s+/g, ' ');
         caption = fullTranscript;
         spoken = fullTranscript;
         realWords = [];
-        for (const seg of subs.segments) {
+        for (const seg of usable) {
           const segStart = parseSrtTimeToSeconds(seg.start);
           const segEnd = parseSrtTimeToSeconds(seg.end);
-          const segWords = seg.text.trim().split(/\s+/).filter(Boolean);
+          const span = Math.max(0.2, segEnd - segStart);
+          const segWords = String(seg.text).trim().split(/\s+/).filter(Boolean);
           if (!segWords.length) continue;
-          const wordDur = Math.max(0.15, (segEnd - segStart) / segWords.length);
+          // Long words earn more time than short ones. Even division made captions feel mistimed
+          // even when the segment boundaries themselves were correct.
+          const weights = segWords.map((w) => Math.max(1, w.replace(/[^\p{L}\p{N}]/gu, '').length));
+          const total = weights.reduce((sum, w) => sum + w, 0) || segWords.length;
+          let cursor = segStart;
           segWords.forEach((w, idx) => {
+            const dur = (span * weights[idx]) / total;
             realWords!.push({
               word: w,
-              start: Number((segStart + idx * wordDur).toFixed(2)),
-              end: Number((segStart + (idx + 1) * wordDur).toFixed(2)),
+              start: Number(cursor.toFixed(2)),
+              end: Number((cursor + dur).toFixed(2)),
             });
+            cursor += dur;
           });
         }
       }
@@ -827,11 +841,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           forceRefresh: opts?.forceRefresh ?? true,
         });
 
-        if (!result || !result.segments?.length) {
+        if (!result || result.persisted === false) {
+          return { ok: false, count: 0, message: 'No spoken dialogue could be saved for this clip.' };
+        }
+        const segments = (result.segments || []).filter(
+          (seg: any) => seg?.text && !/^\s*\[[^\]]*\]\s*$/.test(String(seg.text)),
+        );
+        if (!segments.length) {
           return { ok: false, count: 0, message: 'No speech dialogue detected' };
         }
 
-        const cues = buildCaptionsFromSegments(result.segments, opts?.style);
+        const cues = buildCaptionsFromSegments(segments, opts?.style);
 
         applyEdit((cur) => {
           return applyCaptionsToProject(cur, cues);

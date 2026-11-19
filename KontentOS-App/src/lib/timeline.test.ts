@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activeCaptionAt,
   activeVideoClipAt,
   activeWordIndex,
+  applyPresetLook,
+  buildCaptionsFromSegments,
   evaluateEasing,
   fmtTime,
   isVideoGapAt,
   parseSrtTimeToSeconds,
+  PRESETS,
   recomputeDuration,
   sourceTimeAt,
   splitClipAt,
@@ -222,5 +226,53 @@ describe('splitClipAt', () => {
     expect(splitClipAt(p, 'a', 8)).toBeNull();
     expect(splitClipAt(p, 'a', 20)).toBeNull();
     expect(splitClipAt(p, 'missing', 4)).toBeNull();
+  });
+});
+
+describe('caption readability', () => {
+  it('keeps spoken phrases intact and preserves sentence case', () => {
+    const cues = buildCaptionsFromSegments([
+      { start: 0, end: 2.4, text: 'Stop scrolling. Here is the real reason.' },
+    ]);
+    expect(cues.map((c) => c.content)).toEqual([
+      'Stop scrolling.',
+      'Here is the real reason.',
+    ]);
+    expect(cues[0].style.fontSize).toBeGreaterThanOrEqual(60);
+    expect(cues[0].style.position).toBe('bottom');
+    expect(cues[0].style.words?.length).toBe(2);
+  });
+
+  it('does not let a preset discard word timings', () => {
+    const words = [
+      { word: 'Hello', start: 0, end: 0.4 },
+      { word: 'world', start: 0.4, end: 0.9 },
+    ];
+    const cue = captionClip({
+      id: 'cue',
+      startOnTimeline: 0,
+      duration: 1,
+      style: {
+        fontFamily: 'Inter',
+        fontSize: 30,
+        colorHex: '#fff',
+        position: 'middle',
+        animation: 'none',
+        words,
+      },
+    });
+    const preset = PRESETS.find((p) => p.id === 'punchy')!;
+    const styled = (applyPresetLook(project([], [cue]), preset).tracks[1].clips as TextClip[])[0];
+    expect(styled.style.fontSize).toBe(preset.caption.fontSize);
+    expect(styled.style.position).toBe('bottom');
+    expect(styled.style.words).toEqual(words);
+  });
+
+  it('hides captions from the export path when the text track is muted', () => {
+    const cue = captionClip({ id: 'cue', startOnTimeline: 0, duration: 2 });
+    const p = project([], [cue]);
+    expect(activeCaptionAt(p, 0.5)?.id).toBe('cue');
+    p.tracks[1].isMuted = true;
+    expect(activeCaptionAt(p, 0.5)).toBeNull();
   });
 });

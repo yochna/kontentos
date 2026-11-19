@@ -344,6 +344,12 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
         let isTransitioning = false;
         let completed = false;
 
+        // The clock used to be read from the playing <video> element. When a shot ended or a tab
+        // throttled the frame loop, captions froze or skipped with it. A wall clock keeps the
+        // picture, audio and cue lookup on one timeline; video elements below only supply pixels.
+        const exportStartedAt = performance.now();
+        const timelineAt = () => Math.min(totalCompDuration, (performance.now() - exportStartedAt) / 1000);
+
         const loop = () => {
           if (isCancelledRef.current) {
             cancelAnimationFrame(animId);
@@ -368,16 +374,23 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
           const curClipTimelineStart = curClip?.startOnTimeline || 0;
           const curClipDur = curClip?.duration || totalCompDuration;
 
-          // Compute exact timeline position from active video element playback (zero drift, zero stutter)
-          const currentVideoTime = activeV ? activeV.currentTime : 0;
-          const clipElapsed = Math.max(0, (currentVideoTime - curSrcStart) / curSpeed);
-          const currentTimelineSec = Math.min(totalCompDuration, curClipTimelineStart + clipElapsed);
+          const currentTimelineSec = timelineAt();
+          // Keep the shot's video element near the master clock, but never rewind it. Video playback
+          // is only a frame source now; re-syncing only on real drift avoids visible jumps.
+          if (activeV) {
+            const desiredSourceTime = curSrcStart + Math.max(0, currentTimelineSec - curClipTimelineStart) * curSpeed;
+            const drift = Math.abs(activeV.currentTime - desiredSourceTime);
+            if (drift > 0.35) {
+              try { activeV.currentTime = desiredSourceTime; } catch {}
+            }
+          }
+          const clipElapsed = Math.max(0, Math.min(curClipDur, currentTimelineSec - curClipTimelineStart));
 
           // Check for clip completion or total duration reached
           if (
             clipElapsed >= curClipDur - 0.03 ||
             currentTimelineSec >= totalCompDuration - 0.03 ||
-            (activeV && activeV.ended)
+            false
           ) {
             if (currentClipIndex < clips.length - 1) {
               if (!isTransitioning) {
@@ -482,92 +495,105 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
           }
 
           // C. Draw Kinetic Subtitles with Word Highlighting
+          // The exporter used to draw with a different, narrower style than the preview and ignored
+          // muted text tracks. Both are fixed here: one readable layout, backed by a soft scrim,
+          // with the same active-word data the preview uses.
           const caption = activeCaptionAt(project, currentTimelineSec);
           if (caption && caption.content) {
             ctx.save();
             const activeWIdx = activeWordIndex(caption, currentTimelineSec);
             const words = caption.style?.words || [];
-            const fontName = caption.style?.fontFamily?.includes('serif') ? 'Georgia, serif' : 'system-ui, sans-serif';
-            
-            const isWidescreen = width > height;
+            const fontName = caption.style?.fontFamily || 'system-ui, sans-serif';
             const minDim = Math.min(width, height);
-            const fontScale = minDim / 1080;
-            let baseFontSize = Math.round((caption.style?.fontSize || 54) * fontScale);
+            const scale = minDim / 1080;
+            let fontSize = Math.round((caption.style?.fontSize || 60) * scale);
             const primaryColor = caption.style?.colorHex || '#FFFFFF';
-            const activeColor = caption.style?.activeWordColorHex || '#F3B747';
-            const pos = caption.style?.position || 'middle';
-            const yPos = pos === 'top' ? height * (isWidescreen ? 0.15 : 0.20) : pos === 'bottom' ? height * (isWidescreen ? 0.85 : 0.80) : height * 0.50;
+            const activeColor = caption.style?.activeWordColorHex || '#FFE066';
+            const strokeColor = caption.style?.strokeColorHex || '#000000';
+            const strokeWidth = Math.max(3, Math.round((caption.style?.strokeWidth ?? 6) * scale));
+            const shadowColor = caption.style?.shadowColorHex || 'rgba(0,0,0,0.9)';
+            const scrim = caption.style?.bannerPillColorHex || 'rgba(0,0,0,0.55)';
+            const pos = caption.style?.position || 'bottom';
+            const yPos = pos === 'top' ? height * 0.2 : pos === 'bottom' ? height * 0.8 : height * 0.5;
+            const maxWidth = width * 0.86;
+            const lineHeight = Math.round(fontSize * 1.18);
 
-            ctx.font = `bold ${baseFontSize}px ${fontName}`;
-            ctx.textAlign = 'center';
+            const setFont = () => { ctx.font = `900 ${fontSize}px ${fontName}`; };
+            setFont();
             ctx.textBaseline = 'middle';
 
-            // Auto-clamp font size if line exceeds safe bounding box (86% of width)
-            const maxAllowedTextWidth = width * 0.86;
-            const fullText = words.length > 0 ? words.map((w) => w.word).join(' ') : caption.content;
-            const initialMeasuredWidth = ctx.measureText(fullText).width;
-            if (initialMeasuredWidth > maxAllowedTextWidth && initialMeasuredWidth > 0) {
-              const shrinkRatio = maxAllowedTextWidth / initialMeasuredWidth;
-              baseFontSize = Math.max(18, Math.floor(baseFontSize * shrinkRatio));
-              ctx.font = `bold ${baseFontSize}px ${fontName}`;
+            // Measure once, shrink only when a real line would leave the title-safe area.
+            const fullText = words.length ? words.map((w) => w.word).join(' ') : caption.content;
+            const fullWidth = ctx.measureText(fullText).width;
+            if (fullWidth > maxWidth && fullWidth > 0) {
+              fontSize = Math.max(34, Math.floor(fontSize * (maxWidth / fullWidth)));
+              setFont();
             }
 
-            if (words.length > 0) {
-              const fullText = words.map((w) => w.word).join(' ');
-              const totalTextWidth = ctx.measureText(fullText).width;
-              let currentX = width / 2 - totalTextWidth / 2;
-
-              if (caption.style?.animation === 'bannerPill') {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-                const pillPaddingX = 24;
-                const pillPaddingY = 14;
-                ctx.beginPath();
-                ctx.roundRect(
-                  width / 2 - totalTextWidth / 2 - pillPaddingX,
-                  yPos - baseFontSize / 2 - pillPaddingY,
-                  totalTextWidth + pillPaddingX * 2,
-                  baseFontSize + pillPaddingY * 2,
-                  16
-                );
-                ctx.fill();
-              }
-
-              words.forEach((wObj, idx) => {
-                const wordStr = wObj.word + (idx < words.length - 1 ? ' ' : '');
-                const wordWidth = ctx.measureText(wordStr).width;
-                const isActive = activeWIdx === idx;
-
-                ctx.save();
-                ctx.fillStyle = isActive ? activeColor : primaryColor;
-                ctx.shadowColor = 'rgba(0,0,0,0.9)';
-                ctx.shadowBlur = 10;
-                ctx.shadowOffsetX = 2;
-                ctx.shadowOffsetY = 3;
-
-                if (isActive && caption.style?.animation === 'popIn') {
-                  ctx.font = `bold ${Math.round(baseFontSize * 1.18)}px ${fontName}`;
+            type DrawWord = { text: string; index: number; width: number };
+            const lines: DrawWord[][] = [[]];
+            let lineWidth = 0;
+            if (words.length) {
+              words.forEach((w, idx) => {
+                const text = w.word + (idx < words.length - 1 ? ' ' : '');
+                const wWidth = ctx.measureText(text).width;
+                if (lineWidth + wWidth > maxWidth && lines[lines.length - 1].length) {
+                  lines.push([]);
+                  lineWidth = 0;
                 }
-
-                ctx.strokeStyle = '#000000';
-                ctx.lineWidth = Math.max(3, Math.round(baseFontSize * 0.08));
-                ctx.strokeText(wordStr, currentX + wordWidth / 2, yPos);
-                ctx.fillText(wordStr, currentX + wordWidth / 2, yPos);
-                ctx.restore();
-
-                currentX += wordWidth;
+                lines[lines.length - 1].push({ text, index: idx, width: wWidth });
+                lineWidth += wWidth;
               });
             } else {
-              ctx.shadowColor = 'rgba(0,0,0,0.9)';
-              ctx.shadowBlur = 10;
-              ctx.shadowOffsetX = 2;
-              ctx.shadowOffsetY = 3;
-              ctx.fillStyle = primaryColor;
-              ctx.strokeStyle = '#000000';
-              ctx.lineWidth = Math.max(3, Math.round(baseFontSize * 0.08));
-              ctx.strokeText(caption.content, width / 2, yPos);
-              ctx.fillText(caption.content, width / 2, yPos);
+              caption.content.split(/\s+/).filter(Boolean).forEach((word, idx, all) => {
+                const text = word + (idx < all.length - 1 ? ' ' : '');
+                const wWidth = ctx.measureText(text).width;
+                if (lineWidth + wWidth > maxWidth && lines[lines.length - 1].length) {
+                  lines.push([]);
+                  lineWidth = 0;
+                }
+                lines[lines.length - 1].push({ text, index: idx, width: wWidth });
+                lineWidth += wWidth;
+              });
             }
 
+            const widest = Math.max(...lines.map((line) => line.reduce((sum, item) => sum + item.width, 0)));
+            const padX = Math.round(22 * scale);
+            const padY = Math.round(14 * scale);
+            const blockHeight = lines.length * lineHeight + padY * 2;
+            const blockTop = yPos - blockHeight / 2;
+            const blockLeft = width / 2 - widest / 2 - padX;
+
+            ctx.fillStyle = scrim;
+            ctx.beginPath();
+            ctx.roundRect(blockLeft, blockTop, widest + padX * 2, blockHeight, Math.round(18 * scale));
+            ctx.fill();
+
+            lines.forEach((line, lineIdx) => {
+              const lineY = yPos - ((lines.length - 1) * lineHeight) / 2 + lineIdx * lineHeight;
+              let x = width / 2 - line.reduce((sum, item) => sum + item.width, 0) / 2;
+              line.forEach((item) => {
+                const isActive = words.length > 0 && activeWIdx === item.index;
+                ctx.save();
+                ctx.fillStyle = isActive ? activeColor : primaryColor;
+                ctx.shadowColor = shadowColor;
+                ctx.shadowBlur = 12 * scale;
+                ctx.shadowOffsetX = 2 * scale;
+                ctx.shadowOffsetY = 3 * scale;
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = strokeWidth;
+                ctx.textAlign = 'left';
+                if (isActive && (caption.style?.animation === 'popIn' || caption.style?.animation === 'bouncePop')) {
+                  ctx.font = `900 ${Math.round(fontSize * 1.14)}px ${fontName}`;
+                } else {
+                  setFont();
+                }
+                ctx.strokeText(item.text, x, lineY);
+                ctx.fillText(item.text, x, lineY);
+                ctx.restore();
+                x += item.width;
+              });
+            });
             ctx.restore();
           }
 

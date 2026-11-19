@@ -187,6 +187,11 @@ export interface EditPreset {
     colorHex: string;
     activeWordColorHex: string;
     wordsPerCue: number;
+    fontFamily?: string;
+    strokeColorHex?: string;
+    strokeWidth?: number;
+    shadowColorHex?: string;
+    bannerPillColorHex?: string;
   };
   tone: string; // caption/copy tone hint sent to generate-from-title
 }
@@ -199,7 +204,18 @@ export const PRESETS: EditPreset[] = [
     icon: 'bolt',
     accent: 'tertiary',
     options: { silenceThresholdSec: 0.35, sfxEnabled: true, punchZoomEnabled: true, captionsEnabled: true },
-    caption: { animation: 'popIn', position: 'middle', fontSize: 52, colorHex: '#FFFFFF', activeWordColorHex: '#FFE86F', wordsPerCue: 2 },
+    caption: {
+      animation: 'bouncePop',
+      position: 'bottom',
+      fontSize: 64,
+      colorHex: '#FFFFFF',
+      activeWordColorHex: '#FFE066',
+      wordsPerCue: 3,
+      strokeColorHex: '#000000',
+      strokeWidth: 6,
+      shadowColorHex: 'rgba(0,0,0,0.92)',
+      bannerPillColorHex: 'rgba(0,0,0,0.58)',
+    },
     tone: 'Viral & Punchy',
   },
   {
@@ -209,7 +225,19 @@ export const PRESETS: EditPreset[] = [
     icon: 'graphic_eq',
     accent: 'primary',
     options: { silenceThresholdSec: 0.6, sfxEnabled: false, punchZoomEnabled: true, captionsEnabled: true },
-    caption: { animation: 'fade', position: 'bottom', fontSize: 40, colorHex: '#FFFFFF', activeWordColorHex: '#9DD2BF', wordsPerCue: 4 },
+    caption: {
+      animation: 'fade',
+      position: 'bottom',
+      fontSize: 56,
+      colorHex: '#FFFFFF',
+      activeWordColorHex: '#9DD2BF',
+      wordsPerCue: 4,
+      fontFamily: 'system-ui, sans-serif',
+      strokeColorHex: '#000000',
+      strokeWidth: 5,
+      shadowColorHex: 'rgba(0,0,0,0.9)',
+      bannerPillColorHex: 'rgba(0,0,0,0.52)',
+    },
     tone: 'Helpful & Clear',
   },
   {
@@ -219,7 +247,19 @@ export const PRESETS: EditPreset[] = [
     icon: 'local_movies',
     accent: 'secondary',
     options: { silenceThresholdSec: 0.8, sfxEnabled: false, punchZoomEnabled: false, captionsEnabled: true },
-    caption: { animation: 'typewriter', position: 'bottom', fontSize: 34, colorHex: '#F4F1E8', activeWordColorHex: '#C98A58', wordsPerCue: 5 },
+    caption: {
+      animation: 'typewriter',
+      position: 'bottom',
+      fontSize: 52,
+      colorHex: '#F7F3EA',
+      activeWordColorHex: '#E2A56A',
+      wordsPerCue: 4,
+      fontFamily: 'Georgia, serif',
+      strokeColorHex: '#000000',
+      strokeWidth: 5,
+      shadowColorHex: 'rgba(0,0,0,0.9)',
+      bannerPillColorHex: 'rgba(0,0,0,0.5)',
+    },
     tone: 'Cinematic & Premium',
   },
   {
@@ -229,7 +269,19 @@ export const PRESETS: EditPreset[] = [
     icon: 'sports_esports',
     accent: 'tertiary',
     options: { silenceThresholdSec: 0.25, sfxEnabled: true, punchZoomEnabled: true, captionsEnabled: true },
-    caption: { animation: 'karaoke', position: 'middle', fontSize: 50, colorHex: '#FFFFFF', activeWordColorHex: '#7FB09A', wordsPerCue: 3 },
+    caption: {
+      animation: 'karaoke',
+      position: 'bottom',
+      fontSize: 60,
+      colorHex: '#FFFFFF',
+      activeWordColorHex: '#7FE3B8',
+      wordsPerCue: 3,
+      fontFamily: 'system-ui, sans-serif',
+      strokeColorHex: '#000000',
+      strokeWidth: 6,
+      shadowColorHex: 'rgba(0,0,0,0.92)',
+      bannerPillColorHex: 'rgba(0,0,0,0.55)',
+    },
     tone: 'High-Energy',
   },
   {
@@ -239,7 +291,19 @@ export const PRESETS: EditPreset[] = [
     icon: 'contrast',
     accent: 'primary',
     options: { silenceThresholdSec: 0.7, sfxEnabled: false, punchZoomEnabled: false, captionsEnabled: true },
-    caption: { animation: 'bannerPill', position: 'bottom', fontSize: 38, colorHex: '#FFFFFF', activeWordColorHex: '#FFFFFF', wordsPerCue: 3 },
+    caption: {
+      animation: 'bannerPill',
+      position: 'bottom',
+      fontSize: 54,
+      colorHex: '#FFFFFF',
+      activeWordColorHex: '#FFFFFF',
+      wordsPerCue: 3,
+      fontFamily: 'system-ui, sans-serif',
+      strokeColorHex: '#000000',
+      strokeWidth: 5,
+      shadowColorHex: 'rgba(0,0,0,0.85)',
+      bannerPillColorHex: 'rgba(0,0,0,0.72)',
+    },
     tone: 'Minimal',
   },
 ];
@@ -297,7 +361,13 @@ export function sfxClips(project: TimelineProject): SFXClip[] {
 
 /** The text cue (if any) active at a timeline position. */
 export function activeCaptionAt(project: TimelineProject, t: number): TextClip | null {
-  const cue = textClips(project).find((c) => t >= c.startOnTimeline && t < c.startOnTimeline + c.duration);
+  // The preview already hides a muted text track; the exporter calls this helper directly, so the
+  // mute decision has to live here too or turning CC off in the editor still burns words into MP4.
+  const track = trackOf(project, 'text');
+  if (!track || track.isMuted) return null;
+  const cue = (track.clips as TextClip[]).find(
+    (c) => t >= c.startOnTimeline && t < c.startOnTimeline + c.duration,
+  );
   return cue ?? null;
 }
 
@@ -779,12 +849,19 @@ export function applyPresetLook(project: TimelineProject, preset: EditPreset): T
       ...c,
       style: {
         ...c.style,
-        fontFamily: 'Newsreader, serif',
+        fontFamily: preset.caption.fontFamily || c.style.fontFamily || 'system-ui, sans-serif',
         fontSize: preset.caption.fontSize,
         colorHex: preset.caption.colorHex,
         activeWordColorHex: preset.caption.activeWordColorHex,
         animation: preset.caption.animation,
         position: preset.caption.position,
+        strokeColorHex: preset.caption.strokeColorHex || c.style.strokeColorHex || '#000000',
+        strokeWidth: preset.caption.strokeWidth ?? c.style.strokeWidth ?? 5,
+        shadowColorHex: preset.caption.shadowColorHex || c.style.shadowColorHex || 'rgba(0,0,0,0.9)',
+        bannerPillColorHex: preset.caption.bannerPillColorHex || c.style.bannerPillColorHex,
+        // Word timings are speech truth, not styling. A preset must never throw them away — the
+        // export renderer needs them for word highlighting and they are expensive to reconstruct.
+        words: c.style.words,
       },
     }));
     return { ...tr, clips };
@@ -816,9 +893,33 @@ export interface LiveCaptionSegment {
   words?: Array<{ word: string; start: number; end: number }>;
 }
 
+/** Keep spoken phrases together: break on punctuation or after a short, readable group. */
+function captionChunks(words: string[], maxWords = 4): string[][] {
+  const groups: string[][] = [];
+  let current: string[] = [];
+  words.forEach((word) => {
+    current.push(word);
+    const endsThought = /[.,!?;:]$/.test(word);
+    if (current.length >= maxWords || (endsThought && current.length >= 2)) {
+      groups.push(current);
+      current = [];
+    }
+  });
+  // Never leave a single stray word on its own cue. A one-word tail reads like a mistake, so it
+  // rejoins the previous phrase even if that makes the cue five words long.
+  if (current.length === 1 && groups.length) {
+    groups[groups.length - 1].push(...current);
+  } else if (current.length) {
+    groups.push(current);
+  }
+  return groups;
+}
+
 /**
- * Builds kinetic, millisecond-aligned TextClip cues from AI speech-to-text segments.
- * If a segment is long, it breaks it into punchy 2-4 word kinetic social chunks with matching timeline intervals.
+ * Builds caption cues from speech-to-text segments. Cues follow the punctuation the creator actually
+ * spoke instead of chopping every third word, which made lines hard to read even when the transcript
+ * was correct. Real per-word timings are used when the engine supplied them; otherwise time is
+ * shared by word length so long words not short ones get the screen time.
  */
 export function buildCaptionsFromSegments(
   segments: LiveCaptionSegment[],
@@ -826,14 +927,16 @@ export function buildCaptionsFromSegments(
 ): TextClip[] {
   const cues: TextClip[] = [];
   const defaultStyle: TextClip['style'] = {
-    fontFamily: styleOpts?.fontFamily || 'Newsreader, serif',
-    fontSize: styleOpts?.fontSize || 44,
+    fontFamily: styleOpts?.fontFamily || 'system-ui, sans-serif',
+    fontSize: styleOpts?.fontSize || 60,
     colorHex: styleOpts?.colorHex || '#FFFFFF',
-    activeWordColorHex: styleOpts?.activeWordColorHex || '#F3B747',
+    activeWordColorHex: styleOpts?.activeWordColorHex || '#FFE066',
     strokeColorHex: styleOpts?.strokeColorHex || '#000000',
-    strokeWidth: styleOpts?.strokeWidth ?? 3,
-    position: styleOpts?.position || 'middle',
-    animation: styleOpts?.animation || 'popIn',
+    strokeWidth: styleOpts?.strokeWidth ?? 6,
+    shadowColorHex: styleOpts?.shadowColorHex || 'rgba(0,0,0,0.9)',
+    bannerPillColorHex: styleOpts?.bannerPillColorHex || 'rgba(0,0,0,0.55)',
+    position: styleOpts?.position || 'bottom',
+    animation: styleOpts?.animation || 'karaoke',
   };
 
   segments.forEach((seg, sIdx) => {
@@ -846,36 +949,50 @@ export function buildCaptionsFromSegments(
     const words = cleanText.split(' ').filter(Boolean);
     if (!words.length) return;
 
-    // Break into kinetic 3-word chunks (2-4 range)
-    const chunkSize = 3;
-    const wordDur = totalSegDur / words.length;
+    // Prefer the engine's word timings. They are absolute seconds; everything drawn in a cue is
+    // stored relative to that cue so the active-word highlight survives export.
+    const supplied = seg.words && seg.words.length === words.length ? seg.words : null;
+    const weights = words.map((w) => Math.max(1, w.replace(/[^\p{L}\p{N}]/gu, '').length));
+    const weightTotal = weights.reduce((sum, w) => sum + w, 0) || words.length;
+    const durations = supplied
+      ? supplied.map((w) => Math.max(0.08, w.end - w.start))
+      : weights.map((w) => Math.max(0.12, (totalSegDur * w) / weightTotal));
+    const durationTotal = durations.reduce((sum, d) => sum + d, 0) || totalSegDur;
+    const starts: number[] = [];
+    let cursor = startSec;
+    durations.forEach((d) => {
+      starts.push(cursor);
+      cursor += (d / durationTotal) * totalSegDur;
+    });
 
-    for (let wIdx = 0; wIdx < words.length; wIdx += chunkSize) {
-      const chunkWords = words.slice(wIdx, wIdx + chunkSize);
-      const chunkStart = round2(startSec + wIdx * wordDur);
-      const chunkDur = round2(Math.max(0.3, chunkWords.length * wordDur));
-      const chunkText = chunkWords.join(' ').toUpperCase();
+    let offset = 0;
+    captionChunks(words).forEach((chunkWords, cIdx) => {
+      const first = offset;
+      const last = offset + chunkWords.length - 1;
+      const chunkStart = round2(starts[first]);
+      const chunkEnd = round2(Math.min(endSec, starts[last] + durations[last]));
+      const chunkDur = round2(Math.max(0.35, chunkEnd - chunkStart));
+      const chunkText = chunkWords.join(' ');
+      const content = chunkText.charAt(0).toUpperCase() + chunkText.slice(1);
 
       const wordTimestamps = chunkWords.map((word, i) => {
-        const wStart = round2(i * wordDur);
-        const wEnd = round2((i + 1) * wordDur);
-        return { word, start: wStart, end: wEnd };
+        const wStart = round2(starts[first + i] - chunkStart);
+        const wEnd = round2(Math.max(wStart + 0.1, starts[first + i] + durations[first + i] - chunkStart));
+        return { word, start: wStart, end: Math.min(chunkDur, wEnd) };
       });
 
       cues.push({
-        id: `live_cue_${sIdx}_${wIdx}_${Date.now()}`,
-        name: chunkText,
+        id: `live_cue_${sIdx}_${cIdx}_${Date.now()}`,
+        name: content,
         type: 'text',
         startOnTimeline: chunkStart,
         duration: chunkDur,
         sourceStartOffset: chunkStart,
-        content: chunkText,
-        style: {
-          ...defaultStyle,
-          words: wordTimestamps,
-        },
+        content,
+        style: { ...defaultStyle, words: wordTimestamps },
       });
-    }
+      offset += chunkWords.length;
+    });
   });
 
   return cues;

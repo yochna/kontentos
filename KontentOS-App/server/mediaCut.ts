@@ -100,7 +100,8 @@ export function clipPathOnDisk(fileUrl: string | undefined): string | null {
 
 /**
  * Re-encoding, not stream-copying: `-c copy` can only begin on a keyframe, so the cut would open on
- * the previous thought. `ultrafast` is the cheapest preset that still keeps up with the deadline.
+ * the previous thought. `veryfast` with CRF 20 trades a little speed for a much cleaner picture than
+ * the old `ultrafast` default, which visibly smeared captions and fine detail.
  */
 export function cutArgs(span: Span, srcPath: string, outPath: string, filter?: string | null): string[] {
   return [
@@ -123,14 +124,16 @@ export function cutArgs(span: Span, srcPath: string, outPath: string, filter?: s
     '-c:v',
     'libx264',
     '-preset',
-    'ultrafast',
+    'veryfast',
     ...(filter ? ['-vf', filter] : []),
     '-pix_fmt',
     'yuv420p',
+    '-crf',
+    '20',
     '-c:a',
     'aac',
     '-b:a',
-    '192k',
+    '256k',
     '-movflags',
     '+faststart',
     '-avoid_negative_ts',

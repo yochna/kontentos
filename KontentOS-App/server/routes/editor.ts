@@ -68,22 +68,28 @@ CRITICAL RULES:
      audioModifiers: { "pitchShiftCents": 0, "volume": 1.0, "fadeInSec": 0, "fadeOutSec": 0.1 }
 
 4. KINETIC CAPTIONS:
-   - On "track-text", generate 2-3 word kinetic caption clips covering the spoken words.
-   - Never show more than 3 words at once to maximize visual retention.
+   - On "track-text", generate readable caption clips covering the spoken words.
+   - Use 2-4 words per cue and break on punctuation where the speaker naturally pauses. Do not chop every third word or invent words.
+   - Keep the original wording and sentence case. Never put more than one short phrase on screen at a time.
    - Each text clip must have:
      id, name, type: "text",
-     content (2-3 words in UPPERCASE, e.g. "STOP SCROLLING", "HERE IS WHY"),
+     content (2-4 words in sentence case, e.g. "Stop scrolling", "Here is why"),
      startOnTimeline (aligned with the edited timeline),
      duration, sourceStartOffset: 0,
      style: {
-       "fontFamily": "Impact, sans-serif",
-       "fontSize": 48,
-       "colorHex": "#FFFF00",
+       "fontFamily": "system-ui, sans-serif",
+       "fontSize": 60,
+       "colorHex": "#FFFFFF",
+       "activeWordColorHex": "#FFE066",
        "strokeColorHex": "#000000",
-       "strokeWidth": 4,
-       "position": "middle",
-       "animation": "popIn"
+       "strokeWidth": 6,
+       "shadowColorHex": "rgba(0,0,0,0.92)",
+       "bannerPillColorHex": "rgba(0,0,0,0.56)",
+       "position": "bottom",
+       "animation": "karaoke",
+       "words": [{ "word": "Stop", "start": 0, "end": 0.3 }]
      }
+   - The "words" array must hold every word in the cue with start/end offsets relative to that cue, so the exporter can highlight the active word exactly as the preview does.
 
 5. TIMELINEPROJECT JSON SCHEMA:
 Return ONLY a valid JSON object matching:
@@ -629,28 +635,38 @@ function generateDeterministicAutoEdit(
     });
   }
 
-  // 4. Build Kinetic Captions (2-3 words per clip)
+  // 4. Build readable kinetic captions. Chunks follow the punctuation in the real transcript
+  // instead of a fixed two/three-word window, and every cue carries relative word timings so the
+  // export renderer can draw the same word highlight the preview shows.
   const textClips: TextClip[] = [];
   if (captionsEnabled) {
     let wordCursor = 0;
     while (wordCursor < words.length) {
-      // Pick 2 or 3 words (if 4 words left, split into 2 and 2)
-      const remaining = words.length - wordCursor;
-      const chunkSize = remaining === 4 ? 2 : remaining >= 3 ? 3 : remaining;
-      const chunk = words.slice(wordCursor, wordCursor + chunkSize);
-      wordCursor += chunkSize;
+      let count = 0;
+      while (wordCursor + count < words.length && count < 4) {
+        count += 1;
+        const done = /[.,!?;:]$/.test(words[wordCursor + count - 1].word.trim());
+        if (done && count >= 2) break;
+      }
+      // Do not leave one orphan word on its own cue at the end of a phrase.
+      if (words.length - (wordCursor + count) === 1 && count < 5) count += 1;
+      const chunk = words.slice(wordCursor, wordCursor + count);
+      wordCursor += count;
 
-      const firstW = chunk[0];
-      const lastW = chunk[chunk.length - 1];
-
-      const startTime = mapRawToTimeline(firstW.start);
-      const endTime = mapRawToTimeline(lastW.end);
-      const duration = Math.max(0.3, Number((endTime - startTime).toFixed(3)));
-
-      const content = chunk.map((w) => w.word.trim()).join(' ').toUpperCase();
+      const startTime = mapRawToTimeline(chunk[0].start);
+      const endTime = mapRawToTimeline(chunk[chunk.length - 1].end);
+      const duration = Math.max(0.35, Number((endTime - startTime).toFixed(3)));
+      const phrase = chunk.map((w) => w.word.trim()).join(' ');
+      const content = phrase.charAt(0).toUpperCase() + phrase.slice(1);
       const hasEmphasis = chunk.some((w) => {
         const c = w.word.toLowerCase();
         return ['stop', 'money', 'secret', 'never', 'always', 'huge', 'insane', 'free', 'boom'].some((t) => c.includes(t));
+      });
+
+      const wordTimes: WordTimestamp[] = chunk.map((w) => {
+        const start = Number((mapRawToTimeline(w.start) - startTime).toFixed(3));
+        const end = Number(Math.min(duration, mapRawToTimeline(w.end) - startTime).toFixed(3));
+        return { word: w.word.trim(), start: Math.max(0, start), end: Math.max(start + 0.1, end) };
       });
 
       textClips.push({
@@ -662,13 +678,17 @@ function generateDeterministicAutoEdit(
         duration,
         sourceStartOffset: 0,
         style: {
-          fontFamily: 'Impact, sans-serif',
-          fontSize: 48,
-          colorHex: hasEmphasis ? '#FACC15' : '#FFFFFF',
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: 60,
+          colorHex: hasEmphasis ? '#FFE066' : '#FFFFFF',
+          activeWordColorHex: '#FFE066',
           strokeColorHex: '#000000',
-          strokeWidth: 4,
-          position: 'middle',
-          animation: 'popIn',
+          strokeWidth: 6,
+          shadowColorHex: 'rgba(0,0,0,0.92)',
+          bannerPillColorHex: 'rgba(0,0,0,0.56)',
+          position: 'bottom',
+          animation: 'karaoke',
+          words: wordTimes,
         },
       });
     }

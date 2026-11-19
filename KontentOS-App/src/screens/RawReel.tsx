@@ -18,30 +18,38 @@ const STEPS = [
   { icon: 'auto_fix_high', label: 'Keyframing punch zooms & audio dynamics' },
 ];
 
+// Keep these in step with PRESETS in src/lib/timeline.ts. The card must describe the engine that
+// actually runs, including when a preset id changes — a stale key silently showed "fast" specs.
 const PRESET_SPECS: Record<string, { silence: string; zoom: string; caption: string; sfx: string }> = {
-  fast: {
-    silence: '300ms aggressive trim',
-    zoom: '1.25x Punch zooms every 2.5s',
-    caption: 'Kinetic word-pop highlight',
-    sfx: 'Impact whooshes enabled',
-  },
-  story: {
-    silence: '600ms natural breathing',
-    zoom: 'Smooth steady framing',
-    caption: 'Subtle lower-third subtitles',
-    sfx: 'Clean natural ambient audio',
+  punchy: {
+    silence: '350ms hard silence cuts',
+    zoom: '1.35x punch zooms',
+    caption: 'Large word-pop captions',
+    sfx: 'Impact accents enabled',
   },
   clean: {
-    silence: '450ms crisp editorial pacing',
+    silence: '600ms natural breathing',
     zoom: 'Subtle emphasis framing',
-    caption: 'High-contrast brand captions',
-    sfx: 'Subtle acoustic chimes',
+    caption: 'High-contrast lower thirds',
+    sfx: 'Clean ambient audio only',
   },
-  punchy: {
+  cinematic: {
+    silence: '800ms longer holds',
+    zoom: 'Slow steady push-ins',
+    caption: 'Elegant warm captions',
+    sfx: 'No artificial effects',
+  },
+  jumpcut: {
     silence: '250ms ultra-rapid cuts',
     zoom: 'Dynamic snap zooms',
-    caption: 'Bold center hook typography',
-    sfx: 'Minimal punch accents',
+    caption: 'Karaoke word highlight',
+    sfx: 'High-energy accents',
+  },
+  minimal: {
+    silence: '700ms light trim',
+    zoom: 'No zooms or effects',
+    caption: 'Bold muted-viewing banner',
+    sfx: 'Silent-friendly',
   },
 };
 
