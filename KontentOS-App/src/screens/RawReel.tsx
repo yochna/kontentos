@@ -9,6 +9,7 @@ import { useNavPayload } from '@/lib/nav';
 import { selectCut, useSelectedCutId } from '@/lib/bench';
 import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
 import { notify } from '@/components/ui/toast';
+import { MAX_PARALLEL_UPLOADS, VIDEO_ACCEPT, uploadFileError } from '@/lib/uploadFile';
 
 const STEPS = [
   { icon: 'graphic_eq', label: 'Analyzing audio waveform & speech cadences' },
@@ -118,17 +119,44 @@ export default function RawReel() {
   const preset = (PRESETS.find((p) => p.id === presetId) || PRESETS[0]) as EditPreset;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingPct(10);
+    const selected = Array.from(e.target.files ?? []);
+    if (e.target) e.target.value = '';
+    if (!selected.length) return;
+
+    // A creator can pick several takes at once here. Apply the same contract as a bench drop:
+    // refuse bad files, ignore exact repeats, and never open more sessions than the server allows.
+    const seen = new Set<string>();
+    const files: File[] = [];
+    let firstProblem: string | null = null;
+    for (const file of selected) {
+      const problem = uploadFileError(file);
+      if (problem) {
+        firstProblem ??= problem;
+        continue;
+      }
+      const key = `${file.name}:${file.size}:${file.lastModified}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      files.push(file);
+    }
+    if (firstProblem) notify.bad(firstProblem);
+    if (!files.length) return;
+    if (files.length > MAX_PARALLEL_UPLOADS) {
+      notify.info(`Intaking the first ${MAX_PARALLEL_UPLOADS} of ${files.length} files.`);
+    }
+
+    setUploadingPct(0);
     try {
-      const uploaded = await uploadVideo(file, (pct) => {
-        setUploadingPct(pct);
-      });
-      if (uploaded) {
-        setVideoId(uploaded.id);
+      let lastId: string | null = null;
+      for (const file of files.slice(0, MAX_PARALLEL_UPLOADS)) {
+        const uploaded = await uploadVideo(file, (pct) => setUploadingPct(pct));
+        if (!uploaded) throw new Error('The upload ended without a clip record.');
+        lastId = uploaded.id;
+      }
+      if (lastId) {
+        setVideoId(lastId);
         setResult(null);
-        selectCut(uploaded.id);
+        selectCut(lastId);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'That file did not reach the bench.';
@@ -210,7 +238,8 @@ export default function RawReel() {
         type="file"
         ref={fileInputRef}
         onChange={handleFileUpload}
-        accept="video/mp4,video/quicktime,video/webm,video/x-matroska"
+        accept={VIDEO_ACCEPT}
+        multiple
         className="hidden"
       />
 

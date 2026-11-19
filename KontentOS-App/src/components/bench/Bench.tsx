@@ -262,6 +262,19 @@ export function Bench({
     [intake, flag]
   );
 
+  // The root handles normal drops. This catch-all covers a drop that lands on the window chrome
+  // edge or outside the React tree; defaultPrevented means an inner dropzone already owned it.
+  useEffect(() => {
+    const catchDrop = (e: DragEvent) => {
+      if (e.defaultPrevented) return;
+      if (!e.dataTransfer || !Array.from(e.dataTransfer.types).includes('Files')) return;
+      e.preventDefault();
+      dropFiles(Array.from(e.dataTransfer.files));
+    };
+    window.addEventListener('drop', catchDrop);
+    return () => window.removeEventListener('drop', catchDrop);
+  }, [dropFiles]);
+
   const signOut = useCallback(async () => {
     try {
       await api.signOut();
