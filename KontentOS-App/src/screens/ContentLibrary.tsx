@@ -239,7 +239,7 @@ export default function ContentLibrary() {
 
         <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-xs text-ink-dim uppercase tracking-wider font-semibold">Total Assets</div>
+            <div className="text-xs text-ink-dim tracking-[0.01em] font-semibold">Total Assets</div>
             <div className="font-display text-[22px] text-ink font-semibold mt-0.5">{videos.length} clips</div>
           </div>
           <span className="w-10 h-10 rounded-btn bg-primary-soft text-primary grid place-items-center">
@@ -249,7 +249,7 @@ export default function ContentLibrary() {
 
         <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-xs text-ink-dim uppercase tracking-wider font-semibold">Total Runtime</div>
+            <div className="text-xs text-ink-dim tracking-[0.01em] font-semibold">Total Runtime</div>
             <div className="font-display text-[22px] text-ink font-semibold mt-0.5">
               {Math.floor(totalSec / 60)}m {Math.round(totalSec % 60)}s
             </div>

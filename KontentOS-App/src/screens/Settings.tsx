@@ -237,7 +237,7 @@ export default function Settings() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                         Display Name
                       </label>
                       <input
@@ -248,7 +248,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                         Email Address
                       </label>
                       <input
@@ -261,7 +261,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                         Instagram Handle
                       </label>
                       <div className="flex items-center rounded-btn border border-line bg-surface overflow-hidden">
@@ -277,7 +277,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                         YouTube Channel Identifier
                       </label>
                       <input
@@ -289,7 +289,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                         Primary Content Niche
                       </label>
                       <input
@@ -301,7 +301,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                         Target Audience Locale
                       </label>
                       <input
@@ -343,7 +343,7 @@ export default function Settings() {
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     <div className="rounded-card border border-line p-3.5 bg-surface">
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim">
+                      <div className="text-[11px] font-semibold tracking-[0.01em] text-ink-dim">
                         Server Connection
                       </div>
                       <div
@@ -356,7 +356,7 @@ export default function Settings() {
                       </div>
                     </div>
                     <div className="rounded-card border border-line p-3.5 bg-surface">
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim">
+                      <div className="text-[11px] font-semibold tracking-[0.01em] text-ink-dim">
                         Storage Engine
                       </div>
                       <div className="text-[14px] font-bold text-ink mt-1">
@@ -364,7 +364,7 @@ export default function Settings() {
                       </div>
                     </div>
                     <div className="rounded-card border border-line p-3.5 bg-surface">
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim">
+                      <div className="text-[11px] font-semibold tracking-[0.01em] text-ink-dim">
                         Clips in Media Vault
                       </div>
                       <div className="text-[14px] font-bold text-primary mt-1">
@@ -388,7 +388,7 @@ export default function Settings() {
 
                   <form onSubmit={handleChangePassword} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                         Current password
                       </label>
                       <input
@@ -400,7 +400,7 @@ export default function Settings() {
                       />
                     </div>
                     <div>
-                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                      <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                         New password
                       </label>
                       <input
@@ -455,7 +455,7 @@ export default function Settings() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
-                    <label htmlFor="ai-primary-model" className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                    <label htmlFor="ai-primary-model" className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                       Primary model
                     </label>
                     <Select value={aiModel} onValueChange={setAiModel}>
@@ -480,7 +480,7 @@ export default function Settings() {
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim">
+                      <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim">
                         Creativity / Temperature ({temperature})
                       </label>
                       <span className="text-[12px] font-bold text-primary">
@@ -551,54 +551,54 @@ export default function Settings() {
               <Card className="p-6 border-line space-y-6">
                 <div>
                   <h2 className="font-display text-[22px] font-bold text-ink">
-                    Aesthetic &amp; Theme Studio
+                    Appearance
                   </h2>
                   <p className="text-[12.5px] text-ink-muted">
-                    Light Paper Editorial is the primary aesthetic. Evergreen dark provides low-light evening comfort.
+                    Dark room is the default. Switch to Daylight when you would rather work in a brighter space.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
                   <button
                     onClick={() => setTheme('light')}
-                    className={`text-left rounded-card border-2 p-3.5 transition-all kt-focus ${
+                    className={`text-left rounded-card border p-3.5 transition-all kt-focus ${
                       theme === 'light'
                         ? 'border-primary ring-2 ring-primary/20'
                         : 'border-line hover:border-line-strong'
                     }`}
                   >
-                    <div
-                      className="h-20 rounded-btn mb-2.5 border border-line shadow-inner flex items-center justify-center font-display text-[18px] text-[#1E2522]"
-                      style={{ background: '#FAF9F5' }}
-                    >
-                      Paper Editorial
+                    <div className="h-20 rounded-btn mb-2.5 border border-line bg-surface shadow-inner flex items-center justify-center font-display text-[18px] text-ink">
+                      Daylight
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[13px] font-bold text-ink">Light (Default)</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[13px] font-bold text-ink">Daylight</div>
+                        <div className="text-[12px] text-ink-dim">Cool paper, open workspace</div>
+                      </div>
                       {theme === 'light' && (
-                        <Icon name="check_circle" size={18} className="text-primary" />
+                        <Icon name="check_circle" size={18} className="text-primary shrink-0" />
                       )}
                     </div>
                   </button>
 
                   <button
                     onClick={() => setTheme('dark')}
-                    className={`text-left rounded-card border-2 p-3.5 transition-all kt-focus ${
+                    className={`text-left rounded-card border p-3.5 transition-all kt-focus ${
                       theme === 'dark'
                         ? 'border-primary ring-2 ring-primary/20'
                         : 'border-line hover:border-line-strong'
                     }`}
                   >
-                    <div
-                      className="h-20 rounded-btn mb-2.5 border border-line shadow-inner flex items-center justify-center font-display text-[18px] text-[#FAF9F5]"
-                      style={{ background: '#14171A' }}
-                    >
-                      Evergreen Dark
+                    <div className="h-20 rounded-btn mb-2.5 border border-line bg-app shadow-inner flex items-center justify-center font-display text-[18px] text-ink">
+                      Dark room
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[13px] font-bold text-ink">Evergreen Dark</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[13px] font-bold text-ink">Dark room</div>
+                        <div className="text-[12px] text-ink-dim">Graphite bench, safelight amber</div>
+                      </div>
                       {theme === 'dark' && (
-                        <Icon name="check_circle" size={18} className="text-primary" />
+                        <Icon name="check_circle" size={18} className="text-primary shrink-0" />
                       )}
                     </div>
                   </button>
@@ -624,11 +624,11 @@ export default function Settings() {
                   <div
                     className={`p-3 border rounded-btn text-[13px] flex items-center gap-2 ${
                       keyNotice.ok
-                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-900'
+                        ? 'bg-success/10 text-success-ink border-success/25'
                         : 'bg-danger/10 text-danger-ink border-danger/30'
                     }`}
                   >
-                    <Icon name={keyNotice.ok ? 'check_circle' : 'error_outline'} size={16} className={keyNotice.ok ? 'text-emerald-600' : 'shrink-0'} />
+                    <Icon name={keyNotice.ok ? 'check_circle' : 'error_outline'} size={16} className={keyNotice.ok ? 'text-success shrink-0' : 'shrink-0'} />
                     {keyNotice.text}
                   </div>
                 )}
@@ -661,7 +661,7 @@ export default function Settings() {
 
                   {isEditingKey && (
                     <div className="p-4 rounded-card border border-primary/40 bg-primary-soft/30 space-y-3">
-                      <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block">
+                      <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block">
                         Enter new Google Gemini API Key
                       </label>
                       <input
@@ -820,7 +820,7 @@ function PresetSelect({
   const shown = options.find(([v]) => v === value)?.[1] ?? value;
   return (
     <div>
-      <span className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim mb-1 block">{label}</span>
+      <span className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim mb-1 block">{label}</span>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger aria-label={label}>
           <span className="truncate">{shown}</span>

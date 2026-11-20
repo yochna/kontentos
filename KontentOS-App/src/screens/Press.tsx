@@ -885,10 +885,9 @@ export default function Press() {
             )}
 
             {job && (
-              <p className="mt-4 border-t border-line pt-3 font-mono text-[11px] text-ink-dim">
-                {job.plan.span.start.toFixed(2)}s → {job.plan.span.end.toFixed(2)}s · {job.plan.targetAspect} ·
-                {job.plan.source.aspectRatio ? ` from ${job.plan.source.aspectRatio}` : ' source shape unknown'} ·{' '}
-                {pressStyle(job.styleId)?.label || job.styleId}
+              <p className="mt-4 border-t border-line pt-3 text-[12px] leading-relaxed text-ink-muted">
+                Cutting {Math.max(0, job.plan.span.end - job.plan.span.start).toFixed(1)}s of footage for {job.plan.targetAspect}
+                {pressStyle(job.styleId)?.label ? ` with the ${pressStyle(job.styleId)?.label} look` : ''}.
               </p>
             )}
           </Card>

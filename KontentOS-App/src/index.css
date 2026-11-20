@@ -160,6 +160,29 @@
   [contenteditable='true'] {
     caret-color: var(--primary);
   }
+
+  /* Scrollbars are chrome, not content. Keep them present but quiet in both themes. */
+  * {
+    scrollbar-color: var(--line-strong) transparent;
+    scrollbar-width: thin;
+  }
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--line-strong);
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--ink-dim);
+    background-clip: padding-box;
+  }
 }
 
 html,
@@ -191,11 +214,6 @@ h4 {
   letter-spacing: -0.01em;
   color: var(--ink);
   margin: 0;
-}
-
-::selection {
-  background: var(--primary-soft);
-  color: var(--ink);
 }
 
 /* Material Symbols */
@@ -254,6 +272,11 @@ h4 {
 
 /* A plate catches the safelight along its top edge. Hover strengthens the edge, never lifts the card. */
 .kt-plate {
+  background-image: radial-gradient(
+    115% 90% at 0% 0%,
+    color-mix(in srgb, var(--surface-2) 65%, transparent),
+    transparent 58%
+  );
   box-shadow: var(--shadow-1), inset 0 1px 0 var(--kt-shimmer);
 }
 .kt-plate:hover {
@@ -818,6 +841,11 @@ h4 {
         48% 34% at 14% -6%,
         color-mix(in srgb, var(--primary) 12%, transparent),
         transparent 70%
+      ),
+      radial-gradient(
+        38% 28% at 88% 0%,
+        color-mix(in srgb, var(--secondary) 9%, transparent),
+        transparent 72%
       ),
       radial-gradient(
         125% 72% at 50% -10%,

@@ -2,11 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { PHASES, STATION_BY_ID, UTILITY_STATIONS, type StationId } from '@/lib/bench';
 import { useWorkspaceStatus } from '@/lib/workspace';
-import type { DbStatus } from '@/lib/types';
 import type { Theme } from '@/lib/theme';
-
-/** Shown in the dock so a stale dev server can be spotted without guessing. */
-const BUILD_TAG = 'frame-accurate';
 
 export interface BenchJob {
   id: string;
@@ -15,14 +11,13 @@ export interface BenchJob {
 }
 
 /**
- * The dock is where the bench admits what is actually happening: an intake that is still
- * uploading, where the workspace is really stored, and whether the API is answering.
+ * The dock stays quiet until something needs the creator: a running intake, a real notice,
+ * or an unsaved desk. Storage and build details belong in Settings, not along the floor.
  */
 export function Dock({
   jobs,
   notice,
   online,
-  dbStatus,
   station,
   onStation,
   onOpenDeck,
@@ -31,12 +26,10 @@ export function Dock({
   onTour,
   theme,
   onToggleTheme,
-  selectedTitle,
 }: {
   jobs: BenchJob[];
   notice: string | null;
   online: boolean;
-  dbStatus: DbStatus | null;
   station: StationId;
   onStation: (id: StationId) => void;
   onOpenDeck: () => void;
@@ -45,7 +38,6 @@ export function Dock({
   onTour: () => void;
   theme: Theme;
   onToggleTheme: () => void;
-  selectedTitle: string | null;
 }) {
   const running = jobs[0];
   // Eleven keys do not fit across a phone: the five that start and ship a cut stay in the row, and
@@ -154,26 +146,28 @@ export function Dock({
           <span className="flex min-w-0 items-center gap-2">
             <span
               className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                notice || desk.state === 'unsaved' ? 'bg-danger' : online ? 'bg-success' : 'kt-led--now bg-danger'
+                notice || desk.state === 'unsaved' || !online ? 'bg-warning' : 'bg-success'
               }`}
             />
-            <span className={`truncate font-mono text-[11px] ${notice || desk.state === 'unsaved' ? 'text-danger' : 'text-ink-muted'}`}>
+            <span
+              className={`truncate text-[12px] ${
+                notice || desk.state === 'unsaved' || !online ? 'text-ink-muted' : 'text-ink-dim'
+              }`}
+            >
               {notice
                 ? notice
                 : desk.state === 'unsaved'
-                  ? `desk not saved · ${desk.message}`
-                  : `${online ? (dbStatus?.provider === 'mongodb' ? 'workspace · atlas' : 'workspace · local disk') : 'api offline'}${
-                      desk.state === 'saving' ? ' · saving' : ''
-                    }${selectedTitle ? ` · lit: ${selectedTitle}` : ''}`}
+                  ? 'Unsaved changes'
+                  : desk.state === 'saving'
+                    ? 'Saving…'
+                    : online
+                      ? 'Ready'
+                      : 'Working offline'}
             </span>
           </span>
         )}
 
         <span className="flex-1" />
-
-        <span className="shrink-0 font-mono text-[10px] text-ink-dim" title="Running build">
-          build {BUILD_TAG}
-        </span>
 
         <button
           type="button"

@@ -160,7 +160,7 @@ type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'soft' | 'danger';
 type BtnSize = 'sm' | 'md';
 
 const btnBase =
-  'inline-flex items-center justify-center gap-2 rounded-btn font-body font-semibold transition-all duration-150 ease-out active:scale-[0.97] kt-focus cursor-pointer select-none whitespace-nowrap';
+  'inline-flex items-center justify-center gap-2 rounded-btn font-body font-semibold tracking-[-0.005em] transition-all duration-150 ease-out active:scale-[0.97] kt-focus cursor-pointer select-none whitespace-nowrap';
 
 const btnVariants: Record<BtnVariant, string> = {
   primary: 'bg-primary text-on-primary hover:bg-primary-hover shadow-[var(--shadow-1)] hover:shadow-[var(--shadow-2)]',

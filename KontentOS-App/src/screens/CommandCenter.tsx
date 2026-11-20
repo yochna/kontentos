@@ -102,7 +102,7 @@ export default function CommandCenter() {
         eyebrow={`${greeting}, ${firstName}`}
         icon="space_dashboard"
         title="Cutting room desk"
-        description="Four phases, one cut at a time: pick the angle, upload the footage, cut and caption it, queue it to ship."
+        description="From the first angle to the final post — one cut at a time."
       />
 
       {/* Pipeline */}
@@ -111,7 +111,7 @@ export default function CommandCenter() {
           <div className="flex items-end justify-between mb-4">
             <div>
               <h2 className="font-display text-[24px] text-ink">Where the cut stands</h2>
-              <p className="text-[13px] text-ink-muted mt-0.5">The four stations in order. Any card opens that station with your live data.</p>
+              <p className="text-[13px] text-ink-muted mt-0.5">Four stations in order. Open one to pick up where you left off.</p>
             </div>
             <span className="text-[13px] text-ink-dim">In → Cut → Out</span>
           </div>
@@ -157,7 +157,7 @@ export default function CommandCenter() {
           <div className="flex items-end justify-between mb-4">
             <div>
               <h2 className="font-display text-[24px] text-ink">Publishing week</h2>
-              <p className="text-[13px] text-ink-muted mt-0.5">Click any scheduled day to view queue, or an open slot to schedule a dispatch.</p>
+              <p className="text-[13px] text-ink-muted mt-0.5">A quiet view of what is queued and what is still open.</p>
             </div>
             <Button variant="ghost" size="sm" icon="calendar_today" onClick={() => navigate('calendar')}>
               Open calendar

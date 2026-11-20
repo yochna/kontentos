@@ -52,7 +52,9 @@ export function Inspector({
             <Icon name="right_panel_close" size={16} />
           </button>
         </div>
-        <p className="mt-1 text-[12px] leading-snug text-ink-muted">{meta.hint}</p>
+        <p className="mt-1 text-[12px] leading-snug text-ink-muted">
+          {video ? 'This cut’s path from intake to publish.' : 'Your week at a glance.'}
+        </p>
       </header>
 
       {video ? <Dossier video={video} scheduled={scheduled} history={history} project={project} onJump={onJump} /> : <DaysBoard scheduled={scheduled} history={history} savedIdeas={savedIdeas} activeDraft={activeDraft} onJump={onJump} name={profile.name} />}

@@ -429,7 +429,7 @@ export default function Analytics() {
                     <span className="grid place-items-center w-10 h-10 rounded-btn bg-primary-soft text-primary">
                       <Icon name={k.icon} size={20} />
                     </span>
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim">
+                    <span className="text-[11px] font-semibold tracking-[0.01em] text-ink-dim">
                       {RANGE_LABEL[timeRange]}
                     </span>
                   </div>
@@ -447,44 +447,40 @@ export default function Analytics() {
 
           {/* Honest disclosure: no platform metrics API is connected, so performance stays unmeasured. */}
           <Card className="p-5 mb-6 border-line">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-start gap-3 min-w-0">
                 <span className="grid place-items-center w-10 h-10 rounded-btn bg-surface-2 text-ink-muted shrink-0">
                   <Icon name="link_off" size={20} />
                 </span>
                 <div className="min-w-0">
                   <h2 className="font-display text-[17px] font-bold text-ink">
-                    Channel performance — not connected
+                    Channel performance is not connected
                   </h2>
                   <p className="text-[12.5px] text-ink-muted mt-1 leading-relaxed max-w-2xl">
-                    Instagram, YouTube and TikTok do not hand their metrics to KontentOS yet, so views,
-                    retention and engagement are blank rather than estimated. Connecting them needs platform
-                    app review and your own API credentials.
+                    Platform metrics need app review and your own API credentials. Nothing is estimated here.
                   </p>
-                  <p className="text-[12px] text-ink-dim mt-2">
+                  <p className="text-[12px] text-ink-dim mt-1">
                     {connectedHandles.length
-                      ? `Accounts saved in Settings: ${connectedHandles.join(' · ')}. Saving a handle does not import its metrics.`
-                      : 'No social accounts are saved in Settings yet.'}
+                      ? `Saved handles: ${connectedHandles.join(' · ')}. Saving a handle does not import metrics.`
+                      : 'No social accounts are saved yet.'}
                   </p>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 shrink-0">
-                <Button size="sm" variant="secondary" icon="settings" onClick={() => navigate('settings')}>
-                  Open Settings
-                </Button>
-              </div>
+              <Button size="sm" variant="secondary" icon="settings" onClick={() => navigate('settings')}>
+                Open Settings
+              </Button>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-5 pt-4 border-t border-line/60">
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line/60 pt-3">
+              <span className="kt-eyebrow mr-1">Not available yet</span>
               {unconnectedMetrics.map((m) => (
-                <div key={m.label} className="rounded-btn border border-line/70 bg-surface-2/40 px-3 py-2.5">
-                  <div className="flex items-center gap-1.5 text-[12px] font-semibold text-ink-muted">
-                    <Icon name={m.icon} size={14} className="text-ink-dim" />
-                    {m.label}
-                  </div>
-                  <div className="font-display text-[22px] font-bold text-ink-dim mt-1">—</div>
-                  <div className="text-[11px] text-ink-dim">not available</div>
-                </div>
+                <span
+                  key={m.label}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2/40 px-2.5 py-1 text-[11px] font-medium text-ink-dim"
+                >
+                  <Icon name={m.icon} size={13} />
+                  {m.label}
+                </span>
               ))}
             </div>
           </Card>
@@ -511,7 +507,7 @@ export default function Analytics() {
                           <Icon name={o.icon} size={22} />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <div className="text-[11px] font-bold uppercase tracking-wider text-secondary">
+                          <div className="text-[11px] font-bold tracking-[0.01em] text-secondary">
                             {o.kicker}
                           </div>
                           <h3 className="font-semibold text-[15px] text-ink leading-snug mt-1">{o.title}</h3>
@@ -569,7 +565,7 @@ export default function Analytics() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim">
+                            <div className="text-[11px] font-semibold tracking-[0.01em] text-ink-dim">
                               Uploaded {fmtDay(v.created_at)} · {v.aspect_ratio || 'aspect not read'}
                             </div>
                             <div className="font-semibold text-[14.5px] text-ink truncate mt-0.5">{v.title}</div>

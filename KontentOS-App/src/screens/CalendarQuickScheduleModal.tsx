@@ -152,7 +152,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
         {/* Header */}
         <div className="p-5 border-b border-line bg-surface/90 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+            <div className="w-10 h-10 rounded-btn bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
               <Icon name="event_available" size={22} />
             </div>
             <div>
@@ -166,7 +166,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
           </div>
           <DialogClose
             aria-label="Close schedule dialog"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors kt-focus"
+            className="w-8 h-8 rounded-btn flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors kt-focus"
           >
             <Icon name="close" size={18} />
           </DialogClose>
@@ -176,7 +176,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
         <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4 flex-1">
           {/* Post Title */}
           <div>
-            <label className="text-xs font-semibold text-ink uppercase tracking-wider block mb-1.5">
+            <label className="text-xs font-semibold text-ink tracking-[0.01em] block mb-1.5">
               Post Title / Topic *
             </label>
             <input
@@ -185,13 +185,13 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. 5 Rules of High-Converting Static Carousels"
-              className="w-full px-3 py-2 text-sm bg-app border border-line rounded-xl text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+              className="w-full px-3 py-2 text-sm bg-app border border-line rounded-btn text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
             />
           </div>
 
           {/* Post Format Selector */}
           <div>
-            <label className="text-xs font-semibold text-ink uppercase tracking-wider block mb-1.5">
+            <label className="text-xs font-semibold text-ink tracking-[0.01em] block mb-1.5">
               Format Type
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -204,7 +204,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
                   key={fmt.id}
                   type="button"
                   onClick={() => setPostType(fmt.id as any)}
-                  className={`flex items-center justify-center gap-1.5 p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-1.5 p-2 rounded-btn text-xs font-semibold border transition-all cursor-pointer ${
                     postType === fmt.id
                       ? 'bg-primary-soft text-primary border-primary'
                       : 'bg-surface text-ink-muted border-line hover:border-line-strong'
@@ -218,9 +218,9 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
           </div>
 
           {/* Date & Time Picker */}
-          <div className="p-3.5 bg-surface-2/40 border border-line rounded-xl space-y-2.5">
+          <div className="p-3.5 bg-surface-2/40 border border-line rounded-card space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-ink uppercase tracking-wider flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-ink tracking-[0.01em] flex items-center gap-1.5">
                 <Icon name="calendar_today" size={14} className="text-primary" />
                 Schedule Date &amp; Time
               </label>
@@ -234,7 +234,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
                   required
                   value={dateStr}
                   onChange={(e) => setDateStr(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-surface border border-line rounded-lg text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-1.5 text-xs bg-surface border border-line rounded-btn text-ink focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -245,14 +245,14 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
                   required
                   value={timeStr}
                   onChange={(e) => setTimeStr(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-surface border border-line rounded-lg text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-1.5 text-xs bg-surface border border-line rounded-btn text-ink focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
             </div>
 
             {/* Quick timing presets */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[11px] text-ink-muted uppercase tracking-wider mr-1">Presets:</span>
+              <span className="text-[11px] text-ink-muted tracking-[0.01em] mr-1">Presets:</span>
               <button
                 type="button"
                 onClick={() => handleApplyPresetTime(10, 0, 0)}
@@ -280,7 +280,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
           {/* Platform Channel Selectors */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-ink uppercase tracking-wider block">
+              <label className="text-xs font-semibold text-ink tracking-[0.01em] block">
                 Destination Platforms ({selectedPlatforms.length})
               </label>
               <button
@@ -300,7 +300,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
                     key={plat.id}
                     type="button"
                     onClick={() => togglePlatform(plat.id)}
-                    className={`flex items-center gap-2 p-2 rounded-xl text-xs font-semibold border text-left transition-all cursor-pointer ${
+                    className={`flex items-center gap-2 p-2 rounded-btn text-xs font-semibold border text-left transition-all cursor-pointer ${
                       active
                         ? 'bg-primary-soft text-primary border-primary'
                         : 'bg-surface text-ink-muted border-line hover:border-line-strong'
@@ -317,7 +317,7 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
 
           {/* Caption & Hashtags */}
           <div>
-            <label className="text-xs font-semibold text-ink uppercase tracking-wider block mb-1.5">
+            <label className="text-xs font-semibold text-ink tracking-[0.01em] block mb-1.5">
               Caption (Optional)
             </label>
             <textarea
@@ -325,12 +325,12 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               placeholder="Write your post caption, hook, or notes for this drop..."
-              className="w-full px-3 py-2 text-xs bg-app border border-line rounded-xl text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+              className="w-full px-3 py-2 text-xs bg-app border border-line rounded-btn text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
             />
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-ink uppercase tracking-wider block mb-1.5">
+            <label className="text-xs font-semibold text-ink tracking-[0.01em] block mb-1.5">
               Hashtags (Optional)
             </label>
             <input
@@ -338,12 +338,12 @@ export const CalendarQuickScheduleModal: React.FC<CalendarQuickScheduleModalProp
               value={hashtags}
               onChange={(e) => setHashtags(e.target.value)}
               placeholder="#contentcreation #solocreator #viral"
-              className="w-full px-3 py-1.5 text-xs bg-app border border-line rounded-xl text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-1.5 text-xs bg-app border border-line rounded-btn text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
           {submitError && (
-            <p role="alert" className="rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-[12px] text-ink">
+            <p role="alert" className="rounded-btn border border-danger/40 bg-danger/10 px-3 py-2 text-[12px] text-ink">
               {submitError}
             </p>
           )}

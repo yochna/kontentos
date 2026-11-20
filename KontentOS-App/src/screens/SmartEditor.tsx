@@ -1602,7 +1602,7 @@ export default function SmartEditor() {
 
                   {/* Upload Action Target Selector */}
                   <div>
-                    <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider block mb-1.5">
+                    <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em] block mb-1.5">
                       Insert Mode on Upload
                     </span>
                     <div className="grid grid-cols-3 gap-1.5">
@@ -2217,7 +2217,7 @@ export default function SmartEditor() {
 
                   {/* Density Selection */}
                   <div>
-                    <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider block mb-1.5">
+                    <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em] block mb-1.5">
                       Cutaway Rhythm
                     </span>
                     <div className="grid grid-cols-3 gap-1.5">
@@ -3192,7 +3192,7 @@ function SelectedPanel({
         >
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider flex items-center gap-1">
+              <label className="text-[11px] font-semibold text-ink-muted tracking-[0.01em] flex items-center gap-1">
                 <Icon name="edit_note" size={14} className="text-primary" />
                 Caption Text
               </label>
@@ -3233,7 +3233,7 @@ function SelectedPanel({
           {/* Caption placement and length — discoverable even when the clip is tiny on the rail */}
           <div className="p-2.5 rounded-btn border border-line bg-surface-2/40 space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider flex items-center gap-1">
+              <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em] flex items-center gap-1">
                 <Icon name="schedule" size={14} className="text-primary" />
                 Caption Timing
               </span>
@@ -3325,7 +3325,7 @@ function SelectedPanel({
           {textClip.style.words && textClip.style.words.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider flex items-center gap-1">
+                <label className="text-[11px] font-semibold text-ink-muted tracking-[0.01em] flex items-center gap-1">
                   <Icon name="timer" size={14} className="text-success" />
                   Word Cadence ({textClip.style.words.length})
                 </label>
@@ -3386,7 +3386,7 @@ function SelectedPanel({
           {/* Caption Style for this Clip */}
           <div className="space-y-2.5 pt-1 border-t border-line">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em]">
                 Font Family
               </span>
               <FontSelect
@@ -3397,7 +3397,7 @@ function SelectedPanel({
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em]">
                 Font Size
               </span>
               <div className="flex items-center gap-1">
@@ -3422,7 +3422,7 @@ function SelectedPanel({
 
             {/* Animation Style */}
             <div>
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider block mb-1">
+              <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em] block mb-1">
                 Animation Style
               </span>
               <div className="grid grid-cols-3 gap-1">
@@ -3448,7 +3448,7 @@ function SelectedPanel({
 
             {/* Highlight Color */}
             <div className="flex items-center justify-between pt-1">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em]">
                 Active Word Color
               </span>
               <div className="flex items-center gap-1.5">
@@ -3480,7 +3480,7 @@ function SelectedPanel({
         <div className="space-y-3 pt-1 border-t border-line">
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em]">
                 Playback Speed
               </span>
               <span className="text-xs font-mono font-bold text-primary">
@@ -3508,7 +3508,7 @@ function SelectedPanel({
           {/* Dynamic Punch-in Zoom & Keyframe Curves */}
           <div className="pt-2 border-t border-line space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider flex items-center gap-1">
+              <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em] flex items-center gap-1">
                 <Icon name="zoom_in" size={14} className="text-primary" />
                 Punch Zoom & Camera Animation
               </span>
@@ -3610,7 +3610,7 @@ function SelectedPanel({
           {/* CUT TRANSITION: Flash, Dissolve, Wipe, Dip */}
           <div className="pt-2 border-t border-line space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider flex items-center gap-1">
+              <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em] flex items-center gap-1">
                 <Icon name="auto_awesome_motion" size={13} className="text-primary" /> Cut Transition (In)
               </span>
               {videoClip.transition && videoClip.transition.type !== 'none' && (
@@ -3690,7 +3690,7 @@ function SelectedPanel({
         <div className="space-y-3 pt-1 border-t border-line">
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em]">
                 Sound Effect Sound
               </span>
               <Button
@@ -3740,7 +3740,7 @@ function SelectedPanel({
           {/* Volume Multiplier */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-ink-muted tracking-[0.01em]">
                 Sound Volume
               </span>
               <span className="text-xs font-mono font-bold text-primary">
@@ -3776,7 +3776,7 @@ function SelectedPanel({
 
       {/* Boundary & Trim/Cut Controls */}
       <div className="pt-2 border-t border-line space-y-2">
-        <span className="text-[11px] font-semibold text-ink-dim uppercase tracking-wider block">
+        <span className="text-[11px] font-semibold text-ink-dim tracking-[0.01em] block">
           Timeline Actions
         </span>
         <div className="grid grid-cols-2 gap-2">

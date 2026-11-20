@@ -248,7 +248,7 @@ export default function Calendar() {
           onValueChange={(v) => setFilterPlatform(v || 'all')}
           className="flex flex-wrap items-center gap-1.5"
         >
-          <span className="mr-2 text-[12px] font-semibold uppercase tracking-wider text-ink-dim">
+          <span className="mr-2 text-[12px] font-semibold tracking-[0.01em] text-ink-dim">
             Filter:
           </span>
           <ToggleGroupItem
@@ -307,7 +307,7 @@ export default function Calendar() {
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName) => (
               <div
                 key={dayName}
-                className="text-center text-[12px] font-semibold uppercase tracking-wider text-ink-dim py-1"
+                className="text-center text-[12px] font-semibold tracking-[0.01em] text-ink-dim py-1"
               >
                 <span className="hidden sm:inline">{dayName}</span>
                 <span className="sm:hidden">{dayName[0]}</span>
@@ -448,7 +448,7 @@ export default function Calendar() {
           <Card className="p-5 border-line">
             <div className="flex items-center justify-between pb-3 border-b border-line mb-4">
               <div>
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim">
+                <span className="text-[11px] font-semibold tracking-[0.01em] text-ink-dim">
                   Day Inspector
                 </span>
                 <h3 className="font-display text-[18px] font-bold text-ink">
@@ -607,7 +607,7 @@ export default function Calendar() {
               )}
 
               <div>
-                <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                   Post Title
                 </label>
                 <div className="text-[15px] font-semibold text-ink">
@@ -616,7 +616,7 @@ export default function Calendar() {
               </div>
 
               <div>
-                <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                   {activePostModal.post_url ? 'Live post' : 'Where it goes'}
                 </label>
                 <a
@@ -668,7 +668,7 @@ export default function Calendar() {
 
               {(activePostModal.caption_text || (activePostModal.hashtags && activePostModal.hashtags.length > 0)) && (
                 <div>
-                  <label className="text-[12px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                  <label className="text-[12px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                     Formatted Caption &amp; Hashtags
                   </label>
                   <div className="text-[13px] text-ink bg-surface-2/60 border border-line rounded-btn p-3 whitespace-pre-wrap max-h-[140px] overflow-y-auto leading-relaxed">

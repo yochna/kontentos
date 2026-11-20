@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { Icon } from '@/lib/icons';
 
 const TAGLINE = 'Raw in. Scheduled out.';
-// The intro is a greeting, not a loading gate. Its old 3.7s hold was the largest single slice of
-// "takes a long time to load"; keep the flourish but let the bench arrive in a little over two.
-const HOLD_MS = 2200;
+// The intro is a greeting, not a loading gate. Keep the flourish brief so the bench arrives quickly.
+const HOLD_MS = 1500;
 
 export function Splash({ onDone }: { onDone: () => void }) {
   const [leaving, setLeaving] = useState(false);

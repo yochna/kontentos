@@ -692,7 +692,7 @@ export default function RawReel() {
                     <div className="relative z-10 bg-black/75 p-3 rounded-card text-white">
                       <Icon name="play_arrow" size={24} className="mx-auto mb-1 text-primary" />
                       <p className="text-xs font-medium">Ready for auto-cut</p>
-                      <p className="text-[11px] text-white/70 mt-0.5">Click"Create finished Reel"</p>
+                      <p className="text-[11px] text-white/70 mt-0.5">Create the finished reel when you are ready.</p>
                     </div>
                   </div>
                 ) : (

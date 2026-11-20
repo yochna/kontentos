@@ -769,7 +769,7 @@ export default function PublishSchedule() {
               return (
                 <div className="mb-3 rounded-btn border border-line bg-surface-2/60 p-3 space-y-2">
                   <div className="flex items-center justify-between text-[12px]">
-                    <span className="font-semibold uppercase tracking-wider text-ink-dim">
+                    <span className="font-semibold tracking-[0.01em] text-ink-dim">
                       {spec.label} limits
                     </span>
                     <span className={`font-mono ${verdict.ok ? 'text-ink-muted' : 'text-danger font-semibold'}`}>

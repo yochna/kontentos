@@ -367,7 +367,6 @@ export function Bench({
           jobs={jobs}
           notice={notice}
           online={store.online}
-          dbStatus={store.dbStatus}
           station={station}
           onStation={goTo}
           onOpenDeck={() => setDeck(true)}
@@ -376,7 +375,6 @@ export function Bench({
           onTour={() => setTourOpen(true)}
           theme={theme}
           onToggleTheme={onToggleTheme}
-          selectedTitle={litCut?.title ?? null}
         />
       </div>
 

@@ -132,7 +132,7 @@ export default function BrandKit() {
           {isEditingVoice ? (
             <div className="space-y-3.5 bg-surface-2/50 p-4 rounded-card border border-line">
               <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                <label className="text-[11px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                   Archetype
                 </label>
                 <input
@@ -142,7 +142,7 @@ export default function BrandKit() {
                 />
               </div>
               <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                <label className="text-[11px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                   Catchphrase / Signature Opener
                 </label>
                 <input
@@ -152,7 +152,7 @@ export default function BrandKit() {
                 />
               </div>
               <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim block mb-1">
+                <label className="text-[11px] font-semibold tracking-[0.01em] text-ink-dim block mb-1">
                   Tone &amp; Pacing
                 </label>
                 <input
@@ -162,7 +162,7 @@ export default function BrandKit() {
                 />
               </div>
               <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-danger block mb-1">
+                <label className="text-[11px] font-semibold tracking-[0.01em] text-danger block mb-1">
                   Banned Buzzwords (Avoid)
                 </label>
                 <input
@@ -351,7 +351,7 @@ function Stat({
 }) {
   return (
     <div className="rounded-card border border-line p-3.5 bg-surface hover:border-line-strong transition-all">
-      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-dim mb-1.5">
+      <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.01em] text-ink-dim mb-1.5">
         <Icon name={icon} size={14} className={danger ? 'text-danger' : 'text-primary'} />
         {label}
       </div>
