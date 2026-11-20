@@ -2888,6 +2888,16 @@ function ClipBlock({
 
       if (dragModeRef.current === 'move') {
         const rawTarget = Math.max(0, initialStartRef.current + deltaSec);
+        // Adjacent captions make each other's boundaries snap points. That turns a small right-drag
+        // into "snap back to where you started", so caption moves stay pixel-free; video cuts keep
+        // magnetic snapping.
+        if (clip.type === 'text') {
+          const finalStart = round2(rawTarget);
+          lastTarget = finalStart;
+          onSnap(null);
+          onMove(finalStart, false);
+          return;
+        }
         const snapRes = findSnapPoint(project, rawTarget, zoom, {
           excludeClipId: clip.id,
           thresholdPx: 8,
