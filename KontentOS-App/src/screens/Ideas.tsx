@@ -184,7 +184,7 @@ export default function Ideas() {
   return (
     <PageShell>
       {/* Spark engine banner */}
-      <Card className="kt-sheen p-5 sm:p-6 mb-6 overflow-hidden relative">
+      <Card className="kt-sheen mb-6 overflow-hidden p-6 relative sm:p-8">
         <div
           className="absolute -right-10 -top-10 w-64 h-64 rounded-full opacity-[0.14]"
           style={{ background: 'radial-gradient(circle,var(--primary),transparent 70%)' }}
@@ -199,7 +199,7 @@ export default function Ideas() {
         <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="max-w-2xl">
             <Eyebrow icon="auto_awesome">In · Ideas</Eyebrow>
-            <h1 className="kt-hero-title mt-1 font-display text-[21px] font-semibold leading-tight text-ink sm:text-[24px]">
+            <h1 className="kt-hero-title mt-2 font-display text-[26px] font-bold leading-[1.1] tracking-[-0.02em] text-ink sm:text-[34px]">
               What should you create next?
             </h1>
             <p className="mt-1.5 text-ink-muted text-[13px] leading-relaxed">

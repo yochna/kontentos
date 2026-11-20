@@ -289,7 +289,7 @@ export function Bench({
 
   return (
     <div
-      className="flex h-screen overflow-hidden bg-app font-body text-ink"
+      className="kt-bench flex h-screen overflow-hidden bg-app font-body text-ink"
       onDragEnter={(e) => {
         if (!isFileDrag(e)) return;
         e.preventDefault();

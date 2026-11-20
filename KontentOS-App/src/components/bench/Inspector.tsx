@@ -38,10 +38,12 @@ export function Inspector({
   const meta = STATION_BY_ID[station];
 
   return (
-    <aside data-tour="inspector" className="kt-readable hidden w-[320px] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface xl:flex">
-      <header className="border-b border-line px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Icon name={meta.icon} size={15} className="text-primary" />
+    <aside data-tour="inspector" className="kt-readable kt-inspector hidden w-[340px] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface/90 backdrop-blur-xl xl:flex">
+      <header className="border-b border-line px-4 py-3.5">
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-7 w-7 place-items-center rounded-btn bg-primary-soft text-primary">
+            <Icon name={meta.icon} size={15} />
+          </span>
           <span className="kt-eyebrow">{meta.label}</span>
           <button
             type="button"

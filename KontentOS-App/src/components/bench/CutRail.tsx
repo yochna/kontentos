@@ -146,7 +146,7 @@ export function CutRail({
   const expanded = open && cuts.length > 0;
 
   return (
-    <div data-tour="rail" className="shrink-0 border-b border-line bg-surface/80">
+    <div data-tour="rail" className="kt-rail shrink-0 border-b border-line bg-surface/85 backdrop-blur-xl">
       <input
         ref={fileRef}
         type="file"
@@ -203,7 +203,7 @@ export function CutRail({
                 {selected ? (
                   <>
                     <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-                    <span className="truncate font-semibold text-ink">{selected.video.title}</span>
+                    <span className="truncate font-display text-[13.5px] font-semibold tracking-[-0.01em] text-ink">{selected.video.title}</span>
                     {selected.stage && (
                       <span className="font-body text-[12px] font-medium hidden shrink-0 sm:block">
                         {selected.stage}

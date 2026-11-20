@@ -17,11 +17,10 @@ export function Spine({
   const profile = useDisplayProfile();
 
   return (
-    <aside data-tour="spine" className="hidden w-[84px] shrink-0 flex-col border-r border-line bg-surface lg:flex">
-      <div className="flex h-[52px] items-center justify-center border-b border-line">
-        <span className="kt-grow grid h-7 w-7 place-items-center rounded-[4px] bg-primary font-display text-[13px] font-bold text-on-primary">
-          K
-        </span>
+    <aside data-tour="spine" className="kt-spine hidden w-[96px] shrink-0 flex-col border-r border-line bg-surface/90 backdrop-blur-xl lg:flex">
+      <div className="kt-brand-bay flex h-[72px] flex-col items-center justify-center gap-1.5 border-b border-line">
+        <span className="kt-brand-mark font-display text-[15px] font-extrabold">K</span>
+        <span className="font-display text-[9px] font-bold tracking-[0.16em] text-ink-dim">KONTENTOS</span>
       </div>
 
       <nav className="kt-spine-nav flex-1 overflow-y-auto py-2" aria-label="Bench stations">
@@ -50,7 +49,7 @@ export function Spine({
             type="button"
             onClick={() => onStation('settings')}
             aria-label={`Room settings for ${profile.name}`}
-            className="mt-1 grid h-9 w-full place-items-center kt-focus"
+            className="kt-focus mt-1 grid h-10 w-full place-items-center rounded-btn transition-colors hover:bg-surface-2"
           >
             <span className="grid h-7 w-7 place-items-center rounded-full border border-line-strong bg-surface-3 font-display text-[12px] font-bold text-ink-muted">
               {profile.initials || '·'}
@@ -87,14 +86,14 @@ function StationKey({
         onClick={() => onStation(id)}
         data-active={active}
         aria-current={active ? 'page' : undefined}
-        className={`kt-key kt-station-key flex h-[54px] w-full flex-col items-center justify-center gap-1 pl-[2px] kt-focus ${
+        className={`kt-key kt-station-key flex h-[58px] w-full flex-col items-center justify-center gap-1.5 kt-focus ${
           active ? 'bg-surface-2 text-ink' : 'text-ink-dim hover:bg-surface-2/60 hover:text-ink-muted'
         }`}
       >
         <span className="kt-station-icon grid h-7 w-7 place-items-center">
           <Icon name={meta.icon} size={19} weight={active ? 600 : 400} fill={active ? 1 : 0} />
         </span>
-        <span className={`font-body text-[13px] leading-none tracking-normal ${active ? 'font-semibold text-primary' : 'font-medium'}`}>
+        <span className={`font-body text-[13.5px] leading-none tracking-[-0.01em] ${active ? 'font-semibold text-primary' : 'font-medium'}`}>
           {meta.label}
         </span>
       </button>

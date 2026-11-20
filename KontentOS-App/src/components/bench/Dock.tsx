@@ -61,7 +61,7 @@ export function Dock({
   const desk = useWorkspaceStatus();
 
   return (
-    <footer className="shrink-0 border-t border-line bg-surface">
+    <footer className="kt-dock shrink-0 border-t border-line bg-surface/90 backdrop-blur-xl">
       {/* Below lg the spine is gone, so the station keys become the dock's middle row. */}
       <div data-tour="dock-stations" className="relative border-b border-line px-2 py-1.5 lg:hidden">
         <div className="flex gap-1.5">
@@ -116,11 +116,11 @@ export function Dock({
         )}
       </div>
 
-      <div className="flex h-[38px] items-center gap-3 px-3">
+      <div className="flex h-[44px] items-center gap-3 px-4">
         <button
           type="button"
           onClick={onOpenDeck}
-          className="kt-focus flex items-center gap-2 rounded-[5px] border border-line bg-surface-2/60 px-2 py-1 text-ink-dim transition-colors hover:border-line-strong hover:text-ink-muted"
+          className="kt-focus kt-command-trigger flex items-center gap-2 border border-line bg-surface-2/60 px-3 py-1.5 text-ink-muted transition-colors hover:text-ink"
           aria-label="Open the command deck"
         >
           <Icon name="search" size={14} />
@@ -146,7 +146,7 @@ export function Dock({
           <span className="flex min-w-0 items-center gap-2">
             <span
               className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                notice || desk.state === 'unsaved' || !online ? 'bg-warning' : 'bg-success'
+                notice || desk.state === 'unsaved' || !online ? 'bg-warning' : 'bg-success ring-2 ring-success/20'
               }`}
             />
             <span
