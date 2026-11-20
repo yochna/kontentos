@@ -2912,10 +2912,15 @@ function ClipBlock({
           excludeClipId: clip.id,
           thresholdPx: 8,
         });
-        const finalTrimTime = snapRes.snapped ? snapRes.time : rawTarget;
+        const finalTrimTime =
+          clip.type === 'text' ? round2(rawTarget) : snapRes.snapped ? snapRes.time : rawTarget;
         lastTrimEdge = 'start';
         lastTrimTarget = finalTrimTime;
-        onSnap(snapRes.snapped && snapRes.snapPoint !== undefined ? snapRes.snapPoint : null);
+        onSnap(
+          clip.type === 'text' || !snapRes.snapped || snapRes.snapPoint === undefined
+            ? null
+            : snapRes.snapPoint
+        );
         onTrim('start', finalTrimTime, false);
       } else if (dragModeRef.current === 'trim-end') {
         const rawTarget = Math.max(0.1, initialStartRef.current + initialDurationRef.current + deltaSec);
@@ -2923,10 +2928,15 @@ function ClipBlock({
           excludeClipId: clip.id,
           thresholdPx: 8,
         });
-        const finalTrimTime = snapRes.snapped ? snapRes.time : rawTarget;
+        const finalTrimTime =
+          clip.type === 'text' ? round2(rawTarget) : snapRes.snapped ? snapRes.time : rawTarget;
         lastTrimEdge = 'end';
         lastTrimTarget = finalTrimTime;
-        onSnap(snapRes.snapped && snapRes.snapPoint !== undefined ? snapRes.snapPoint : null);
+        onSnap(
+          clip.type === 'text' || !snapRes.snapped || snapRes.snapPoint === undefined
+            ? null
+            : snapRes.snapPoint
+        );
         onTrim('end', finalTrimTime, false);
       }
     };

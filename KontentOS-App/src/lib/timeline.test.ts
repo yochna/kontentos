@@ -17,6 +17,7 @@ import {
   splitClipAt,
   synthesizeWords,
   totalDuration,
+  trimClipEdge,
   type TextClip,
   type TimelineProject,
   type VideoClip,
@@ -163,6 +164,24 @@ describe('caption timing controls', () => {
     locked.tracks.find((track) => track.type === 'text')!.isLocked = true;
     expect(setClipTiming(locked, 'cap-1', { duration: 2 })).toBeNull();
     expect(moveClip(locked, 'cap-1', 3)).toBeNull();
+  });
+
+  it('extends a caption when the right trim handle is dragged outward', () => {
+    const next = trimClipEdge(p, 'cap-1', 'end', 2.5)!;
+    const extended = captionById(next, 'cap-1') as TextClip;
+    expect(extended.duration).toBe(1.5);
+    expect(extended.content).toBe('hello world');
+    expect(extended.style.words).toHaveLength(2);
+  });
+
+  it('extends a caption leftward without moving its word beats', () => {
+    const next = trimClipEdge(p, 'cap-1', 'start', 0.5)!;
+    const extended = captionById(next, 'cap-1') as TextClip;
+    expect(extended.startOnTimeline).toBe(0.5);
+    expect(extended.duration).toBe(1.5);
+    expect(extended.content).toBe('hello world');
+    expect(extended.style.words?.[0]).toMatchObject({ start: 0.5, end: 1 });
+    expect(extended.style.words?.[1]).toMatchObject({ start: 1, end: 1.5 });
   });
 });
 

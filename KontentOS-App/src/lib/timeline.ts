@@ -1199,9 +1199,15 @@ export function trimClipEdge(
   const nTrack = next.tracks.find((t) => t.id === track.id)!;
   const nClip = nTrack.clips[index];
 
+  const isText = nClip.type === 'text';
+  const clampedTime = Math.max(0, round2(atTime));
+
   if (edge === 'start') {
-    if (atTime <= start + 0.05 || atTime >= end - 0.05) return null;
-    const cut = round2(atTime - start);
+    // Video has no extra source to reveal on the left, but a caption can be extended earlier.
+    if (clampedTime >= end - 0.1) return null;
+    if (!isText && clampedTime <= start + 0.05) return null;
+    if (clampedTime === start) return null;
+    const cut = round2(clampedTime - start);
     if (nClip.type === 'video') {
       const speed = (nClip as VideoClip).speedMultiplier || 1;
       (nClip as VideoClip).sourceStartOffset = round2(nClip.sourceStartOffset + cut * speed);
@@ -1211,25 +1217,50 @@ export function trimClipEdge(
     }
     if (nClip.type === 'text') {
       const textClip = nClip as TextClip;
-      const words = ((textClip.style?.words) || []).filter((w) => (w.start + w.end) / 2 >= cut);
-      const remainingWords = words.map((w) => ({ ...w, start: round2(Math.max(0, w.start - cut)), end: round2(Math.max(0, w.end - cut)) }));
-      const newText = remainingWords.length > 0 ? remainingWords.map((w) => w.word).join(' ') : textClip.content;
-      (nClip as TextClip).style = { ...textClip.style, words: remainingWords };
+      // Extending left keeps every word and shifts it later in local time so its absolute beat
+      // stays put. Shrinking still drops words that fell before the new start.
+      const words = cut < 0
+        ? ((textClip.style?.words) || []).map((w) => ({
+            ...w,
+            start: round2(w.start - cut),
+            end: round2(w.end - cut),
+          }))
+        : ((textClip.style?.words) || [])
+            .filter((w) => (w.start + w.end) / 2 >= cut)
+            .map((w) => ({
+              ...w,
+              start: round2(Math.max(0, w.start - cut)),
+              end: round2(Math.max(0, w.end - cut)),
+            }));
+      const newText = cut < 0
+        ? textClip.content
+        : words.length > 0
+        ? words.map((w) => w.word).join(' ')
+        : textClip.content;
+      (nClip as TextClip).style = { ...textClip.style, words };
       (nClip as TextClip).content = newText;
       (nClip as TextClip).name = newText;
     }
-    nClip.startOnTimeline = round2(atTime);
-    nClip.duration = round2(end - atTime);
+    nClip.startOnTimeline = clampedTime;
+    nClip.duration = round2(end - clampedTime);
   } else {
-    if (atTime >= end - 0.05 || atTime <= start + 0.05) return null;
-    const keep = round2(atTime - start);
+    // A caption may be dragged past its old end to extend its hold. Video stays shrink-only
+    // because there is no extra source frame to reveal without re-probing the file.
+    if (clampedTime <= start + 0.1) return null;
+    if (!isText && clampedTime >= end - 0.05) return null;
+    if (clampedTime === end) return null;
+    const keep = round2(clampedTime - start);
     if (nClip.type === 'video') {
       (nClip as VideoClip).keyframes = ((nClip as VideoClip).keyframes || []).filter((k) => k.timeOffset <= keep);
     }
     if (nClip.type === 'text') {
       const textClip = nClip as TextClip;
       const words = ((textClip.style?.words) || []).filter((w) => (w.start + w.end) / 2 <= keep);
-      const newText = words.length > 0 ? words.map((w) => w.word).join(' ') : textClip.content;
+      const newText = clampedTime >= end
+        ? textClip.content
+        : words.length > 0
+        ? words.map((w) => w.word).join(' ')
+        : textClip.content;
       (nClip as TextClip).style = { ...textClip.style, words };
       (nClip as TextClip).content = newText;
       (nClip as TextClip).name = newText;
