@@ -26,10 +26,12 @@ import {
   getPreset,
   insertVideoClip,
   locateClip,
+  moveClip,
   moveClipSafe,
   moveClipsBatch,
   round2,
   sfxClips,
+  setClipTiming,
   setClipTransition,
   setProjectAspectRatio,
   splitClipAt,
@@ -392,7 +394,11 @@ export default function SmartEditor() {
           return;
         }
       }
-      applyEdit((p) => moveClipSafe(p, clipId, newStart), {
+      // Caption cues sit adjacent to each other by design. The collision-safe mover was written for
+      // primary video cuts and refuses those moves, so captions get direct placement instead.
+      const loc = project ? locateClip(project, clipId) : null;
+      const mover = loc?.clip.type === 'text' ? moveClip : moveClipSafe;
+      applyEdit((p) => mover(p, clipId, newStart), {
         skipHistory: !isFinal,
         label: 'Move clip position',
       });
@@ -406,6 +412,13 @@ export default function SmartEditor() {
         skipHistory: !isFinal,
         label: `Trim clip ${edge}`,
       });
+    },
+    [applyEdit],
+  );
+
+  const handleUpdateTiming = useCallback(
+    (clipId: string, timing: { start?: number; duration?: number }) => {
+      applyEdit((p) => setClipTiming(p, clipId, timing), { label: 'Adjust caption timing' });
     },
     [applyEdit],
   );
@@ -511,6 +524,11 @@ export default function SmartEditor() {
     }
     return null;
   }, [project, selectedIds]);
+
+  const selectedTrackLocked = useMemo(
+    () => (project && selectedClip ? locateClip(project, selectedClip.id)?.track.isLocked ?? false : false),
+    [project, selectedClip],
+  );
 
   function targetClipId(): string | null {
     if (selectedClip) return selectedClip.id;
@@ -1442,8 +1460,10 @@ export default function SmartEditor() {
                           isLocked={tr.isLocked}
                           project={project}
                           onSelect={(evt) => handleSelectClip(c.id, evt)}
-                          onMove={(newStart) => handleMoveClip(c.id, newStart)}
-                          onTrim={(edge, atTime) => handleTrimClip(c.id, edge, atTime)}
+                          onMove={(newStart, isFinal) => handleMoveClip(c.id, newStart, isFinal)}
+                          onTrim={(edge, atTime, isFinal) =>
+                            handleTrimClip(c.id, edge, atTime, isFinal)
+                          }
                           onSnap={(snapTime) => setSnapGuide(snapTime)}
                         />
                       ))}
@@ -2439,6 +2459,8 @@ export default function SmartEditor() {
                     time={time}
                     onUpdateTextClip={handleUpdateTextClip}
                     onUpdateWord={handleUpdateWord}
+                    onUpdateTiming={handleUpdateTiming}
+                    isLocked={selectedTrackLocked}
                     onUpdateVideoClip={handleUpdateVideoClip}
                     onUpdateSFXClip={handleUpdateSFXClip}
                   />
@@ -2844,9 +2866,10 @@ function ClipBlock({
   const initialDurationRef = useRef(clip.duration);
 
   const startDrag = (e: React.PointerEvent, mode: 'move' | 'trim-start' | 'trim-end') => {
-    if (isLocked) return;
     e.stopPropagation();
     onSelect(e);
+    // A locked clip can still be inspected; it just cannot be moved or trimmed.
+    if (isLocked) return;
 
     isDraggingRef.current = true;
     dragModeRef.current = mode;
@@ -2921,8 +2944,19 @@ function ClipBlock({
 
   return (
     <div
+      role="button"
+      aria-label={isLocked ? `${label}, track locked` : `${label}, drag to move`}
+      title={
+        isLocked
+          ? `${label} — unlock this track to move or trim`
+          : clip.type === 'text'
+          ? `${label} — drag to move, trim handles change caption timing`
+          : `${label} — drag to move`
+      }
       onPointerDown={(e) => startDrag(e, 'move')}
-      className={`group absolute top-1.5 bottom-1.5 rounded-md overflow-visible select-none cursor-grab active:cursor-grabbing text-left transition-shadow ${
+      className={`group absolute top-1.5 bottom-1.5 rounded-md overflow-visible select-none ${
+        isLocked ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'
+      } text-left transition-shadow ${
         selected ? 'ring-2 ring-offset-1 ring-offset-app ring-primary shadow-[var(--shadow-2)] z-10' : 'hover:brightness-110 z-0'
       }`}
       style={{
@@ -2962,7 +2996,8 @@ function ClipBlock({
           {/* Left Handle (Trim Start) */}
           <div
             onPointerDown={(e) => startDrag(e, 'trim-start')}
-            title="Drag to trim start"
+            title={clip.type === 'text' ? 'Drag to change caption start' : 'Drag to trim start'}
+            aria-label={clip.type === 'text' ? 'Change caption start' : 'Trim clip start'}
             className="absolute left-0 top-0 bottom-0 w-2.5 bg-white/40 hover:bg-white/80 cursor-ew-resize rounded-l-md flex items-center justify-center transition-colors z-20"
           >
             <div className="w-[1.5px] h-3 bg-black/75 rounded-full" />
@@ -2971,7 +3006,8 @@ function ClipBlock({
           {/* Right Handle (Trim End) */}
           <div
             onPointerDown={(e) => startDrag(e, 'trim-end')}
-            title="Drag to trim end"
+            title={clip.type === 'text' ? 'Drag to change caption length' : 'Drag to trim end'}
+            aria-label={clip.type === 'text' ? 'Change caption length' : 'Trim clip end'}
             className="absolute right-0 top-0 bottom-0 w-2.5 bg-white/40 hover:bg-white/80 cursor-ew-resize rounded-r-md flex items-center justify-center transition-colors z-20"
           >
             <div className="w-[1.5px] h-3 bg-black/75 rounded-full" />
@@ -3022,6 +3058,8 @@ function SelectedPanel({
   onSplit,
   onUpdateTextClip,
   onUpdateWord,
+  onUpdateTiming,
+  isLocked = false,
   onUpdateVideoClip,
   onUpdateSFXClip,
 }: {
@@ -3032,6 +3070,8 @@ function SelectedPanel({
   onSplit: () => void;
   onUpdateTextClip: (clipId: string, newContent: string, newStyle?: Partial<CaptionStyle>) => void;
   onUpdateWord: (clipId: string, wordIdx: number, newWord: string) => void;
+  onUpdateTiming?: (clipId: string, timing: { start?: number; duration?: number }) => void;
+  isLocked?: boolean;
   onUpdateVideoClip: (clipId: string, updates: Partial<VideoClip>) => void;
   onUpdateSFXClip?: (clipId: string, updates: Partial<SFXClip>) => void;
 }) {
@@ -3043,22 +3083,50 @@ function SelectedPanel({
   const sfxClip = isSfx ? (clip as SFXClip) : null;
 
   const [textDraft, setTextDraft] = useState(textClip?.content ?? '');
+  const [startDraft, setStartDraft] = useState(clip.startOnTimeline.toFixed(2));
+  const [durationDraft, setDurationDraft] = useState(clip.duration.toFixed(2));
   const [editingWordIdx, setEditingWordIdx] = useState<number | null>(null);
   const [editingWordVal, setEditingWordVal] = useState('');
 
-  // Keep text draft synced when selecting different clips
+  // Keep drafts synced when selecting a different clip or moving one on the timeline.
   useEffect(() => {
     if (textClip) {
       setTextDraft(textClip.content);
     }
+    setStartDraft(clip.startOnTimeline.toFixed(2));
+    setDurationDraft(clip.duration.toFixed(2));
     setEditingWordIdx(null);
-  }, [clip.id, textClip?.content]);
+  }, [clip.id, clip.startOnTimeline, clip.duration, textClip?.content]);
 
   const end = clip.startOnTimeline + clip.duration;
 
   const commitTextChange = (newVal: string) => {
     setTextDraft(newVal);
     onUpdateTextClip(clip.id, newVal);
+  };
+
+  const commitTiming = (field: 'start' | 'duration', raw: string) => {
+    const value = Number.parseFloat(raw);
+    if (!Number.isFinite(value)) {
+      setStartDraft(clip.startOnTimeline.toFixed(2));
+      setDurationDraft(clip.duration.toFixed(2));
+      return;
+    }
+    const safe =
+      field === 'start'
+        ? Math.max(0, round2(value))
+        : Math.max(0.1, round2(value));
+    onUpdateTiming?.(clip.id, field === 'start' ? { start: safe } : { duration: safe });
+  };
+
+  const nudgeTiming = (field: 'start' | 'duration', delta: number) => {
+    const draft = Number.parseFloat(field === 'start' ? startDraft : durationDraft);
+    const current = Number.isFinite(draft)
+      ? draft
+      : field === 'start'
+      ? clip.startOnTimeline
+      : clip.duration;
+    commitTiming(field, String(current + delta));
   };
 
   const handleWordSave = (idx: number) => {
@@ -3093,11 +3161,15 @@ function SelectedPanel({
             {fmtTime(clip.startOnTimeline)} → {fmtTime(end)} · {clip.duration.toFixed(2)}s duration
           </div>
         </div>
+        {isLocked && <StatusPill tone="neutral">Track locked</StatusPill>}
       </div>
 
       {/* TEXT CLIP: Direct Caption Content & Word Editing */}
       {isText && textClip && (
-        <div className="space-y-3.5 pt-1">
+        <fieldset
+          disabled={isLocked}
+          className="min-w-0 space-y-3.5 border-0 p-0 pt-1 disabled:opacity-60"
+        >
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider flex items-center gap-1">
@@ -3109,7 +3181,11 @@ function SelectedPanel({
               </span>
             </div>
             <textarea
+              id="caption-text"
+              aria-label="Caption text"
+              data-testid="caption-text"
               value={textDraft}
+              disabled={isLocked}
               onChange={(e) => setTextDraft(e.target.value)}
               onBlur={(e) => {
                 if (e.target.value !== textClip.content) {
@@ -3118,7 +3194,7 @@ function SelectedPanel({
               }}
               rows={2}
               placeholder="Type caption text..."
-              className="w-full rounded-btn border border-line bg-surface-2 px-3 py-2 text-xs font-medium text-ink outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-y min-h-[54px]"
+              className="w-full rounded-btn border border-line bg-surface-2 px-3 py-2 text-xs font-medium text-ink outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-y min-h-[54px] disabled:opacity-50 disabled:cursor-not-allowed"
             />
             {textDraft !== textClip.content && (
               <div className="flex justify-end mt-1.5">
@@ -3132,6 +3208,97 @@ function SelectedPanel({
                 </Button>
               </div>
             )}
+          </div>
+
+          {/* Caption placement and length — discoverable even when the clip is tiny on the rail */}
+          <div className="p-2.5 rounded-btn border border-line bg-surface-2/40 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider flex items-center gap-1">
+                <Icon name="schedule" size={14} className="text-primary" />
+                Caption Timing
+              </span>
+              <span className="text-[10px] text-ink-dim text-right">Type a value or nudge by 0.1s</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="block text-[10px] font-semibold text-ink-dim mb-1">Start (seconds)</span>
+                <input
+                  id="caption-start"
+                  aria-label="Caption start time in seconds"
+                  data-testid="caption-start"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  min="0"
+                  value={startDraft}
+                  disabled={isLocked}
+                  onChange={(e) => setStartDraft(e.target.value)}
+                  onBlur={(e) => commitTiming('start', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                  }}
+                  className="w-full rounded-btn border border-line bg-surface px-2 py-1.5 text-xs font-mono text-ink outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-[10px] font-semibold text-ink-dim mb-1">Length (seconds)</span>
+                <input
+                  id="caption-duration"
+                  aria-label="Caption duration in seconds"
+                  data-testid="caption-duration"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  min="0.1"
+                  value={durationDraft}
+                  disabled={isLocked}
+                  onChange={(e) => setDurationDraft(e.target.value)}
+                  onBlur={(e) => commitTiming('duration', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                  }}
+                  className="w-full rounded-btn border border-line bg-surface px-2 py-1.5 text-xs font-mono text-ink outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </label>
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              <button
+                type="button"
+                aria-label="Move caption earlier by 0.1 seconds"
+                disabled={isLocked}
+                onClick={() => nudgeTiming('start', -0.1)}
+                className="px-1 py-1 rounded-btn border border-line text-[11px] font-semibold text-ink-muted hover:text-ink hover:border-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ←0.1s
+              </button>
+              <button
+                type="button"
+                aria-label="Move caption later by 0.1 seconds"
+                disabled={isLocked}
+                onClick={() => nudgeTiming('start', 0.1)}
+                className="px-1 py-1 rounded-btn border border-line text-[11px] font-semibold text-ink-muted hover:text-ink hover:border-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                0.1s→
+              </button>
+              <button
+                type="button"
+                aria-label="Shorten caption by 0.1 seconds"
+                disabled={isLocked}
+                onClick={() => nudgeTiming('duration', -0.1)}
+                className="px-1 py-1 rounded-btn border border-line text-[11px] font-semibold text-ink-muted hover:text-ink hover:border-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                −0.1s
+              </button>
+              <button
+                type="button"
+                aria-label="Extend caption by 0.1 seconds"
+                disabled={isLocked}
+                onClick={() => nudgeTiming('duration', 0.1)}
+                className="px-1 py-1 rounded-btn border border-line text-[11px] font-semibold text-ink-muted hover:text-ink hover:border-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                +0.1s
+              </button>
+            </div>
           </div>
 
           {/* Interactive Word Timings */}
@@ -3285,7 +3452,7 @@ function SelectedPanel({
               </div>
             </div>
           </div>
-        </div>
+        </fieldset>
       )}
 
       {/* VIDEO CLIP: Speed & Punch Controls */}

@@ -8,9 +8,11 @@ import {
   evaluateEasing,
   fmtTime,
   isVideoGapAt,
+  moveClip,
   parseSrtTimeToSeconds,
   PRESETS,
   recomputeDuration,
+  setClipTiming,
   sourceTimeAt,
   splitClipAt,
   synthesizeWords,
@@ -114,6 +116,53 @@ describe('clip lookup on the timeline', () => {
     expect(totalDuration(stale)).toBe(0);
     recomputeDuration(stale);
     expect(totalDuration(stale)).toBe(8);
+  });
+});
+
+describe('caption timing controls', () => {
+  const first = captionClip({
+    id: 'cap-1',
+    startOnTimeline: 1,
+    duration: 1,
+    style: {
+      fontFamily: 'Inter',
+      fontSize: 42,
+      colorHex: '#ffffff',
+      position: 'bottom',
+      animation: 'karaoke',
+      words: [
+        { word: 'one', start: 0, end: 0.5 },
+        { word: 'two', start: 0.5, end: 1 },
+      ],
+    },
+  });
+  const second = captionClip({ id: 'cap-2', startOnTimeline: 2, duration: 1 });
+  const video = [videoClip({ id: 'v', startOnTimeline: 0, duration: 4 })];
+  const p = project(video, [first, second]);
+
+  const captionById = (value: TimelineProject, id: string) =>
+    value.tracks.find((track) => track.type === 'text')!.clips.find((clip) => clip.id === id)!;
+
+  it('moves a caption freely across adjacent cues', () => {
+    const moved = moveClip(p, 'cap-1', 2.2)!;
+    expect(captionById(moved, 'cap-1').startOnTimeline).toBe(2.2);
+    expect(captionById(moved, 'cap-2').startOnTimeline).toBe(2);
+  });
+
+  it('sets start and length directly and rescales word highlighting', () => {
+    const next = setClipTiming(p, 'cap-1', { start: 1.5, duration: 2 })!;
+    const moved = captionById(next, 'cap-1') as TextClip;
+    expect(moved.startOnTimeline).toBe(1.5);
+    expect(moved.duration).toBe(2);
+    expect(moved.style.words?.[0]).toMatchObject({ start: 0, end: 1 });
+    expect(moved.style.words?.[1]).toMatchObject({ start: 1, end: 2 });
+  });
+
+  it('refuses timing changes on a locked caption track', () => {
+    const locked = project(video, [first, second]);
+    locked.tracks.find((track) => track.type === 'text')!.isLocked = true;
+    expect(setClipTiming(locked, 'cap-1', { duration: 2 })).toBeNull();
+    expect(moveClip(locked, 'cap-1', 3)).toBeNull();
   });
 });
 

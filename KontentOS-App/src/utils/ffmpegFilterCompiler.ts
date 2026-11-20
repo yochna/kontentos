@@ -73,6 +73,21 @@ function normalizeHexColor(hex: string | undefined, fallback: string): string {
   return fallback;
 }
 
+/** The editor stores banner pills as CSS rgba(); drawtext expects color@alpha. */
+function bannerBoxColor(value: string | undefined): string {
+  if (!value) return 'black@0.65';
+  const rgba = value.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([0-9.]+)\s*)?\)$/i);
+  if (rgba) {
+    const channels = rgba.slice(1, 4).map((part) => Math.min(255, Math.max(0, Number(part))));
+    const hex = channels.map((part) => Math.round(part).toString(16).padStart(2, '0')).join('');
+    const alpha = rgba[4] === undefined ? 1 : Math.min(1, Math.max(0, Number(rgba[4])));
+    return `0x${hex}@${Number(alpha.toFixed(2))}`;
+  }
+  const hex = value.trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{6}$/.test(hex)) return `0x${hex}@0.65`;
+  return 'black@0.65';
+}
+
 function pad3(value: number): string {
   return String(value).padStart(3, '0');
 }
@@ -168,11 +183,27 @@ function buildCaptionOverlay(
     if (lines.length === 0) return;
 
     const position = cue.style?.position || 'bottom';
-    const centerY =
-      position === 'top' ? height * 0.2 : position === 'middle' ? height * 0.5 : height * 0.78;
+    const wide = width > height;
     const padY = Math.round(fontSize * 0.24);
     const blockHeight = lines.length * lineHeight + padY * 2;
-    const firstLineTop = Math.round(centerY - blockHeight / 2 + padY);
+    // Match ReelPreview: top/bottom are anchored edges, not a fixed centre of the frame.
+    const firstLineTop = Math.max(
+      0,
+      Math.round(
+        position === 'top'
+          ? height * (wide ? 0.1 : 0.16) + padY
+          : position === 'middle'
+          ? (height - blockHeight) / 2 + padY
+          : height * (wide ? 0.9 : 0.86) - blockHeight + padY
+      )
+    );
+
+    // Only the solid-pill preset gets a burn-in box. Ordinary captions stay as outlined text,
+    // matching the live preview instead of adding a heavy black bar behind every line.
+    const useBanner = cue.style.animation === 'bannerPill' || Boolean(cue.style.bannerPillColorHex);
+    const bannerStyle = useBanner
+      ? ['box=1', `boxcolor=${bannerBoxColor(cue.style.bannerPillColorHex)}`, `boxborderw=${boxBorder}`]
+      : [];
 
     let wordCursor = 0;
     const placements = lines.map((line) => {
@@ -194,9 +225,7 @@ function buildCaptionOverlay(
           `fontsize=${fontSize}`,
           `borderw=${borderWidth}`,
           `bordercolor=${borderColor}`,
-          'box=1',
-          'boxcolor=black@0.58',
-          `boxborderw=${boxBorder}`,
+          ...bannerStyle,
           'shadowcolor=black@0.9',
           'shadowx=3',
           'shadowy=3',

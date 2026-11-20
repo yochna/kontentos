@@ -1501,6 +1501,7 @@ export function moveClip(
   const next = cloneProject(project);
   const nTrack = next.tracks.find((t) => t.id === loc.track.id)!;
   nTrack.clips[loc.index].startOnTimeline = clamped;
+  nTrack.clips.sort((a, b) => a.startOnTimeline - b.startOnTimeline);
   recomputeDuration(next);
   return next;
 }
@@ -1576,6 +1577,50 @@ export function moveClipSafe(
   if (clampedStart === clip.startOnTimeline) return null;
 
   nClip.startOnTimeline = clampedStart;
+  nTrack.clips.sort((a, b) => a.startOnTimeline - b.startOnTimeline);
+  recomputeDuration(next);
+  return next;
+}
+
+/**
+ * Set a clip's timeline position and length directly. This is the honest editor control for
+ * captions: a creator must be able to move a cue or extend it by a few tenths without fighting a
+ * collision clamp designed for primary video clips. Word-level cues are rescaled with the length so
+ * highlighting still lands inside the new window.
+ */
+export function setClipTiming(
+  project: TimelineProject,
+  clipId: string,
+  timing: { start?: number; duration?: number },
+): TimelineProject | null {
+  const loc = locateClip(project, clipId);
+  if (!loc || loc.track.isLocked) return null;
+
+  const start = timing.start === undefined ? loc.clip.startOnTimeline : Math.max(0, round2(timing.start));
+  const duration =
+    timing.duration === undefined ? loc.clip.duration : Math.max(0.1, round2(timing.duration));
+  if (start === loc.clip.startOnTimeline && duration === loc.clip.duration) return null;
+
+  const next = cloneProject(project);
+  const nTrack = next.tracks.find((t) => t.id === loc.track.id)!;
+  const nClip = nTrack.clips[loc.index];
+  const oldDuration = nClip.duration || 0.1;
+
+  nClip.startOnTimeline = start;
+  nClip.duration = duration;
+
+  if (nClip.type === 'text' && nClip.style.words?.length && oldDuration > 0) {
+    const ratio = duration / oldDuration;
+    nClip.style = {
+      ...nClip.style,
+      words: nClip.style.words.map((word) => ({
+        ...word,
+        start: round2(word.start * ratio),
+        end: round2(Math.max(word.start * ratio + 0.05, word.end * ratio)),
+      })),
+    };
+  }
+
   nTrack.clips.sort((a, b) => a.startOnTimeline - b.startOnTimeline);
   recomputeDuration(next);
   return next;

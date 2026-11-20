@@ -35,7 +35,6 @@ function caption(overrides: Partial<TextClip> = {}): TextClip {
       activeWordColorHex: '#FFE066',
       strokeColorHex: '#000000',
       strokeWidth: 6,
-      bannerPillColorHex: 'rgba(0,0,0,0.56)',
       position: 'bottom',
       animation: 'karaoke',
       words: [
@@ -116,6 +115,32 @@ describe('compileTimelineToFiltergraph', () => {
     expect(compiled.filterComplex).toContain('textfile=word_000_000.txt');
     expect(compiled.filterComplex).toContain('fontcolor=0xFFE066');
     expect(compiled.captionFiles.some((file) => file.text === 'thing')).toBe(true);
+    // Clean captions are outlined text, not a black bar; and the anchor matches the preview's
+    // bottom-anchored overlay rather than the old fixed-height guess.
+    expect(compiled.filterComplex).not.toContain('box=1');
+    expect(compiled.filterComplex).toContain('y=1566');
+  });
+
+  it('keeps the box only for the solid-pill caption preset', () => {
+    const base = caption();
+    const pill = compileTimelineToFiltergraph(
+      project({
+        captions: [
+          caption({
+            style: {
+              ...base.style,
+              animation: 'bannerPill',
+              bannerPillColorHex: 'rgba(12, 34, 56, 0.56)',
+            },
+          }),
+        ],
+      }),
+      { sourceHasAudio: { '/uploads/a.mp4': false } }
+    );
+
+    expect(pill.filterComplex).toContain('box=1');
+    expect(pill.filterComplex).toContain('boxcolor=0x0c2238@0.56');
+    expect(pill.filterComplex).toContain('boxborderw=');
   });
 
   it('replaces a missing source audio stream with real silence in the graph', () => {
