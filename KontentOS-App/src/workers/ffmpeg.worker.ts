@@ -14,6 +14,8 @@ let isInitializing = false;
 const logCollectors = new Set<(message: string) => void>();
 /** IDs keep progress and logs from a cut job away from an export job sharing this worker. */
 let activeTimelineJobId: string | null = null;
+/** Probe output is diagnostic only: it must not scroll past the creator's real render log. */
+let suppressLogToUI = false;
 const recentLogs: string[] = [];
 
 function rememberLog(message: string): void {
@@ -52,14 +54,16 @@ async function initFFmpeg(): Promise<void> {
     });
 
     instance.on('log', ({ message }) => {
-      // Probe calls need the same log stream the UI sees, without a second FFmpeg instance.
+      // Probe calls share this log stream but their stream table is not creator-facing progress.
       rememberLog(message);
       for (const collect of logCollectors) collect(message);
-      self.postMessage({
-        type: 'LOG',
-        id: activeTimelineJobId ?? undefined,
-        message,
-      });
+      if (!suppressLogToUI) {
+        self.postMessage({
+          type: 'LOG',
+          id: activeTimelineJobId ?? undefined,
+          message,
+        });
+      }
     });
 
     // 1. First priority: Load locally hosted WebAssembly binaries from /ffmpeg (zero CORS/network issues)
@@ -374,10 +378,12 @@ async function probeAudioStreams(fileNames: string[]): Promise<Record<string, bo
     const messages: string[] = [];
     const collect = (message: string) => messages.push(message);
     logCollectors.add(collect);
+    suppressLogToUI = true;
     try {
       // No output is intentional: FFmpeg prints its stream table and exits with code 1.
       await ffmpeg.exec(['-hide_banner', '-i', fileName]);
     } finally {
+      suppressLogToUI = false;
       logCollectors.delete(collect);
     }
 
@@ -410,6 +416,7 @@ async function exportTimeline(id: string, req: TimelineExportRequest): Promise<v
   const writtenFiles: string[] = [];
   let outputFileName = '';
   let timeout: ReturnType<typeof setTimeout> | null = null;
+  let timedOut = false;
   activeTimelineJobId = id;
   recentLogs.length = 0;
 
@@ -502,12 +509,22 @@ async function exportTimeline(id: string, req: TimelineExportRequest): Promise<v
       '-y', outputFileName,
     ];
 
+    // A 45-second reel and a five-minute reel cannot share one deadline. Budget generously for the
+    // length of the programme, then let the main-thread idle watchdog catch a genuinely stuck job.
+    const execTimeoutMs = Math.min(
+      10 * 60_000,
+      Math.max(120_000, Math.round(compiled.totalDuration * 6_000))
+    );
     const execPromise = ffmpeg.exec(execArgs);
     const timeoutPromise = new Promise<number>((_, reject) => {
-      timeout = setTimeout(
-        () => reject(new Error('The frame-accurate render timed out after 120 seconds. Try a shorter timeline or a lower resolution.')),
-        120_000
-      );
+      timeout = setTimeout(() => {
+        timedOut = true;
+        reject(
+          new Error(
+            `The frame-accurate render timed out after ${Math.round(execTimeoutMs / 1000)}s. Try a shorter timeline or a lower resolution.`
+          )
+        );
+      }, execTimeoutMs);
     });
     const exitCode = await Promise.race([execPromise, timeoutPromise]);
     if (timeout) clearTimeout(timeout);
@@ -555,6 +572,9 @@ async function exportTimeline(id: string, req: TimelineExportRequest): Promise<v
       error: error?.message || 'The frame-accurate export could not be completed.',
       logs: recentLogs.slice(-10),
     });
+    // A timed-out exec is still running in WASM. Closing the worker keeps a retry from stepping on
+    // a half-finished filtergraph in the same instance.
+    if (timedOut) self.close();
   }
 }
 

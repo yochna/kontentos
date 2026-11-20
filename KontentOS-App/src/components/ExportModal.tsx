@@ -4,6 +4,7 @@ import { Button, Eyebrow, Progress, StatusPill } from '@/components/ui';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { fmtBytes } from '@/lib/bench';
+import { aspectGeometry, type ExportAspect } from '@/lib/mediaPlan';
 import { exportTimeline, type TimelineExportProgress } from '@/lib/browserExport';
 import { mergeStageProgress } from '@/lib/progress';
 import { useStore, type HandoffExport } from '@/lib/store';
@@ -31,6 +32,13 @@ interface ExportModalProps {
   onSendToPublish: (exported?: HandoffExport) => void;
 }
 
+const RENDER_STEPS: Array<{ id: TimelineExportProgress['stage']; label: string }> = [
+  { id: 'reading', label: 'Read' },
+  { id: 'preparing', label: 'Prepare' },
+  { id: 'encoding', label: 'Render' },
+  { id: 'finalizing', label: 'Package' },
+];
+
 export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublish }: ExportModalProps) {
   const { uploadVideo } = useStore();
   const [resolution, setResolution] = useState<TargetAspectRatio>(
@@ -52,8 +60,18 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
   const [savingExport, setSavingExport] = useState(false);
   const [savePct, setSavePct] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [stage, setStage] = useState<TimelineExportProgress['stage']>('reading');
+  const [etaSec, setEtaSec] = useState<number | null>(null);
+  const [captionsBurned, setCaptionsBurned] = useState(false);
 
   const duration = totalDuration(project);
+  const { width, height } = aspectGeometry(resolution as ExportAspect);
+  const outputExt = renderedMimeType.toLowerCase().includes('webm') ? 'webm' : 'mp4';
+  const outputCodec = /vp9/i.test(renderedMimeType)
+    ? 'VP9'
+    : /vp8/i.test(renderedMimeType)
+      ? 'VP8'
+      : 'H.264';
   const clips = videoClips(project);
   const resolvedSourceUrl = clips.find((c) => c.sourceUrl)?.sourceUrl || clips[0]?.sourceUrl || defaultSourceUrl;
 
@@ -69,6 +87,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
   const detachVisibilityRef = useRef<(() => void) | null>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
   const renderedBlobRef = useRef<Blob | null>(null);
+  const renderStartedAtRef = useRef(0);
   const renderProgressRef = useRef<TimelineExportProgress>({
     stage: 'reading',
     fraction: 0,
@@ -137,18 +156,17 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
     renderedBlobRef.current = null;
 
     isCancelledRef.current = false;
+    renderStartedAtRef.current = Date.now();
     setRenderEngine('canvas');
     setRendering(true);
     setProgress(0.01);
+    setStage('encoding');
+    setCaptionsBurned((project.tracks.find((track) => track.type === 'text')?.clips.length || 0) > 0);
     setStageMsg('Initializing browser recorder fallback...');
     setErrorMsg(null);
 
     try {
-      // 1. Target Dimensions
-      const width = resolution === '9:16' ? 1080 : resolution === '1:1' ? 1080 : resolution === '4:5' ? 1080 : 1920;
-      const height = resolution === '9:16' ? 1920 : resolution === '1:1' ? 1080 : resolution === '4:5' ? 1350 : 1080;
-
-      // 2. Setup Primary Rendering Canvas
+      // 1. Setup Primary Rendering Canvas
       let canvas = canvasRef.current;
       if (!canvas) {
         canvas = document.createElement('canvas');
@@ -728,10 +746,14 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
       fraction: 0.01,
       message: 'Preparing frame-accurate render…',
     };
+    renderStartedAtRef.current = Date.now();
     setRenderEngine('ffmpeg');
     setFfmpegFailed(false);
     setRendering(true);
     setProgress(0.01);
+    setStage('reading');
+    setEtaSec(null);
+    setCaptionsBurned(false);
     setStageMsg('Preparing frame-accurate render…');
     setErrorMsg(null);
     setDiagnostics([]);
@@ -739,8 +761,6 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
 
     const controller = new AbortController();
     exportAbortRef.current = controller;
-    const width = resolution === '9:16' ? 1080 : resolution === '1:1' ? 1080 : resolution === '4:5' ? 1080 : 1920;
-    const height = resolution === '9:16' ? 1920 : resolution === '1:1' ? 1080 : resolution === '4:5' ? 1350 : 1080;
 
     try {
       const result = await exportTimeline(
@@ -758,8 +778,17 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
             update,
             RENDER_PROGRESS_ORDER
           );
-          setProgress(renderProgressRef.current.fraction ?? 0);
+          const fraction = renderProgressRef.current.fraction ?? 0;
+          const elapsed = (Date.now() - renderStartedAtRef.current) / 1000;
+          setProgress(fraction);
+          setStage(renderProgressRef.current.stage);
           setStageMsg(renderProgressRef.current.message);
+          // An estimate is only honest once real encoding has begun; before that it is a guess.
+          setEtaSec(
+            fraction > 0.05 && elapsed > 1
+              ? Math.max(0, Math.round((elapsed / fraction) * (1 - fraction)))
+              : null
+          );
         },
         controller.signal
       );
@@ -769,7 +798,9 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
       setRenderedBlobUrl(blobUrl);
       setRenderedMimeType('video/mp4');
       setRenderedSize(result.byteLength || result.blob.size);
+      setCaptionsBurned(result.captionsBurned);
       setProgress(1);
+      setEtaSec(null);
       setStageMsg('Frame-accurate export complete.');
     } catch (err: any) {
       const message = err?.message || 'The frame-accurate export could not be completed.';
@@ -798,6 +829,20 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
     sfxEngine.stopBGM();
     if (audioDestRef.current) sfxEngine.disconnectFromDestination(audioDestRef.current);
     releaseExportAudio();
+  };
+
+  /** Return to settings without leaking a finished blob the creator no longer wants. */
+  const handleRenderAgain = () => {
+    if (renderedBlobUrl) URL.revokeObjectURL(renderedBlobUrl);
+    renderedBlobRef.current = null;
+    transferredRef.current = false;
+    setRenderedBlobUrl(null);
+    setRenderedSize(null);
+    setErrorMsg(null);
+    setSaveError(null);
+    setProgress(0);
+    setEtaSec(null);
+    setStage('reading');
   };
 
   /**
@@ -910,7 +955,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                 <span>{clips.length} video cuts</span>
               </div>
             </div>
-            <StatusPill tone="tertiary">1080p H.264</StatusPill>
+            <StatusPill tone="tertiary">{width}×{height} · {fps} fps · H.264</StatusPill>
           </div>
 
           {/* Error Message if any */}
@@ -921,13 +966,26 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                 <strong>Render notice:</strong> {errorMsg}
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
                   {ffmpegFailed && (
-                    <button
-                      type="button"
-                      onClick={handleCanvasExport}
-                      className="underline font-semibold rounded px-0.5 transition-colors hover:bg-danger/15"
-                    >
-                      Try the browser recorder fallback →
-                    </button>
+                    <div className="mt-3 rounded-btn border border-warning/30 bg-warning/10 p-3 not-italic">
+                      <div className="flex items-start gap-2">
+                        <Icon name="info" size={16} className="mt-0.5 shrink-0 text-ink" />
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink">Browser recorder is available</p>
+                          <p className="mt-0.5 text-[11.5px] leading-snug text-ink-muted">
+                            It captures the composition in real time, so keep this tab visible. Frames can differ slightly from the editor timeline.
+                          </p>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon="radio_button_checked"
+                            onClick={handleCanvasExport}
+                            className="mt-2"
+                          >
+                            Use browser recorder
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   )}
                   <button
                     type="button"
@@ -1030,6 +1088,37 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                     </span>
                   </div>
 
+                  {renderEngine === 'ffmpeg' && (
+                    <div className="flex items-center gap-1.5">
+                      {RENDER_STEPS.map((step, index) => {
+                        const currentIndex = RENDER_STEPS.findIndex((item) => item.id === stage);
+                        const done = index < currentIndex;
+                        const active = index === currentIndex;
+                        return (
+                          <div key={step.id} className="flex flex-1 items-center gap-1.5">
+                            <span
+                              className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border font-mono text-[9px] font-bold ${
+                                done
+                                  ? 'border-primary bg-primary text-on-primary'
+                                  : active
+                                    ? 'border-primary bg-primary-soft text-primary'
+                                    : 'border-line bg-surface text-ink-dim'
+                              }`}
+                            >
+                              {done ? '✓' : index + 1}
+                            </span>
+                            <span className={`text-[10.5px] ${active ? 'font-semibold text-ink' : 'text-ink-dim'}`}>
+                              {step.label}
+                            </span>
+                            {index < RENDER_STEPS.length - 1 && (
+                              <span className="ml-auto hidden h-px w-3 bg-line sm:block" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   {/* Striped while rendering, and re-timed to 150ms so the bar never trails the real encode. */}
                   <Progress
                     value={Math.max(4, progress * 100)}
@@ -1038,6 +1127,10 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                     trackClassName="h-2 bg-surface-3"
                     barClassName="bg-primary duration-150!"
                   />
+
+                  {etaSec !== null && (
+                    <div className="text-[11px] text-ink-dim">About {etaSec}s left at this rate</div>
+                  )}
 
                   {renderEngine === 'canvas' ? (
                     <>
@@ -1076,25 +1169,36 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
           ) : (
             /* Success Complete Banner */
             <div className="p-6 text-center bg-surface-2 rounded-card border border-line space-y-4">
-              <div className="w-12 h-12 rounded-full bg-tertiary/15 text-danger-ink grid place-items-center mx-auto">
+              <div className="w-12 h-12 rounded-full bg-success/15 text-success grid place-items-center mx-auto">
                 <Icon name="check_circle" size={28} />
               </div>
               <div>
-                <h4 className="font-semibold text-base text-ink">Video Exported Successfully!</h4>
+                <h4 className="font-semibold text-base text-ink">Your reel is ready</h4>
                 <p className="text-xs text-ink-muted mt-1">
                   {renderEngine === 'ffmpeg'
-                    ? 'Your timeline was rendered frame by frame from the source cuts, captions and audio — no real-time recording was involved.'
-                    : 'Your composition was captured with the browser recorder fallback.'}
+                    ? `Rendered frame by frame from the editor timeline at ${width}×${height} · ${fps} fps.`
+                    : `Captured in real time with the browser recorder at ${width}×${height}.`}
                 </p>
-                {renderedSize && (
-                  <span className="inline-block mt-2 text-[11px] font-mono font-medium text-ink-dim bg-surface px-2.5 py-1 rounded-full border border-line">
-                    File size: {fmtBytes(renderedSize)}
+                <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                  <span className="rounded-full border border-line bg-surface px-2.5 py-1 font-mono text-[10.5px] text-ink-dim">
+                    {outputExt.toUpperCase()} · {outputCodec}
                   </span>
-                )}
+                  <span className="rounded-full border border-line bg-surface px-2.5 py-1 font-mono text-[10.5px] text-ink-dim">
+                    {captionsBurned ? 'Captions burned in' : 'No captions'}
+                  </span>
+                  {renderedSize && (
+                    <span className="rounded-full border border-line bg-surface px-2.5 py-1 font-mono text-[10.5px] text-ink-dim">
+                      {fmtBytes(renderedSize)}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Video Preview Player */}
-              <div className="max-w-[240px] mx-auto rounded-card overflow-hidden border border-line bg-black aspect-[9/16]">
+              <div
+                className="mx-auto max-w-[240px] overflow-hidden rounded-card border border-line bg-black"
+                style={{ aspectRatio: `${width} / ${height}` }}
+              >
                 <video
                   src={renderedBlobUrl}
                   controls
@@ -1106,7 +1210,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                 <Button icon="download" onClick={handleDownload} className="w-full">
-                  Download MP4
+                  Download {outputExt.toUpperCase()}
                 </Button>
                 <Button
                   variant="secondary"
@@ -1117,6 +1221,14 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                   className="w-full"
                 >
                   {savingExport ? `Archiving reel ${savePct}%` : 'Send to Publish'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  icon="autorenew"
+                  onClick={handleRenderAgain}
+                  className="w-full sm:col-span-2"
+                >
+                  Render again with different settings
                 </Button>
               </div>
             </div>

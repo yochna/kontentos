@@ -14,7 +14,10 @@ import { isAbortFailure, readBoundedResponse } from './sourcePreflight';
 /** A browser tab cannot honestly hold more than this much source for one render. */
 const MAX_SOURCE_BYTES = 400 * 1024 * 1024;
 const MAX_TOTAL_SOURCE_BYTES = 600 * 1024 * 1024;
-const WORKER_GUARD_MS = 150_000;
+/** No answer for this long means the WASM engine is stalled, not merely slow. */
+const WORKER_GUARD_MS = 90_000;
+/** A hard ceiling so a stream of progress from a runaway job cannot hold the tab forever. */
+const EXPORT_HARD_LIMIT_MS = 10 * 60_000;
 const PROGRESS_ORDER: TimelineExportProgress['stage'][] = [
   'reading',
   'preparing',
@@ -213,13 +216,12 @@ export async function exportTimeline(
       lastProgress = mergeStageProgress(lastProgress, update, PROGRESS_ORDER);
       onProgress(lastProgress);
     };
-    const guard = setTimeout(
-      () => fail('The render engine stopped answering. Try a shorter timeline.', { terminate: true }),
-      WORKER_GUARD_MS
-    );
+    let guard: ReturnType<typeof setTimeout> | null = null;
+    let hardLimit: ReturnType<typeof setTimeout> | null = null;
 
     const cleanup = () => {
-      clearTimeout(guard);
+      if (guard) clearTimeout(guard);
+      if (hardLimit) clearTimeout(hardLimit);
       listeners.delete(onMessage);
       if (signal) signal.removeEventListener('abort', onAbort);
     };
@@ -240,10 +242,26 @@ export async function exportTimeline(
     };
     const onAbort = () => fail('The render was cancelled.', { terminate: true });
 
+    // A long render is allowed to be slow; it is not allowed to go quiet. Any real worker event
+    // resets the idle clock, while the separate ceiling still bounds a runaway job.
+    const armGuard = () => {
+      if (guard) clearTimeout(guard);
+      guard = setTimeout(
+        () => fail('The render engine stopped answering. Try a shorter timeline.', { terminate: true }),
+        WORKER_GUARD_MS
+      );
+    };
+    armGuard();
+    hardLimit = setTimeout(
+      () => fail('This render passed the browser’s 10-minute ceiling. Try a shorter timeline or lower resolution.', { terminate: true }),
+      EXPORT_HARD_LIMIT_MS
+    );
+
     const onMessage: Listener = (data) => {
       if (!data || (data.id && data.id !== id)) return;
       // Undated stream events belong to another job on this worker; only fatal notices are global.
       if ((data.type === 'PROGRESS' || data.type === 'LOG') && !data.id) return;
+      armGuard();
       switch (data.type) {
         case 'LOG':
           remember(data.message);

@@ -143,6 +143,38 @@ describe('compileTimelineToFiltergraph', () => {
     expect(pill.filterComplex).toContain('boxborderw=');
   });
 
+  it('keeps each caption’s own size, colour and position in the burn-in', () => {
+    const base = caption();
+    const compiled = compileTimelineToFiltergraph(
+      project({
+        captions: [
+          caption({ id: 'caption_a', startOnTimeline: 0.2, duration: 0.8 }),
+          caption({
+            id: 'caption_b',
+            startOnTimeline: 1.1,
+            duration: 0.8,
+            content: 'A different line.',
+            style: {
+              ...base.style,
+              fontSize: 40,
+              colorHex: '#00FF00',
+              position: 'top',
+              words: [],
+            },
+          }),
+        ],
+      }),
+      { sourceHasAudio: { '/uploads/a.mp4': false } }
+    );
+
+    expect(compiled.filterComplex).toContain('fontsize=60');
+    expect(compiled.filterComplex).toContain('fontsize=40');
+    expect(compiled.filterComplex).toContain('fontcolor=0xFFFFFF');
+    expect(compiled.filterComplex).toContain('fontcolor=0x00FF00');
+    // The second cue is top-anchored, so it must not inherit the first cue's 1566px bottom line.
+    expect(compiled.filterComplex).toContain('y=317');
+  });
+
   it('replaces a missing source audio stream with real silence in the graph', () => {
     const silent = compileTimelineToFiltergraph(project(), {
       sourceHasAudio: { '/uploads/a.mp4': false },

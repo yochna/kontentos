@@ -148,21 +148,26 @@ function buildCaptionOverlay(
 
   const minDim = Math.min(width, height);
   const fontScale = minDim / 1080;
-  const sampleStyle = cues[0].style;
-  const fontSize = Math.round(clamp((sampleStyle?.fontSize || 60) * fontScale, 26, 116));
-  const lineHeight = Math.round(fontSize * 1.18);
+  // Wrapping width belongs to the frame; size, colour, position and border belong to each cue.
   const lineChars = Math.round(clamp(20 * (width / 1080), 12, 34));
-  const primaryColor = normalizeHexColor(sampleStyle?.colorHex, '0xFFFFFF');
-  const activeColor = normalizeHexColor(sampleStyle?.activeWordColorHex, '0xFFE066');
-  const borderColor = normalizeHexColor(sampleStyle?.strokeColorHex, '0x000000');
-  const borderWidth = Math.max(2, Math.round((sampleStyle?.strokeWidth ?? 6) * fontScale));
-  const boxBorder = Math.round(fontSize * 0.28);
-  const charWidth = fontSize * 0.52;
 
   const files: CaptionFile[] = [];
   const nodes: string[] = [];
 
   preparedCues.forEach(({ cue, content, words: cleanWords }, cueIndex) => {
+    // The editor lets a creator restyle one line without touching the others. Reading the style
+    // inside the loop keeps those changes in the finished file instead of copying cue one's look
+    // over the whole reel.
+    const style = cue.style;
+    const fontSize = Math.round(clamp((style?.fontSize || 60) * fontScale, 26, 116));
+    const lineHeight = Math.round(fontSize * 1.18);
+    const primaryColor = normalizeHexColor(style?.colorHex, '0xFFFFFF');
+    const activeColor = normalizeHexColor(style?.activeWordColorHex, '0xFFE066');
+    const borderColor = normalizeHexColor(style?.strokeColorHex, '0x000000');
+    const borderWidth = Math.max(2, Math.round((style?.strokeWidth ?? 6) * fontScale));
+    const boxBorder = Math.round(fontSize * 0.28);
+    const charWidth = fontSize * 0.52;
+
     const cueStart = Math.max(0, cue.startOnTimeline);
     const cueEnd = cueStart + Math.max(0.1, cue.duration);
     const words: WordTimestamp[] = cleanWords.length
@@ -182,7 +187,7 @@ function buildCaptionOverlay(
     );
     if (lines.length === 0) return;
 
-    const position = cue.style?.position || 'bottom';
+    const position = style?.position || 'bottom';
     const wide = width > height;
     const padY = Math.round(fontSize * 0.24);
     const blockHeight = lines.length * lineHeight + padY * 2;
@@ -200,9 +205,9 @@ function buildCaptionOverlay(
 
     // Only the solid-pill preset gets a burn-in box. Ordinary captions stay as outlined text,
     // matching the live preview instead of adding a heavy black bar behind every line.
-    const useBanner = cue.style.animation === 'bannerPill' || Boolean(cue.style.bannerPillColorHex);
+    const useBanner = style?.animation === 'bannerPill' || Boolean(style?.bannerPillColorHex);
     const bannerStyle = useBanner
-      ? ['box=1', `boxcolor=${bannerBoxColor(cue.style.bannerPillColorHex)}`, `boxborderw=${boxBorder}`]
+      ? ['box=1', `boxcolor=${bannerBoxColor(style?.bannerPillColorHex)}`, `boxborderw=${boxBorder}`]
       : [];
 
     let wordCursor = 0;
