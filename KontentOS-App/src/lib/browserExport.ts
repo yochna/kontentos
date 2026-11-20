@@ -62,6 +62,22 @@ export class TimelineExportError extends Error {
   }
 }
 
+/**
+ * A source could not be read over HTTP. The status is kept so the dialog can offer the right repair:
+ * a 404 means the timeline points at a clip that is no longer in this creator's library, which is a
+ * different problem from a render engine failure and must not be described as one.
+ */
+export class SourceUnavailableError extends TimelineExportError {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly sourceUrl: string
+  ) {
+    super(message);
+    this.name = 'SourceUnavailableError';
+  }
+}
+
 let worker: Worker | null = null;
 let workerReady: Promise<void> | null = null;
 
@@ -119,10 +135,27 @@ async function fetchSourceBytes(sourceUrl: string, signal?: AbortSignal): Promis
     try {
       const response = await fetch(url, { credentials: 'same-origin', signal });
       if (!response.ok) {
-        throw new Error(
-          response.status === 401 || response.status === 403
-            ? 'That source is not on your account, so it cannot be rendered here.'
-            : 'The source file is not on this server any more.'
+        // The signed media gate deliberately answers 404 for "not your clip" as well as "gone", so
+        // neither the server nor this message should claim to know which one it was. Both are fixed
+        // by pointing the timeline at a clip that is in the creator's current library.
+        if (response.status === 404) {
+          throw new SourceUnavailableError(
+            'This cut points to a clip that is no longer in your library. Re-attach a clip to render it.',
+            404,
+            sourceUrl
+          );
+        }
+        if (response.status === 401 || response.status === 403) {
+          throw new SourceUnavailableError(
+            'That source is not on your account, so it cannot be rendered here.',
+            response.status,
+            sourceUrl
+          );
+        }
+        throw new SourceUnavailableError(
+          `The server could not deliver this source right now (${response.status}). Try again in a moment.`,
+          response.status,
+          sourceUrl
         );
       }
       return await readBoundedResponse(response, MAX_SOURCE_BYTES, 'A source', signal);

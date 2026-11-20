@@ -5,7 +5,7 @@ import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { fmtBytes } from '@/lib/bench';
 import { aspectGeometry, type ExportAspect } from '@/lib/mediaPlan';
-import { exportTimeline, type TimelineExportProgress } from '@/lib/browserExport';
+import { exportTimeline, SourceUnavailableError, type TimelineExportProgress } from '@/lib/browserExport';
 import { mergeStageProgress } from '@/lib/progress';
 import { useStore, type HandoffExport } from '@/lib/store';
 import type { TargetAspectRatio, TimelineProject, VideoClip, TextClip } from '@/lib/timeline';
@@ -40,7 +40,7 @@ const RENDER_STEPS: Array<{ id: TimelineExportProgress['stage']; label: string }
 ];
 
 export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublish }: ExportModalProps) {
-  const { uploadVideo } = useStore();
+  const { uploadVideo, videos, setProject } = useStore();
   const [resolution, setResolution] = useState<TargetAspectRatio>(
     project.projectMetadata.targetAspectRatio || '9:16'
   );
@@ -63,6 +63,8 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
   const [stage, setStage] = useState<TimelineExportProgress['stage']>('reading');
   const [etaSec, setEtaSec] = useState<number | null>(null);
   const [captionsBurned, setCaptionsBurned] = useState(false);
+  /** A missing source is repairable; a broken render engine is not the same failure. */
+  const [missingSourceUrl, setMissingSourceUrl] = useState<string | null>(null);
 
   const duration = totalDuration(project);
   const { width, height } = aspectGeometry(resolution as ExportAspect);
@@ -756,6 +758,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
     setCaptionsBurned(false);
     setStageMsg('Preparing frame-accurate render…');
     setErrorMsg(null);
+    setMissingSourceUrl(null);
     setDiagnostics([]);
     setSaveError(null);
 
@@ -807,6 +810,11 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
       const cancelled = /cancel/i.test(message);
       setErrorMsg(cancelled ? message : `${message} Nothing was downgraded automatically.`);
       setDiagnostics(Array.isArray(err?.diagnostics) ? err.diagnostics : []);
+      // A source the server cannot serve is not an FFmpeg failure: offer to re-attach it instead of
+      // presenting the recorder as though it were the fix for missing footage.
+      setMissingSourceUrl(
+        err instanceof SourceUnavailableError && err.status === 404 ? err.sourceUrl : null
+      );
       setFfmpegFailed(!cancelled);
     } finally {
       exportAbortRef.current = null;
@@ -831,6 +839,33 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
     releaseExportAudio();
   };
 
+  /** Only real takes make sense as a replacement for a cut's footage, not archived exports. */
+  const isReattachCandidate = (video: { file_url?: string; title: string; media_available?: boolean }) =>
+    Boolean(video.file_url) &&
+    video.file_url !== missingSourceUrl &&
+    video.media_available !== false &&
+    !video.title?.startsWith('kontentos_finished_reel_');
+
+  /** Point every clip that used a vanished source at a clip the creator still owns. */
+  const handleReattachSource = (newUrl: string) => {
+    if (!missingSourceUrl || !newUrl) return;
+    setProject({
+      ...project,
+      tracks: project.tracks.map((track) => ({
+        ...track,
+        clips: track.clips.map((clip) =>
+          'sourceUrl' in clip && clip.sourceUrl === missingSourceUrl
+            ? { ...clip, sourceUrl: newUrl }
+            : clip
+        ),
+      })),
+    });
+    setMissingSourceUrl(null);
+    setErrorMsg(null);
+    setDiagnostics([]);
+    setFfmpegFailed(false);
+  };
+
   /** Return to settings without leaking a finished blob the creator no longer wants. */
   const handleRenderAgain = () => {
     if (renderedBlobUrl) URL.revokeObjectURL(renderedBlobUrl);
@@ -839,6 +874,7 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
     setRenderedBlobUrl(null);
     setRenderedSize(null);
     setErrorMsg(null);
+    setMissingSourceUrl(null);
     setSaveError(null);
     setProgress(0);
     setEtaSec(null);
@@ -964,8 +1000,38 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
               <Icon name="error" size={16} className="shrink-0 mt-0.5" />
               <div className="flex-1">
                 <strong>Render notice:</strong> {errorMsg}
+                {missingSourceUrl && (
+                  <div className="mt-3 rounded-btn border border-warning/30 bg-warning/10 p-3 not-italic">
+                    <p className="font-semibold text-ink">Re-attach this clip</p>
+                    <p className="mt-0.5 text-[11.5px] leading-snug text-ink-muted">
+                      The timeline still points at an old clip. Choose a clip from your library to take its place — the cuts, captions and timing stay exactly as they are.
+                    </p>
+                    {videos.filter(isReattachCandidate).length > 0 ? (
+                      <div className="mt-2 space-y-1.5">
+                        {videos
+                          .filter(isReattachCandidate)
+                          .slice(0, 6)
+                          .map((video) => (
+                            <button
+                              key={video.id}
+                              type="button"
+                              onClick={() => video.file_url && handleReattachSource(video.file_url)}
+                              className="flex w-full items-center justify-between gap-3 rounded border border-line bg-surface px-2.5 py-1.5 text-left text-[11.5px] text-ink transition-colors hover:bg-primary/10"
+                            >
+                              <span className="min-w-0 truncate">{video.title || 'Untitled clip'}</span>
+                              <Icon name="arrow_forward" size={14} className="shrink-0 text-ink-dim" />
+                            </button>
+                          ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[11.5px] text-ink-muted">
+                        No usable raw clips are in your library right now. Close this window, upload a take, then open this cut again.
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-                  {ffmpegFailed && (
+                  {ffmpegFailed && !missingSourceUrl && (
                     <div className="mt-3 rounded-btn border border-warning/30 bg-warning/10 p-3 not-italic">
                       <div className="flex items-start gap-2">
                         <Icon name="info" size={16} className="mt-0.5 shrink-0 text-ink" />
@@ -987,13 +1053,15 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                       </div>
                     </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={handleDirectDownloadSource}
-                    className="underline font-semibold rounded px-0.5 transition-colors hover:bg-danger/15"
-                  >
-                    Download source master directly →
-                  </button>
+                  {!missingSourceUrl && (
+                    <button
+                      type="button"
+                      onClick={handleDirectDownloadSource}
+                      className="underline font-semibold rounded px-0.5 transition-colors hover:bg-danger/15"
+                    >
+                      Download source master directly →
+                    </button>
+                  )}
                 </div>
                 {diagnostics.length > 0 && (
                   <details className="mt-3 text-[11px] text-ink-dim">
