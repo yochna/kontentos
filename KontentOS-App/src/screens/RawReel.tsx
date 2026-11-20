@@ -54,6 +54,12 @@ const PRESET_SPECS: Record<string, { silence: string; zoom: string; caption: str
   },
 };
 
+/** Blueprint formats arrive as "Reel / Short · 45 sec"; show the two facts apart, not in one badge. */
+function splitFormat(format: string) {
+  const [shape, length] = format.split('·').map((part) => part.trim());
+  return { shape: shape || format, length: length || null };
+}
+
 export default function RawReel() {
   const {
     videos,
@@ -246,6 +252,8 @@ export default function RawReel() {
     }
   }
 
+  const blueprintFormat = activeDraft?.idea ? splitFormat(activeDraft.idea.format) : null;
+
   return (
     <PageShell>
       {/* Hidden File Upload Input */}
@@ -290,38 +298,51 @@ export default function RawReel() {
       />
 
       {/* Active Blueprint & Script Guidance Banner (if initiated from an idea) */}
-      {activeDraft?.idea && (
-        <Card className="p-4 sm:p-5 mb-6 bg-primary-soft/60 border-primary/20 relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <span className="w-8 h-8 rounded-btn bg-primary text-on-primary grid place-items-center shrink-0 mt-0.5">
-                <Icon name="lightbulb" size={18} />
-              </span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="kt-eyebrow text-primary">Active Blueprint</span>
-                  <Badge tone="tertiary">{activeDraft.idea.format}</Badge>
-                </div>
-                <h3 className="font-semibold text-base text-ink mt-0.5">{activeDraft.idea.title}</h3>
-                <p className="text-xs text-ink-muted italic mt-1 font-serif">
-                  Hook: {activeDraft.idea.hook}
+      {activeDraft?.idea && blueprintFormat && (
+        <Card className="kt-sheen mb-6 overflow-hidden p-5 relative sm:p-6 bg-primary-soft/50 border-primary/20">
+          <div className="flex items-start gap-3.5">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-btn bg-primary text-on-primary shadow-[var(--shadow-1)]">
+              <Icon name="lightbulb" size={19} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="kt-eyebrow text-primary">Active Blueprint</span>
+                <Badge tone="primary" icon="smart_display">{blueprintFormat.shape}</Badge>
+                {blueprintFormat.length && (
+                  <Badge tone="neutral" icon="timer">{blueprintFormat.length}</Badge>
+                )}
+              </div>
+              <h3 className="mt-1.5 break-words font-display text-[18px] font-bold leading-snug tracking-[-0.01em] text-ink sm:text-[20px]">
+                {activeDraft.idea.title}
+              </h3>
+
+              <div className="mt-3 rounded-btn border border-primary/15 bg-surface/75 px-3.5 py-2.5">
+                <div className="kt-eyebrow mb-1">Hook to fill</div>
+                <p className="text-[13px] leading-relaxed text-ink">
+                  {activeDraft.idea.hook}
                 </p>
               </div>
-            </div>
 
-            {activeDraft.idea.beats && activeDraft.idea.beats.length > 0 && (
-              <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center bg-surface p-2.5 rounded-btn border border-line shrink-0">
-                <span className="text-[11px] font-semibold text-ink-dim uppercase">Beats:</span>
-                {activeDraft.idea.beats.map((b, i) => (
-                  <span
-                    key={i}
-                    className="text-[11px] font-medium text-ink bg-surface-2 px-2 py-0.5 rounded border border-line"
-                  >
-                    {i + 1}. {b.label}
-                  </span>
-                ))}
-              </div>
-            )}
+              {activeDraft.idea.beats.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line/70 pt-3">
+                  <span className="kt-eyebrow mr-1">Beats</span>
+                  {activeDraft.idea.beats.map((b, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2/80 px-2.5 py-1 text-[12px] font-medium text-ink"
+                    >
+                      <span className="grid h-4 w-4 place-items-center rounded-full bg-primary/15 font-mono text-[10px] font-bold text-primary">
+                        {i + 1}
+                      </span>
+                      {b.label}
+                      {b.time && b.time !== '—' && (
+                        <span className="font-mono text-[10px] text-ink-dim">{b.time}</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </Card>
       )}
