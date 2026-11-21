@@ -71,6 +71,7 @@ export default function RawReel() {
     relinkMedia,
     transcripts,
     saveScript,
+    updateActiveDraft,
   } = useStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -254,6 +255,11 @@ export default function RawReel() {
 
   const blueprintFormat = activeDraft?.idea ? splitFormat(activeDraft.idea.format) : null;
 
+  /** The blueprint is a script note, not part of the cut. Clearing it only hides the guidance. */
+  function removeBlueprint() {
+    updateActiveDraft({ idea: undefined });
+  }
+
   return (
     <PageShell>
       {/* Hidden File Upload Input */}
@@ -299,12 +305,21 @@ export default function RawReel() {
 
       {/* Active Blueprint & Script Guidance Banner (if initiated from an idea) */}
       {activeDraft?.idea && blueprintFormat && (
-        <Card className="kt-sheen mb-6 overflow-hidden p-5 relative sm:p-6 bg-primary-soft/50 border-primary/20">
+        <Card className="kt-sheen relative mb-6 overflow-hidden border-primary/20 bg-primary-soft/50 p-5 sm:p-6">
+          <button
+            type="button"
+            onClick={removeBlueprint}
+            aria-label="Remove blueprint"
+            title="Remove blueprint from this draft"
+            className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-btn text-ink-dim transition-colors hover:bg-surface hover:text-ink"
+          >
+            <Icon name="close" size={16} />
+          </button>
           <div className="flex items-start gap-3.5">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-btn bg-primary text-on-primary shadow-[var(--shadow-1)]">
               <Icon name="lightbulb" size={19} />
             </span>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 pr-7">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="kt-eyebrow text-primary">Active Blueprint</span>
                 <Badge tone="primary" icon="smart_display">{blueprintFormat.shape}</Badge>
