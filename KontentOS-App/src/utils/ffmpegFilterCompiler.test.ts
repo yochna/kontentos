@@ -309,9 +309,50 @@ describe('compileTimelineToFiltergraph', () => {
       { sourceHasAudio: { '/uploads/a.mp4': false } }
     );
 
-    expect(compiled.filterComplex).toContain('d=0.500[v_gap_1]');
+    expect(compiled.filterComplex).toContain('d=0.500,setsar=1[v_gap_1]');
     expect(compiled.filterComplex).toContain('a_gap_1');
     expect(compiled.filterComplex).toContain('trim=start=4.000:duration=0.500');
     expect(compiled.filterComplex).toContain('concat=n=4:v=1:a=1');
+  });
+
+  it('forces square pixels on every concat input so zoomed clips cannot trigger an SAR mismatch', () => {
+    const compiled = compileTimelineToFiltergraph(
+      project({
+        captions: [],
+        clips: [
+          videoClip({
+            id: 'zoomed',
+            startOnTimeline: 0,
+            duration: 0.5,
+            keyframes: [{ timeOffset: 0, scale: 1.3, position: { x: 0, y: 0 }, easing: 'easeInOut' }],
+          }),
+          videoClip({ id: 'plain', startOnTimeline: 1, duration: 0.5, sourceStartOffset: 4, keyframes: [] }),
+        ],
+      }),
+      { sourceHasAudio: { '/uploads/a.mp4': false } }
+    );
+
+    const chains = compiled.filterComplex.split(';').map((chain) => chain.trim());
+    const concatChain = chains.find((chain) => chain.includes('concat='));
+    expect(concatChain, 'expected a multi-segment concat').toBeDefined();
+
+    // Pull the video labels handed to concat (e.g. [v_gap_1][a_gap_1][v_seg_0][a_seg_0]...).
+    const concatInputs = concatChain!.slice(0, concatChain!.indexOf('concat='));
+    const videoLabels = concatInputs.match(/\[v_[^\]]+\]/g) ?? [];
+    expect(videoLabels.length).toBeGreaterThan(1);
+
+    for (const label of videoLabels) {
+      const definingChain = chains.find((chain) => chain.endsWith(label));
+      expect(definingChain, `no chain defines ${label}`).toBeDefined();
+      expect(definingChain, `${label} would reach concat with a non-square SAR`).toContain('setsar=1');
+    }
+
+    // The zoomed clip must normalise SAR again *after* its second scale, which is exactly where the
+    // 3368:3375 drift used to survive into concat.
+    const zoomChain = chains.find((chain) => chain.endsWith('[v_seg_0]'))!;
+    expect(zoomChain).toContain('crop=w=');
+    // Everything after the zoom's second scale must still normalise SAR before the segment label.
+    const afterZoomScale = zoomChain.split('scale=1080:1920').pop()!;
+    expect(afterZoomScale).toContain('setsar=1');
   });
 });

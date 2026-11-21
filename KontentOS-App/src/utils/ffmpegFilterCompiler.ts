@@ -373,6 +373,10 @@ export function compileTimelineToFiltergraph(
       );
     }
     steps.push(`fps=${fps}`);
+    // The second `scale` used by a zoom can reintroduce a non-square SAR (e.g. 3368:3375) because
+    // the even-rounded crop ratio no longer exactly matches the target. Concat refuses segments
+    // whose SAR differs, so square pixels must be the final word on every path after all scaling.
+    steps.push('setsar=1');
     return steps.join(',');
   };
 
@@ -387,7 +391,7 @@ export function compileTimelineToFiltergraph(
       const gapDuration = start - cursor;
       const gapIndex = `gap_${index}`;
       filterSteps.push(
-        `color=c=black:s=${targetWidth}x${targetHeight}:r=${fps}:d=${seconds(gapDuration)}[v_${gapIndex}]`,
+        `color=c=black:s=${targetWidth}x${targetHeight}:r=${fps}:d=${seconds(gapDuration)},setsar=1[v_${gapIndex}]`,
         silence(gapDuration, `a_${gapIndex}`)
       );
       segments.push({ video: `[v_${gapIndex}]`, audio: `[a_${gapIndex}]`, duration: gapDuration });
@@ -437,7 +441,7 @@ export function compileTimelineToFiltergraph(
   if (segments.length === 0 || totalDuration - cursor > 0.02) {
     const duration = segments.length === 0 ? totalDuration : totalDuration - cursor;
     filterSteps.push(
-      `color=c=black:s=${targetWidth}x${targetHeight}:r=${fps}:d=${seconds(duration)}[v_tail]`,
+      `color=c=black:s=${targetWidth}x${targetHeight}:r=${fps}:d=${seconds(duration)},setsar=1[v_tail]`,
       silence(duration, 'a_tail')
     );
     segments.push({ video: '[v_tail]', audio: '[a_tail]', duration });
