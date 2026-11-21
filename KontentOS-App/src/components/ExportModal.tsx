@@ -1072,11 +1072,18 @@ export function ExportModal({ project, defaultSourceUrl, onClose, onSendToPublis
                   )}
                 </div>
                 {diagnostics.length > 0 && (
-                  <details className="mt-3 text-[11px] text-ink-dim">
+                  <details open className="mt-3 text-[11px] text-ink-dim">
                     <summary className="cursor-pointer hover:text-ink">FFmpeg diagnostics</summary>
                     <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-surface px-2 py-1.5 font-mono text-[10px]">
                       {diagnostics.join('\n')}
                     </pre>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard?.writeText(diagnostics.join('\n'))}
+                      className="mt-1.5 underline hover:text-ink"
+                    >
+                      Copy diagnostics
+                    </button>
                   </details>
                 )}
               </div>

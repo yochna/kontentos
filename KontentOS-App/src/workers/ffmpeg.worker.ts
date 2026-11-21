@@ -7,6 +7,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
 import { compileTimelineToFiltergraph } from '../utils/ffmpegFilterCompiler';
 import { generateSyntheticSfxWav, generateSyntheticBgmWav } from '../utils/sfxBufferGenerator';
+import { explainFfmpegFailure } from '../lib/ffmpegFailureHint';
 import type { TimelineProject } from '../lib/timeline';
 
 let ffmpeg: FFmpeg | null = null;
@@ -452,6 +453,9 @@ async function exportTimeline(id: string, req: TimelineExportRequest): Promise<v
       sourceHasAudio[source.fileName] = hasAudio;
       sourceHasAudio[source.sourceUrl] = hasAudio;
     }
+    // Probing prints every source's stream table and intentionally exits 1. Those lines are not
+    // part of the render, so they must not crowd out the real failure diagnostics.
+    recentLogs.length = 0;
 
     const compiled = compileTimelineToFiltergraph(req.project, {
       width: req.width,
@@ -530,7 +534,10 @@ async function exportTimeline(id: string, req: TimelineExportRequest): Promise<v
     if (timeout) clearTimeout(timeout);
     timeout = null;
     if (exitCode !== 0) {
-      throw new Error(`FFmpeg could not render the timeline (exit code ${exitCode}).`);
+      throw new Error(
+        explainFfmpegFailure(recentLogs) ??
+          `FFmpeg could not render the timeline (exit code ${exitCode}).`
+      );
     }
 
     self.postMessage({
