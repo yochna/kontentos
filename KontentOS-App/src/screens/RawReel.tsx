@@ -2,11 +2,20 @@
 import { Icon } from '@/lib/icons';
 import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/components/ui';
 import { ReelPreview } from '@/components/ReelPreview';
-import { PRESETS, fmtTime, totalDuration, type EditPreset } from '@/lib/timeline';
+import { PRESETS, fmtTime, totalDuration, type EditPreset, type TimelineProject } from '@/lib/timeline';
 import type { AutoEditOutcome, AutoEditProgress } from '@/lib/store';
 import { useStore } from '@/lib/store';
-import { useNavPayload } from '@/lib/nav';
-import { selectCut, useSelectedCutId } from '@/lib/bench';
+import { api } from '@/lib/api';
+import {
+  exportTimeline,
+  SourceUnavailableError,
+  type TimelineExportProgress,
+} from '@/lib/browserExport';
+import { aspectGeometry, type ExportAspect } from '@/lib/mediaPlan';
+import { mergeStageProgress } from '@/lib/progress';
+import { navigate, useNavPayload } from '@/lib/nav';
+import { fmtBytes, selectCut, useSelectedCutId } from '@/lib/bench';
+import type { Video } from '@/lib/types';
 import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
 import { notify } from '@/components/ui/toast';
 import { MAX_PARALLEL_UPLOADS, VIDEO_ACCEPT } from '@/lib/uploadFile';
@@ -54,6 +63,49 @@ const PRESET_SPECS: Record<string, { silence: string; zoom: string; caption: str
   },
 };
 
+const RENDER_PROGRESS_ORDER: TimelineExportProgress['stage'][] = [
+  'reading',
+  'preparing',
+  'encoding',
+  'finalizing',
+  'done',
+];
+const RENDER_STEP_LABELS: Record<TimelineExportProgress['stage'], string> = {
+  reading: 'Read',
+  preparing: 'Prepare',
+  encoding: 'Render',
+  finalizing: 'Package',
+  done: 'Done',
+};
+type AiStatus = Awaited<ReturnType<typeof api.getAiStatus>>;
+
+function safeExportName(title: string) {
+  const cleaned = title.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
+  return cleaned || 'kontentos_finished_reel';
+}
+
+function downloadBlob(url: string, fileName: string) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function patchSourceUrls(project: TimelineProject, oldUrl: string, newUrl: string): TimelineProject {
+  if (!oldUrl || !newUrl || oldUrl === newUrl) return project;
+  return {
+    ...project,
+    tracks: project.tracks.map((track) => ({
+      ...track,
+      clips: track.clips.map((clip) =>
+        'sourceUrl' in clip && clip.sourceUrl === oldUrl ? { ...clip, sourceUrl: newUrl } : clip
+      ),
+    })),
+  };
+}
+
 /** Blueprint formats arrive as "Reel / Short · 45 sec"; show the two facts apart, not in one badge. */
 function splitFormat(format: string) {
   const [shape, length] = format.split('·').map((part) => part.trim());
@@ -72,6 +124,7 @@ export default function RawReel() {
     transcripts,
     saveScript,
     updateActiveDraft,
+    setProject,
   } = useStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -102,6 +155,27 @@ export default function RawReel() {
   const [editedCaption, setEditedCaption] = useState('');
   const [playing, setPlaying] = useState(false);
   const [playheadSec, setPlayheadSec] = useState(0);
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [rendering, setRendering] = useState(false);
+  const [exportProgress, setExportProgress] = useState<TimelineExportProgress | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportDiagnostics, setExportDiagnostics] = useState<string[]>([]);
+  const [exportedFile, setExportedFile] = useState<{
+    url: string;
+    name: string;
+    bytes: number;
+  } | null>(null);
+  const [sourceRepair, setSourceRepair] = useState<{ missingUrl: string } | null>(null);
+  const [repairing, setRepairing] = useState(false);
+
+  const exportAbortRef = useRef<AbortController | null>(null);
+  const exportProgressRef = useRef<TimelineExportProgress>({
+    stage: 'reading',
+    fraction: 0,
+    message: 'Preparing the final MP4…',
+  });
+  const exportedUrlRef = useRef<string | null>(null);
+  const reattachInputRef = useRef<HTMLInputElement>(null);
 
   // Keep video selection in sync if active draft updates or initial video loads
   useEffect(() => {
@@ -109,6 +183,30 @@ export default function RawReel() {
       setVideoId(ready[0].id);
     }
   }, [ready, videoId]);
+
+  // The one-click promise depends on speech-to-text. Surface a missing key before the click so the
+  // creator is never surprised by a raw export with no real captions.
+  useEffect(() => {
+    let alive = true;
+    api
+      .getAiStatus()
+      .then((status) => {
+        if (alive) setAiStatus(status);
+      })
+      .catch(() => {
+        if (alive) setAiStatus(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      exportAbortRef.current?.abort();
+      if (exportedUrlRef.current) URL.revokeObjectURL(exportedUrlRef.current);
+    };
+  }, []);
 
   // Deep link from Command Center / Content Library: select the clip the creator clicked.
   // The library loads asynchronously, so wait until that id actually exists.
@@ -206,6 +304,119 @@ export default function RawReel() {
     }
   }
 
+  function clearExported() {
+    if (exportedUrlRef.current) URL.revokeObjectURL(exportedUrlRef.current);
+    exportedUrlRef.current = null;
+    setExportedFile(null);
+  }
+
+  /**
+   * The magic click does not stop at an EDL. The same project the preview shows goes straight into
+   * the frame-accurate FFmpeg renderer, then the finished MP4 is handed to the browser download.
+   * There is deliberately no recorder fallback here: a failed render says so, it never silently
+   * becomes a different-looking video.
+   */
+  async function renderProject(project: TimelineProject, sourceVideo: Video) {
+    clearExported();
+    setExportError(null);
+    setExportDiagnostics([]);
+    setSourceRepair(null);
+    exportProgressRef.current = {
+      stage: 'reading',
+      fraction: 0.01,
+      message: 'Preparing the final MP4…',
+    };
+    setExportProgress(exportProgressRef.current);
+    setRendering(true);
+
+    const controller = new AbortController();
+    exportAbortRef.current = controller;
+
+    try {
+      const aspect = (project.projectMetadata.targetAspectRatio || '9:16') as ExportAspect;
+      const { width, height } = aspectGeometry(aspect);
+      const rendered = await exportTimeline(
+        {
+          project,
+          defaultSourceUrl: sourceVideo.file_url,
+          width,
+          height,
+          fps: 30,
+          crf: 20,
+        },
+        (update) => {
+          exportProgressRef.current = mergeStageProgress(
+            exportProgressRef.current,
+            update,
+            RENDER_PROGRESS_ORDER
+          );
+          setExportProgress(exportProgressRef.current);
+        },
+        controller.signal
+      );
+
+      const fileName = `${safeExportName(project.projectMetadata.title || sourceVideo.title)}.mp4`;
+      const url = URL.createObjectURL(rendered.blob);
+      exportedUrlRef.current = url;
+      const bytes = rendered.byteLength || rendered.blob.size;
+      setExportedFile({ url, name: fileName, bytes });
+      setExportProgress({
+        stage: 'done',
+        fraction: 1,
+        message: 'Finished reel is ready.',
+      });
+      downloadBlob(url, fileName);
+      notify.ok(`Finished reel downloaded — ${fmtBytes(bytes)} MP4.`);
+      return true;
+    } catch (err: any) {
+      const message = err?.message || 'The final MP4 could not be rendered.';
+      const cancelled = /cancel|abort/i.test(message);
+      setExportError(
+        cancelled
+          ? message
+          : `${message} No recorder fallback was used — your raw take is untouched.`
+      );
+      setExportDiagnostics(Array.isArray(err?.diagnostics) ? err.diagnostics : []);
+      setSourceRepair(
+        err instanceof SourceUnavailableError && err.status === 404
+          ? { missingUrl: err.sourceUrl }
+          : null
+      );
+      if (!cancelled) notify.bad(message);
+      return false;
+    } finally {
+      exportAbortRef.current = null;
+      setRendering(false);
+    }
+  }
+
+  async function handleRepairSource(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !sourceRepair || !result?.project || !video) return;
+    setRepairing(true);
+    setExportError(null);
+    setBusy(true);
+    try {
+      const relinked = await relinkMedia(video.id, file);
+      if (!relinked) throw new Error('The take could not be re-attached. Nothing in the cut was changed.');
+      const repaired = patchSourceUrls(
+        result.project,
+        sourceRepair.missingUrl,
+        relinked.file_url || sourceRepair.missingUrl
+      );
+      setResult({ ...result, project: repaired });
+      setProject(repaired);
+      setSourceRepair(null);
+      await renderProject(repaired, relinked);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'The take could not be re-attached.');
+    } finally {
+      setRepairing(false);
+      setBusy(false);
+    }
+  }
+
   async function create() {
     if (!video || busy) return;
     setBusy(true);
@@ -215,6 +426,12 @@ export default function RawReel() {
     setPlaying(false);
     setPlayheadSec(0);
     setStep(0);
+    setRendering(false);
+    setExportProgress(null);
+    setExportError(null);
+    setExportDiagnostics([]);
+    setSourceRepair(null);
+    clearExported();
     setEditProgress({ stage: 'reading', fraction: 0.02, message: 'Reading the take…' });
 
     try {
@@ -225,6 +442,7 @@ export default function RawReel() {
       });
       setResult(outcome);
       setEditedCaption(outcome.caption);
+      if (outcome.project) await renderProject(outcome.project, video);
     } catch (err) {
       console.error('Auto-edit pipeline error:', err);
       setGenerationError(
@@ -271,12 +489,19 @@ export default function RawReel() {
         multiple
         className="hidden"
       />
+      <input
+        type="file"
+        ref={reattachInputRef}
+        onChange={handleRepairSource}
+        accept={VIDEO_ACCEPT}
+        className="hidden"
+      />
 
       <PageHeader
         eyebrow="In · Upload"
         icon="smart_display"
         title="Bring the raw take onto the bench"
-        description="Everything starts here — the take, its transcript, and the first cut. Dead-air trims, kinetic captions and punch zooms fire when you press them."
+        description="Upload a take and press once. KontentOS hears the words, cuts the dead air, writes kinetic captions, adds punch zooms and effects, then renders the finished MP4."
         actions={
           <>
             {video && transcripts[video.id] === 'working' && (
@@ -290,6 +515,7 @@ export default function RawReel() {
             {video && transcripts[video.id] === 'none' && (
               <StatusPill tone="neutral">No speech on file — paste the script below</StatusPill>
             )}
+            {exportedFile && <StatusPill tone="tertiary">MP4 downloaded</StatusPill>}
             {result && (
               <>
                 {result.needsScript && (
@@ -608,7 +834,29 @@ export default function RawReel() {
 
           {/* Step 3: Run Auto-Assembly */}
           <Card className="p-5">
-            <StepLabel n={3} title="Execute Smart Assembly" />
+            <StepLabel n={3} title="Create and export the finished reel" />
+            {aiStatus && !aiStatus.hasGeminiKey && (
+              <div className="mb-4 flex flex-wrap items-center gap-3 rounded-card border border-primary/25 bg-primary-soft/40 px-3.5 py-3">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-btn bg-surface text-primary">
+                  <Icon name="auto_awesome" size={17} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-semibold text-ink">Connect AI for the magic edit</div>
+                  <p className="text-[12px] leading-relaxed text-ink-muted mt-0.5">
+                    Gemini key not set. KontentOS cannot hear this take yet, so real captions, hook and
+                    smart cuts need a key or a pasted script. Without either, the export honestly keeps
+                    the raw clip.
+                  </p>
+                </div>
+                {aiStatus.editable === false ? (
+                  <span className="text-[11px] text-ink-dim">Host must set GEMINI_API_KEY</span>
+                ) : (
+                  <Button size="sm" variant="secondary" onClick={() => navigate('settings')}>
+                    Connect AI
+                  </Button>
+                )}
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-3">
               <Button
                 icon={busy ? 'autorenew' : 'bolt'}
@@ -616,7 +864,13 @@ export default function RawReel() {
                 disabled={busy || !video}
                 className="px-6 py-2.5 text-sm"
               >
-                {busy ? 'Assembling Reel...' : result ? 'Re-run assembly' : 'Create finished Reel'}
+                {busy
+                  ? rendering
+                    ? 'Rendering MP4…'
+                    : 'Assembling Reel…'
+                  : result
+                    ? 'Create & Export again'
+                    : 'Create & Export Reel'}
               </Button>
 
               {result && !busy && (
@@ -630,6 +884,109 @@ export default function RawReel() {
                 </span>
               )}
             </div>
+
+            {rendering && exportProgress && (
+              <div className="mt-4 rounded-card border border-primary/25 bg-primary-soft/30 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Icon name="movie_filter" size={17} className="text-primary" />
+                    <span className="text-[13px] font-semibold text-ink">Rendering the final MP4</span>
+                  </div>
+                  <button
+                    onClick={() => exportAbortRef.current?.abort()}
+                    className="text-[12px] font-semibold text-ink-dim hover:text-ink kt-focus"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {RENDER_PROGRESS_ORDER.map((stage, i) => {
+                    const active = RENDER_PROGRESS_ORDER.indexOf(exportProgress.stage) === i;
+                    const complete = i < RENDER_PROGRESS_ORDER.indexOf(exportProgress.stage);
+                    return (
+                      <span
+                        key={stage}
+                        className={`text-[11px] font-semibold rounded-full border px-2.5 py-1 ${
+                          active
+                            ? 'border-primary bg-primary text-on-primary'
+                            : complete
+                              ? 'border-primary/25 bg-surface text-primary'
+                              : 'border-line bg-surface text-ink-dim'
+                        }`}
+                      >
+                        {RENDER_STEP_LABELS[stage]}
+                      </span>
+                    );
+                  })}
+                </div>
+                <div className="h-2 rounded-full bg-surface-3 overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-300"
+                    style={{ width: `${Math.max(4, (exportProgress.fraction ?? 0.02) * 100)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3 text-[12px] text-ink-muted">
+                  <span className="min-w-0">{exportProgress.message}</span>
+                  <span className="font-mono tabular-nums shrink-0">
+                    {exportProgress.fraction === null
+                      ? 'encoding'
+                      : `${Math.round(exportProgress.fraction * 100)}%`}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {exportError && !busy && (
+              <div className="mt-4 rounded-card border border-danger/30 bg-danger/5 p-4 space-y-3">
+                <div className="flex items-start gap-2.5 text-[12.5px] text-danger-ink">
+                  <Icon name="error_outline" size={17} className="mt-0.5 shrink-0" />
+                  <span>{exportError}</span>
+                </div>
+                {sourceRepair && (
+                  <div className="rounded-btn border border-line bg-surface p-3">
+                    <div className="text-[13px] font-semibold text-ink">Re-attach the original take</div>
+                    <p className="text-[12px] text-ink-muted mt-1">
+                      This clip’s source file is missing on the server. Choose the same raw take again —
+                      the cut, captions and timing stay exactly as they are.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon="attach_file"
+                      className="mt-2.5"
+                      disabled={repairing}
+                      onClick={() => reattachInputRef.current?.click()}
+                    >
+                      {repairing ? 'Re-attaching…' : 'Choose the same take'}
+                    </Button>
+                  </div>
+                )}
+                {exportDiagnostics.length > 0 && (
+                  <div className="rounded-btn border border-line bg-surface p-3">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <span className="text-[12px] font-semibold text-ink">FFmpeg diagnostics</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard
+                            .writeText(exportDiagnostics.join('\n'))
+                            .then(() => notify.ok('FFmpeg diagnostics copied.'))
+                            .catch(() => notify.bad('Could not copy diagnostics.'));
+                        }}
+                        className="text-[11px] font-semibold text-primary hover:underline kt-focus"
+                      >
+                        Copy log
+                      </button>
+                    </div>
+                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-ink-dim">
+                      {exportDiagnostics.join('\n')}
+                    </pre>
+                  </div>
+                )}
+                <button onClick={create} className="text-[12px] font-semibold text-primary hover:underline kt-focus">
+                  Try the magic edit again
+                </button>
+              </div>
+            )}
 
             {generationError && !busy && (
               <div className="mt-4 flex items-start justify-between gap-3 rounded-btn border border-danger/30 bg-danger/10 px-3.5 py-2.5 text-[12.5px] text-danger-ink">
@@ -651,7 +1008,7 @@ export default function RawReel() {
             )}
 
             {/* Live Progress Stage Feedback — driven by the real assembly pipeline. */}
-            {busy && (
+            {busy && !rendering && (
               <div className="mt-5 p-4 rounded-card bg-surface-2 border border-line space-y-3">
                 <div className="flex items-center justify-between text-xs font-semibold text-ink">
                   <span>{editProgress?.message || 'Preparing the bench…'}</span>
@@ -737,7 +1094,7 @@ export default function RawReel() {
                     <div className="relative z-10 bg-black/75 p-3 rounded-card text-white">
                       <Icon name="play_arrow" size={24} className="mx-auto mb-1 text-primary" />
                       <p className="text-xs font-medium">Ready for auto-cut</p>
-                      <p className="text-[11px] text-white/70 mt-0.5">Create the finished reel when you are ready.</p>
+                      <p className="text-[11px] text-white/70 mt-0.5">One click assembles and downloads it.</p>
                     </div>
                   </div>
                 ) : (
@@ -778,6 +1135,25 @@ export default function RawReel() {
           {/* Publishing Copy & Closed-Loop Handoff Actions */}
           {result && (
             <Card className="p-5 kt-dialog">
+              {exportedFile && (
+                <div className="mb-4 flex flex-wrap items-center gap-3 rounded-btn border border-tertiary/30 bg-tertiary/5 px-3.5 py-2.5">
+                  <Icon name="check_circle" size={18} className="text-tertiary shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-semibold text-ink">Finished MP4 downloaded</div>
+                    <div className="text-[11px] text-ink-dim truncate" title={exportedFile.name}>
+                      {exportedFile.name} · {fmtBytes(exportedFile.bytes)}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon="download"
+                    onClick={() => downloadBlob(exportedFile.url, exportedFile.name)}
+                  >
+                    Download again
+                  </Button>
+                </div>
+              )}
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-ink text-sm">Generated Copy & Hashtags</h3>
                 <span className="text-[11px] text-ink-dim font-medium">
