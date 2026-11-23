@@ -188,6 +188,18 @@ describe('compileTimelineToFiltergraph', () => {
     expect(withAudio.filterComplex).toContain('[0:a:0]atrim=start=1.000');
   });
 
+  it('attaches the audio output label to the last filter without an empty graph step', () => {
+    const compiled = compileTimelineToFiltergraph(project({ captions: [] }), {
+      sourceHasAudio: { '/uploads/a.mp4': true },
+    });
+
+    expect(compiled.filterComplex).toContain(
+      'aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a_seg_0]'
+    );
+    expect(compiled.filterComplex).not.toContain('stereo,[a_seg_0]');
+    expect(compiled.filterComplex.split(';').every((step) => step.trim().length > 0)).toBe(true);
+  });
+
   it('keeps BGM and SFX inputs in sync with their filter indices', () => {
     const compiled = compileTimelineToFiltergraph(
       project({

@@ -427,8 +427,9 @@ export function compileTimelineToFiltergraph(
         ...(fadeOut > 0 ? [`afade=t=out:st=${seconds(duration - fadeOut)}:d=${seconds(fadeOut)}`] : []),
         `atrim=duration=${seconds(duration)}`,
         'asetpts=PTS-STARTPTS',
-        audioFormat,
-        `[${aLabel}]`,
+        // The output label belongs to the last filter, not to a separate graph step. A comma here
+        // made FFmpeg read "[a_seg_0]" as an empty filter and fail every talking-clip export.
+        `${audioFormat}[${aLabel}]`,
       ];
       filterSteps.push(chain.join(','));
     } else {
@@ -560,7 +561,8 @@ export function compileTimelineToFiltergraph(
   return {
     inputArgs,
     inputIndexMap,
-    filterComplex: filterSteps.join(';'),
+    // A blank step would become an empty filter name (`No such filter: ''`) in FFmpeg.
+    filterComplex: filterSteps.filter(Boolean).join(';'),
     outputVideoLabel: '[vout]',
     outputAudioLabel: '[aout]',
     requiredVideoFiles,
