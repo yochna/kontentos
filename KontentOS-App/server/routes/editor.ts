@@ -2,6 +2,13 @@ import express from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { safeMessage } from '../errorText.js';
 import {
+  SYSTEM_PROMPT_DIRECTOR,
+  buildDirectorUserPrompt,
+  parseDirectorPlan,
+  normalizeDirectorPlan,
+  compileDirectorPlan,
+} from '../directorPlan.js';
+import {
   TimelineProject,
   TimelineTrack,
   VideoClip,
@@ -35,7 +42,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Prom
 }
 
 /**
- * System Prompt A: Directives for silence trimming, punch zoom keyframes, viral SFX, and kinetic captions
+ * Legacy prompt kept for reference only. One-click edit now uses the director's brief in
+ * ../directorPlan.ts: the model chooses moments by word index, and code computes every timestamp.
  */
 const SYSTEM_PROMPT_A = `You are KontentOS Smart-Polish, an elite AI short-form video editor specialized in viral TikToks, Instagram Reels, and YouTube Shorts.
 Your mission is to take raw word-level speech transcripts with precise timestamps and produce a broadcast-ready Edit Decision List (EDL) strictly compliant with the TimelineProject JSON schema.
@@ -848,26 +856,15 @@ router.post('/auto-edit', async (req, res) => {
     const ai = getGeminiClient();
     let finalProject: TimelineProject = deterministicProject;
     let engineSource: 'gemini' | 'local_engine' = 'local_engine';
+    let directorRationale = '';
 
     if (ai && rawWords.length > 0) {
       try {
-        const userPrompt = JSON.stringify({
-          instruction: 'Analyze speech cadence, trim silences > 0.4s, add punch zooms on emphasis words, insert viral SFX, and generate 2-3 word kinetic captions.',
-          videoMetadata: {
-            id: videoMetadata.id,
-            title: videoMetadata.title || 'Viral Short',
-            duration: videoMetadata.duration || (rawWords[rawWords.length - 1]?.end || 10),
-            targetAspectRatio: videoMetadata.targetAspectRatio || '9:16',
-          },
-          wordsSample: rawWords.map((w) => ({
-            word: w.word,
-            start: Number(w.start.toFixed(2)),
-            end: Number(w.end.toFixed(2)),
-          })),
+        const userPrompt = buildDirectorUserPrompt(rawWords, {
+          title: videoMetadata.title,
+          duration: videoMetadata.duration,
+          targetAspectRatio: videoMetadata.targetAspectRatio,
         });
-
-        // Model preference: user requested gemini-2.5-flash (or gemini-1.5-flash).
-        // Per skill guidelines, gemini-2.5-flash is used directly; fallback to gemini-3.8-flash
         const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
         let geminiResponseText: string | null = null;
 
@@ -876,12 +873,11 @@ router.post('/auto-edit', async (req, res) => {
             const response = await withTimeout(
               ai.models.generateContent({
                 model,
-                contents: [
-                  { role: 'user', parts: [{ text: userPrompt }] },
-                ],
+                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
                 config: {
-                  systemInstruction: SYSTEM_PROMPT_A,
+                  systemInstruction: SYSTEM_PROMPT_DIRECTOR,
                   responseMimeType: 'application/json',
+                  temperature: 0.35,
                 },
               }),
               12000,
@@ -898,12 +894,31 @@ router.post('/auto-edit', async (req, res) => {
         }
 
         if (geminiResponseText) {
-          const parsed = JSON.parse(geminiResponseText);
-          finalProject = sanitizeTimelineProject(parsed, deterministicProject);
-          engineSource = 'gemini';
+          const plan = parseDirectorPlan(geminiResponseText);
+          const normalized = plan ? normalizeDirectorPlan(plan, rawWords.length) : null;
+          if (normalized) {
+            finalProject = sanitizeTimelineProject(
+              compileDirectorPlan(
+                normalized,
+                {
+                  id: videoMetadata.id,
+                  title: videoMetadata.title,
+                  duration: videoMetadata.duration,
+                  width: videoMetadata.width,
+                  height: videoMetadata.height,
+                  targetAspectRatio: videoMetadata.targetAspectRatio,
+                  sourceUrl: videoMetadata.sourceUrl,
+                },
+                rawWords
+              ),
+              deterministicProject
+            );
+            engineSource = 'gemini';
+            directorRationale = normalized.rationale;
+          }
         }
       } catch (err: any) {
-        console.warn('Gemini auto-edit notice: smoothly using local deterministic editor engine');
+        console.warn('Gemini auto-edit notice: smoothly using local deterministic editor engine', err?.message);
         finalProject = deterministicProject;
         engineSource = 'local_engine';
       }
@@ -941,11 +956,14 @@ router.post('/auto-edit', async (req, res) => {
       success: true,
       data: finalProject,
       source: engineSource,
+      rationale: directorRationale,
       stats,
       message:
-        engineSource === 'gemini'
-          ? 'Successfully generated AI Smart-Polish EDL via Gemini Flash'
-          : 'Generated Smart-Polish EDL via local zero-latency audio intelligence engine',
+        rawWords.length === 0
+          ? 'No transcript — raw take kept. Add a script for captions and smart cuts.'
+          : engineSource === 'gemini'
+            ? 'Director-paced cut assembled from the transcript'
+            : 'Assembled locally from the transcript',
     });
   } catch (err: any) {
     console.error('Error in /api/editor/auto-edit:', err);

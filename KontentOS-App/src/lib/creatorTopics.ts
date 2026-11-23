@@ -16,6 +16,7 @@ const TRAILING_NUMBER = /\s*#?\d+\s*$/;
 const PLACEHOLDER = /^\[[^\]]+\]\s*/;
 const GENERIC_FILE = /^(img|vid|dsc|mov|screen(?:shot| recording)?)[\s_-]?\d+$/i;
 const COPY_SUFFIX = /\s*\(\d+\)\s*$/;
+const GENERATED_REEL_FILE = /^kontentos_(?:finished|final)_reel[_-]/i;
 
 /** A run of digits and punctuation is a filename, never a subject the creator can make a reel about. */
 function hasRealWords(text: string): boolean {
@@ -36,7 +37,7 @@ export function cleanCreatorSubject(raw: unknown): string {
     .replace(COPY_SUFFIX, '')
     .replace(/[.,;:!?]+$/g, '')
     .trim();
-  if (text.length < 3 || GENERIC_FILE.test(text) || !hasRealWords(text)) return '';
+  if (text.length < 3 || GENERIC_FILE.test(text) || GENERATED_REEL_FILE.test(text) || !hasRealWords(text)) return '';
   return text.length > 48 ? `${text.slice(0, 47).trimEnd()}…` : text;
 }
 

@@ -30,6 +30,8 @@ export interface AutoEditResult {
   source: 'gemini' | 'local_engine';
   stats: AutoEditStats;
   message: string;
+  /** The director's one-line editorial idea, present only on an AI-directed cut. */
+  rationale?: string;
 }
 
 /** Ideas always answer: either the engine's cards or honest, editable scaffolds. */
@@ -564,7 +566,7 @@ Respond ONLY with pure JSON matching this exact structure:
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), AUTO_EDIT_TIMEOUT_MS);
     try {
-      const d = await json<{ data: TimelineProject; source: 'gemini' | 'local_engine'; stats: AutoEditStats; message: string }>(
+      const d = await json<{ data: TimelineProject; source: 'gemini' | 'local_engine'; stats: AutoEditStats; message: string; rationale?: string }>(
         await fetch('/api/editor/auto-edit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -572,7 +574,7 @@ Respond ONLY with pure JSON matching this exact structure:
           body: JSON.stringify(payload),
         }),
       );
-      return { project: d.data, source: d.source, stats: d.stats, message: d.message };
+      return { project: d.data, source: d.source, stats: d.stats, message: d.message, rationale: d.rationale };
     } finally {
       window.clearTimeout(timer);
     }

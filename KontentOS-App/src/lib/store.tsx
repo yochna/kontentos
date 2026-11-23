@@ -17,7 +17,6 @@ import {
   buildLocalProject,
   cloneProject,
   parseSrtTimeToSeconds,
-  synthesizeWords,
   textClips,
   toggleCaptionsTrack,
   videoClips,
@@ -42,6 +41,9 @@ export interface AutoEditOutcome {
   stats: AutoEditStats | null;
   source: 'gemini' | 'local_engine' | 'none';
   offline?: boolean;
+  /** True when no real speech was available, so captions are honest placeholders, not the creator's words. */
+  needsScript?: boolean;
+  rationale?: string;
   caption: string;
   hashtags: string[];
   message?: string;
@@ -586,7 +588,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
     let caption = '';
     let hashtags: string[] = [];
-    let spoken = subject || placeholderCaption;
     let realWords: WordTimestamp[] | null = null;
 
     onProgress?.({ stage: 'reading', fraction: 0.06, message: 'Reading the take and its transcript…' });
@@ -608,7 +609,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (subs && subs.transcript && usable.length) {
         const fullTranscript = usable.map((seg: any) => String(seg.text).trim()).join(' ').replace(/\s+/g, ' ');
         caption = fullTranscript;
-        spoken = fullTranscript;
         realWords = [];
         for (const seg of usable) {
           const segStart = parseSrtTimeToSeconds(seg.start);
@@ -643,13 +643,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ? `${realWords.length} spoken words found — cutting on real speech blocks…`
         : subject
           ? 'No spoken words found — preparing title-grounded cues…'
-          : 'No spoken words found — preparing honest placeholder cues…',
+          : 'No spoken words found — add your script for real captions…',
     });
 
     if (!realWords || realWords.length === 0) {
-      // Pull title-grounded copy only when a title is actually a subject. With a raw filename the
-      // honest fallback is a placeholder the creator can replace, not invented copy and a hashtag
-      // made from the camera's serial number.
+      // Pull title-grounded publish copy only when a title is actually a subject. With a raw
+      // filename the honest fallback is a generic scaffold, not invented copy or a hashtag made
+      // from the camera's serial number. None of this is ever sent to the edit engine as speech.
       if (subject) {
         try {
           const copy = await api.copyFromTitle({
@@ -661,22 +661,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           });
           caption = copy.caption || placeholderCaption;
           hashtags = (copy.hashtags || []).filter((tag) => Boolean(cleanCreatorSubject(tag)));
-          spoken =
-            [copy.hooks?.[0], copy.caption].filter(Boolean).join(' ').replace(/#[\w]+/g, '').trim() ||
-            subject;
         } catch {
           caption = placeholderCaption;
           hashtags = [];
-          spoken = subject;
         }
       } else {
         caption = placeholderCaption;
         hashtags = [];
-        spoken = placeholderCaption;
       }
     }
 
-    const words = realWords && realWords.length > 0 ? realWords : synthesizeWords(spoken, duration);
+    // A transcript is a hard gate. Without one, send no words: the editor keeps the raw take and
+    // leaves captions empty instead of pretending the filename or a marketing line was spoken.
+    const words = realWords && realWords.length > 0 ? realWords : [];
     const base = { caption, hashtags };
 
     onProgress?.({
@@ -694,7 +691,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const proj = applyPresetLook(res.project, adaptedPreset);
       setProject(proj);
       onProgress?.({ stage: 'done', fraction: 1, message: 'Reel assembled.' });
-      return { ok: true, project: proj, stats: res.stats, source: res.source, ...base, message: res.message };
+      return {
+        ok: true,
+        project: proj,
+        stats: res.stats,
+        source: res.source,
+        needsScript: !realWords?.length,
+        rationale: res.rationale,
+        ...base,
+        message: res.message,
+      };
     } catch (engineError) {
       console.warn('[runAutoEdit] Engine unavailable, assembling locally:', engineError);
       const proj = buildLocalProject(
@@ -711,6 +717,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         stats: deriveStats(proj),
         source: 'local_engine',
         offline: true,
+        needsScript: !realWords?.length,
         ...base,
         message: realWords?.length
           ? 'Engine unavailable — assembled locally from your own words.'

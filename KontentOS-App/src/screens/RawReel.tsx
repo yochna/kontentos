@@ -290,14 +290,23 @@ export default function RawReel() {
             {video && transcripts[video.id] === 'none' && (
               <StatusPill tone="neutral">No speech on file — paste the script below</StatusPill>
             )}
-            {result && (result.offline || result.source === 'gemini') ? (
+            {result && (
               <>
-                {result.offline && <StatusPill tone="neutral">Offline engine active</StatusPill>}
-                {result.source === 'gemini' && (
-                  <StatusPill tone="secondary">Assembled by Gemini</StatusPill>
+                {result.needsScript && (
+                  <StatusPill tone="tertiary">Script needed — add your words for captions</StatusPill>
+                )}
+                {result.source === 'gemini' ? (
+                  <StatusPill tone="secondary">AI-directed cut</StatusPill>
+                ) : (
+                  <StatusPill tone="neutral">Local assembly</StatusPill>
+                )}
+                {result.source === 'gemini' && result.rationale && (
+                  <span className="text-[11px] text-ink-dim" title={result.rationale}>
+                    Director’s note: {result.rationale}
+                  </span>
                 )}
               </>
-            ) : null}
+            )}
           </>
         }
         className="mb-6"

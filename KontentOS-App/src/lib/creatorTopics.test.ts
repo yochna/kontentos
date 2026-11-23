@@ -66,6 +66,7 @@ describe('cleanCreatorSubject', () => {
   it('reduces a camera filename to no subject at all', () => {
     expect(cleanCreatorSubject('81496-576306063 (1)')).toBe('');
     expect(cleanCreatorSubject('IMG_2049.mp4')).toBe('');
+    expect(cleanCreatorSubject('kontentos_finished_reel_1795112524099')).toBe('');
   });
 
   it('keeps a renamed clip intact', () => {

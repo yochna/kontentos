@@ -5,6 +5,7 @@ import {
   activeWordIndex,
   applyPresetLook,
   buildCaptionsFromSegments,
+  buildLocalProject,
   evaluateEasing,
   fmtTime,
   isVideoGapAt,
@@ -342,5 +343,26 @@ describe('caption readability', () => {
     expect(activeCaptionAt(p, 0.5)?.id).toBe('cue');
     p.tracks[1].isMuted = true;
     expect(activeCaptionAt(p, 0.5)).toBeNull();
+  });
+});
+
+describe('buildLocalProject without a transcript', () => {
+  it('keeps the raw take but never turns a filename into spoken captions', () => {
+    const p = buildLocalProject(
+      {
+        id: 'vid_1',
+        title: 'kontentos_finished_reel_1795112524099',
+        file_url: '/uploads/vid_1.mp4',
+        duration: 6.4,
+      },
+      [],
+      PRESETS[0]
+    );
+    const video = p.tracks.find((t) => t.type === 'video')!.clips as VideoClip[];
+    const text = p.tracks.find((t) => t.type === 'text')!.clips as TextClip[];
+    expect(video).toHaveLength(1);
+    expect(video[0].duration).toBeCloseTo(6.4, 2);
+    expect(text).toEqual([]);
+    expect(p.projectMetadata.totalDuration).toBeCloseTo(6.4, 2);
   });
 });

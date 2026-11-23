@@ -652,7 +652,25 @@ export function buildLocalProject(
   let timelineCursor = 0;
   const per = preset.caption.wordsPerCue;
 
-  const sourceBlocks = blocks.length ? blocks : [[{ word: video.title, start: 0, end: duration } as WordTimestamp]];
+  // Without a transcript there is nothing to cut and nothing to burn in. Keep the raw take and
+  // leave captions empty; a filename is not something the creator said.
+  if (blocks.length === 0) {
+    clips.push({
+      id: 'vclip_raw',
+      name: 'Raw take',
+      type: 'video',
+      startOnTimeline: 0,
+      duration: round2(duration),
+      sourceStartOffset: 0,
+      sourceFileId: video.id,
+      sourceUrl: video.file_url,
+      speedMultiplier: 1,
+      keyframes: [],
+      audioModifiers: { pitchShiftCents: 0, volume: 1, fadeInSec: 0, fadeOutSec: 0 },
+    });
+  }
+
+  const sourceBlocks = blocks;
   sourceBlocks.forEach((block, bi) => {
     const srcStart = block[0].start;
     const srcEnd = block[block.length - 1].end;
