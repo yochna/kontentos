@@ -15,7 +15,11 @@ import {
   SFXClip,
   TextClip,
   WordTimestamp,
+  type EditPreset,
+  type VisualLook,
 } from '../../src/lib/timeline.js';
+import { analyzeVisualFrames, type VisualAnalysis, type VisualFrameInput } from '../visualAnalysis.js';
+import { compileVisualPlan } from '../visualPlan.js';
 
 const router = express.Router();
 
@@ -39,6 +43,44 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Prom
       setTimeout(() => reject(new Error(errorMsg)), ms)
     ),
   ]);
+}
+
+export interface AutoEditOptions {
+  silenceThresholdSec?: number;
+  sfxEnabled?: boolean;
+  punchZoomEnabled?: boolean;
+  captionsEnabled?: boolean;
+  visualLook?: VisualLook;
+  caption?: EditPreset['caption'];
+  model?: string;
+}
+
+/** Honest local plan for a silent take: visible rhythm, no invented speech or scene claims. */
+function deterministicVisualAnalysis(
+  metadata: { id: string; title?: string; duration: number },
+  frames: VisualFrameInput[]
+): VisualAnalysis {
+  const changeBeats = frames
+    .slice(1)
+    .filter((frame) => Number(frame.changeScore) >= 0.08)
+    .slice(0, 5)
+    .map((frame) => ({ timeSec: Number(frame.timeSec) || 0, label: 'Visible change' }));
+  const duration = Math.max(0.6, Number(metadata.duration) || 12);
+  return {
+    caption: '',
+    hashtags: ['#reels', '#shortform', '#creators'],
+    onScreenText: [
+      { text: 'WATCH CLOSELY', startSec: duration * 0.08, endSec: duration * 0.3 },
+      { text: 'THE DETAIL', startSec: duration * 0.38, endSec: duration * 0.62 },
+      { text: 'THE RESULT', startSec: duration * 0.7, endSec: duration * 0.94 },
+    ],
+    visualBeats: changeBeats,
+    rationale:
+      'No speech detected; cut and reframed around observable visual changes with on-screen text, not subtitles.',
+    modelUsed: 'local_visual',
+    framesSampled: frames.length,
+    visualOnly: true,
+  };
 }
 
 /**
@@ -410,16 +452,11 @@ function generateDeterministicAutoEdit(
     duration: number;
     width?: number;
     height?: number;
-    targetAspectRatio?: '9:16' | '16:9' | '1:1';
+    targetAspectRatio?: '9:16' | '16:9' | '1:1' | '4:5';
     sourceUrl?: string;
   },
   words: WordTimestamp[],
-  options?: {
-    silenceThresholdSec?: number;
-    sfxEnabled?: boolean;
-    punchZoomEnabled?: boolean;
-    captionsEnabled?: boolean;
-  }
+  options?: AutoEditOptions
 ): TimelineProject {
   const silenceThreshold = options?.silenceThresholdSec ?? 0.4;
   const sfxEnabled = options?.sfxEnabled ?? true;
@@ -428,50 +465,33 @@ function generateDeterministicAutoEdit(
 
   const rawDuration = videoMetadata.duration || (words.length > 0 ? words[words.length - 1].end + 1 : 10);
 
-  // If no words exist, create 1 continuous video clip
+  // No speech detected. Build a real visual rhythm instead of handing back a raw clip. The lines
+  // are on-screen design text, never a transcript of words nobody said.
   if (!words || words.length === 0) {
-    return {
-      schemaVersion: '1.0.0',
-      projectMetadata: {
-        id: `proj_${Date.now()}`,
-        title: videoMetadata.title || 'Smart Reel',
-        targetAspectRatio: videoMetadata.targetAspectRatio || '9:16',
-        width: videoMetadata.width || 1080,
-        height: videoMetadata.height || 1920,
-        frameRate: 30,
-        totalDuration: rawDuration,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      globalAudioTracks: { bgmVolume: 0.25, duckingEnabled: true },
-      tracks: [
-        { id: 'track-text', name: 'Kinetic Captions', type: 'text', isMuted: false, isLocked: false, zIndex: 30, clips: [] },
-        { id: 'track-sfx', name: 'SFX Overlays', type: 'sfx', isMuted: false, isLocked: false, zIndex: 20, clips: [] },
-        {
-          id: 'track-video',
-          name: 'Primary Video',
-          type: 'video',
-          isMuted: false,
-          isLocked: false,
-          zIndex: 10,
-          clips: [
-            {
-              id: 'vclip_0',
-              name: 'Raw Video',
-              type: 'video',
-              startOnTimeline: 0,
-              duration: rawDuration,
-              sourceStartOffset: 0,
-              sourceFileId: videoMetadata.id,
-              sourceUrl: videoMetadata.sourceUrl,
-              speedMultiplier: 1.0,
-              keyframes: [],
-              audioModifiers: { pitchShiftCents: 0, volume: 1.0, fadeInSec: 0, fadeOutSec: 0 },
-            },
-          ],
+    return compileVisualPlan({
+      metadata: videoMetadata,
+      analysis: deterministicVisualAnalysis(videoMetadata, []),
+      preset: {
+        visualLook: options?.visualLook || 'viral',
+        options: {
+          sfxEnabled,
+          punchZoomEnabled,
+          captionsEnabled,
+          silenceThresholdSec: silenceThreshold,
         },
-      ],
-    };
+        caption: options?.caption || {
+          animation: 'bouncePop',
+          position: 'bottom',
+          fontSize: 68,
+          colorHex: '#FFFFFF',
+          activeWordColorHex: '#FFE066',
+          wordsPerCue: 3,
+          strokeColorHex: '#000000',
+          strokeWidth: 6,
+          shadowColorHex: 'rgba(0,0,0,0.92)',
+        },
+      },
+    });
   }
 
   // 1. Group words into speech blocks separated by silences > silenceThreshold
@@ -794,6 +814,7 @@ function sanitizeTimelineProject(
       width: raw.projectMetadata?.width || 1080,
       height: raw.projectMetadata?.height || 1920,
       frameRate: raw.projectMetadata?.frameRate || 30,
+      visualLook: raw.projectMetadata?.visualLook || fallbackProject.projectMetadata.visualLook,
       totalDuration: Number((raw.projectMetadata?.totalDuration || calculatedDuration).toFixed(3)),
       createdAt: raw.projectMetadata?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -838,6 +859,7 @@ router.post('/auto-edit', async (req, res) => {
       videoMetadata,
       words = [],
       options = {},
+      visualFrames = [],
     } = req.body;
 
     if (!videoMetadata || !videoMetadata.id) {
@@ -845,18 +867,24 @@ router.post('/auto-edit', async (req, res) => {
     }
 
     const rawWords: WordTimestamp[] = Array.isArray(words) ? words : [];
+    const visualFrameInputs: VisualFrameInput[] = Array.isArray(visualFrames)
+      ? visualFrames.slice(0, 8)
+      : [];
+    const typedOptions = options as AutoEditOptions;
 
     // Pre-calculate deterministic benchmark
     const deterministicProject = generateDeterministicAutoEdit(
       videoMetadata,
       rawWords,
-      options
+      typedOptions
     );
 
     const ai = getGeminiClient();
     let finalProject: TimelineProject = deterministicProject;
-    let engineSource: 'gemini' | 'local_engine' = 'local_engine';
+    let engineSource: 'gemini' | 'gemini_visual' | 'local_engine' | 'local_engine_visual' =
+      rawWords.length ? 'local_engine' : 'local_engine_visual';
     let directorRationale = '';
+    let visualAnalysis: VisualAnalysis | null = null;
 
     if (ai && rawWords.length > 0) {
       try {
@@ -924,6 +952,64 @@ router.post('/auto-edit', async (req, res) => {
       }
     }
 
+    // Silent take: analyse the real sampled frames, then compile a visual edit. On-screen text is
+    // never labelled as speech, and generic copy is used only when no engine answer is available.
+    if (rawWords.length === 0 && visualFrameInputs.length > 0) {
+      try {
+        visualAnalysis = await analyzeVisualFrames(visualFrameInputs, {
+          durationSec: videoMetadata.duration,
+          title: videoMetadata.title,
+          preferredModel: typedOptions.model,
+        });
+        if (visualAnalysis) {
+          finalProject = sanitizeTimelineProject(
+            compileVisualPlan({
+              metadata: videoMetadata,
+              analysis: visualAnalysis,
+              preset: {
+                visualLook: typedOptions.visualLook || 'viral',
+                options: {
+                  sfxEnabled: typedOptions.sfxEnabled ?? true,
+                  punchZoomEnabled: typedOptions.punchZoomEnabled ?? true,
+                  captionsEnabled: typedOptions.captionsEnabled ?? true,
+                  silenceThresholdSec: typedOptions.silenceThresholdSec ?? 0.4,
+                },
+                caption: typedOptions.caption || {
+                  animation: 'bouncePop',
+                  position: 'bottom',
+                  fontSize: 68,
+                  colorHex: '#FFFFFF',
+                  activeWordColorHex: '#FFE066',
+                  wordsPerCue: 3,
+                  strokeColorHex: '#000000',
+                  strokeWidth: 6,
+                  shadowColorHex: 'rgba(0,0,0,0.92)',
+                },
+              },
+            }),
+            deterministicProject
+          );
+          engineSource = 'gemini_visual';
+          directorRationale = visualAnalysis.rationale;
+        }
+      } catch (err: any) {
+        console.warn('Visual director notice:', err?.message);
+      }
+    }
+    if (rawWords.length === 0 && !visualAnalysis) {
+      visualAnalysis = deterministicVisualAnalysis(videoMetadata, visualFrameInputs);
+    }
+
+    // A preset-level subtitles-off choice must win over the director's default text track.
+    if (typedOptions.captionsEnabled === false) {
+      finalProject = {
+        ...finalProject,
+        tracks: finalProject.tracks.map((track) =>
+          track.type === 'text' ? { ...track, isMuted: true, clips: [] } : track
+        ),
+      };
+    }
+
     // Compute stats
     const videoTrack = finalProject.tracks.find((t) => t.type === 'video');
     const sfxTrack = finalProject.tracks.find((t) => t.type === 'sfx');
@@ -956,11 +1042,15 @@ router.post('/auto-edit', async (req, res) => {
       success: true,
       data: finalProject,
       source: engineSource,
+      planKind: rawWords.length ? 'speech' : 'visual',
+      visualAnalysis,
       rationale: directorRationale,
       stats,
       message:
         rawWords.length === 0
-          ? 'No transcript — raw take kept. Add a script for captions and smart cuts.'
+          ? engineSource === 'gemini_visual'
+            ? 'Visual edit directed from sampled frames — no speech or quoted words claimed.'
+            : 'Visual rhythm assembled locally from frame changes — no speech or quoted words claimed.'
           : engineSource === 'gemini'
             ? 'Director-paced cut assembled from the transcript'
             : 'Assembled locally from the transcript',

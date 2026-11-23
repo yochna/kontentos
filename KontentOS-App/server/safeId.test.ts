@@ -54,6 +54,25 @@ describe('isPlainJson', () => {
     expect(isPlainJson({ id: 'scaffold-1-1730', title: 'A hook', tags: ['x'], score: 3 })).toBe(true);
   });
 
+  it('accepts a workspace draft with per-word caption cues', () => {
+    const draft = {
+      project: {
+        tracks: [
+          {
+            clips: [
+              {
+                style: {
+                  words: [{ word: 'Okay,', start: 0, end: 0.54 }],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    expect(isPlainJson(draft)).toBe(true);
+  });
+
   it('refuses keys MongoDB would read as an operator or a path', () => {
     expect(isPlainJson({ id: 'a', $where: 'sleep(5)' })).toBe(false);
     expect(isPlainJson({ id: 'a', nested: { 'x.y': 1 } })).toBe(false);

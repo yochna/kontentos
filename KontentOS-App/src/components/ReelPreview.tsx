@@ -16,6 +16,7 @@ import {
   type TextClip,
   type TimelineProject,
   type VideoClip,
+  type VisualLook,
 } from '@/lib/timeline';
 import { sfxEngine } from '@/utils/sfxEngine';
 import { resolveBgmUrl } from '@/utils/bgmPresets';
@@ -38,6 +39,14 @@ interface Props {
   playbackRate?: number;
   onUpdateTextClip?: (clipId: string, newContent: string) => void;
 }
+
+const LOOK_FILTERS: Record<VisualLook, string> = {
+  viral: 'contrast(1.12) brightness(1.025) saturate(1.18)',
+  clean: 'contrast(1.06) brightness(1.015) saturate(1.04)',
+  cinematic: 'contrast(1.16) brightness(0.985) saturate(0.88)',
+  bold: 'contrast(1.2) brightness(1.02) saturate(1.28)',
+  warm: 'contrast(1.08) brightness(1.025) saturate(1.12)',
+};
 
 function normalizeSourceUrl(url: string | null | undefined): string {
   if (!url) return '';
@@ -638,6 +647,8 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
   const standby = activePlayer === 'A' ? 'B' : 'A';
   const visiblePlayer = hasSource(activePlayer) || !hasSource(standby) ? activePlayer : standby;
   const targetAspect = project?.projectMetadata.targetAspectRatio || '9:16';
+  const visualLook = project?.projectMetadata.visualLook || 'viral';
+  const lookFilter = LOOK_FILTERS[visualLook];
   const isWidescreen = targetAspect === '16:9';
 
   const posClass =
@@ -672,6 +683,7 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
             style={{
               transform: `scale(${transform.scale}) translate(${transform.x}px, ${transform.y}px) rotate(${transform.rotation}deg)`,
               opacity: transform.opacity,
+              filter: lookFilter,
               transition: 'transform 80ms cubic-bezier(0.16, 1, 0.3, 1), opacity 80ms ease-out',
               clipPath:
                 isTransitioning && activeTransition?.type === 'wipeleft'
@@ -757,6 +769,14 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
                   <span className="truncate max-w-[130px]">{activeBroll.name ||'B-Roll'}</span>
                 </div>
               </div>
+            )}
+            {visualLook !== 'clean' && (
+              <div
+                className="absolute inset-0 pointer-events-none z-[6]"
+                style={{
+                  background: 'radial-gradient(circle at 50% 45%, transparent 45%, rgba(0,0,0,0.42) 100%)',
+                }}
+              />
             )}
           </div>
         ) : (

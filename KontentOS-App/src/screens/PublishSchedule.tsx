@@ -369,38 +369,45 @@ export default function PublishSchedule() {
       });
       const data = await res.json();
       if (data && data.success && data.data) {
-        setCopyBundle({
-          instagram: {
-            caption: data.data.instagram?.caption_text || data.data.instagram?.caption || copyBundle.instagram.caption,
-            hashtags: data.data.instagram?.hashtags || copyBundle.instagram.hashtags,
-          },
-          youtube: {
-            title: data.data.youtube?.suggestedTitle || selectedVideo.title,
-            description: data.data.youtube?.caption_text || data.data.youtube?.caption || copyBundle.youtube.description,
-            tags: data.data.youtube?.hashtags || copyBundle.youtube.tags,
-          },
-          tiktok: {
-            caption: data.data.tiktok?.caption_text || data.data.tiktok?.caption || copyBundle.tiktok.caption,
-            hashtags: data.data.tiktok?.hashtags || copyBundle.tiktok.hashtags,
-          },
-          linkedin: {
-            postText: data.data.linkedin?.caption_text || data.data.linkedin?.caption || copyBundle.linkedin.postText,
-            slideOutline: copyBundle.linkedin.slideOutline,
-            hashtags: data.data.linkedin?.hashtags || copyBundle.linkedin.hashtags,
-          },
-          x: {
-            thread: [data.data.x?.caption_text || data.data.x?.caption || (copyBundle.x.thread[0] || '')],
-            hashtags: data.data.x?.hashtags || copyBundle.x.hashtags,
-          },
-          threads: {
-            postText: data.data.threads?.caption_text || data.data.threads?.caption || copyBundle.threads.postText,
-            hashtags: data.data.threads?.hashtags || copyBundle.threads.hashtags,
-          },
-          facebook: {
-            postText: data.data.facebook?.caption_text || data.data.facebook?.caption || copyBundle.facebook.postText,
-            hashtags: data.data.facebook?.hashtags || copyBundle.facebook.hashtags,
-          },
-        });
+        // An explicit rewrite may refresh every other channel, but it cannot overwrite the line
+        // the creator hand-edited in Upload. The same guard protects late AI responses above.
+        setCopyBundle((prev) =>
+          applyHandoffCopy(
+            {
+              instagram: {
+                caption: data.data.instagram?.caption_text || data.data.instagram?.caption || prev.instagram.caption,
+                hashtags: data.data.instagram?.hashtags || prev.instagram.hashtags,
+              },
+              youtube: {
+                title: data.data.youtube?.suggestedTitle || selectedVideo.title,
+                description: data.data.youtube?.caption_text || data.data.youtube?.caption || prev.youtube.description,
+                tags: data.data.youtube?.hashtags || prev.youtube.tags,
+              },
+              tiktok: {
+                caption: data.data.tiktok?.caption_text || data.data.tiktok?.caption || prev.tiktok.caption,
+                hashtags: data.data.tiktok?.hashtags || prev.tiktok.hashtags,
+              },
+              linkedin: {
+                postText: data.data.linkedin?.caption_text || data.data.linkedin?.caption || prev.linkedin.postText,
+                slideOutline: prev.linkedin.slideOutline,
+                hashtags: data.data.linkedin?.hashtags || prev.linkedin.hashtags,
+              },
+              x: {
+                thread: [data.data.x?.caption_text || data.data.x?.caption || (prev.x.thread[0] || '')],
+                hashtags: data.data.x?.hashtags || prev.x.hashtags,
+              },
+              threads: {
+                postText: data.data.threads?.caption_text || data.data.threads?.caption || prev.threads.postText,
+                hashtags: data.data.threads?.hashtags || prev.threads.hashtags,
+              },
+              facebook: {
+                postText: data.data.facebook?.caption_text || data.data.facebook?.caption || prev.facebook.postText,
+                hashtags: data.data.facebook?.hashtags || prev.facebook.hashtags,
+              },
+            },
+            handoffCopyRef.current
+          )
+        );
         flash({ tone: 'ok', msg: 'Copy rewritten for every selected channel.' });
       } else {
         throw new Error(data?.error || 'AI copy generation failed');
@@ -409,7 +416,7 @@ export default function PublishSchedule() {
       const title = selectedVideo?.title || activeDraft?.title || 'Creator Video';
       const hook = activeDraft?.idea?.hook;
       const generated = generateMultiPlatformCopy(title, hook);
-      setCopyBundle(generated);
+      setCopyBundle(applyHandoffCopy(generated, handoffCopyRef.current));
       // Templates, not the engine: saying "AI wrote this" when the model never answered is how
       // this app lost trust in the first place.
       flash({ tone: 'ok', msg: 'Filled from the title templates — the engine did not answer.' });

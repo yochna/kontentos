@@ -21,12 +21,13 @@ export function asId(value: unknown): string {
  * can actually round-trip.
  *
  * The depth bound is a limit on how deep a hostile payload can drive this function, not a statement
- * about the data: a saved idea is two levels, but a workspace timeline nests a caption clip's word
- * cues (project → tracks → track → clips → clip → style → words → word), so eight is the shallowest
- * ceiling that accepts real editorial work. The operator rules apply at every level, so the deeper
- * allowance cannot smuggle a `$` key or a dotted path past them.
+ * about the data: a saved idea is two levels, but a workspace draft nests a timeline's per-word
+ * caption cues (draft → project → tracks → track → clips → clip → style → words → word → value),
+ * so ten levels is the shallowest ceiling that accepts real editorial work. Twelve leaves a little
+ * room for a nested modifier without opening the tree to runaway structures. The operator rules
+ * apply at every level, so the deeper allowance cannot smuggle a `$` key or a dotted path past them.
  */
-const MAX_DEPTH = 8;
+const MAX_DEPTH = 12;
 
 export function isPlainJson(value: unknown, depth = 0): boolean {
   if (depth > MAX_DEPTH) return false;

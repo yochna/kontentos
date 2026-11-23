@@ -347,7 +347,7 @@ describe('caption readability', () => {
 });
 
 describe('buildLocalProject without a transcript', () => {
-  it('keeps the raw take but never turns a filename into spoken captions', () => {
+  it('builds an honest visual cut and never turns a filename into spoken captions', () => {
     const p = buildLocalProject(
       {
         id: 'vid_1',
@@ -359,10 +359,22 @@ describe('buildLocalProject without a transcript', () => {
       PRESETS[0]
     );
     const video = p.tracks.find((t) => t.type === 'video')!.clips as VideoClip[];
-    const text = p.tracks.find((t) => t.type === 'text')!.clips as TextClip[];
-    expect(video).toHaveLength(1);
-    expect(video[0].duration).toBeCloseTo(6.4, 2);
-    expect(text).toEqual([]);
-    expect(p.projectMetadata.totalDuration).toBeCloseTo(6.4, 2);
+    const textTrack = p.tracks.find((t) => t.type === 'text')!;
+    const text = textTrack.clips as TextClip[];
+
+    expect(video.length).toBeGreaterThan(1);
+    expect(video.every((clip) => clip.keyframes && clip.keyframes.length > 0)).toBe(true);
+    expect(video[0].sourceStartOffset).toBeGreaterThan(0);
+    expect(textTrack.name).toBe('On-Screen Text');
+    expect(text.length).toBeGreaterThan(1);
+    expect(text.map((clip) => clip.content).join(' ')).not.toMatch(
+      /kontentos_finished_reel|vid_1|\.mp4/i
+    );
+    expect(p.projectMetadata.visualLook).toBe('viral');
+    // Individual clips are rounded before the project end is computed, so allow one frame of drift.
+    expect(p.projectMetadata.totalDuration).toBeCloseTo(
+      video.reduce((sum, clip) => sum + clip.duration, 0),
+      1
+    );
   });
 });

@@ -6,8 +6,9 @@ import type { Idea } from '@/data/mock';
 import { navigate, type ScreenId } from './nav';
 import { copyVoice } from './brandKit';
 import { copyModel, readAiPrefs } from './prefs';
-import { findArchivedVideo, inferExportAspect, suggestedWordsPerCue } from './mediaPlan';
+import { findArchivedVideo, suggestedWordsPerCue } from './mediaPlan';
 import { cleanCreatorSubject } from './creatorTopics';
+import { captureVisualFrames } from './visualFrames';
 import { DRAFT_STEP_STATION, applyStoredCut, resetSelectedCut } from './bench';
 import { hydrateWorkspace, readBench, readSlot, resetWorkspace, writeSlot } from './workspace';
 import {
@@ -39,10 +40,13 @@ export interface AutoEditOutcome {
   ok: boolean;
   project: TimelineProject | null;
   stats: AutoEditStats | null;
-  source: 'gemini' | 'local_engine' | 'none';
+  source: 'gemini' | 'gemini_visual' | 'local_engine' | 'local_engine_visual' | 'none';
   offline?: boolean;
-  /** True when no real speech was available, so captions are honest placeholders, not the creator's words. */
+  /** True when no real speech was available; on-screen text must not be described as subtitles of speech. */
   needsScript?: boolean;
+  planKind?: 'speech' | 'visual';
+  visualGrounded?: boolean;
+  subtitlesEnabled?: boolean;
   rationale?: string;
   /** The generated opening line, used as the post hook without pretending it was spoken. */
   punchline?: string;
@@ -99,7 +103,8 @@ interface StoreValue {
   runAutoEdit: (
     video: Video,
     preset: EditPreset,
-    onProgress?: (progress: AutoEditProgress) => void
+    onProgress?: (progress: AutoEditProgress) => void,
+    options?: { captionsEnabled?: boolean }
   ) => Promise<AutoEditOutcome>;
   /** Editor history stack — Smart Editor mutations. */
   canUndo: boolean;
@@ -571,9 +576,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   /** Run the Smart-Polish EDL engine for a clip + preset. Server engine first,
    *  deterministic local build if /api is unreachable. Always yields a project. */
-  const runAutoEdit = useCallback<StoreValue['runAutoEdit']>(async (video, preset, onProgress) => {
+  const runAutoEdit = useCallback<StoreValue['runAutoEdit']>(async (video, preset, onProgress, options) => {
     const duration = video.duration || 20;
-    const targetAspectRatio = inferExportAspect((video as any).aspect_ratio);
+    // This is the Reel station: every one-click output is portrait, even from a landscape camera
+    // take. The exporter crop-fills the real footage into 1080x1920 instead of letterboxing it.
+    const targetAspectRatio = '9:16' as const;
     // A camera filename is a useful clip label, but it is not something the creator said and not a
     // subject to write copy from. Only a real title or description may seed the copy engine.
     const subject =
@@ -581,8 +588,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const placeholderCaption = subject
       ? `${subject}. Here's what actually moves the needle — watch till the end.`
       : 'New take — open the script field to add your own words before posting.';
+    const subtitlesEnabled = options?.captionsEnabled ?? preset.options.captionsEnabled;
     const adaptedPreset: EditPreset = {
       ...preset,
+      options: { ...preset.options, captionsEnabled: subtitlesEnabled },
       caption: {
         ...preset.caption,
         wordsPerCue: suggestedWordsPerCue(duration, preset.caption.wordsPerCue),
@@ -593,6 +602,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     let punchline = '';
     let fullTranscript = '';
     let realWords: WordTimestamp[] | null = null;
+    let visualFrames: Awaited<ReturnType<typeof captureVisualFrames>> = [];
 
     onProgress?.({ stage: 'reading', fraction: 0.06, message: 'Reading the take and its transcript…' });
 
@@ -637,7 +647,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (subErr) {
-      console.warn('[runAutoEdit] No usable transcript; keeping the raw take without invented speech:', subErr);
+      console.warn('[runAutoEdit] No usable transcript; falling back to honest visual analysis:', subErr);
+    }
+
+    if ((!realWords || realWords.length === 0) && video.file_url) {
+      onProgress?.({ stage: 'reading', fraction: 0.18, message: 'No speech found — sampling the actual frames…' });
+      visualFrames = await captureVisualFrames(video.file_url, duration, 8);
     }
 
     // The post copy is generated from what the creator actually said, never from a camera filename.
@@ -665,9 +680,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       fraction: 0.38,
       message: realWords?.length
         ? `${realWords.length} spoken words found — cutting on real speech blocks…`
-        : subject
-          ? 'No spoken words found — preparing title-grounded cues…'
-          : 'No spoken words found — add your script for real captions…',
+        : visualFrames.length
+          ? `${visualFrames.length} visual beats sampled — editing around what is actually on screen…`
+          : subject
+            ? 'No spoken words found — preparing title-grounded cues…'
+            : 'No spoken words found — add your script for real captions…',
     });
 
     if (!realWords || realWords.length === 0) {
@@ -695,8 +712,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // A transcript is a hard gate. Without one, send no words: the editor keeps the raw take and
-    // leaves captions empty instead of pretending the filename or a marketing line was spoken.
+    // A transcript is the only source of spoken words. Without one we send real frame samples to the
+    // visual editor, never the filename or a marketing line disguised as dialogue.
     const words = realWords && realWords.length > 0 ? realWords : [];
     const base = { caption, hashtags, punchline };
 
@@ -710,19 +727,40 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const res = await api.autoEdit({
         videoMetadata: { id: video.id, title: video.title, duration, sourceUrl: video.file_url, targetAspectRatio },
         words,
-        options: adaptedPreset.options,
+        visualFrames,
+        options: {
+          ...adaptedPreset.options,
+          visualLook: adaptedPreset.visualLook,
+          caption: adaptedPreset.caption,
+          model: copyModel(),
+        },
       });
       const proj = applyPresetLook(res.project, adaptedPreset);
       setProject(proj);
-      onProgress?.({ stage: 'done', fraction: 1, message: 'Reel assembled.' });
+      onProgress?.({
+        stage: 'done',
+        fraction: 1,
+        message: res.planKind === 'visual' ? 'Visual reel assembled.' : 'Reel assembled.',
+      });
+      const groundedCopy =
+        res.visualAnalysis?.caption && res.planKind === 'visual'
+          ? {
+              caption: res.visualAnalysis.caption,
+              hashtags: res.visualAnalysis.hashtags,
+              punchline: '',
+            }
+          : base;
       return {
         ok: true,
         project: proj,
         stats: res.stats,
         source: res.source,
         needsScript: !realWords?.length,
+        planKind: res.planKind || (realWords?.length ? 'speech' : 'visual'),
+        visualGrounded: Boolean(res.visualAnalysis?.caption),
+        subtitlesEnabled,
         rationale: res.rationale,
-        ...base,
+        ...groundedCopy,
         message: res.message,
       };
     } catch (engineError) {
@@ -739,13 +777,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ok: true,
         project: proj,
         stats: deriveStats(proj),
-        source: 'local_engine',
+        source: realWords?.length ? 'local_engine' : 'local_engine_visual',
         offline: true,
         needsScript: !realWords?.length,
+        planKind: realWords?.length ? 'speech' : 'visual',
+        subtitlesEnabled,
         ...base,
         message: realWords?.length
           ? 'Engine unavailable — assembled locally from your own words.'
-          : 'Engine unavailable — assembled locally. Add your script for words that are yours.',
+          : 'Engine unavailable — visual rhythm assembled locally. Add your script only if you want spoken words.',
       };
     }
   }, []);

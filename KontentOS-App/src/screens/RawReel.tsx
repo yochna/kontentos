@@ -147,6 +147,7 @@ export default function RawReel() {
   });
 
   const [presetId, setPresetId] = useState<string>(PRESETS[0].id);
+  const [subtitlesOn, setSubtitlesOn] = useState(true);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(0);
   const [editProgress, setEditProgress] = useState<AutoEditProgress | null>(null);
@@ -435,11 +436,16 @@ export default function RawReel() {
     setEditProgress({ stage: 'reading', fraction: 0.02, message: 'Reading the take…' });
 
     try {
-      const outcome = await runAutoEdit(video, preset, (update) => {
-        setEditProgress(update);
-        const index = STEPS.findIndex((s) => s.stage === update.stage);
-        if (index >= 0) setStep(index);
-      });
+      const outcome = await runAutoEdit(
+        video,
+        preset,
+        (update) => {
+          setEditProgress(update);
+          const index = STEPS.findIndex((s) => s.stage === update.stage);
+          if (index >= 0) setStep(index);
+        },
+        { captionsEnabled: subtitlesOn }
+      );
       setResult(outcome);
       setEditedCaption(outcome.caption);
       if (outcome.project) await renderProject(outcome.project, video);
@@ -501,7 +507,7 @@ export default function RawReel() {
         eyebrow="In · Upload"
         icon="smart_display"
         title="Bring the raw take onto the bench"
-        description="Upload a take and press once. KontentOS hears the words, cuts the dead air, writes kinetic captions, adds punch zooms and effects, then renders the finished MP4."
+        description="Upload a raw take and press once. KontentOS cuts the dead air or visual filler, adds a real colour grade, punch reframes and styled on-screen text, writes the caption and hashtags, then renders the finished MP4."
         actions={
           <>
             {video && transcripts[video.id] === 'working' && (
@@ -518,17 +524,19 @@ export default function RawReel() {
             {exportedFile && <StatusPill tone="tertiary">MP4 downloaded</StatusPill>}
             {result && (
               <>
-                {result.needsScript && (
-                  <StatusPill tone="tertiary">Script needed — add your words for captions</StatusPill>
+                {result.planKind === 'visual' && (
+                  <StatusPill tone="tertiary">
+                    {result.visualGrounded ? 'Visual edit from real frames' : 'Visual rhythm — no speech detected'}
+                  </StatusPill>
                 )}
-                {result.source === 'gemini' ? (
+                {result.source === 'gemini' || result.source === 'gemini_visual' ? (
                   <StatusPill tone="secondary">AI-directed cut</StatusPill>
                 ) : (
                   <StatusPill tone="neutral">Local assembly</StatusPill>
                 )}
-                {result.source === 'gemini' && result.rationale && (
+                {result.rationale && (
                   <span className="text-[11px] text-ink-dim" title={result.rationale}>
-                    Director’s note: {result.rationale}
+                    {result.planKind === 'visual' ? 'Visual note' : 'Director’s note'}: {result.rationale}
                   </span>
                 )}
               </>
@@ -835,6 +843,33 @@ export default function RawReel() {
           {/* Step 3: Run Auto-Assembly */}
           <Card className="p-5">
             <StepLabel n={3} title="Create and export the finished reel" />
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-btn border border-line bg-surface-2/50 px-3.5 py-2.5">
+              <div className="min-w-0">
+                <div className="text-[13px] font-semibold text-ink">Burn in subtitles / on-screen text</div>
+                <p className="text-[11px] leading-relaxed text-ink-dim mt-0.5">
+                  Speech gets real subtitles. Silent clips get short visual text, never fake dialogue.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={subtitlesOn}
+                aria-label="Burn in subtitles or on-screen text"
+                onClick={() => {
+                  setSubtitlesOn((value) => !value);
+                  setResult(null);
+                }}
+                className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors kt-focus ${
+                  subtitlesOn ? 'bg-primary border-primary' : 'bg-surface border-line-strong'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    subtitlesOn ? 'translate-x-6' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
             {aiStatus && !aiStatus.hasGeminiKey && (
               <div className="mb-4 flex flex-wrap items-center gap-3 rounded-card border border-primary/25 bg-primary-soft/40 px-3.5 py-3">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-btn bg-surface text-primary">
@@ -843,9 +878,8 @@ export default function RawReel() {
                 <div className="min-w-0 flex-1">
                   <div className="text-[13px] font-semibold text-ink">Connect AI for the magic edit</div>
                   <p className="text-[12px] leading-relaxed text-ink-muted mt-0.5">
-                    Gemini key not set. KontentOS cannot hear this take yet, so real captions, hook and
-                    smart cuts need a key or a pasted script. Without either, the export honestly keeps
-                    the raw clip.
+                    Gemini key not set. Silent takes still get a real cut, grade and reframes from frame
+                    changes; frame-grounded copy and spoken-word captions need a key or a pasted script.
                   </p>
                 </div>
                 {aiStatus.editable === false ? (
@@ -878,8 +912,14 @@ export default function RawReel() {
                   <Icon name="check_circle" size={17} className="text-tertiary shrink-0" />
                   <span>
                     <strong>{result.stats?.cutsCount || 0} cuts</strong> ·{' '}
-                    <strong>{result.stats?.captionsCount || 0} captions</strong> ·{' '}
-                    <strong>{fmtTime(result.stats?.silenceRemovedSec || 0)} dead-air purged</strong>
+                    <strong>
+                      {subtitlesOn ? `${result.stats?.captionsCount || 0} captions` : 'subtitles off'}
+                    </strong>{' '}
+                    ·{' '}
+                    <strong>
+                      {fmtTime(result.stats?.silenceRemovedSec || 0)}{' '}
+                      {result.planKind === 'visual' ? 'visual filler trimmed' : 'dead-air purged'}
+                    </strong>
                   </span>
                 </span>
               )}
@@ -1155,11 +1195,19 @@ export default function RawReel() {
                 </div>
               )}
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-ink text-sm">Generated Copy & Hashtags</h3>
+                <h3 className="font-semibold text-ink text-sm">
+                  {result.visualGrounded ? 'Frame-Grounded Copy & Hashtags' : 'Generated Copy & Hashtags'}
+                </h3>
                 <span className="text-[11px] text-ink-dim font-medium">
                   {result.hashtags.length} hashtags
                 </span>
               </div>
+              {result.planKind === 'visual' && (
+                <p className="mb-2.5 text-[11px] leading-relaxed text-ink-dim">
+                  No speech was detected. Any burned-in lines are on-screen design text, not subtitles of
+                  spoken words.
+                </p>
+              )}
               {result.punchline && (
                 <div className="mb-2.5 rounded-btn border border-primary/20 bg-primary-soft/40 px-3 py-2 text-[12px] font-semibold text-primary">
                   Opening hook: {result.punchline}
@@ -1178,7 +1226,7 @@ export default function RawReel() {
                     key={h}
                     className="text-[12px] font-medium text-primary bg-primary-soft border border-primary/20 rounded-full px-2.5 py-0.5"
                   >
-                    #{h}
+                    {h.startsWith('#') ? h : `#${h}`}
                   </span>
                 ))}
               </div>

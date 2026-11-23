@@ -11,7 +11,7 @@ import type {
   WorkspaceRow,
   WorkspacePatch,
 } from './types';
-import type { TimelineProject, WordTimestamp } from './timeline';
+import type { EditPreset, TimelineProject, VisualLook, WordTimestamp } from './timeline';
 import type { PressJob, PressStyleId } from './press';
 import { assertUploadableFile } from './uploadFile';
 
@@ -25,13 +25,36 @@ export interface AutoEditStats {
   captionsCount: number;
 }
 
+export interface VisualFramePayload {
+  timeSec: number;
+  dataUrl: string;
+  changeScore?: number;
+  brightness?: number;
+}
+
+export interface VisualAnalysisPayload {
+  caption: string;
+  hashtags: string[];
+  onScreenText: Array<{ text: string; startSec: number; endSec: number }>;
+  visualBeats: Array<{ timeSec: number; label: string }>;
+  rationale: string;
+  modelUsed: string;
+  framesSampled: number;
+  visualOnly: true;
+}
+
+export type AutoEditSource = 'gemini' | 'gemini_visual' | 'local_engine' | 'local_engine_visual';
+
 export interface AutoEditResult {
   project: TimelineProject;
-  source: 'gemini' | 'local_engine';
+  source: AutoEditSource;
+  planKind?: 'speech' | 'visual';
   stats: AutoEditStats;
   message: string;
   /** The director's one-line editorial idea, present only on an AI-directed cut. */
   rationale?: string;
+  /** Present only for a silent take analysed from real frames; copy is grounded in visuals, never speech. */
+  visualAnalysis?: VisualAnalysisPayload;
 }
 
 /** Ideas always answer: either the engine's cards or honest, editable scaffolds. */
@@ -565,12 +588,29 @@ Respond ONLY with pure JSON matching this exact structure:
   async autoEdit(payload: {
     videoMetadata: { id: string; title?: string; duration: number; targetAspectRatio?: '9:16' | '16:9' | '1:1' | '4:5'; sourceUrl?: string };
     words: WordTimestamp[];
-    options?: { silenceThresholdSec?: number; sfxEnabled?: boolean; punchZoomEnabled?: boolean; captionsEnabled?: boolean };
+    options?: {
+      silenceThresholdSec?: number;
+      sfxEnabled?: boolean;
+      punchZoomEnabled?: boolean;
+      captionsEnabled?: boolean;
+      visualLook?: VisualLook;
+      caption?: EditPreset['caption'];
+      model?: string;
+    };
+    visualFrames?: VisualFramePayload[];
   }): Promise<AutoEditResult> {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), AUTO_EDIT_TIMEOUT_MS);
     try {
-      const d = await json<{ data: TimelineProject; source: 'gemini' | 'local_engine'; stats: AutoEditStats; message: string; rationale?: string }>(
+      const d = await json<{
+        data: TimelineProject;
+        source: AutoEditSource;
+        planKind?: 'speech' | 'visual';
+        stats: AutoEditStats;
+        message: string;
+        rationale?: string;
+        visualAnalysis?: VisualAnalysisPayload;
+      }>(
         await fetch('/api/editor/auto-edit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -578,7 +618,15 @@ Respond ONLY with pure JSON matching this exact structure:
           body: JSON.stringify(payload),
         }),
       );
-      return { project: d.data, source: d.source, stats: d.stats, message: d.message, rationale: d.rationale };
+      return {
+        project: d.data,
+        source: d.source,
+        planKind: d.planKind,
+        stats: d.stats,
+        message: d.message,
+        rationale: d.rationale,
+        visualAnalysis: d.visualAnalysis,
+      };
     } finally {
       window.clearTimeout(timer);
     }

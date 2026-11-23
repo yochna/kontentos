@@ -139,6 +139,9 @@ export interface TimelineTrack {
 
 export type TargetAspectRatio = '9:16' | '16:9' | '1:1' | '4:5';
 
+/** Preset-wide look applied by both the preview and the FFmpeg exporter. */
+export type VisualLook = 'viral' | 'clean' | 'cinematic' | 'bold' | 'warm';
+
 export interface ProjectMetadata {
   id: string;
   title: string;
@@ -146,6 +149,7 @@ export interface ProjectMetadata {
   width: number;
   height: number;
   frameRate: number;
+  visualLook?: VisualLook;
   totalDuration: number;
   createdAt?: string;
   updatedAt?: string;
@@ -182,6 +186,7 @@ export interface EditPreset {
     punchZoomEnabled: boolean;
     captionsEnabled: boolean;
   };
+  visualLook: VisualLook;
   caption: {
     animation: CaptionAnimation;
     position: 'top' | 'middle' | 'bottom';
@@ -206,6 +211,7 @@ export const PRESETS: EditPreset[] = [
     icon: 'bolt',
     accent: 'tertiary',
     options: { silenceThresholdSec: 0.35, sfxEnabled: true, punchZoomEnabled: true, captionsEnabled: true },
+    visualLook: 'viral',
     caption: {
       animation: 'bouncePop',
       position: 'bottom',
@@ -227,6 +233,7 @@ export const PRESETS: EditPreset[] = [
     icon: 'graphic_eq',
     accent: 'primary',
     options: { silenceThresholdSec: 0.6, sfxEnabled: false, punchZoomEnabled: true, captionsEnabled: true },
+    visualLook: 'clean',
     caption: {
       animation: 'fade',
       position: 'bottom',
@@ -249,6 +256,7 @@ export const PRESETS: EditPreset[] = [
     icon: 'local_movies',
     accent: 'secondary',
     options: { silenceThresholdSec: 0.8, sfxEnabled: false, punchZoomEnabled: false, captionsEnabled: true },
+    visualLook: 'cinematic',
     caption: {
       animation: 'typewriter',
       position: 'bottom',
@@ -271,6 +279,7 @@ export const PRESETS: EditPreset[] = [
     icon: 'sports_esports',
     accent: 'tertiary',
     options: { silenceThresholdSec: 0.25, sfxEnabled: true, punchZoomEnabled: true, captionsEnabled: true },
+    visualLook: 'bold',
     caption: {
       animation: 'karaoke',
       position: 'bottom',
@@ -293,6 +302,7 @@ export const PRESETS: EditPreset[] = [
     icon: 'contrast',
     accent: 'primary',
     options: { silenceThresholdSec: 0.7, sfxEnabled: false, punchZoomEnabled: false, captionsEnabled: true },
+    visualLook: 'warm',
     caption: {
       animation: 'bannerPill',
       position: 'bottom',
@@ -652,22 +662,66 @@ export function buildLocalProject(
   let timelineCursor = 0;
   const per = preset.caption.wordsPerCue;
 
-  // Without a transcript there is nothing to cut and nothing to burn in. Keep the raw take and
-  // leave captions empty; a filename is not something the creator said.
+  // No transcript: do not invent speech. A silent take can still be cut into a visual rhythm with
+  // real reframes and on-screen design text. These lines are never labelled as spoken words.
   if (blocks.length === 0) {
-    clips.push({
-      id: 'vclip_raw',
-      name: 'Raw take',
-      type: 'video',
-      startOnTimeline: 0,
-      duration: round2(duration),
-      sourceStartOffset: 0,
-      sourceFileId: video.id,
-      sourceUrl: video.file_url,
-      speedMultiplier: 1,
-      keyframes: [],
-      audioModifiers: { pitchShiftCents: 0, volume: 1, fadeInSec: 0, fadeOutSec: 0 },
-    });
+    const lead = Math.min(duration * 0.06, 0.4);
+    const tail = Math.min(duration * 0.04, 0.3);
+    const usable = Math.max(0.6, duration - lead - tail);
+    const beatCount = Math.max(2, Math.min(6, Math.round(usable / 1.25)));
+    const beatDuration = usable / beatCount;
+    const visualLines = ['THE SETUP', 'WATCH CLOSELY', 'THE DETAIL', 'THE RESULT'];
+    const zooms = [1.16, 1.24, 1.1, 1.2, 1.14, 1.26];
+    for (let index = 0; index < beatCount; index += 1) {
+      const sourceStart = lead + beatDuration * index;
+      const clipId = `vclip_visual_${index}`;
+      const zoom = preset.options.punchZoomEnabled ? zooms[index % zooms.length] : 1;
+      clips.push({
+        id: clipId,
+        name: `Visual beat ${index + 1}`,
+        type: 'video',
+        startOnTimeline: round2(beatDuration * index),
+        duration: round2(beatDuration),
+        sourceStartOffset: round2(sourceStart),
+        sourceFileId: video.id,
+        sourceUrl: video.file_url,
+        speedMultiplier: 1,
+        keyframes:
+          zoom > 1
+            ? [
+                { timeOffset: 0, scale: 1, position: { x: 0, y: 0 }, easing: 'linear' },
+                { timeOffset: round2(beatDuration * 0.28), scale: zoom, position: { x: 0, y: -0.03 }, easing: 'easeInOut' },
+                { timeOffset: round2(beatDuration * 0.72), scale: Math.max(1.04, zoom - 0.08), position: { x: 0, y: 0 }, easing: 'easeOut' },
+                { timeOffset: round2(beatDuration), scale: zoom, position: { x: 0, y: 0 }, easing: 'easeInOut' },
+              ]
+            : [],
+        audioModifiers: { pitchShiftCents: 0, volume: 1, fadeInSec: 0, fadeOutSec: 0 },
+      });
+      if (preset.options.captionsEnabled && index < visualLines.length) {
+        textCues.push({
+          id: `t_visual_${index}`,
+          name: visualLines[index],
+          type: 'text',
+          startOnTimeline: round2(beatDuration * index + beatDuration * 0.12),
+          duration: round2(Math.max(0.45, beatDuration * 0.65)),
+          sourceStartOffset: round2(sourceStart),
+          parentClipId: clipId,
+          content: visualLines[index],
+          style: {
+            fontFamily: preset.caption.fontFamily || 'system-ui, sans-serif',
+            fontSize: preset.caption.fontSize,
+            colorHex: preset.caption.colorHex,
+            activeWordColorHex: preset.caption.activeWordColorHex,
+            strokeColorHex: preset.caption.strokeColorHex || '#000000',
+            strokeWidth: preset.caption.strokeWidth ?? 5,
+            shadowColorHex: preset.caption.shadowColorHex || 'rgba(0,0,0,0.9)',
+            bannerPillColorHex: preset.caption.bannerPillColorHex,
+            position: preset.caption.position,
+            animation: preset.caption.animation,
+          },
+        });
+      }
+    }
   }
 
   const sourceBlocks = blocks;
@@ -730,7 +784,8 @@ export function buildLocalProject(
     timelineCursor += dur;
   });
 
-  const total = round2(timelineCursor || duration);
+  const clipEnd = clips.reduce((max, clip) => Math.max(max, clip.startOnTimeline + clip.duration), 0);
+  const total = round2(Math.max(timelineCursor, clipEnd) || duration);
   return {
     schemaVersion: '1.0.0',
     projectMetadata: {
@@ -740,13 +795,14 @@ export function buildLocalProject(
       width: geometry.width,
       height: geometry.height,
       frameRate: 30,
+      visualLook: preset.visualLook,
       totalDuration: total,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
     globalAudioTracks: { bgmVolume: 0.25, duckingEnabled: true },
     tracks: [
-      { id: 'track-text', name: 'Kinetic Captions', type: 'text', isMuted: false, isLocked: false, zIndex: 30, clips: textCues },
+      { id: 'track-text', name: blocks.length ? 'Kinetic Captions' : 'On-Screen Text', type: 'text', isMuted: false, isLocked: false, zIndex: 30, clips: textCues },
       { id: 'track-sfx', name: 'SFX Overlays', type: 'sfx', isMuted: false, isLocked: false, zIndex: 20, clips: [] },
       { id: 'track-video', name: 'Primary Video', type: 'video', isMuted: false, isLocked: false, zIndex: 10, clips },
     ],
@@ -888,7 +944,11 @@ export function applyPresetLook(project: TimelineProject, preset: EditPreset): T
     }));
     return { ...tr, clips };
   });
-  return { ...project, tracks };
+  return {
+    ...project,
+    projectMetadata: { ...project.projectMetadata, visualLook: preset.visualLook },
+    tracks,
+  };
 }
 
 /** Parses SRT timestamp "00:00:01,234" or "00:00:01.234" or number into seconds. */

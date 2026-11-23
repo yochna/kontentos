@@ -13,6 +13,7 @@ import type {
   VideoClip,
   SFXClip,
   TextClip,
+  VisualLook,
   WordTimestamp,
 } from '@/lib/timeline';
 
@@ -61,6 +62,18 @@ export interface FilterCompilerOptions {
 
 const CAPTION_FONT = 'font.ttf';
 const MAX_HIGHLIGHT_CUES = 80;
+
+/**
+ * Preset looks live in the FFmpeg graph, not just the preview. `eq` and `vignette` are in the
+ * browser FFmpeg core and give a silent raw clip an immediately visible finished treatment.
+ */
+const LOOK_FILTERS: Record<VisualLook, string> = {
+  viral: 'eq=contrast=1.12:brightness=0.025:saturation=1.18,vignette=PI/5.5',
+  clean: 'eq=contrast=1.06:brightness=0.015:saturation=1.04',
+  cinematic: 'eq=contrast=1.16:brightness=-0.015:saturation=0.88,vignette=PI/4.5',
+  bold: 'eq=contrast=1.2:brightness=0.02:saturation=1.28,vignette=PI/5.2',
+  warm: 'eq=contrast=1.08:brightness=0.025:saturation=1.12,vignette=PI/6',
+};
 
 const seconds = (value: number) => Math.max(0, Number.isFinite(value) ? value : 0).toFixed(3);
 const even = (value: number) => Math.max(2, Math.trunc(value / 2) * 2);
@@ -310,7 +323,9 @@ export function compileTimelineToFiltergraph(
     .filter((clip) => clip.duration > 0)
     .sort((a, b) => a.startOnTimeline - b.startOnTimeline);
   const brollClips = ((!brollTrack?.isMuted ? brollTrack?.clips : []) || []) as VideoClip[];
-  const textClips = ((textTrack?.clips || []) as TextClip[]).filter((clip) => clip.duration > 0);
+  const textClips = (!textTrack?.isMuted ? ((textTrack?.clips || []) as TextClip[]) : []).filter(
+    (clip) => clip.duration > 0
+  );
 
   const lastClip = videoClips[videoClips.length - 1];
   const declaredDuration = project.projectMetadata.totalDuration;
@@ -399,43 +414,74 @@ export function compileTimelineToFiltergraph(
 
     const duration = end - start;
     const speed = clamp(clip.speedMultiplier || 1, 0.25, 4);
-    const sourceSpan = Math.max(0.04, duration * speed);
     const sourceStart = Math.max(0, clip.sourceStartOffset);
     const sourceUrl = clip.sourceUrl || inputVideoFileName;
     const inputIndex = sourceIndex.get(sourceUrl) ?? 0;
     const sourceFile = requiredVideoFiles[inputIndex];
-    const zoom = clip.keyframes?.reduce((max, keyframe) => Math.max(max, keyframe.scale || 1), 1) ?? 1;
 
-    const vLabel = `v_seg_${index}`;
-    filterSteps.push(
-      `[${inputIndex}:v:0]trim=start=${seconds(sourceStart)}:duration=${seconds(sourceSpan)},setpts=PTS-STARTPTS${
-        speed !== 1 ? `,setpts=PTS/${speed.toFixed(3)}` : ''
-      },${fitFrame(zoom)},trim=duration=${seconds(duration)},setpts=PTS-STARTPTS[${vLabel}]`
-    );
-
-    const aLabel = `a_seg_${index}`;
-    if (hasAudio(sourceUrl, sourceFile.fileName) && !videoTrack?.isMuted) {
-      const volume = (videoTrack?.volume ?? 1) * (clip.audioModifiers?.volume ?? 1);
-      const fadeIn = Math.min(duration, Math.max(0, clip.audioModifiers?.fadeInSec ?? 0));
-      const fadeOut = Math.min(duration, Math.max(0, clip.audioModifiers?.fadeOutSec ?? 0));
-      const chain = [
-        `[${inputIndex}:a:0]atrim=start=${seconds(sourceStart)}:duration=${seconds(sourceSpan)}`,
-        'asetpts=PTS-STARTPTS',
-        ...atempoFilters(speed),
-        ...(Math.abs(volume - 1) > 0.001 ? [`volume=${volume.toFixed(3)}`] : []),
-        ...(fadeIn > 0 ? [`afade=t=in:st=0:d=${seconds(fadeIn)}`] : []),
-        ...(fadeOut > 0 ? [`afade=t=out:st=${seconds(duration - fadeOut)}:d=${seconds(fadeOut)}`] : []),
-        `atrim=duration=${seconds(duration)}`,
-        'asetpts=PTS-STARTPTS',
-        // The output label belongs to the last filter, not to a separate graph step. A comma here
-        // made FFmpeg read "[a_seg_0]" as an empty filter and fail every talking-clip export.
-        `${audioFormat}[${aLabel}]`,
-      ];
-      filterSteps.push(chain.join(','));
-    } else {
-      filterSteps.push(silence(duration, aLabel));
+    // A keyframe punch used to be flattened into one static zoom, so the whole clip stayed cropped
+    // in. Splitting at keyframe offsets makes the punch visible in the MP4 while keeping the same
+    // safe crop/scale chain and paired video+audio concat segments.
+    const stops = (clip.keyframes || [])
+      .map((keyframe) => ({
+        offset: clamp(Number(keyframe.timeOffset) || 0, 0, duration),
+        scale: clamp(Number(keyframe.scale) || 1, 1, 1.6),
+      }))
+      .filter((keyframe, keyframeIndex, all) =>
+        keyframeIndex === 0 || keyframe.offset - all[keyframeIndex - 1].offset >= 0.08
+      )
+      .sort((a, b) => a.offset - b.offset);
+    if (stops.length && stops[0].offset > 0.05) stops.unshift({ offset: 0, scale: stops[0].scale });
+    if (stops.length && stops[stops.length - 1].offset < duration - 0.05) {
+      stops.push({ offset: duration, scale: stops[stops.length - 1].scale });
     }
-    segments.push({ video: `[${vLabel}]`, audio: `[${aLabel}]`, duration });
+    const intervals = stops.length >= 2
+      ? stops.slice(0, -1).map((stop, stopIndex) => ({
+          start: stop.offset,
+          end: stops[stopIndex + 1].offset,
+          zoom: stop.scale,
+        }))
+      : [{ start: 0, end: duration, zoom: 1 }];
+
+    intervals.forEach((interval, subIndex) => {
+      const intervalDuration = interval.end - interval.start;
+      if (intervalDuration < 0.06) return;
+      const intervalSourceStart = sourceStart + interval.start * speed;
+      const intervalSourceSpan = Math.max(0.04, intervalDuration * speed);
+      const suffix = intervals.length > 1 ? `_${subIndex}` : '';
+      const vLabel = `v_seg_${index}${suffix}`;
+      filterSteps.push(
+        `[${inputIndex}:v:0]trim=start=${seconds(intervalSourceStart)}:duration=${seconds(intervalSourceSpan)},setpts=PTS-STARTPTS${
+          speed !== 1 ? `,setpts=PTS/${speed.toFixed(3)}` : ''
+        },${fitFrame(interval.zoom)},trim=duration=${seconds(intervalDuration)},setpts=PTS-STARTPTS[${vLabel}]`
+      );
+
+      const aLabel = `a_seg_${index}${suffix}`;
+      if (hasAudio(sourceUrl, sourceFile.fileName) && !videoTrack?.isMuted) {
+        const volume = (videoTrack?.volume ?? 1) * (clip.audioModifiers?.volume ?? 1);
+        const globalFadeIn = Math.min(duration, Math.max(0, clip.audioModifiers?.fadeInSec ?? 0));
+        const globalFadeOut = Math.min(duration, Math.max(0, clip.audioModifiers?.fadeOutSec ?? 0));
+        const fadeIn = subIndex === 0 ? globalFadeIn : 0;
+        const fadeOut = subIndex === intervals.length - 1 ? globalFadeOut : 0;
+        const chain = [
+          `[${inputIndex}:a:0]atrim=start=${seconds(intervalSourceStart)}:duration=${seconds(intervalSourceSpan)}`,
+          'asetpts=PTS-STARTPTS',
+          ...atempoFilters(speed),
+          ...(Math.abs(volume - 1) > 0.001 ? [`volume=${volume.toFixed(3)}`] : []),
+          ...(fadeIn > 0 ? [`afade=t=in:st=0:d=${seconds(fadeIn)}`] : []),
+          ...(fadeOut > 0 ? [`afade=t=out:st=${seconds(Math.max(0, intervalDuration - fadeOut))}:d=${seconds(fadeOut)}`] : []),
+          `atrim=duration=${seconds(intervalDuration)}`,
+          'asetpts=PTS-STARTPTS',
+          // The output label belongs to the last filter, not to a separate graph step. A comma here
+          // made FFmpeg read "[a_seg_0]" as an empty filter and fail every talking-clip export.
+          `${audioFormat}[${aLabel}]`,
+        ];
+        filterSteps.push(chain.join(','));
+      } else {
+        filterSteps.push(silence(intervalDuration, aLabel));
+      }
+      segments.push({ video: `[${vLabel}]`, audio: `[${aLabel}]`, duration: intervalDuration });
+    });
     cursor = end;
   });
 
@@ -486,6 +532,12 @@ export function compileTimelineToFiltergraph(
     const captionedLabel = '[v_captioned]';
     filterSteps.push(`${currentVideoOut}${captionOverlay.filter}[v_captioned]`);
     currentVideoOut = captionedLabel;
+  }
+
+  const lookFilter = LOOK_FILTERS[project.projectMetadata.visualLook || 'viral'];
+  if (lookFilter) {
+    filterSteps.push(`${currentVideoOut}${lookFilter}[v_graded]`);
+    currentVideoOut = '[v_graded]';
   }
 
   filterSteps.push(`${currentVideoOut}format=yuv420p[vout]`);

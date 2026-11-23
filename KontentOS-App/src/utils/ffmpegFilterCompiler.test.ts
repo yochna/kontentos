@@ -193,10 +193,10 @@ describe('compileTimelineToFiltergraph', () => {
       sourceHasAudio: { '/uploads/a.mp4': true },
     });
 
-    expect(compiled.filterComplex).toContain(
-      'aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a_seg_0]'
+    expect(compiled.filterComplex).toMatch(
+      /aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo\[a_seg_0(?:_\d+)?\]/
     );
-    expect(compiled.filterComplex).not.toContain('stereo,[a_seg_0]');
+    expect(compiled.filterComplex).not.toContain('stereo,[a_seg_0');
     expect(compiled.filterComplex.split(';').every((step) => step.trim().length > 0)).toBe(true);
   });
 
@@ -260,7 +260,8 @@ describe('compileTimelineToFiltergraph', () => {
     );
 
     expect(compiled.filterComplex).toContain('afade=t=in:st=0:d=0.250');
-    expect(compiled.filterComplex).toContain('afade=t=out:st=1.600:d=0.400');
+    // Fade-out belongs to the final punch subsegment, not the whole pre-punch clip.
+    expect(compiled.filterComplex).toContain('afade=t=out:st=1.100:d=0.400');
 
     const silent = compileTimelineToFiltergraph(
       project({
