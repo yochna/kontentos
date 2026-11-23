@@ -215,7 +215,7 @@ Return STRICTLY JSON conforming to this schema without markdown fences:
     if (ai) {
       try {
         const response = await generateGeminiContentWithRetry(ai, {
-          preferredModel: 'gemini-3.1-flash-lite',
+          preferredModel: DEFAULT_MODEL,
           contents: systemPrompt,
           config: {
             responseMimeType: 'application/json',
@@ -334,7 +334,7 @@ Return ONLY a single JSON object (not an array) matching this schema:
 }`;
 
         const response = await generateGeminiContentWithRetry(ai, {
-          preferredModel: 'gemini-3.1-flash-lite',
+          preferredModel: DEFAULT_MODEL,
           contents: systemPrompt,
           config: {
             responseMimeType: 'application/json',

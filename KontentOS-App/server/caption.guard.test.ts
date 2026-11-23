@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getFallbackCopy, isUsableCaption, preferredModelFrom } from './routes/caption';
+import { DEFAULT_MODEL, ENGINE_MODELS, getFallbackCopy, isUsableCaption, preferredModelFrom } from './routes/caption';
 
 describe('caption output guard', () => {
   it('rejects the model answering the prompt instead of writing the post', () => {
@@ -65,7 +65,15 @@ describe('the caption fallback when nothing was said', () => {
   });
 });
 
-describe('engine choice', () => {  it('accepts an engine the server can actually run', () => {
+describe('engine choice', () => {
+  it('starts from the engine the live API actually answers', () => {
+    // Probed 503/404 on the larger and retired models; flash-lite is the one that returned text.
+    expect(DEFAULT_MODEL).toBe('gemini-3.5-flash-lite');
+    expect(ENGINE_MODELS[0]).toBe(DEFAULT_MODEL);
+    expect(preferredModelFrom('gemini-3.5-flash-lite')).toBe('gemini-3.5-flash-lite');
+  });
+
+  it('accepts an engine the server can actually run', () => {
     expect(preferredModelFrom('gemini-3.1-flash-lite')).toBe('gemini-3.1-flash-lite');
     expect(preferredModelFrom('gemini-3.8-flash')).toBe('gemini-3.8-flash');
     expect(preferredModelFrom('  gemini-flash-latest  ')).toBe('gemini-flash-latest');

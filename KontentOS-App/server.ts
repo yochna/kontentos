@@ -678,27 +678,31 @@ Output valid JSON:
             // A saturated model used to leave intake on "Reading the audio…" indefinitely, because
             // each candidate was awaited with no deadline at all. Every attempt now gets one, inside
             // a shared budget, so the honest "nothing was transcribed" answer always arrives.
-            const TRANSCRIBE_BUDGET_MS = 45_000;
+            const TRANSCRIBE_BUDGET_MS = 55_000;
+            // A saturated model has to give way quickly; without its own cap it could hold the
+            // entire shared budget and the browser (which gives up around a minute) would abort
+            // before the honest answer came back.
+            const PER_MODEL_TIMEOUT_MS = 35_000;
             const budgetEndsAt = Date.now() + TRANSCRIBE_BUDGET_MS;
             const withinBudget = () => Date.now() < budgetEndsAt;
             function raceBudget<T>(work: Promise<T>, label: string): Promise<T> {
               const left = budgetEndsAt - Date.now();
               if (left <= 0) return Promise.reject(new Error(`${label}: transcription budget spent`));
+              const deadline = Math.min(left, PER_MODEL_TIMEOUT_MS);
               return Promise.race([
                 work,
                 new Promise<T>((_, reject) => {
-                  const timer = setTimeout(() => reject(new Error(`${label}: no answer in ${left}ms`)), left);
+                  const timer = setTimeout(() => reject(new Error(`${label}: no answer in ${deadline}ms`)), deadline);
                   timer.unref?.();
                 }),
               ]);
             }
 
-            const modelsToTry = [
-              'gemini-3.5-transcribe',
-              'gemini-3.8-flash',
-              'gemini-3.5-flash',
-              'gemini-3.5-flash-lite',
-            ];
+            // Verified against the live API with real audio: the dedicated transcribe model returns
+            // verbatim audioTranscription text, flash-lite answers when asked for JSON, and the
+            // larger flash models keep returning 503 "high demand". Only the two that answer are
+            // tried, so the honest fallback arrives before the browser gives up at about a minute.
+            const modelsToTry = ['gemini-3.5-transcribe', 'gemini-3.5-flash-lite'];
 
             for (const model of modelsToTry) {
               if (!withinBudget()) {
@@ -706,8 +710,11 @@ Output valid JSON:
                 break;
               }
               try {
-                // gemini-3.5-transcribe is an audio-only model; map video containers to audio containers
-                const effectiveMime = model.includes('transcribe') && mimeType.startsWith('video/')
+                // This job is speech-to-text, not vision. Sending the bytes as video/mp4 made the
+                // API return 503 under load, while the same MP4 labelled audio/mp4 transcribed in
+                // seconds. Every engine therefore gets the audio container, including the dedicated
+                // transcribe model.
+                const effectiveMime = mimeType.startsWith('video/')
                   ? (mimeType === 'video/webm' ? 'audio/webm' : 'audio/mp4')
                   : mimeType;
 
@@ -775,7 +782,7 @@ Output valid JSON:
                       try {
                         const trRes = await raceBudget(
                           ai.models.generateContent({
-                            model: 'gemini-3.5-flash',
+                            model: 'gemini-3.5-flash-lite',
                             contents: `Translate this spoken video transcript accurately into ${targetLanguage}. Output ONLY the translated text without markdown or commentary:\n\n${transcript}`,
                           }),
                           `translate to ${targetLanguage}`
@@ -999,7 +1006,7 @@ Output valid JSON:
       // The screen offers a key field only where posting one can actually work; elsewhere it says
       // where the key does get set instead of sending the creator to a 403.
       editable: process.env.NODE_ENV !== 'production',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.5-flash-lite',
     });
   });
 

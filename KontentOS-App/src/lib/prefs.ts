@@ -27,13 +27,14 @@ export interface AiSettings extends AiPrefs {
  * them would only let a creator pick an engine that cannot run.
  */
 export const MODEL_CHOICES = [
-  { id: 'gemini-3.1-flash-lite', label: 'Flash Lite — fastest, answers under load' },
+  { id: 'gemini-3.5-flash-lite', label: 'Flash Lite — verified working, answers under load' },
   { id: 'gemini-3.8-flash', label: 'Flash — richer, can be unavailable under load' },
   { id: 'gemini-flash-latest', label: 'Flash Latest — whatever Google ships as current' },
+  { id: 'gemini-3.1-flash-lite', label: 'Older Flash Lite — kept for existing sessions' },
 ] as const;
 
 const DEFAULTS: AiSettings = {
-  aiModel: 'gemini-3.1-flash-lite',
+  aiModel: 'gemini-3.5-flash-lite',
   temperature: 0.7,
   autoDraft: true,
   voiceMatch: true,

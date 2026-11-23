@@ -865,7 +865,7 @@ router.post('/auto-edit', async (req, res) => {
           duration: videoMetadata.duration,
           targetAspectRatio: videoMetadata.targetAspectRatio,
         });
-        const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+        const modelsToTry = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
         let geminiResponseText: string | null = null;
 
         for (const model of modelsToTry) {
@@ -880,7 +880,7 @@ router.post('/auto-edit', async (req, res) => {
                   temperature: 0.35,
                 },
               }),
-              12000,
+              45000,
               `Gemini timeout on ${model}`
             );
 
@@ -1008,7 +1008,7 @@ router.post('/command', async (req, res) => {
           },
         });
 
-        const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+        const modelsToTry = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
         let geminiResponseText: string | null = null;
 
         for (const model of modelsToTry) {
@@ -1024,7 +1024,7 @@ router.post('/command', async (req, res) => {
                   responseMimeType: 'application/json',
                 },
               }),
-              14000,
+              45000,
               `Gemini timeout on ${model}`
             );
 

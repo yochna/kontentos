@@ -55,8 +55,12 @@ export interface TitleCopy {
  *  an offline dev backend. Every route in server/ writes its own human-readable `error`. */
 /** Long enough for a warm model, short enough that the Ideas station never sits on a spinner. */
 const IDEA_REQUEST_TIMEOUT_MS = 8_000;
-/** The editor has a deterministic local cut waiting, so a cold model never blocks assembly. */
-const AUTO_EDIT_TIMEOUT_MS = 14_000;
+/**
+ * The director plan is a small JSON call, but Gemini regularly takes 15-30s under load. Waiting
+ * for it is what earns the "AI-directed cut" badge; aborting early mislabelled a real transcript
+ * as local assembly. The deterministic cut remains the safety net if the engine never answers.
+ */
+const AUTO_EDIT_TIMEOUT_MS = 100_000;
 
 const STATUS_MESSAGES: Record<number, string> = {
   400: 'The studio could not accept that. Check the fields and try again.',

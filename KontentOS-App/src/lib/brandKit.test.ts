@@ -66,7 +66,7 @@ describe('Room station preferences', () => {
 
   it('replaces an engine the server cannot run with the default', () => {
     withWorkspace({ prefs: { aiModel: 'gemini-2.5-flash' } });
-    expect(copyModel()).toBe('gemini-3.1-flash-lite');
+    expect(copyModel()).toBe('gemini-3.5-flash-lite');
   });
 
   it('clamps a broken slider value instead of sending it to the model', () => {

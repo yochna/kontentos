@@ -44,7 +44,8 @@ async function generateGeminiContentWithRetry(
   params: { contents: any; config?: any; preferredModel?: string }
 ): Promise<any> {
   const modelsToTry = [
-    params.preferredModel || 'gemini-3.8-flash',
+    params.preferredModel || 'gemini-3.5-flash-lite',
+    'gemini-3.5-flash-lite',
     'gemini-3.8-flash',
     'gemini-3.1-flash-lite',
   ];
@@ -182,7 +183,7 @@ Return JSON strictly matching this schema:
 }`;
 
       const response = await generateGeminiContentWithRetry(ai, {
-        preferredModel: 'gemini-3.1-flash-lite',
+        preferredModel: 'gemini-3.5-flash-lite',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',

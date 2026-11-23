@@ -30,19 +30,19 @@ function clampTemperature(value: unknown, fallback = 0.7): number {
   return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : fallback;
 }
 
-// Probed against the live API: 3.8-flash and flash-latest answer 503 under load, 2.5-flash is
-// retired (404), and 3.1-flash-lite is the candidate that actually returns. It also occasionally
-// takes over two minutes when Google is shedding load, so one attempt gets 15s before the next
-// candidate runs — long enough to catch a slow answer, short enough that the ship station's
-// spinner never stalls the creator.
-export const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+// Probed against the live API: 3.8-flash, 3.1-flash-lite and flash-latest return 503 under load,
+// 2.5/2.0-flash are retired (404), and 3.5-flash-lite is the candidate that actually answers. It
+// can still stall when Google is shedding load, so one attempt gets 15s before the next candidate
+// runs — long enough to catch a slow answer, short enough that the station never stalls the maker.
+export const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 export const MODEL_ATTEMPT_TIMEOUT_MS = 15000;
 /**
  * The Room station's "primary model" dropdown sends one of these as the first candidate. Anything
  * else — a stale value in localStorage, a hand-crafted request — is dropped so the cascade starts
- * from the engine that is known to answer.
+ * from the engine that is known to answer. Older lite names stay accepted as late fallbacks for
+ * browsers that still hold them in localStorage.
  */
-export const ENGINE_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+export const ENGINE_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
 
 export function preferredModelFrom(value: unknown): string | undefined {
   const model = typeof value === 'string' ? value.trim() : '';
@@ -761,7 +761,7 @@ router.post('/text-gen', async (req, res) => {
     if (ai) {
       try {
         const response = await generateGeminiContentWithRetry(ai, {
-          preferredModel: 'gemini-3.1-flash-lite',
+          preferredModel: 'gemini-3.5-flash-lite',
           contents: String(prompt),
         });
         if (response && response.text) {
