@@ -44,6 +44,8 @@ export interface AutoEditOutcome {
   /** True when no real speech was available, so captions are honest placeholders, not the creator's words. */
   needsScript?: boolean;
   rationale?: string;
+  /** The generated opening line, used as the post hook without pretending it was spoken. */
+  punchline?: string;
   caption: string;
   hashtags: string[];
   message?: string;
@@ -588,6 +590,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
     let caption = '';
     let hashtags: string[] = [];
+    let punchline = '';
+    let fullTranscript = '';
     let realWords: WordTimestamp[] | null = null;
 
     onProgress?.({ stage: 'reading', fraction: 0.06, message: 'Reading the take and its transcript…' });
@@ -607,7 +611,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         (seg: any) => seg?.text && !/^\s*\[[^\]]*\]\s*$/.test(String(seg.text)),
       );
       if (subs && subs.transcript && usable.length) {
-        const fullTranscript = usable.map((seg: any) => String(seg.text).trim()).join(' ').replace(/\s+/g, ' ');
+        fullTranscript = usable.map((seg: any) => String(seg.text).trim()).join(' ').replace(/\s+/g, ' ');
         caption = fullTranscript;
         realWords = [];
         for (const seg of usable) {
@@ -633,7 +637,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (subErr) {
-      console.warn('[runAutoEdit] Could not fetch real subtitles, falling back to copy engine:', subErr);
+      console.warn('[runAutoEdit] No usable transcript; keeping the raw take without invented speech:', subErr);
+    }
+
+    // The post copy is generated from what the creator actually said, never from a camera filename.
+    // Burned-in captions stay verbatim; this hook is publish copy, not fake dialogue.
+    if (fullTranscript) {
+      try {
+        const copy = await api.copyFromTitle({
+          title: fullTranscript.slice(0, 180),
+          tone: preset.tone,
+          context: copyVoice(),
+          temperature: readAiPrefs().temperature,
+          model: copyModel(),
+        });
+        punchline = copy.hooks?.[0] || '';
+        caption = [punchline, copy.caption].filter(Boolean).join('\n\n') || fullTranscript;
+        hashtags = (copy.hashtags || []).filter((tag) => Boolean(cleanCreatorSubject(tag)));
+      } catch {
+        caption = fullTranscript;
+        hashtags = [];
+      }
     }
 
     onProgress?.({
@@ -674,7 +698,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // A transcript is a hard gate. Without one, send no words: the editor keeps the raw take and
     // leaves captions empty instead of pretending the filename or a marketing line was spoken.
     const words = realWords && realWords.length > 0 ? realWords : [];
-    const base = { caption, hashtags };
+    const base = { caption, hashtags, punchline };
 
     onProgress?.({
       stage: 'captions',

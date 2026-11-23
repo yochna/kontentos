@@ -784,6 +784,11 @@ export default function RawReel() {
                   {result.hashtags.length} hashtags
                 </span>
               </div>
+              {result.punchline && (
+                <div className="mb-2.5 rounded-btn border border-primary/20 bg-primary-soft/40 px-3 py-2 text-[12px] font-semibold text-primary">
+                  Opening hook: {result.punchline}
+                </div>
+              )}
               <textarea
                 value={editedCaption}
                 onChange={(e) => setEditedCaption(e.target.value)}
