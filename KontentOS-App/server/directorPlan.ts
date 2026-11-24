@@ -318,6 +318,46 @@ function mapRawToTimeline(rawTime: number, mappings: SegmentMapping[]): number {
   return Number((best.timelineStart + (clamped - best.rawStart)).toFixed(3));
 }
 
+const round3 = (value: number) => Number(value.toFixed(3));
+
+/**
+ * A director plan can be perfectly reasonable and still leave a short talking clip visually flat:
+ * there may be no silence to cut and no "magic" word to punch on. Preserve the model's choices, but
+ * give every beat a deterministic punch rhythm so the exported reel always looks edited.
+ */
+export function rhythmicPunchKeyframes(duration: number, seed: number, startAt = 0): TransformKeyframe[] {
+  if (duration < 0.8) return [];
+  const usable = Math.max(0.3, duration - startAt);
+  const beatCount = usable >= 3.2 ? 2 : 1;
+  const zooms = [1.3, 1.22, 1.36, 1.26];
+  const pans = [
+    { x: 0, y: -0.05 },
+    { x: 0.025, y: 0.04 },
+    { x: -0.025, y: -0.03 },
+    { x: 0, y: 0.05 },
+  ];
+  const keyframes: TransformKeyframe[] = [];
+
+  for (let beat = 0; beat < beatCount; beat += 1) {
+    const beatStart = startAt + (usable * beat) / beatCount;
+    const beatEnd = startAt + (usable * (beat + 1)) / beatCount;
+    const peak = Math.min(beatEnd - 0.08, beatStart + Math.max(0.16, (beatEnd - beatStart) * 0.28));
+    const settle = Math.min(beatEnd, peak + Math.max(0.18, (beatEnd - beatStart) * 0.35));
+    const zoom = zooms[(seed + beat) % zooms.length];
+    const pan = pans[(seed + beat) % pans.length];
+    keyframes.push(
+      { timeOffset: round3(beatStart), scale: 1, position: { x: 0, y: 0 }, easing: 'linear' },
+      { timeOffset: round3(peak), scale: zoom, position: pan, easing: 'easeInOut' },
+      { timeOffset: round3(settle), scale: Math.max(1.06, zoom - 0.08), position: { x: 0, y: 0 }, easing: 'easeOut' },
+      { timeOffset: round3(beatEnd), scale: 1, position: { x: 0, y: 0 }, easing: 'linear' }
+    );
+  }
+
+  return keyframes.filter(
+    (keyframe, index, all) => index === 0 || keyframe.timeOffset - all[index - 1].timeOffset >= 0.08
+  );
+}
+
 /**
  * Turn a validated director plan into the exact project the editor and FFmpeg exporter consume.
  * This function is pure: the same plan and transcript always produce the same timeline.
@@ -333,10 +373,13 @@ export function compileDirectorPlan(
     targetAspectRatio?: '9:16' | '16:9' | '1:1' | '4:5';
     sourceUrl?: string;
   },
-  words: WordTimestamp[]
+  words: WordTimestamp[],
+  options: { punchZoomEnabled?: boolean; sfxEnabled?: boolean } = {}
 ): TimelineProject {
   const rawDuration = Math.max(0.1, metadata.duration || words[words.length - 1]?.end || 10);
   const pad = PAD[plan.pace];
+  const punchEnabled = options.punchZoomEnabled !== false;
+  const sfxEnabled = options.sfxEnabled !== false;
   const mappings: SegmentMapping[] = [];
   const videoClips: VideoClip[] = [];
   let cursor = 0;
@@ -354,19 +397,24 @@ export function compileDirectorPlan(
     const clipPunches = plan.punch
       .filter((i) => i >= a && i <= b)
       .slice(0, 2);
-    clipPunches.forEach((wordIndex) => {
-      const at = Number(Math.max(0, Math.min(duration - 0.1, words[wordIndex].start - rawStart)).toFixed(3));
-      keyframes.push(
-        { timeOffset: 0, scale: 1, position: { x: 0, y: 0 }, easing: 'linear' },
-        { timeOffset: at, scale: 1.32, position: { x: 0, y: -0.04 }, easing: 'easeInOut' },
-        {
-          timeOffset: Number(Math.min(duration, at + 0.9).toFixed(3)),
-          scale: 1,
-          position: { x: 0, y: 0 },
-          easing: 'easeOut',
-        }
-      );
-    });
+    if (punchEnabled) {
+      if (clipPunches.length === 0) {
+        keyframes.push(...rhythmicPunchKeyframes(duration, index));
+      }
+      clipPunches.forEach((wordIndex) => {
+        const at = Number(Math.max(0, Math.min(duration - 0.1, words[wordIndex].start - rawStart)).toFixed(3));
+        keyframes.push(
+          { timeOffset: 0, scale: 1, position: { x: 0, y: 0 }, easing: 'linear' },
+          { timeOffset: at, scale: 1.32, position: { x: 0, y: -0.04 }, easing: 'easeInOut' },
+          {
+            timeOffset: Number(Math.min(duration, at + 0.9).toFixed(3)),
+            scale: 1,
+            position: { x: 0, y: 0 },
+            easing: 'easeOut',
+          }
+        );
+      });
+    }
 
     const label = words
       .slice(a, Math.min(b + 1, a + 3))
@@ -463,6 +511,26 @@ export function compileDirectorPlan(
       audioModifiers: { pitchShiftCents: 0, volume: 1, fadeInSec: 0, fadeOutSec: 0.1 },
     });
   });
+
+  // A clean transcript with no "money"/"boom" words gives the model nothing to score. A light pop
+  // on each kept beat still gives the export an edited rhythm without inventing any spoken words.
+  if (sfxEnabled && plan.sfx.length === 0) {
+    videoClips.forEach((clip, index) => {
+      if (clip.duration < 0.5) return;
+      const startOnTimeline = round3(clip.startOnTimeline + 0.06);
+      if (sfxClips.some((existing) => Math.abs(existing.startOnTimeline - startOnTimeline) < 0.8)) return;
+      sfxClips.push({
+        id: `sfx_beat_${index}`,
+        name: 'Beat Pop',
+        type: 'sfx',
+        sfxAssetId: 'pop',
+        startOnTimeline,
+        duration: 0.4,
+        sourceStartOffset: 0,
+        audioModifiers: { pitchShiftCents: 0, volume: 0.85, fadeInSec: 0, fadeOutSec: 0.1 },
+      });
+    });
+  }
 
   return {
     schemaVersion: '1.0.0',

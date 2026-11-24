@@ -7,6 +7,7 @@ import {
   parseDirectorPlan,
   normalizeDirectorPlan,
   compileDirectorPlan,
+  rhythmicPunchKeyframes,
 } from '../directorPlan.js';
 import {
   TimelineProject,
@@ -542,10 +543,11 @@ function generateDeterministicAutoEdit(
     };
     mappings.push(mapping);
 
-    // Check for emphasis punch zooms inside this block
+    // A punch rhythm is mandatory for any preset that allows zooms. Only a clip with real emphasis
+    // words keeps the old word-scored punches; ordinary speech still gets visible editorial motion.
     const keyframes: VideoClip['keyframes'] = [];
     if (punchZoomEnabled) {
-      // Find prominent emphasis words
+      const emphasisTimes: number[] = [];
       block.forEach((w) => {
         const clean = w.word.toLowerCase().replace(/[^a-z0-9]/g, '');
         const isEmphasis = [
@@ -553,32 +555,34 @@ function generateDeterministicAutoEdit(
           'never', 'always', 'truth', 'huge', 'insane', 'boom', 'hack', 'free',
           'growth', 'warning', 'scale', 'game', 'results', 'instant', 'million',
         ].includes(clean);
-
-        if (isEmphasis) {
-          const timeInClip = Math.max(0, Number((w.start - rawStart).toFixed(3)));
-          // Add punch zoom keyframe if not too crowded
-          if (!keyframes.some((kf) => Math.abs(kf.timeOffset - timeInClip) < 0.6)) {
-            keyframes.push({
-              timeOffset: Math.max(0, timeInClip - 0.05),
-              scale: 1.0,
-              position: { x: 0, y: 0 },
-              easing: 'linear',
-            });
-            keyframes.push({
-              timeOffset: timeInClip,
-              scale: 1.35,
-              position: { x: 0, y: -0.05 },
-              easing: 'easeInOut',
-            });
-            keyframes.push({
-              timeOffset: Math.min(duration, timeInClip + 1.2),
-              scale: 1.0,
-              position: { x: 0, y: 0 },
-              easing: 'easeOut',
-            });
-          }
-        }
+        if (isEmphasis) emphasisTimes.push(Math.max(0, Number((w.start - rawStart).toFixed(3))));
       });
+
+      if (emphasisTimes.length === 0) {
+        keyframes.push(...rhythmicPunchKeyframes(duration, idx));
+      } else {
+        emphasisTimes.forEach((timeInClip) => {
+          if (keyframes.some((kf) => Math.abs(kf.timeOffset - timeInClip) < 0.6)) return;
+          keyframes.push({
+            timeOffset: Math.max(0, timeInClip - 0.05),
+            scale: 1,
+            position: { x: 0, y: 0 },
+            easing: 'linear',
+          });
+          keyframes.push({
+            timeOffset: timeInClip,
+            scale: 1.42,
+            position: { x: 0, y: -0.05 },
+            easing: 'easeInOut',
+          });
+          keyframes.push({
+            timeOffset: Math.min(duration, timeInClip + 1.2),
+            scale: 1,
+            position: { x: 0, y: 0 },
+            easing: 'easeOut',
+          });
+        });
+      }
     }
 
     videoClips.push({
@@ -661,6 +665,24 @@ function generateDeterministicAutoEdit(
         }
       }
     });
+
+    if (sfxClips.length === 0) {
+      videoClips.forEach((clip, index) => {
+        if (clip.duration < 0.5) return;
+        const startOnTimeline = Number((clip.startOnTimeline + 0.06).toFixed(3));
+        if (sfxClips.some((existing) => Math.abs(existing.startOnTimeline - startOnTimeline) < 0.8)) return;
+        sfxClips.push({
+          id: `sfx_beat_${index}_${Date.now()}`,
+          name: 'Beat Pop',
+          type: 'sfx',
+          sfxAssetId: 'pop',
+          startOnTimeline,
+          duration: 0.4,
+          sourceStartOffset: 0,
+          audioModifiers: { pitchShiftCents: 0, volume: 0.85, fadeInSec: 0, fadeOutSec: 0.1 },
+        });
+      });
+    }
   }
 
   // 4. Build readable kinetic captions. Chunks follow the punctuation in the real transcript
@@ -937,7 +959,11 @@ router.post('/auto-edit', async (req, res) => {
                   targetAspectRatio: videoMetadata.targetAspectRatio,
                   sourceUrl: videoMetadata.sourceUrl,
                 },
-                rawWords
+                rawWords,
+                {
+                  punchZoomEnabled: typedOptions.punchZoomEnabled !== false,
+                  sfxEnabled: typedOptions.sfxEnabled !== false,
+                }
               ),
               deterministicProject
             );

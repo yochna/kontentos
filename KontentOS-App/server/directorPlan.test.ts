@@ -124,13 +124,37 @@ describe('director plan', () => {
     const normalized = normalizeDirectorPlan(plan(), words.length)!;
     const project = compileDirectorPlan(normalized, metadata, words);
     const video = project.tracks.find((t) => t.type === 'video')!.clips as VideoClip[];
-    const punches = video.flatMap((c) => c.keyframes);
-    expect(punches.filter((k) => k.scale > 1.1)).toHaveLength(2);
+    const punches = video.flatMap((c) => c.keyframes).filter((k) => k.scale > 1.1);
+    // The two word-scored punches stay exactly where the director put them. Other beats may also
+    // get a deterministic punch so a quiet clip never exports visually flat.
+    expect(punches.length).toBeGreaterThanOrEqual(2);
+    expect(punches.some((k) => Math.abs(k.timeOffset - 0.07) < 0.02)).toBe(true);
+    expect(punches.some((k) => Math.abs(k.timeOffset - 0.32) < 0.02)).toBe(true);
 
     const sfx = project.tracks.find((t) => t.type === 'sfx')!.clips as SFXClip[];
     expect(sfx).toHaveLength(1);
     expect(sfx[0].sfxAssetId).toBe('pop');
     expect(sfx[0].startOnTimeline).toBeCloseTo(1.01, 2);
+  });
+
+  it('adds a visible punch rhythm and beat sound when the model finds no emphasis words', () => {
+    const normalized = normalizeDirectorPlan(plan({ punch: [], sfx: [] }), words.length)!;
+    const project = compileDirectorPlan(normalized, metadata, words);
+    const video = project.tracks.find((t) => t.type === 'video')!.clips as VideoClip[];
+    const sfx = project.tracks.find((t) => t.type === 'sfx')!.clips as SFXClip[];
+
+    expect(video.flatMap((c) => c.keyframes).filter((k) => k.scale > 1.1).length).toBeGreaterThan(0);
+    expect(sfx.length).toBeGreaterThan(0);
+    expect(sfx.every((clip) => clip.sfxAssetId === 'pop')).toBe(true);
+
+    const quietProject = compileDirectorPlan(normalized, metadata, words, {
+      punchZoomEnabled: false,
+      sfxEnabled: false,
+    });
+    const quietVideo = quietProject.tracks.find((t) => t.type === 'video')!.clips as VideoClip[];
+    const quietSfx = quietProject.tracks.find((t) => t.type === 'sfx')!.clips as SFXClip[];
+    expect(quietVideo.flatMap((c) => c.keyframes).filter((k) => k.scale > 1.1)).toHaveLength(0);
+    expect(quietSfx).toHaveLength(0);
   });
 
   it('clamps nonsense indices and rejects an empty plan', () => {

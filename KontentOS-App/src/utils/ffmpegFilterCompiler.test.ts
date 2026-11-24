@@ -121,6 +121,18 @@ describe('compileTimelineToFiltergraph', () => {
     expect(compiled.filterComplex).toContain('y=1566');
   });
 
+  it('bakes the strong shared look grade and vignette into the exported MP4', () => {
+    const graded = project();
+    graded.projectMetadata.visualLook = 'bold';
+    const compiled = compileTimelineToFiltergraph(graded, {
+      sourceHasAudio: { '/uploads/a.mp4': false },
+    });
+
+    expect(compiled.filterComplex).toContain('eq=contrast=1.48:brightness=0.03:saturation=1.72');
+    expect(compiled.filterComplex).toContain('vignette=PI/3.5');
+    expect(compiled.filterComplex).toContain('[v_graded]');
+  });
+
   it('keeps the box only for the solid-pill caption preset', () => {
     const base = caption();
     const pill = compileTimelineToFiltergraph(

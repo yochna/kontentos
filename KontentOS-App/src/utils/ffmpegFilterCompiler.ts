@@ -13,9 +13,9 @@ import type {
   VideoClip,
   SFXClip,
   TextClip,
-  VisualLook,
   WordTimestamp,
 } from '@/lib/timeline';
+import { FFMPEG_LOOK_FILTERS } from '@/lib/visualLooks';
 
 export interface CaptionFile {
   /** Name inside the worker's virtual filesystem. */
@@ -62,18 +62,6 @@ export interface FilterCompilerOptions {
 
 const CAPTION_FONT = 'font.ttf';
 const MAX_HIGHLIGHT_CUES = 80;
-
-/**
- * Preset looks live in the FFmpeg graph, not just the preview. `eq` and `vignette` are in the
- * browser FFmpeg core and give a silent raw clip an immediately visible finished treatment.
- */
-const LOOK_FILTERS: Record<VisualLook, string> = {
-  viral: 'eq=contrast=1.12:brightness=0.025:saturation=1.18,vignette=PI/5.5',
-  clean: 'eq=contrast=1.06:brightness=0.015:saturation=1.04',
-  cinematic: 'eq=contrast=1.16:brightness=-0.015:saturation=0.88,vignette=PI/4.5',
-  bold: 'eq=contrast=1.2:brightness=0.02:saturation=1.28,vignette=PI/5.2',
-  warm: 'eq=contrast=1.08:brightness=0.025:saturation=1.12,vignette=PI/6',
-};
 
 const seconds = (value: number) => Math.max(0, Number.isFinite(value) ? value : 0).toFixed(3);
 const even = (value: number) => Math.max(2, Math.trunc(value / 2) * 2);
@@ -534,7 +522,7 @@ export function compileTimelineToFiltergraph(
     currentVideoOut = captionedLabel;
   }
 
-  const lookFilter = LOOK_FILTERS[project.projectMetadata.visualLook || 'viral'];
+  const lookFilter = FFMPEG_LOOK_FILTERS[project.projectMetadata.visualLook || 'viral'];
   if (lookFilter) {
     filterSteps.push(`${currentVideoOut}${lookFilter}[v_graded]`);
     currentVideoOut = '[v_graded]';

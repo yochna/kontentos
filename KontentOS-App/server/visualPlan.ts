@@ -99,7 +99,7 @@ export function compileVisualPlan({ metadata, analysis, preset }: VisualCompileO
   const captionsEnabled = preset?.options?.captionsEnabled ?? true;
   const sfxEnabled = preset?.options?.sfxEnabled ?? true;
   const captionStyle = preset?.caption;
-  const zooms = [1.16, 1.24, 1.1, 1.2, 1.14, 1.26];
+  const zooms = [1.3, 1.4, 1.24, 1.36, 1.28, 1.44];
 
   const videoClips: VideoClip[] = ranges.map((range, index) => {
     const zoom = punchEnabled ? zooms[index % zooms.length] : 1;

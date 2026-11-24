@@ -153,6 +153,7 @@ export default function RawReel() {
   const [editProgress, setEditProgress] = useState<AutoEditProgress | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<AutoEditOutcome | null>(null);
+  const [showRawTake, setShowRawTake] = useState(false);
   const [editedCaption, setEditedCaption] = useState('');
   const [playing, setPlaying] = useState(false);
   const [playheadSec, setPlayheadSec] = useState(0);
@@ -227,6 +228,7 @@ export default function RawReel() {
     if (videos.some((v) => v.id === litCutId)) {
       setVideoId(litCutId);
       setResult(null);
+      setShowRawTake(false);
       setPlayheadSec(0);
     }
   }, [litCutId, videos]);
@@ -422,6 +424,7 @@ export default function RawReel() {
     if (!video || busy) return;
     setBusy(true);
     setResult(null);
+    setShowRawTake(false);
     setEditedCaption('');
     setGenerationError(null);
     setPlaying(false);
@@ -912,6 +915,7 @@ export default function RawReel() {
                   <Icon name="check_circle" size={17} className="text-tertiary shrink-0" />
                   <span>
                     <strong>{result.stats?.cutsCount || 0} cuts</strong> ·{' '}
+                    <strong>{result.stats?.punchZoomsCount || 0} punch-ins</strong> ·{' '}
                     <strong>
                       {subtitlesOn ? `${result.stats?.captionsCount || 0} captions` : 'subtitles off'}
                     </strong>{' '}
@@ -1105,10 +1109,44 @@ export default function RawReel() {
               {result?.project && <StatusPill tone="tertiary">{preset.name}</StatusPill>}
             </div>
 
+            {result?.project && video && (
+              <div className="w-full mb-3 flex items-center justify-between gap-2 rounded-btn border border-line bg-surface-2/60 px-2 py-1.5">
+                <div className="inline-flex rounded-btn bg-surface-3 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRawTake(false);
+                      setPlaying(false);
+                    }}
+                    className={`rounded-btn px-2.5 py-1 text-[11px] font-semibold transition-colors kt-focus ${
+                      !showRawTake ? 'bg-primary text-on-primary' : 'text-ink-dim hover:text-ink'
+                    }`}
+                  >
+                    Finished reel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRawTake(true);
+                      setPlaying(false);
+                    }}
+                    className={`rounded-btn px-2.5 py-1 text-[11px] font-semibold transition-colors kt-focus ${
+                      showRawTake ? 'bg-primary text-on-primary' : 'text-ink-dim hover:text-ink'
+                    }`}
+                  >
+                    Raw take
+                  </button>
+                </div>
+                <span className="text-[10.5px] leading-tight text-ink-dim text-right max-w-[115px]">
+                  {showRawTake ? 'What you uploaded' : 'What the MP4 exports'}
+                </span>
+              </div>
+            )}
+
             {/* 9:16 Vertical Device Mockup */}
             <div className="w-[230px] sm:w-[250px] max-w-full">
               <div className="aspect-[9/16] rounded-[24px] border-[6px] border-ink/85 bg-black overflow-hidden relative shadow-[var(--shadow-2)]">
-                {result?.project ? (
+                {result?.project && !showRawTake ? (
                   <ReelPreview
                     project={result.project}
                     playing={playing}
@@ -1124,8 +1162,10 @@ export default function RawReel() {
                       <video
                         src={video.file_url}
                         crossOrigin="anonymous"
-                        className="absolute inset-0 w-full h-full object-cover opacity-60 block"
+                        className="absolute inset-0 w-full h-full object-cover block"
                         muted
+                        loop
+                        autoPlay={showRawTake}
                         playsInline
                         onError={media.onError}
                         onLoadedData={media.onLoadedData}
@@ -1133,8 +1173,14 @@ export default function RawReel() {
                     )}
                     <div className="relative z-10 bg-black/75 p-3 rounded-card text-white">
                       <Icon name="play_arrow" size={24} className="mx-auto mb-1 text-primary" />
-                      <p className="text-xs font-medium">Ready for auto-cut</p>
-                      <p className="text-[11px] text-white/70 mt-0.5">One click assembles and downloads it.</p>
+                      <p className="text-xs font-medium">
+                        {showRawTake ? 'Original take' : 'Ready for auto-cut'}
+                      </p>
+                      <p className="text-[11px] text-white/70 mt-0.5">
+                        {showRawTake
+                          ? 'No cuts, grade, zooms or captions yet.'
+                          : 'One click assembles and downloads it.'}
+                      </p>
                     </div>
                   </div>
                 ) : (
@@ -1149,7 +1195,7 @@ export default function RawReel() {
             </div>
 
             {/* Playback Controls & Timestamp Scrubber */}
-            {result?.project && (
+            {result?.project && !showRawTake && (
               <div className="w-full mt-4 space-y-2">
                 <div className="flex items-center justify-between text-[11px] text-ink-dim font-mono">
                   <span>{fmtTime(playheadSec)}</span>
