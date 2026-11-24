@@ -3,6 +3,7 @@ import { Icon } from '@/lib/icons';
 import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/components/ui';
 import { ReelPreview } from '@/components/ReelPreview';
 import { PRESETS, fmtTime, totalDuration, type EditPreset, type TimelineProject } from '@/lib/timeline';
+import { buildReelVariants, type ReelVariant } from '@/lib/reelVariants';
 import type { AutoEditOutcome, AutoEditProgress } from '@/lib/store';
 import { useStore } from '@/lib/store';
 import { api } from '@/lib/api';
@@ -153,6 +154,8 @@ export default function RawReel() {
   const [editProgress, setEditProgress] = useState<AutoEditProgress | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [result, setResult] = useState<AutoEditOutcome | null>(null);
+  const [variants, setVariants] = useState<ReelVariant[]>([]);
+  const [selectedVariantId, setSelectedVariantId] = useState<string>('');
   const [showRawTake, setShowRawTake] = useState(false);
   const [editedCaption, setEditedCaption] = useState('');
   const [playing, setPlaying] = useState(false);
@@ -228,6 +231,7 @@ export default function RawReel() {
     if (videos.some((v) => v.id === litCutId)) {
       setVideoId(litCutId);
       setResult(null);
+      resetVariants();
       setShowRawTake(false);
       setPlayheadSec(0);
     }
@@ -236,6 +240,12 @@ export default function RawReel() {
   const video = videos.find((v) => v.id === videoId);
   const media = useMediaSource(video?.file_url, video?.media_available);
   const preset = (PRESETS.find((p) => p.id === presetId) || PRESETS[0]) as EditPreset;
+  const selectedVariant = variants.find((v) => v.id === selectedVariantId) || null;
+
+  function resetVariants() {
+    setVariants([]);
+    setSelectedVariantId('');
+  }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
@@ -279,6 +289,7 @@ export default function RawReel() {
     if (lastId) {
       setVideoId(lastId);
       setResult(null);
+      resetVariants();
       selectCut(lastId);
       notify.ok(`${uploadedCount} ${uploadedCount === 1 ? 'take' : 'takes'} on the bench.`);
     }
@@ -403,15 +414,24 @@ export default function RawReel() {
     try {
       const relinked = await relinkMedia(video.id, file);
       if (!relinked) throw new Error('The take could not be re-attached. Nothing in the cut was changed.');
-      const repaired = patchSourceUrls(
-        result.project,
-        sourceRepair.missingUrl,
-        relinked.file_url || sourceRepair.missingUrl
-      );
-      setResult({ ...result, project: repaired });
-      setProject(repaired);
+      const newUrl = relinked.file_url || sourceRepair.missingUrl;
+      const repaired = patchSourceUrls(result.project, sourceRepair.missingUrl, newUrl);
+      const repairedVariants = variants.map((variant) => ({
+        ...variant,
+        project: patchSourceUrls(variant.project, sourceRepair.missingUrl, newUrl),
+      }));
+      const active = repairedVariants.find((v) => v.id === selectedVariantId) || repairedVariants[0];
+      if (active) {
+        setVariants(repairedVariants);
+        setResult({ ...result, project: active.project });
+        setProject(active.project);
+        await renderProject(active.project, relinked);
+      } else {
+        setResult({ ...result, project: repaired });
+        setProject(repaired);
+        await renderProject(repaired, relinked);
+      }
       setSourceRepair(null);
-      await renderProject(repaired, relinked);
     } catch (err) {
       setExportError(err instanceof Error ? err.message : 'The take could not be re-attached.');
     } finally {
@@ -424,6 +444,7 @@ export default function RawReel() {
     if (!video || busy) return;
     setBusy(true);
     setResult(null);
+    resetVariants();
     setShowRawTake(false);
     setEditedCaption('');
     setGenerationError(null);
@@ -449,9 +470,18 @@ export default function RawReel() {
         },
         { captionsEnabled: subtitlesOn }
       );
-      setResult(outcome);
+      if (!outcome.project || !outcome.stats) {
+        throw new Error('The editor did not produce a usable reel. Your original take is untouched.');
+      }
+      const built = buildReelVariants(outcome.project, outcome.stats, preset);
+      const first = built[0];
+      if (!first) throw new Error('No reel options were produced. Your original take is untouched.');
+      setVariants(built);
+      setSelectedVariantId(first.id);
+      setResult({ ...outcome, project: first.project, stats: first.stats });
       setEditedCaption(outcome.caption);
-      if (outcome.project) await renderProject(outcome.project, video);
+      setProject(first.project);
+      setEditProgress({ stage: 'done', fraction: 1, message: 'Three reel options ready to compare.' });
     } catch (err) {
       console.error('Auto-edit pipeline error:', err);
       setGenerationError(
@@ -460,6 +490,28 @@ export default function RawReel() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function selectVariant(id: string) {
+    const variant = variants.find((v) => v.id === id);
+    if (!variant || rendering) return;
+    setSelectedVariantId(id);
+    setResult((current) =>
+      current ? { ...current, project: variant.project, stats: variant.stats } : current,
+    );
+    setProject(variant.project);
+    setShowRawTake(false);
+    setPlaying(false);
+    setPlayheadSec(0);
+    clearExported();
+    setExportError(null);
+    setExportDiagnostics([]);
+    setSourceRepair(null);
+  }
+
+  async function exportSelected() {
+    if (!video || !selectedVariant || rendering) return;
+    await renderProject(selectedVariant.project, video);
   }
 
   function handleToEditor() {
@@ -510,7 +562,7 @@ export default function RawReel() {
         eyebrow="In · Upload"
         icon="smart_display"
         title="Bring the raw take onto the bench"
-        description="Upload a raw take and press once. KontentOS cuts the dead air or visual filler, adds a real colour grade, punch reframes and styled on-screen text, writes the caption and hashtags, then renders the finished MP4."
+        description="Upload a raw take and press once. KontentOS creates three genuinely different reels, writes grounded copy and hashtags, then renders only the version you choose."
         actions={
           <>
             {video && transcripts[video.id] === 'working' && (
@@ -648,6 +700,7 @@ export default function RawReel() {
                       onClick={() => {
                         setVideoId(v.id);
                         setResult(null);
+                        resetVariants();
                         setPlayheadSec(0);
                         selectCut(v.id);
                       }}
@@ -792,6 +845,7 @@ export default function RawReel() {
                     onClick={() => {
                       setPresetId(p.id);
                       setResult(null);
+                      resetVariants();
                     }}
                     className={`text-left rounded-card border p-4 flex flex-col justify-between transition-all kt-focus ${
                       active
@@ -845,7 +899,7 @@ export default function RawReel() {
 
           {/* Step 3: Run Auto-Assembly */}
           <Card className="p-5">
-            <StepLabel n={3} title="Create and export the finished reel" />
+            <StepLabel n={3} title="Generate three ways to cut this take" />
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-btn border border-line bg-surface-2/50 px-3.5 py-2.5">
               <div className="min-w-0">
                 <div className="text-[13px] font-semibold text-ink">Burn in subtitles / on-screen text</div>
@@ -861,6 +915,7 @@ export default function RawReel() {
                 onClick={() => {
                   setSubtitlesOn((value) => !value);
                   setResult(null);
+                  resetVariants();
                 }}
                 className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors kt-focus ${
                   subtitlesOn ? 'bg-primary border-primary' : 'bg-surface border-line-strong'
@@ -896,19 +951,29 @@ export default function RawReel() {
             )}
             <div className="flex flex-wrap items-center gap-3">
               <Button
-                icon={busy ? 'autorenew' : 'bolt'}
+                icon={busy ? 'autorenew' : 'auto_awesome'}
                 onClick={create}
-                disabled={busy || !video}
+                disabled={busy || rendering || !video}
                 className="px-6 py-2.5 text-sm"
               >
                 {busy
-                  ? rendering
-                    ? 'Rendering MP4…'
-                    : 'Assembling Reel…'
+                  ? 'Assembling 3 options…'
                   : result
-                    ? 'Create & Export again'
-                    : 'Create & Export Reel'}
+                    ? 'Generate 3 options again'
+                    : 'Generate 3 reel options'}
               </Button>
+
+              {selectedVariant && !busy && (
+                <Button
+                  icon={rendering ? 'autorenew' : 'download'}
+                  onClick={exportSelected}
+                  disabled={rendering}
+                  className="px-6 py-2.5 text-sm"
+                  title="Only the selected approach is rendered and downloaded."
+                >
+                  {rendering ? 'Rendering MP4…' : `Export ${selectedVariant.shortLabel}`}
+                </Button>
+              )}
 
               {result && !busy && (
                 <span className="text-[13px] text-ink-muted flex items-center gap-2 bg-surface-2/60 px-3 py-1.5 rounded-btn border border-line">
@@ -928,6 +993,60 @@ export default function RawReel() {
                 </span>
               )}
             </div>
+
+            {variants.length > 0 && !busy && (
+              <div className="mt-5 rounded-card border border-line bg-surface-2/40 p-3.5">
+                <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
+                  <h4 className="text-[13px] font-semibold text-ink">Three cuts, one source</h4>
+                  <span className="text-[11px] text-ink-dim">
+                    Pick one to preview it. Nothing is rendered until you export it.
+                  </span>
+                </div>
+                <div className="grid gap-2.5 sm:grid-cols-3">
+                  {variants.map((variant) => {
+                    const active = selectedVariantId === variant.id;
+                    return (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        aria-pressed={active}
+                        disabled={rendering}
+                        onClick={() => selectVariant(variant.id)}
+                        className={`text-left rounded-btn border p-3 transition-all kt-focus disabled:opacity-60 ${
+                          active
+                            ? 'border-primary bg-primary-soft ring-2 ring-primary/25'
+                            : 'border-line bg-surface hover:border-line-strong'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span
+                            className={`grid h-8 w-8 shrink-0 place-items-center rounded-btn ${
+                              active ? 'bg-primary text-on-primary' : 'bg-surface-3 text-primary'
+                            }`}
+                          >
+                            <Icon name={variant.icon} size={17} />
+                          </span>
+                          {active && <StatusPill tone="tertiary">Selected</StatusPill>}
+                        </div>
+                        <div className="mt-2 text-[13px] font-semibold text-ink">{variant.label}</div>
+                        <p className="mt-1 min-h-[46px] text-[11px] leading-relaxed text-ink-dim">
+                          {variant.description}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-x-2.5 gap-y-1 text-[10.5px] text-ink-muted">
+                          <span>{variant.stats.cutsCount} cuts</span>
+                          <span>·</span>
+                          <span>{variant.stats.punchZoomsCount} punches</span>
+                          <span>·</span>
+                          <span>{variant.stats.sfxCount} accents</span>
+                          <span>·</span>
+                          <span>{fmtTime(variant.stats.trimmedDurationSec)}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {rendering && exportProgress && (
               <div className="mt-4 rounded-card border border-primary/25 bg-primary-soft/30 p-4 space-y-3">
@@ -1106,7 +1225,9 @@ export default function RawReel() {
                 <Icon name="smart_display" size={18} className="text-primary" />
                 <h2 className="font-semibold text-ink text-sm">Synchronized Reel Preview</h2>
               </div>
-              {result?.project && <StatusPill tone="tertiary">{preset.name}</StatusPill>}
+              {result?.project && (
+                <StatusPill tone="tertiary">{selectedVariant?.shortLabel || preset.name}</StatusPill>
+              )}
             </div>
 
             {result?.project && video && (
@@ -1174,12 +1295,12 @@ export default function RawReel() {
                     <div className="relative z-10 bg-black/75 p-3 rounded-card text-white">
                       <Icon name="play_arrow" size={24} className="mx-auto mb-1 text-primary" />
                       <p className="text-xs font-medium">
-                        {showRawTake ? 'Original take' : 'Ready for auto-cut'}
+                        {showRawTake ? 'Original take' : 'Ready to compare'}
                       </p>
                       <p className="text-[11px] text-white/70 mt-0.5">
                         {showRawTake
                           ? 'No cuts, grade, zooms or captions yet.'
-                          : 'One click assembles and downloads it.'}
+                          : 'One click creates three reel options.'}
                       </p>
                     </div>
                   </div>
