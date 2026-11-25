@@ -6,6 +6,7 @@ import {
   applyPresetLook,
   buildCaptionsFromSegments,
   buildLocalProject,
+  buildManualProject,
   evaluateEasing,
   fmtTime,
   isVideoGapAt,
@@ -376,5 +377,30 @@ describe('buildLocalProject without a transcript', () => {
       video.reduce((sum, clip) => sum + clip.duration, 0),
       1
     );
+  });
+
+  it('builds a truly untouched manual project for the do-it-myself path', () => {
+    const p = buildManualProject(
+      { id: 'vid_1', title: 'My raw take', file_url: '/uploads/vid_1.mp4', duration: 7.3 },
+      '9:16'
+    );
+    const video = p.tracks.find((t) => t.type === 'video')!.clips as VideoClip[];
+    const text = p.tracks.find((t) => t.type === 'text')!.clips;
+    const sfx = p.tracks.find((t) => t.type === 'sfx')!.clips;
+
+    expect(video).toHaveLength(1);
+    expect(video[0]).toMatchObject({
+      sourceFileId: 'vid_1',
+      sourceUrl: '/uploads/vid_1.mp4',
+      startOnTimeline: 0,
+      duration: 7.3,
+      sourceStartOffset: 0,
+      speedMultiplier: 1,
+      keyframes: [],
+    });
+    expect(text).toHaveLength(0);
+    expect(sfx).toHaveLength(0);
+    expect(p.projectMetadata.visualLook).toBe('original');
+    expect(p.projectMetadata.totalDuration).toBe(7.3);
   });
 });

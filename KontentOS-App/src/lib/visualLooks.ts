@@ -8,6 +8,8 @@ import type { VisualLook } from './timeline';
  * if the MP4 gets stronger, the preview must get stronger too.
  */
 export const FFMPEG_LOOK_FILTERS: Record<VisualLook, string> = {
+  // The manual editor starts here: no grade, no vignette, no invented treatment.
+  original: '',
   viral: 'eq=contrast=1.32:brightness=0.035:saturation=1.55,vignette=PI/3.8',
   clean: 'eq=contrast=1.14:brightness=0.02:saturation=1.14',
   cinematic: 'eq=contrast=1.40:brightness=-0.02:saturation=0.80,vignette=PI/3.2',
@@ -16,6 +18,7 @@ export const FFMPEG_LOOK_FILTERS: Record<VisualLook, string> = {
 };
 
 export const CSS_LOOK_FILTERS: Record<VisualLook, string> = {
+  original: '',
   viral: 'contrast(1.32) brightness(1.035) saturate(1.55)',
   clean: 'contrast(1.14) brightness(1.02) saturate(1.14)',
   cinematic: 'contrast(1.40) brightness(0.98) saturate(0.80)',
@@ -25,6 +28,7 @@ export const CSS_LOOK_FILTERS: Record<VisualLook, string> = {
 
 /** Preview vignette opacity mirrors the FFmpeg `vignette` strength for each look. */
 export const LOOK_VIGNETTE_OPACITY: Record<VisualLook, number> = {
+  original: 0,
   viral: 0.55,
   clean: 0,
   cinematic: 0.62,

@@ -2,7 +2,14 @@
 import { Icon } from '@/lib/icons';
 import { Button, Card, PageHeader, PageShell, StatusPill, Badge } from '@/components/ui';
 import { ReelPreview } from '@/components/ReelPreview';
-import { PRESETS, fmtTime, totalDuration, type EditPreset, type TimelineProject } from '@/lib/timeline';
+import {
+  PRESETS,
+  buildManualProject,
+  fmtTime,
+  totalDuration,
+  type EditPreset,
+  type TimelineProject,
+} from '@/lib/timeline';
 import { buildReelVariants, type ReelVariant } from '@/lib/reelVariants';
 import type { AutoEditOutcome, AutoEditProgress } from '@/lib/store';
 import { useStore } from '@/lib/store';
@@ -440,6 +447,15 @@ export default function RawReel() {
     }
   }
 
+  function openManualEditor() {
+    if (!video || busy || rendering) return;
+    const untouched = buildManualProject(video);
+    setResult(null);
+    resetVariants();
+    clearExported();
+    handoffReelToEditor(untouched, video);
+  }
+
   async function create() {
     if (!video || busy) return;
     setBusy(true);
@@ -562,7 +578,7 @@ export default function RawReel() {
         eyebrow="In · Upload"
         icon="smart_display"
         title="Bring the raw take onto the bench"
-        description="Upload a raw take and press once. KontentOS creates three genuinely different reels, writes grounded copy and hashtags, then renders only the version you choose."
+        description="Upload a raw take, then choose your route: edit every cut yourself in the full studio, or use one magic click to get three reel options and export only the one you pick."
         actions={
           <>
             {video && transcripts[video.id] === 'working' && (
@@ -899,7 +915,7 @@ export default function RawReel() {
 
           {/* Step 3: Run Auto-Assembly */}
           <Card className="p-5">
-            <StepLabel n={3} title="Generate three ways to cut this take" />
+            <StepLabel n={3} title="Choose how to make the reel" />
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-btn border border-line bg-surface-2/50 px-3.5 py-2.5">
               <div className="min-w-0">
                 <div className="text-[13px] font-semibold text-ink">Burn in subtitles / on-screen text</div>
@@ -949,21 +965,58 @@ export default function RawReel() {
                 )}
               </div>
             )}
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                icon={busy ? 'autorenew' : 'auto_awesome'}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={openManualEditor}
+                disabled={busy || rendering || !video}
+                className="group rounded-card border border-line bg-surface p-4 text-left transition-all hover:border-line-strong kt-focus disabled:opacity-60"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-btn bg-surface-3 text-primary">
+                    <Icon name="tune" size={19} />
+                  </span>
+                  <Badge tone="neutral">Full control</Badge>
+                </div>
+                <div className="mt-3 text-[14px] font-semibold text-ink">Edit it myself</div>
+                <p className="mt-1 text-[12px] leading-relaxed text-ink-dim">
+                  Open the full studio with your take untouched. You place every cut, caption, zoom and
+                  sound.
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-primary">
+                  Open manual editor
+                  <Icon name="arrow_forward" size={15} className="transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </button>
+
+              <button
+                type="button"
                 onClick={create}
                 disabled={busy || rendering || !video}
-                className="px-6 py-2.5 text-sm"
+                className="group rounded-card border border-primary bg-primary-soft p-4 text-left transition-all ring-2 ring-primary/15 hover:ring-primary/25 kt-focus disabled:opacity-60"
               >
-                {busy
-                  ? 'Assembling 3 options…'
-                  : result
-                    ? 'Generate 3 options again'
-                    : 'Generate 3 reel options'}
-              </Button>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-btn bg-primary text-on-primary">
+                    <Icon name={busy ? 'autorenew' : 'auto_awesome'} size={19} className={busy ? 'kt-spin' : ''} />
+                  </span>
+                  <Badge tone="primary">Magic click</Badge>
+                </div>
+                <div className="mt-3 text-[14px] font-semibold text-ink">
+                  {busy ? 'Assembling three options…' : 'Make it for me'}
+                </div>
+                <p className="mt-1 text-[12px] leading-relaxed text-ink-dim">
+                  One click reads the take, writes the copy and builds three genuinely different reels.
+                  Pick one, then export only that MP4.
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-primary">
+                  {result ? 'Generate three new options' : 'Generate 3 reel options'}
+                  <Icon name="arrow_forward" size={15} className="transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </button>
+            </div>
 
-              {selectedVariant && !busy && (
+            {selectedVariant && !busy && (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
                 <Button
                   icon={rendering ? 'autorenew' : 'download'}
                   onClick={exportSelected}
@@ -973,9 +1026,10 @@ export default function RawReel() {
                 >
                   {rendering ? 'Rendering MP4…' : `Export ${selectedVariant.shortLabel}`}
                 </Button>
-              )}
+              </div>
+            )}
 
-              {result && !busy && (
+            {result && !busy && (
                 <span className="text-[13px] text-ink-muted flex items-center gap-2 bg-surface-2/60 px-3 py-1.5 rounded-btn border border-line">
                   <Icon name="check_circle" size={17} className="text-tertiary shrink-0" />
                   <span>
@@ -991,8 +1045,7 @@ export default function RawReel() {
                     </strong>
                   </span>
                 </span>
-              )}
-            </div>
+            )}
 
             {variants.length > 0 && !busy && (
               <div className="mt-5 rounded-card border border-line bg-surface-2/40 p-3.5">

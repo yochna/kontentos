@@ -140,7 +140,7 @@ export interface TimelineTrack {
 export type TargetAspectRatio = '9:16' | '16:9' | '1:1' | '4:5';
 
 /** Preset-wide look applied by both the preview and the FFmpeg exporter. */
-export type VisualLook = 'viral' | 'clean' | 'cinematic' | 'bold' | 'warm';
+export type VisualLook = 'original' | 'viral' | 'clean' | 'cinematic' | 'bold' | 'warm';
 
 export interface ProjectMetadata {
   id: string;
@@ -625,6 +625,62 @@ export function fmtTime(sec: number): string {
   const s = Math.floor(sec % 60);
   const cs = Math.floor((sec % 1) * 10);
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${cs}`;
+}
+
+/**
+ * The manual path's starting point: one untouched, full-length take on a portrait timeline.
+ * No cuts, no captions, no SFX and no grade — the creator makes every decision in the Editor.
+ */
+export function buildManualProject(
+  video: { id: string; title: string; file_url: string; duration?: number },
+  targetAspectRatio: ExportAspect = '9:16',
+): TimelineProject {
+  const geometry = aspectGeometry(targetAspectRatio);
+  const duration = round2(Math.max(0.1, video.duration || 0.1));
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: '1.0.0',
+    projectMetadata: {
+      id: `proj_manual_${Date.now()}`,
+      title: video.title,
+      targetAspectRatio,
+      width: geometry.width,
+      height: geometry.height,
+      frameRate: 30,
+      visualLook: 'original',
+      totalDuration: duration,
+      createdAt: now,
+      updatedAt: now,
+    },
+    globalAudioTracks: { bgmVolume: 0, duckingEnabled: false },
+    tracks: [
+      { id: 'track-text', name: 'Captions', type: 'text', isMuted: false, isLocked: false, zIndex: 30, clips: [] },
+      { id: 'track-sfx', name: 'SFX Overlays', type: 'sfx', isMuted: false, isLocked: false, zIndex: 20, clips: [] },
+      {
+        id: 'track-video',
+        name: 'Primary Video',
+        type: 'video',
+        isMuted: false,
+        isLocked: false,
+        zIndex: 10,
+        clips: [
+          {
+            id: `vclip_raw_${video.id}`,
+            name: 'Original take',
+            type: 'video',
+            sourceFileId: video.id,
+            sourceUrl: video.file_url,
+            speedMultiplier: 1,
+            startOnTimeline: 0,
+            duration,
+            sourceStartOffset: 0,
+            keyframes: [],
+            audioModifiers: { pitchShiftCents: 0, volume: 1, fadeInSec: 0, fadeOutSec: 0 },
+          },
+        ],
+      },
+    ],
+  };
 }
 
 /**

@@ -15,7 +15,7 @@ import { notify } from '@/components/ui/toast';
 import { useNavPayload } from '@/lib/nav';
 import { useStore } from '@/lib/store';
 import { ingestFeatures } from '@/data/mock';
-import { getPreset } from '@/lib/timeline';
+import { buildManualProject } from '@/lib/timeline';
 import { api } from '@/lib/api';
 import type { Video } from '@/lib/types';
 import { OfflinePlate, useMediaSource } from '@/components/OfflinePlate';
@@ -66,7 +66,7 @@ export default function ContentLibrary() {
     uploadVideo,
     updateVideo,
     deleteVideo,
-    runAutoEdit,
+    handoffReelToEditor,
     navigate,
     online,
     loading,
@@ -143,9 +143,8 @@ export default function ContentLibrary() {
     navigate('raw-reel', { videoId: video.id });
   };
 
-  const handleOpenInSmartEditor = async (video: Video) => {
-    await runAutoEdit(video, getPreset('fast'));
-    navigate('smart-editor');
+  const handleOpenInSmartEditor = (video: Video) => {
+    handoffReelToEditor(buildManualProject(video), video);
   };
 
   const removeClip = async (video: Video) => {

@@ -133,6 +133,18 @@ describe('compileTimelineToFiltergraph', () => {
     expect(compiled.filterComplex).toContain('[v_graded]');
   });
 
+  it('exports the manual original look without adding a grade or vignette', () => {
+    const untouched = project();
+    untouched.projectMetadata.visualLook = 'original';
+    const compiled = compileTimelineToFiltergraph(untouched, {
+      sourceHasAudio: { '/uploads/a.mp4': false },
+    });
+
+    expect(compiled.filterComplex).not.toContain('[v_graded]');
+    expect(compiled.filterComplex).not.toContain('vignette=');
+    expect(compiled.filterComplex).toContain('format=yuv420p[vout]');
+  });
+
   it('keeps the box only for the solid-pill caption preset', () => {
     const base = caption();
     const pill = compileTimelineToFiltergraph(

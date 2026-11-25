@@ -17,6 +17,7 @@ import {
   applyCaptionPresetToProject,
   brollClips,
   brollTrackOf,
+  buildManualProject,
   clipAt,
   cloneProject,
   deleteClip,
@@ -211,15 +212,15 @@ export default function SmartEditor() {
   // Auto-populate project if timeline is empty and video clips are available
   const litCut = useNavPayload<{ videoId?: string }>('smart-editor');
 
-  const assemble = useCallback(
+  // The editor is the manual path. Opening it stages the untouched take; auto-assembly only happens
+  // when the creator explicitly presses "Apply Preset Look" or an inline assemble action.
+  const stageRawClip = useCallback(
     (video: Video) => {
       autoLoadedRef.current = true;
-      setAssembling(video.title);
-      return runAutoEdit(video, getPreset(presetId))
-        .then(() => selectCut(video.id))
-        .finally(() => setAssembling(null));
+      loadProject(buildManualProject(video));
+      selectCut(video.id);
     },
-    [runAutoEdit, presetId]
+    [loadProject]
   );
 
   useEffect(() => {
@@ -240,8 +241,8 @@ export default function SmartEditor() {
 
     const ready = videos.filter((v) => v.status === 'ready' || v.status === 'processing');
     const pick = ready.find((v) => v.id === wanted) ?? ready[0];
-    if (pick) void assemble(pick);
-  }, [project, activeDraft, videos, loadProject, litCut, assemble]);
+    if (pick) stageRawClip(pick);
+  }, [project, activeDraft, videos, loadProject, litCut, stageRawClip]);
 
   /**
    * The bench holds one cut at a time. When the rail lights a different one, saying so beats
@@ -1391,10 +1392,10 @@ export default function SmartEditor() {
                 <Icon name="compare_arrows" size={15} className="shrink-0 text-ink-dim" />
                 <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink-muted">
                   <span className="text-ink">{waitingCut.title}</span> is lit in the rail, but this timeline holds
-                  another cut. Assembling replaces what is loaded.
+                  another cut. Stage the untouched take to edit it yourself.
                 </span>
-                <Button size="sm" variant="ghost" onClick={() => void assemble(waitingCut)}>
-                  Assemble it
+                <Button size="sm" variant="ghost" onClick={() => stageRawClip(waitingCut)}>
+                  Stage it
                 </Button>
               </div>
             ) : null}
