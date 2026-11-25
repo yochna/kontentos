@@ -349,7 +349,7 @@ export const api = {
         body: JSON.stringify({
           title: opts.title,
           platform: opts.platform || 'instagram',
-          tone: opts.tone || 'Viral & Punchy',
+          tone: opts.tone || 'Editorial / grounded',
           mode: 'all',
           context: opts.context || '',
           temperature: opts.temperature,

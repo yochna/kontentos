@@ -473,7 +473,7 @@ function generateDeterministicAutoEdit(
       metadata: videoMetadata,
       analysis: deterministicVisualAnalysis(videoMetadata, []),
       preset: {
-        visualLook: options?.visualLook || 'viral',
+        visualLook: options?.visualLook || 'clean',
         options: {
           sfxEnabled,
           punchZoomEnabled,
@@ -481,15 +481,16 @@ function generateDeterministicAutoEdit(
           silenceThresholdSec: silenceThreshold,
         },
         caption: options?.caption || {
-          animation: 'bouncePop',
+          animation: 'fade',
           position: 'bottom',
-          fontSize: 68,
+          fontSize: 46,
           colorHex: '#FFFFFF',
-          activeWordColorHex: '#FFE066',
-          wordsPerCue: 3,
+          activeWordColorHex: '#C7A765',
+          wordsPerCue: 4,
+          fontFamily: 'Caption Sans',
           strokeColorHex: '#000000',
-          strokeWidth: 6,
-          shadowColorHex: 'rgba(0,0,0,0.92)',
+          strokeWidth: 3,
+          shadowColorHex: 'rgba(0,0,0,0.82)',
         },
       },
     });

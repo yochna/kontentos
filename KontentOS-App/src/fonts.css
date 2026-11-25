@@ -1,3 +1,12 @@
+/* Caption Sans — the same TTF FFmpeg draws, so browser preview and MP4 agree. */
+@font-face {
+  font-family: 'Caption Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/font.ttf') format('truetype');
+}
+
 /* ==========================================================================
    Vendored fonts — no third-party request at runtime.
    The bench used to pull every face from fonts.googleapis.com. Where that CDN is

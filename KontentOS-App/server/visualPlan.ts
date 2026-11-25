@@ -99,14 +99,14 @@ export function compileVisualPlan({ metadata, analysis, preset }: VisualCompileO
   const captionsEnabled = preset?.options?.captionsEnabled ?? true;
   const sfxEnabled = preset?.options?.sfxEnabled ?? true;
   const captionStyle = preset?.caption;
-  const zooms = [1.3, 1.4, 1.24, 1.36, 1.28, 1.44];
+  const zooms = [1.14, 1.2, 1.12, 1.18, 1.13, 1.22];
 
   const videoClips: VideoClip[] = ranges.map((range, index) => {
     const zoom = punchEnabled ? zooms[index % zooms.length] : 1;
     const keyframes: TransformKeyframe[] = zoom > 1
       ? [
           { timeOffset: 0, scale: 1, position: { x: 0, y: 0 }, easing: 'linear' },
-          { timeOffset: round2(range.duration * 0.25), scale: zoom, position: { x: 0, y: -0.04 }, easing: 'easeInOut' },
+          { timeOffset: round2(range.duration * 0.25), scale: zoom, position: { x: 0, y: -0.018 }, easing: 'easeInOut' },
           { timeOffset: round2(range.duration * 0.72), scale: Math.max(1.04, zoom - 0.08), position: { x: 0, y: 0 }, easing: 'easeOut' },
           { timeOffset: range.duration, scale: zoom, position: { x: 0, y: 0 }, easing: 'easeInOut' },
         ]
@@ -150,34 +150,34 @@ export function compileVisualPlan({ metadata, analysis, preset }: VisualCompileO
         sourceStartOffset: round2(line.startSec),
         style: {
           fontFamily: captionStyle?.fontFamily || 'system-ui, sans-serif',
-          fontSize: captionStyle?.fontSize || 68,
+          fontSize: captionStyle?.fontSize || 46,
           colorHex: captionStyle?.colorHex || '#FFFFFF',
-          activeWordColorHex: captionStyle?.activeWordColorHex,
+          activeWordColorHex: captionStyle?.activeWordColorHex || '#C7A765',
           strokeColorHex: captionStyle?.strokeColorHex || '#000000',
-          strokeWidth: captionStyle?.strokeWidth ?? 6,
+          strokeWidth: captionStyle?.strokeWidth ?? 3,
           shadowColorHex: captionStyle?.shadowColorHex || 'rgba(0,0,0,0.92)',
           // A pill appears only for the banner-pill preset, never as a universal black line box.
           bannerPillColorHex: captionStyle?.animation === 'bannerPill' ? captionStyle.bannerPillColorHex : undefined,
           position: captionStyle?.position || 'bottom',
-          animation: captionStyle?.animation || 'bouncePop',
+          animation: captionStyle?.animation || 'fade',
         },
       });
     });
   }
 
   const sfxClips: SFXClip[] = [];
-  if (sfxEnabled && ranges.length > 1) {
-    const assets = ['whoosh', 'pop', 'chime'] as const;
+  if (sfxEnabled && ranges.length > 2) {
     videoClips.slice(1).forEach((clip, index) => {
+      if (index % 2 === 1) return;
       sfxClips.push({
         id: `sfx_visual_${index}`,
-        name: assets[index % assets.length],
+        name: 'Beat Accent',
         type: 'sfx',
-        sfxAssetId: assets[index % assets.length],
-        startOnTimeline: round2(Math.max(0, clip.startOnTimeline - 0.08)),
-        duration: 0.6,
+        sfxAssetId: 'pop',
+        startOnTimeline: round2(Math.max(0, clip.startOnTimeline - 0.04)),
+        duration: 0.25,
         sourceStartOffset: 0,
-        audioModifiers: { pitchShiftCents: 0, volume: 0.85, fadeInSec: 0, fadeOutSec: 0.1 },
+        audioModifiers: { pitchShiftCents: 0, volume: 0.42, fadeInSec: 0, fadeOutSec: 0.08 },
       });
     });
   }

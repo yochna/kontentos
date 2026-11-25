@@ -639,7 +639,7 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
   const standby = activePlayer === 'A' ? 'B' : 'A';
   const visiblePlayer = hasSource(activePlayer) || !hasSource(standby) ? activePlayer : standby;
   const targetAspect = project?.projectMetadata.targetAspectRatio || '9:16';
-  const visualLook = project?.projectMetadata.visualLook || 'viral';
+  const visualLook = project?.projectMetadata.visualLook || 'clean';
   const lookFilter = CSS_LOOK_FILTERS[visualLook];
   const vignetteOpacity = LOOK_VIGNETTE_OPACITY[visualLook];
   const isWidescreen = targetAspect === '16:9';
@@ -950,8 +950,8 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
                 cue,
               )}`}
               style={{
-                fontFamily: cue.style.fontFamily,
-                fontSize: `clamp(12px, ${cue.style.fontSize / (isWidescreen ? 3.6 : 2.5)}px, ${isWidescreen ? '26px' : '34px'})`,
+                fontFamily: cue.style.fontFamily || 'Caption Sans',
+                fontSize: `clamp(12px, ${cue.style.fontSize / (isWidescreen ? 3.6 : 2.5)}px, ${isWidescreen ? '25px' : '31px'})`,
                 color: cue.style.colorHex,
                 WebkitTextStroke:
                   cue.style.strokeWidth && cue.style.strokeColorHex
@@ -959,17 +959,17 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
                     : undefined,
                 textShadow:
                   cue.style.shadowColorHex
-                    ? `0 2px 8px ${cue.style.shadowColorHex}`
+                    ? `0 2px 7px ${cue.style.shadowColorHex}`
                     : '0 2px 6px rgba(0,0,0,0.7)',
                 background:
                   cue.style.bannerPillColorHex ||
-                  (cue.style.animation === 'bannerPill' ? 'rgba(0,0,0,0.65)' : 'transparent'),
+                  (cue.style.animation === 'bannerPill' ? 'rgba(0,0,0,0.66)' : 'transparent'),
                 boxShadow:
                   cue.style.bannerPillColorHex || cue.style.animation === 'bannerPill'
                     ? '0 4px 14px rgba(0,0,0,0.5)'
                     : undefined,
-                fontWeight: 900,
-                letterSpacing: '0.01em',
+                fontWeight: 600,
+                letterSpacing: '-0.01em',
               }}
             >
               {renderCue(cue, activeWord)}
@@ -1005,15 +1005,10 @@ export const ReelPreview = forwardRef<ReelHandle, Props>(function ReelPreview(
 
 function animClass(cue: TextClip): string {
   switch (cue.style.animation) {
-    case 'popIn':
-      return 'kt-cap-pop';
-    case 'karaoke':
-    case 'kineticWave':
-      return 'kt-cap-wave';
-    case 'bouncePop':
-      return 'kt-cap-pop';
     case 'fade':
       return 'kt-cap-fade';
+    // Word colour is the signal now. Pop, wave and bounce were preview-only flourishes
+    // that the MP4 never reproduced, so generated cuts no longer advertise them.
     default:
       return '';
   }
@@ -1036,15 +1031,11 @@ function renderCue(cue: TextClip, activeWord: number) {
                   cue.style.strokeWidth && cue.style.strokeColorHex
                     ? `${cue.style.strokeWidth / 2}px ${cue.style.strokeColorHex}`
                     : undefined,
-                textShadow: `0 0 14px ${cue.style.activeWordColorHex}99, 0 2px 8px rgba(0,0,0,0.8)`,
+                textShadow: '0 2px 6px rgba(0,0,0,0.8)',
               }
             : undefined
         }
-        className={
-          isCurrent
-            ? 'inline-block scale-[1.12] transition-transform duration-100 ease-out font-black'
-            : 'inline-block transition-transform duration-150'
-        }
+        className={isCurrent ? 'inline-block font-semibold' : 'inline-block'}
       >
         {w}
         {i < words.length - 1 ? '\u00A0' : ''}

@@ -109,6 +109,17 @@ async function generateGeminiContentWithRetry(
   throw lastError || new Error('All model candidates exhausted');
 }
 
+/** A filename is not a topic. Never let one become the subject of generated copy. */
+function safeTopic(title: string | undefined): string {
+  const value = (title || '').trim();
+  const fileish =
+    /\.(mp4|mov|webm|m4v|avi)$/i.test(value) ||
+    /^\d[\d\s\-_()]*$/.test(value) ||
+    /^kontentos[_-]/i.test(value) ||
+    /(^|[\s_-])finished_reel/i.test(value);
+  return fileish ? 'your take' : value || 'your take';
+}
+
 // Title-grounded AI prompt builder for full copy, hooks, and hashtags
 function buildTitleCopyPrompt(
   title: string,
@@ -116,92 +127,63 @@ function buildTitleCopyPrompt(
   tone: string,
   context: string = ''
 ): string {
-  const cleanTitle = (title || 'High-Impact Creator Reel').trim();
-  return `You are KontentOS AI Copywriting Engine, a world-class social media strategist specializing in viral short-form video reels, shorts, and TikToks.
+  const cleanTitle = safeTopic(title);
+  return `You are a precise social editor writing copy for a real creator's reel.
 
-Your goal is to generate high-converting, platform-tailored copy specifically based on this video/reel title:
-Title / Topic: "${cleanTitle}"
+Write platform-native copy based only on this premise:
+Premise: "${cleanTitle}"
 Platform: ${platform.toUpperCase()}
-Tone / Persona: ${tone}
-${context ? `Additional Context / Notes: "${context}"` : ''}
+Tone: ${tone}
+${context ? `Creator notes: "${context}"` : ''}
 
 CRITICAL RULES:
-1. Ground the copy directly on the premise, value proposition, and subject matter of the title "${cleanTitle}".
-2. Craft an irresistibly engaging, platform-native description/caption tailored specifically to ${platform}:
-   - For Instagram Reels: Bold hook line, 3 actionable bullet points / lessons from the topic, high-converting CTA asking for saves or comment keyword, and 5-7 focused niche hashtags.
-   - For TikTok: Punchy 1-2 sentence curiosity gaps, high-velocity phrasing, 4-6 trend/topic hashtags.
-   - For YouTube Shorts: High-CTR video description, concise retention summary, pinned comment prompt, 4-5 tags.
-   - For LinkedIn: Professional opening hook, structured takeaways, business/productivity impact, closing industry discussion question, 3-5 tags.
-   - For X: Crisp, high-signal single or double takeaway under 240 chars + 2-3 tags.
-   - For Threads / Facebook: Conversational storytelling, relatable creator check-in, discussion starter.
-3. Provide 4 unique, scroll-stopping viral hook variations for the first 3 seconds of the reel (Problem/Agitation, Curiosity Gap, Contrarian/Bold Claim, Direct Question/Challenge).
-4. Provide 6-8 relevant, highly searchable hashtags (without '#' symbol).
-5. Provide a high-converting 1-line Call To Action (e.g., "Drop 'GUIDE' below and I'll DM you the breakdown 👇").
-6. Provide an alternative high-CTR viral title variation.
+1. Treat the premise as a subject, never as a source of invented claims. Do not claim numbers, results, secrets, mistakes, frameworks or advice that were not provided.
+2. Write in clean sentence case. No emojis, no ALL CAPS, no exclamation-point stacking, no "viral", "scroll-stopping", "secret", "10x", "game-changer", "stop scrolling", or fake urgency.
+3. Keep it specific and restrained: plain language, short paragraphs, and at most one question. If there is not enough substance, return a short honest scaffold with square-bracket prompts instead of filling the gaps.
+4. Match the platform without becoming a template:
+   - Instagram: 2-4 sentences or 2-3 compact takeaways, one invitation to respond, and 3-5 subject hashtags.
+   - TikTok: 1-2 direct sentences and 3-5 subject hashtags.
+   - YouTube Shorts: a short descriptive title, 2-3 sentence description, and 3-5 tags.
+   - LinkedIn: a professional observation, 2-3 grounded takeaways, and one discussion question.
+   - X: one or two high-signal sentences under 240 characters and 2-3 tags.
+   - Threads / Facebook: a conversational note and one open question.
+5. Hooks must be four restrained openings grounded in the premise. Do not manufacture a problem, contrarian claim, or curiosity gap that the creator did not earn.
+6. Hashtags describe the actual subject. No growth-hack or engagement-bait tags.
+7. The call to action is one plain invitation, never a keyword drop or DM promise.
+8. The suggested title is under 60 characters and describes the subject without clickbait.
 
 Respond ONLY in valid JSON matching this schema:
 {
-  "caption": "Your complete formatted post caption with emojis and line breaks...",
-  "hooks": [
-    "Hook 1: Problem / Agitation hook...",
-    "Hook 2: Curiosity gap hook...",
-    "Hook 3: Contrarian / Bold claim hook...",
-    "Hook 4: Direct question / High engagement hook..."
-  ],
-  "hashtags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6"],
-  "callToAction": "Drop 'GUIDE' in the comments for the full breakdown 👇",
-  "suggestedTitle": "Alternative viral title..."
+  "caption": "The finished post copy, with line breaks where they help.",
+  "hooks": ["a plain opening", "a plain opening", "a plain opening", "a plain opening"],
+  "hashtags": ["topic_tag1", "topic_tag2", "topic_tag3"],
+  "callToAction": "One plain invitation to respond.",
+  "suggestedTitle": "A specific, non-clickbait title."
 }`;
 }
 
-// Intelligent fallback copy generator based directly on video title
-function getTitleFallbackCopy(title: string, platform: string, tone: string) {
-  const cleanTitle = (title || 'Creator Video Reel').trim();
+// Editorial fallback: a scaffold the creator fills from the take, never invented advice.
+function getTitleFallbackCopy(title: string, platform: string, _tone: string) {
+  const cleanTitle = safeTopic(title);
   const lower = cleanTitle.toLowerCase();
-  
-  // Extract key topic words
   const words = lower.replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3);
-  const stopWords = new Set(['this', 'that', 'with', 'from', 'your', 'have', 'what', 'here', 'just', 'more', 'then', 'they', 'will', 'about', 'video', 'reel', 'post']);
-  const tags = words.filter(w => !stopWords.has(w)).slice(0, 5);
-  if (tags.length === 0) tags.push('creatoreconomy', 'videotips', 'growthhacks', 'kontentos');
+  const stopWords = new Set(['this', 'that', 'with', 'from', 'your', 'have', 'what', 'here', 'just', 'more', 'then', 'they', 'will', 'about', 'video', 'reel', 'post', 'take']);
+  const tags = Array.from(new Set(words.filter(w => !stopWords.has(w)))).slice(0, 5);
+  if (tags.length === 0) tags.push('creators', 'videoproduction');
 
-  const hooks = [
-    `Stop scrolling if you want to master ${cleanTitle} 🚨`,
-    `The #1 mistake creators make with ${cleanTitle} (and how to fix it) 👀`,
-    `If you only implement ONE strategy from ${cleanTitle} this week, do this 👇`,
-    `Why nobody is talking about the real secret behind ${cleanTitle} 💡`
-  ];
-
-  let caption = '';
-  switch (platform) {
-    case 'tiktok':
-      caption = `👀 The secret behind "${cleanTitle}" you need to know before everyone else does.\n\nSave this for your next creation workflow! 🚀`;
-      break;
-    case 'youtube':
-      caption = `🔥 ${cleanTitle}\n\nIn this short breakdown, we explore:\n• Why most approaches fail\n• The 3-step execution framework\n• Instant action items for creators\n\n💬 What's your biggest challenge with this? Drop your thoughts in the comments!`;
-      break;
-    case 'linkedin':
-      caption = `💡 Strategic takeaway on "${cleanTitle}":\n\nHigh leverage in 2026 isn't about working more hours—it's about building repeatable systems.\n\nHere are the 3 core pillars:\n• 1. Focus on core signal over endless noise\n• 2. Automate production friction with AI tools\n• 3. Syndicate key insights across all touchpoints\n\nHow is your team approaching this right now?`;
-      break;
-    case 'x':
-      caption = `Key insight from "${cleanTitle}":\n\nAutomate the repetitive friction so you can focus 100% on high-impact storytelling. ⚡`;
-      break;
-    case 'threads':
-    case 'facebook':
-      caption = `Honest creator check-in ☕\n\n"${cleanTitle}"\n\nDo you agree with this approach? Drop your thoughts below 👇`;
-      break;
-    case 'instagram':
-    default:
-      caption = `🔥 "${cleanTitle}"\n\nHere is the exact breakdown you need to implement today:\n\n1️⃣ Phase 1: Identify high-retention concepts before hitting record.\n2️⃣ Phase 2: Use kinetic visual pacing and clear audio cues.\n3️⃣ Phase 3: Syndicate seamlessly across every short-form platform.\n\n👇 Save this reel for your next production session! Which step are you focusing on first?`;
-      break;
-  }
+  const caption = `${cleanTitle}\n\n[the point you make in the first few seconds]\n\n[what you actually say or show]\n\n[one question or invitation for the viewer]\n\nKontentOS scaffold — fill this from the take.`;
 
   return {
-    caption,
-    hooks,
+    caption: platform === 'x' ? caption.slice(0, 280) : caption,
+    hooks: [
+      `[open with the point of ${cleanTitle}]`,
+      `[state what changed in ${cleanTitle}]`,
+      `[ask the question ${cleanTitle} answers]`,
+      `[show the result you actually have]`,
+    ],
     hashtags: tags,
-    callToAction: "Comment 'REEL' below and I'll send you the complete step-by-step blueprint! 👇",
-    suggestedTitle: `How to 10x Your Results with ${cleanTitle}`
+    callToAction: 'What would you add to this?',
+    suggestedTitle: cleanTitle.length <= 60 ? cleanTitle : cleanTitle.slice(0, 57).trim() + '…',
   };
 }
 
@@ -215,8 +197,8 @@ export function getFallbackCopy(platform: string, transcript: string, tone: stri
   // the hook and inventing three takeaways underneath it is a lie the creator would post.
   const untranscribed = rawSentences.length === 0 || /^Topic only/.test(rawSentences[0]);
   if (untranscribed) {
-    const title = (videoTitle || 'This cut').trim();
-    const scaffold = `${title}\n\n[the hook — what you say in the first four seconds]\n\n[what you actually said, in your own words]\n\n[the one thing the viewer should do next]\n\nKontentOS scaffold — nothing on this take was transcribed, so these lines are yours to fill.`;
+    const title = safeTopic(videoTitle);
+    const scaffold = `${title}\n\n[the hook — the point you make in the first four seconds]\n\n[what you actually said, in your own words]\n\n[the one thing the viewer should take from it]\n\nKontentOS scaffold — nothing on this take was transcribed, so these lines are yours to fill.`;
     return { caption: platform === 'x' ? scaffold.slice(0, 280) : scaffold, hashtags: [] };
   }
 
@@ -232,42 +214,44 @@ export function getFallbackCopy(platform: string, transcript: string, tone: stri
   const uniqueTags = Array.from(new Set(filteredWords)).slice(0, 4);
   if (uniqueTags.length === 0) uniqueTags.push('creatoreconomy', 'videotips');
 
+  const lines = [takeaway1, takeaway2, takeaway3].filter((line, index, all) => all.indexOf(line) === index);
+
   switch (platform) {
     case 'youtube':
       return {
-        caption: `🔥 ${hookQuote.slice(0, 60)}\n\nIn this video, we break down:\n"${clean.slice(0, 220)}..."\n\n📌 Key Takeaways from this Reel:\n• ${takeaway1}\n• ${takeaway2}\n\n💬 What is your biggest hurdle with this? Drop your thoughts in the comments!`,
-        hashtags: ['Shorts', 'YouTubeShorts', ...uniqueTags],
+        caption: `${hookQuote}\n\n${lines.map((line) => `• ${line}`).join('\n')}\n\nWhat part of this would you like unpacked next?`,
+        hashtags: ['Shorts', ...uniqueTags.slice(0, 4)],
       };
     case 'tiktok':
       return {
-        caption: `👀 "${hookQuote}"\n\n${takeaway1} Save this for your next video workflow! 🚀`,
-        hashtags: ['tiktoktips', 'learnontiktok', 'filmtok', ...uniqueTags],
+        caption: `${hookQuote}\n\n${takeaway1}\n\nWhat do you think?`,
+        hashtags: uniqueTags.slice(0, 5),
       };
     case 'linkedin':
       return {
-        caption: `💡 Breakdown from this video:\n\n"${hookQuote}"\n\nHere are the core insights covered in this reel:\n• 1: ${takeaway1}\n• 2: ${takeaway2}\n• 3: ${takeaway3}\n\nHow is your team approaching this in your current production workflow?`,
-        hashtags: ['ContentStrategy', 'VideoMarketing', 'Productivity', ...uniqueTags],
+        caption: `${hookQuote}\n\n${lines.map((line) => `• ${line}`).join('\n')}\n\nHow does this show up in your work?`,
+        hashtags: ['VideoProduction', ...uniqueTags.slice(0, 4)],
       };
     case 'x':
       return {
-        caption: `Core takeaway from this reel:\n\n"${hookQuote.slice(0, 110)}"\n\n${takeaway1.slice(0, 90)} ⚡`,
-        hashtags: ['CreatorEconomy', 'VideoTips', ...uniqueTags.slice(0, 2)],
+        caption: `${hookQuote.slice(0, 110)}\n\n${takeaway1.slice(0, 90)}`,
+        hashtags: uniqueTags.slice(0, 3),
       };
     case 'threads':
       return {
-        caption: `Honest creator check-in ☕\n\n"${hookQuote}"\n\nDo you agree with this breakdown from the video? Drop your thoughts below 👇`,
-        hashtags: ['threads', 'creators', 'productivity', ...uniqueTags.slice(0, 2)],
+        caption: `${hookQuote}\n\n${takeaway1}\n\nDoes this match your experience?`,
+        hashtags: ['creators', ...uniqueTags.slice(0, 3)],
       };
     case 'facebook':
       return {
-        caption: `🚀 Key takeaway from today's video:\n\n"${hookQuote}"\n\n${takeaway1}\n\n${takeaway2}\n\n🙌 Share this with someone who needs this insight!`,
-        hashtags: ['contentcreators', 'videomarketing', ...uniqueTags],
+        caption: `${hookQuote}\n\n${takeaway1}\n\n${takeaway2}\n\nWhat is your take on this?`,
+        hashtags: ['videoproduction', ...uniqueTags.slice(0, 4)],
       };
     case 'instagram':
     default:
       return {
-        caption: `📌 "${hookQuote}"\n\nHere is the breakdown directly from this reel:\n\n1️⃣ ${takeaway1}\n2️⃣ ${takeaway2}\n3️⃣ ${takeaway3}\n\n👇 Save this reel for your next creation session! Which point resonates most with your process?`,
-        hashtags: ['contentcreator', 'reelsgrowth', 'videoproduction', ...uniqueTags],
+        caption: `${hookQuote}\n\n${lines.map((line) => `• ${line}`).join('\n')}\n\nWhich point matters most to you?`,
+        hashtags: ['videoproduction', ...uniqueTags.slice(0, 4)],
       };
   }
 }
@@ -278,25 +262,25 @@ function buildPlatformReelPrompt(platform: string, reelTranscript: string, tone:
   const titleHeader = videoTitle ? `Reel Title / Topic: "${videoTitle}"\n` : '';
 
   const corePrompt = `
-You are an expert social media copywriter. You are writing high-converting social captions and video descriptions for a video reel.
+You are a precise social editor writing copy for a real creator's reel.
 
-CRITICAL INSTRUCTIONS:
-1. STRICT REEL CONTEXT GROUNDING: Base the entire caption, hooks, takeaways, descriptions, and hashtags SOLELY and EXCLUSIVELY on the video reel's actual spoken dialogue, core message, arguments, and subject matter below:
+Base every sentence, takeaway and hashtag ONLY on the spoken content below:
 ${titleHeader}Reel Transcript / Spoken Content:
 """
 ${cleanTranscript}
 """
 
-2. ABSOLUTELY NO GENERIC HASHTAG-DERIVED FLUFF: Do NOT write generic copy derived from broad hashtags or generic creator platitudes. Every single sentence, bullet point, hook, and takeaway MUST directly reflect the real ideas, advice, story, or facts spoken in this specific reel.
-
-3. DESCRIPTIONS: Summarize specifically what the creator explains and demonstrates in this video based on the transcript.
-
-4. HASHTAGS: Derive 3-5 specific hashtags that directly describe the specific topic discussed in the reel.
+CRITICAL INSTRUCTIONS:
+1. Do not invent claims, numbers, results, secrets, frameworks, or advice that are not in the transcript. If the transcript is thin, write a short scaffold with square-bracket prompts instead of filling gaps.
+2. Write in clean sentence case. No emojis, no ALL CAPS, no exclamation-point stacking, no "viral", "scroll-stopping", "secret", "10x", "game-changer", "stop scrolling", or fake urgency.
+3. Summarize what the creator actually explains or demonstrates. Quotes must be verbatim.
+4. Hashtags name the specific subject of the reel, 3-5 maximum, with no growth-hack tags.
+5. Keep one plain invitation to respond at most.
 
 Respond strictly in valid JSON format:
 {
-  "caption": "Your formatted caption/description here...",
-  "hashtags": ["topic_tag1", "topic_tag2", "topic_tag3", "topic_tag4", "topic_tag5"]
+  "caption": "The finished platform copy, with line breaks where they help.",
+  "hashtags": ["topic_tag1", "topic_tag2", "topic_tag3"]
 }
 `;
 
@@ -306,10 +290,10 @@ Respond strictly in valid JSON format:
 Platform Target: Instagram Reels
 Tone: ${tone}
 Structure:
-- Scroll-stopping Hook Line quoting or paraphrasing the core insight from the reel.
-- Value Body: 2-3 structured takeaway bullet points summarizing the creator's exact points.
-- Call To Action inviting comments or saves about this reel's topic.
-- Exactly 5 topic-specific hashtags (without #).
+- One plain opening grounded in the reel's main idea.
+- 2-3 compact takeaways from the creator's exact points.
+- One invitation to respond.
+- 3-5 subject hashtags (without #).
 Max 2,000 characters.`;
 
     case 'youtube':
@@ -317,69 +301,70 @@ Max 2,000 characters.`;
 Platform Target: YouTube Shorts
 Tone: ${tone}
 Structure:
-- High-CTR Video Title (Under 65 characters) reflecting the reel's spoken message or question.
-- Description Body: 2-3 concise paragraphs summarizing the lessons in this video, plus an engagement question for the comments.
-- 3-5 relevant YouTube keyword tags (without #).
+- A descriptive title under 65 characters.
+- 2-3 short paragraphs summarizing what the creator says.
+- One question for the comments.
+- 3-5 relevant keyword tags (without #).
 Max 1,000 characters.`;
 
     case 'tiktok':
       return `${corePrompt}
 Platform Target: TikTok
-Tone: ${tone} (high energy, fast curiosity)
+Tone: ${tone}
 Structure:
-- 1-2 punchy hook sentences summarizing the reel's primary revelation or take.
-- 4-5 relevant TikTok hashtags (without #).
+- 1-2 direct sentences stating the reel's main point.
+- 3-5 subject hashtags (without #).
 Max 350 characters.`;
 
     case 'linkedin':
       return `${corePrompt}
 Platform Target: LinkedIn Video
-Tone: ${tone} (insightful, professional, high-signal)
+Tone: ${tone}
 Structure:
-- 1-line strong opening hook addressing the reel's core theme.
-- 3-4 bulleted actionable takeaways extracted directly from what is spoken in the reel.
-- 1 thoughtful closing question encouraging industry discussion.
+- One professional observation grounded in the reel.
+- 2-3 takeaways taken directly from what is spoken.
+- One discussion question.
 - 3-4 industry hashtags (without #).
 Max 1,500 characters.`;
 
     case 'x':
       return `${corePrompt}
 Platform Target: X (Twitter)
-Tone: ${tone} (punchy, crisp, high density)
+Tone: ${tone}
 Structure:
-- 1-2 tight sentences distilling the reel's highest-signal takeaway.
+- 1-2 tight sentences distilling the reel's main point.
 - 2-3 concise hashtags (without #).
 Strict limit: Under 270 characters total.`;
 
     case 'threads':
       return `${corePrompt}
 Platform Target: Threads
-Tone: ${tone} (authentic, casual, community dialogue)
+Tone: ${tone}
 Structure:
-- Conversational observation or quote from the reel + direct question to the audience about the topic.
+- A conversational observation or verbatim quote plus one question.
 - 3-4 hashtags (without #).
 Max 450 characters.`;
 
     case 'facebook':
       return `${corePrompt}
 Platform Target: Facebook Video
-Tone: ${tone} (friendly, shareable, clear)
+Tone: ${tone}
 Structure:
-- Engaging opening + 2-3 breakdown sentences about the video's message + invitation to share.
+- A clear opening, 2-3 sentences from the reel's message, and one invitation to respond.
 - 3-4 hashtags (without #).
 Max 800 characters.`;
 
     default:
       return `${corePrompt}
 Tone: ${tone}
-Format: Hook, reel summary, call to action, and 4-5 hashtags.`;
+Format: a plain opening, reel summary, one invitation, and 3-5 hashtags.`;
   }
 }
 
 // Generate Platform-Specific Copy and Hashtags Grounded in Reel Context
 router.post(['/', '/generate'], async (req, res) => {
   try {
-    const { videoId: sentVideoId, transcriptText, tone = 'Viral & Punchy', platform = 'instagram', forceRefresh = false, videoTitle, title, model } = req.body;
+    const { videoId: sentVideoId, transcriptText, tone = 'Editorial / grounded', platform = 'instagram', forceRefresh = false, videoTitle, title, model } = req.body;
     // Text only: a body carrying {"videoId":{"$ne":null}} would otherwise reach the filters below.
     const videoId = asId(sentVideoId);
     const effectiveTitle = videoTitle || title || 'Creator Video Reel';
@@ -501,7 +486,7 @@ router.post(['/', '/generate'], async (req, res) => {
 // Generate copy for all supported platforms simultaneously in parallel
 router.post('/generate-all', async (req, res) => {
   try {
-    const { videoId: sentVideoId, transcriptText, tone = 'Viral & Punchy', forceRefresh = false, videoTitle, brandVoice = '', temperature, model } = req.body;
+    const { videoId: sentVideoId, transcriptText, tone = 'Editorial / grounded', forceRefresh = false, videoTitle, brandVoice = '', temperature, model } = req.body;
     const videoId = asId(sentVideoId);
     const modelTemperature = clampTemperature(temperature);
     const requestedModel = preferredModelFrom(model) ?? DEFAULT_MODEL;
@@ -664,7 +649,7 @@ router.post('/generate-from-title', async (req, res) => {
       title,
       videoTitle,
       platform = 'instagram',
-      tone = 'Viral & Punchy',
+      tone = 'Editorial / grounded',
       mode = 'all',
       context = '',
       forceRefresh = false,

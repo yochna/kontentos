@@ -56,7 +56,7 @@ export function voiceBrief(kit: BrandKit = readBrandKit()): string {
 
 /** The tone the creator set, or the engine default when they have not set one. */
 export function voiceTone(kit: BrandKit = readBrandKit()): string {
-  return clip(kit.tone, 80) || 'Viral & Punchy';
+  return clip(kit.tone, 80) || 'Editorial / grounded';
 }
 
 /** The kit brief, or '' when the creator turned voice-matching off on the Room station. */

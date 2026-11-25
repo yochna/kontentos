@@ -78,9 +78,9 @@ function fmtSmpte(seconds: number, fps = 30): string {
 }
 
 const FONTS = [
+  { id: 'Caption Sans', label: 'Caption Sans (Export Matched)' },
   { id: 'Newsreader, serif', label: 'Newsreader (Editorial Serif)' },
   { id: 'Hanken Grotesk, sans-serif', label: 'Hanken Grotesk (Modern Clean)' },
-  { id: 'Syne, sans-serif', label: 'Syne (Bold Impact)' },
   { id: 'JetBrains Mono, monospace', label: 'JetBrains Mono (Technical)' },
 ];
 
@@ -125,19 +125,19 @@ function FontSelect({
 }
 
 const ANIMATION_PRESETS: { id: CaptionAnimation; label: string; icon: string }[] = [
-  { id: 'popIn', label: 'Word Pop', icon: 'auto_awesome' },
-  { id: 'karaoke', label: 'Karaoke Wave', icon: 'graphic_eq' },
-  { id: 'bouncePop', label: 'Bounce Scale', icon: 'arrow_upward' },
-  { id: 'bannerPill', label: 'Solid Pill', icon: 'badge' },
+  { id: 'popIn', label: 'Soft Reveal', icon: 'auto_awesome' },
+  { id: 'karaoke', label: 'Word Highlight', icon: 'graphic_eq' },
+  { id: 'bouncePop', label: 'Rise In', icon: 'arrow_upward' },
+  { id: 'bannerPill', label: 'Pill', icon: 'badge' },
   { id: 'none', label: 'Clean Static', icon: 'subtitles' },
 ];
 
 const HIGHLIGHT_COLORS = [
-  { hex: '#285C4D', label: 'Forest Green' },
-  { hex: '#F3B747', label: 'Amber Gold' },
-  { hex: '#E05A47', label: 'Signal Coral' },
-  { hex: '#3B82F6', label: 'Electric Blue' },
-  { hex: '#FFFFFF', label: 'Pure White' },
+  { hex: '#285C4D', label: 'Forest' },
+  { hex: '#C7A765', label: 'Muted Gold' },
+  { hex: '#D9846E', label: 'Clay' },
+  { hex: '#6F8FAF', label: 'Slate Blue' },
+  { hex: '#FFFFFF', label: 'Ivory' },
 ];
 
 export default function SmartEditor() {
@@ -1261,36 +1261,6 @@ export default function SmartEditor() {
                       setPlaying(true);
                     }}
                   />
-                  <div className="h-5 w-px bg-line mx-0.5" />
-                  <Button
-                    variant={isCaptionsActive && tClips.length > 0 ? 'secondary' : 'ghost'}
-                    icon={isCaptionsActive && tClips.length > 0 ? 'closed_caption' : 'closed_caption_disabled'}
-                    onClick={() => {
-                      if (tClips.length === 0) {
-                        handleGenerateCaptions();
-                      } else {
-                        toggleCaptions();
-                      }
-                    }}
-                    title={
-                      tClips.length === 0
-                        ? 'Generate Live Captions'
-                        : isCaptionsActive
-                        ? 'Captions visible (click to toggle off)'
-                        : 'Captions hidden (click to toggle on)'
-                    }
-                  >
-                    {tClips.length === 0 ? 'Auto CC' : isCaptionsActive ? 'CC On' : 'CC Off'}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    icon="auto_awesome" iconSpin={generatingCaptions}
-                    onClick={handleGenerateCaptions}
-                    disabled={generatingCaptions}
-                    title="Extract speech from audio and generate synchronized captions"
-                  >
-                    {generatingCaptions ? 'Syncing...' : 'AI Live CC'}
-                  </Button>
                 </div>
 
                 <p className="text-[13px] text-ink-muted leading-relaxed">
@@ -1522,7 +1492,7 @@ export default function SmartEditor() {
                 { id: 'captions', label: 'Captions', icon: 'subtitles' },
                 { id: 'broll', label: 'B-Roll', icon: 'movie' },
                 { id: 'audio', label: 'Audio', icon: 'music_note' },
-                { id: 'inspector', label: 'Inspect', icon: 'tune' },
+                { id: 'inspector', label: 'Selected clip', icon: 'tune' },
               ].map((tab) => (
                 <TabsTrigger key={tab.id} value={tab.id} className="flex-1 px-2 py-1.5">
                   <Icon name={tab.icon} size={14} />
@@ -2474,32 +2444,6 @@ export default function SmartEditor() {
             </TabsContent>
           </Tabs>
 
-          {/* Finish & Handoff Card */}
-          <Card className="p-4 space-y-3">
-            <h2 className="font-semibold text-ink text-sm">Export & Publish</h2>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" icon="download" onClick={() => setShowExportModal(true)}>
-                Export Video
-              </Button>
-              <Button icon="schedule_send" onClick={() => handleToPublish()}>
-                Schedule
-              </Button>
-            </div>
-            <div className="pt-2 border-t border-line flex items-center justify-between text-xs text-ink-dim">
-              <button
-                onClick={() => setShowShortcutsModal(true)}
-                className="hover:text-primary flex items-center gap-1"
-              >
-                <Icon name="keyboard" size={14} /> Shortcuts
-              </button>
-              <button
-                onClick={() => window.dispatchEvent(new CustomEvent('kt:navigate', { detail: 'raw-reel' }))}
-                className="hover:text-primary"
-              >
-                ← Raw Studio
-              </button>
-            </div>
-          </Card>
         </div>
       </div>
 

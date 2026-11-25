@@ -32,41 +32,41 @@ import { planUploadBatch } from '@/lib/uploadBatch';
 const STEPS: Array<{ icon: string; label: string; stage: AutoEditProgress['stage'] }> = [
   { icon: 'graphic_eq', label: 'Reading the take and its transcript', stage: 'reading' },
   { icon: 'content_cut', label: 'Finding speech blocks and dead air', stage: 'cuts' },
-  { icon: 'subtitles', label: 'Building readable kinetic captions', stage: 'captions' },
-  { icon: 'auto_fix_high', label: 'Applying punch zooms and audio polish', stage: 'polish' },
+  { icon: 'subtitles', label: 'Building readable caption phrases', stage: 'captions' },
+  { icon: 'auto_fix_high', label: 'Applying restrained framing and polish', stage: 'polish' },
 ];
 
 // Keep these in step with PRESETS in src/lib/timeline.ts. The card must describe the engine that
 // actually runs, including when a preset id changes — a stale key silently showed "fast" specs.
 const PRESET_SPECS: Record<string, { silence: string; zoom: string; caption: string; sfx: string }> = {
   punchy: {
-    silence: '350ms hard silence cuts',
-    zoom: '1.35x punch zooms',
-    caption: 'Large word-pop captions',
-    sfx: 'Impact accents enabled',
+    silence: '350ms crisp silence trims',
+    zoom: '1.16x restrained reframes',
+    caption: 'Sentence-case editorial captions',
+    sfx: 'Sparse beat accents',
   },
   clean: {
     silence: '600ms natural breathing',
-    zoom: 'Subtle emphasis framing',
+    zoom: 'Quiet emphasis framing',
     caption: 'High-contrast lower thirds',
     sfx: 'Clean ambient audio only',
   },
   cinematic: {
     silence: '800ms longer holds',
     zoom: 'Slow steady push-ins',
-    caption: 'Elegant warm captions',
+    caption: 'Warm, quiet captions',
     sfx: 'No artificial effects',
   },
   jumpcut: {
-    silence: '250ms ultra-rapid cuts',
-    zoom: 'Dynamic snap zooms',
-    caption: 'Karaoke word highlight',
-    sfx: 'High-energy accents',
+    silence: '250ms tight rhythm',
+    zoom: 'Subtle snap reframes',
+    caption: 'Muted word highlight',
+    sfx: 'Light beat accents',
   },
   minimal: {
     silence: '700ms light trim',
     zoom: 'No zooms or effects',
-    caption: 'Bold muted-viewing banner',
+    caption: 'High-contrast muted-viewing banner',
     sfx: 'Silent-friendly',
   },
 };
@@ -575,10 +575,10 @@ export default function RawReel() {
       />
 
       <PageHeader
-        eyebrow="In · Upload"
+        eyebrow="In · Intake"
         icon="smart_display"
-        title="Bring the raw take onto the bench"
-        description="Upload a raw take, then choose your route: edit every cut yourself in the full studio, or use one magic click to get three reel options and export only the one you pick."
+        title="Bring in the raw take"
+        description="One source, two routes. Keep full control in the studio, or generate three considered cuts and export only the one you choose."
         actions={
           <>
             {video && transcripts[video.id] === 'working' && (
@@ -592,7 +592,6 @@ export default function RawReel() {
             {video && transcripts[video.id] === 'none' && (
               <StatusPill tone="neutral">No speech on file — paste the script below</StatusPill>
             )}
-            {exportedFile && <StatusPill tone="tertiary">MP4 downloaded</StatusPill>}
             {result && (
               <>
                 {result.planKind === 'visual' && (
@@ -605,11 +604,6 @@ export default function RawReel() {
                 ) : (
                   <StatusPill tone="neutral">Local assembly</StatusPill>
                 )}
-                {result.rationale && (
-                  <span className="text-[11px] text-ink-dim" title={result.rationale}>
-                    {result.planKind === 'visual' ? 'Visual note' : 'Director’s note'}: {result.rationale}
-                  </span>
-                )}
               </>
             )}
           </>
@@ -619,7 +613,7 @@ export default function RawReel() {
 
       {/* Active Blueprint & Script Guidance Banner (if initiated from an idea) */}
       {activeDraft?.idea && blueprintFormat && (
-        <Card className="kt-sheen relative mb-6 overflow-hidden border-primary/20 bg-primary-soft/50 p-5 sm:p-6">
+        <Card className="relative mb-6 overflow-hidden border-line p-5 sm:p-6">
           <button
             type="button"
             onClick={removeBlueprint}
@@ -913,9 +907,9 @@ export default function RawReel() {
             </div>
           </Card>
 
-          {/* Step 3: Run Auto-Assembly */}
+          {/* Step 3: Choose the route */}
           <Card className="p-5">
-            <StepLabel n={3} title="Choose how to make the reel" />
+            <StepLabel n={3} title="Choose your route" />
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-btn border border-line bg-surface-2/50 px-3.5 py-2.5">
               <div className="min-w-0">
                 <div className="text-[13px] font-semibold text-ink">Burn in subtitles / on-screen text</div>
@@ -970,7 +964,8 @@ export default function RawReel() {
                 type="button"
                 onClick={openManualEditor}
                 disabled={busy || rendering || !video}
-                className="group rounded-card border border-line bg-surface p-4 text-left transition-all hover:border-line-strong kt-focus disabled:opacity-60"
+                data-route="manual"
+                className="kt-route-card group rounded-card border border-line bg-surface p-4 pl-5 text-left transition-all hover:border-line-strong kt-focus disabled:opacity-60"
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-btn bg-surface-3 text-primary">
@@ -993,7 +988,8 @@ export default function RawReel() {
                 type="button"
                 onClick={create}
                 disabled={busy || rendering || !video}
-                className="group rounded-card border border-primary bg-primary-soft p-4 text-left transition-all ring-2 ring-primary/15 hover:ring-primary/25 kt-focus disabled:opacity-60"
+                data-route="magic"
+                className="kt-route-card group rounded-card border border-primary bg-primary-soft p-4 pl-5 text-left transition-all ring-2 ring-primary/15 hover:ring-primary/25 kt-focus disabled:opacity-60"
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-btn bg-primary text-on-primary">
@@ -1030,21 +1026,28 @@ export default function RawReel() {
             )}
 
             {result && !busy && (
-                <span className="text-[13px] text-ink-muted flex items-center gap-2 bg-surface-2/60 px-3 py-1.5 rounded-btn border border-line">
-                  <Icon name="check_circle" size={17} className="text-tertiary shrink-0" />
+              <div className="mt-4 rounded-btn border border-line bg-surface-2/60 px-3 py-2 text-[12px] text-ink-muted">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Icon name="check_circle" size={16} className="text-success shrink-0" />
                   <span>
-                    <strong>{result.stats?.cutsCount || 0} cuts</strong> ·{' '}
-                    <strong>{result.stats?.punchZoomsCount || 0} punch-ins</strong> ·{' '}
-                    <strong>
+                    <strong className="text-ink">{result.stats?.cutsCount || 0} cuts</strong> ·{' '}
+                    <strong className="text-ink">{result.stats?.punchZoomsCount || 0} reframes</strong> ·{' '}
+                    <strong className="text-ink">
                       {subtitlesOn ? `${result.stats?.captionsCount || 0} captions` : 'subtitles off'}
                     </strong>{' '}
                     ·{' '}
-                    <strong>
+                    <strong className="text-ink">
                       {fmtTime(result.stats?.silenceRemovedSec || 0)}{' '}
-                      {result.planKind === 'visual' ? 'visual filler trimmed' : 'dead-air purged'}
+                      {result.planKind === 'visual' ? 'visual filler trimmed' : 'dead air trimmed'}
                     </strong>
                   </span>
-                </span>
+                </div>
+                {result.rationale && (
+                  <p className="mt-1.5 border-t border-line/70 pt-1.5 text-[11px] leading-relaxed text-ink-dim">
+                    {result.planKind === 'visual' ? 'Visual note' : 'Director’s note'}: {result.rationale}
+                  </p>
+                )}
+              </div>
             )}
 
             {variants.length > 0 && !busy && (

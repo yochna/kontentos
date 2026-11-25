@@ -38,13 +38,12 @@ export const SYSTEM_PROMPT_DIRECTOR = `You are the creative director inside a on
 
 Your job is to decide THE EDIT. You are not writing timestamps, not writing code, and not writing a TimelineProject. You are choosing moments by their word index. The editor turns your choices into exact cuts.
 
-HOW A FINISHED REEL THINKS:
-- The first two seconds decide whether anyone keeps watching. Open on the most provocative, surprising, useful or emotionally charged single idea in the take. It does NOT have to be the first thing said. If the strongest line appears later, that is your hook — move it to the front.
-- Cut ruthlessly. Remove dead air, false starts, repeated words, throat-clearing, tangents and any sentence that does not push the ONE idea the hook promised. A tight 25-second reel beats a distracted 60-second one.
-- Keep a through-line. Every kept moment should make the opening line more true, more surprising, or more useful.
-- Vary the rhythm. Short clips for lists and punchlines, slightly longer ones for the explanation that pays them off. Do not cut mechanically every three seconds.
-- Captions are read, not scanned. Group 2-5 words into one complete phrase. Break on punctuation and natural thought boundaries. Never orphan a single word at the end of a cue. Never invent, paraphrase, re-order or "improve" the creator's words — the text you group is the text that burns in.
-- Restraint on effects. Punch in on at most one or two words per 20 seconds, only on a genuine payoff. Use at most four sound effects in the entire reel, on real reveals or transitions — never on ordinary words. If the take does not earn an effect, use none.
+HOW A FINISHED EDITORIAL REEL THINKS:
+- Open on the clearest, most useful idea in the take, not a manufactured provocation. It does NOT have to be the first thing said. If the strongest line appears later, name it as the hook and the editor will move it forward.
+- Cut with intent. Remove dead air, false starts, repeated words, throat-clearing and tangents. Keep the through-line intact. A tight cut beats a distracted one; do not invent urgency or a claim the creator never made.
+- Vary the rhythm. Hold an explanation long enough to understand it, then tighten on a list or a real payoff. Do not cut mechanically every three seconds.
+- Captions are read, not scanned. Group 3-5 words into one complete phrase. Break on punctuation and natural thought boundaries. Never orphan a single word at the end of a cue. Never invent, paraphrase, re-order or "improve" the creator's words — the text you group is the text that burns in.
+- Restraint on effects. Punch in at most once per 15 seconds and only on a genuine payoff. Use at most two subtle sound accents in the entire reel, on real transitions — never on ordinary words. If the take does not earn an effect, use none. Prefer "pop" or "whoosh" over cartoon or meme sounds.
 
 RETURN ONLY a JSON object with exactly this shape:
 {
@@ -53,7 +52,7 @@ RETURN ONLY a JSON object with exactly this shape:
   "hook": [startIndex, endIndex],
   "keep": [[startIndex, endIndex], ...],
   "punch": [index, ...],
-  "sfx": [{"wordIndex": n, "asset": "vine_boom|cash_register|chime|pop|whoosh|glitch"}],
+  "sfx": [{"wordIndex": n, "asset": "pop|whoosh|chime"}],
   "captionGroups": [[startIndex, endIndex], ...],
   "pace": "tight|balanced|breathing",
   "bgmVolume": 0.22
@@ -63,7 +62,7 @@ HARD RULES — breaking these makes the edit unusable:
 - Indices are the integers in [n] before each word. Both ends are INCLUSIVE. Never invent an index.
 - "hook" is one range inside the kept material. If it starts after other words, the editor moves it to the front for you — just name it.
 - "keep" ranges are in ascending source order and never overlap each other.
-- "captionGroups" cover every kept word in order, with no gaps and no overlaps, 2-5 words per group. A group may not cross from one kept range into another.
+- "captionGroups" cover every kept word in order, with no gaps and no overlaps, 3-5 words per group where possible. A group may not cross from one kept range into another.
 - Use [] for empty lists. "pace" is one of the three literal strings. "bgmVolume" is a number from 0 to 0.4.
 - No prose, no markdown, no commentary outside the JSON object.`;
 
@@ -329,12 +328,12 @@ export function rhythmicPunchKeyframes(duration: number, seed: number, startAt =
   if (duration < 0.8) return [];
   const usable = Math.max(0.3, duration - startAt);
   const beatCount = usable >= 3.2 ? 2 : 1;
-  const zooms = [1.3, 1.22, 1.36, 1.26];
+  const zooms = [1.14, 1.11, 1.18, 1.13];
   const pans = [
-    { x: 0, y: -0.05 },
-    { x: 0.025, y: 0.04 },
-    { x: -0.025, y: -0.03 },
-    { x: 0, y: 0.05 },
+    { x: 0, y: -0.02 },
+    { x: 0.012, y: 0.018 },
+    { x: -0.012, y: -0.015 },
+    { x: 0, y: 0.02 },
   ];
   const keyframes: TransformKeyframe[] = [];
 
@@ -405,7 +404,7 @@ export function compileDirectorPlan(
         const at = Number(Math.max(0, Math.min(duration - 0.1, words[wordIndex].start - rawStart)).toFixed(3));
         keyframes.push(
           { timeOffset: 0, scale: 1, position: { x: 0, y: 0 }, easing: 'linear' },
-          { timeOffset: at, scale: 1.32, position: { x: 0, y: -0.04 }, easing: 'easeInOut' },
+          { timeOffset: at, scale: 1.18, position: { x: 0, y: -0.02 }, easing: 'easeInOut' },
           {
             timeOffset: Number(Math.min(duration, at + 0.9).toFixed(3)),
             scale: 1,
@@ -478,16 +477,15 @@ export function compileDirectorPlan(
         duration,
         sourceStartOffset: 0,
         style: {
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: 60,
+          fontFamily: 'Caption Sans',
+          fontSize: 48,
           colorHex: '#FFFFFF',
-          activeWordColorHex: '#FFE066',
+          activeWordColorHex: '#C7A765',
           strokeColorHex: '#000000',
-          strokeWidth: 6,
-          shadowColorHex: 'rgba(0,0,0,0.92)',
-          bannerPillColorHex: 'rgba(0,0,0,0.56)',
+          strokeWidth: 3,
+          shadowColorHex: 'rgba(0,0,0,0.82)',
           position: 'bottom' as const,
-          animation: 'karaoke' as const,
+          animation: 'fade' as const,
           words: wordTimes,
         },
       },
@@ -500,34 +498,39 @@ export function compileDirectorPlan(
     if (!word) return;
     const startOnTimeline = mapRawToTimeline(word.start, mappings);
     if (sfxClips.some((clip) => Math.abs(clip.startOnTimeline - startOnTimeline) < 0.8)) return;
+    // Meme-style assets are no longer part of the house reel. Keep the accent, drop the cartoon.
+    const asset =
+      item.asset === 'vine_boom' || item.asset === 'cash_register' || item.asset === 'pop'
+        ? 'pop'
+        : item.asset;
     sfxClips.push({
       id: `sfx_director_${index}`,
-      name: item.asset,
+      name: asset === 'pop' ? 'Beat Accent' : item.asset,
       type: 'sfx',
-      sfxAssetId: item.asset,
+      sfxAssetId: asset,
       startOnTimeline,
-      duration: item.asset === 'vine_boom' ? 1.2 : item.asset === 'cash_register' ? 1 : 0.7,
+      duration: 0.28,
       sourceStartOffset: 0,
-      audioModifiers: { pitchShiftCents: 0, volume: 1, fadeInSec: 0, fadeOutSec: 0.1 },
+      audioModifiers: { pitchShiftCents: 0, volume: 0.45, fadeInSec: 0, fadeOutSec: 0.08 },
     });
   });
 
-  // A clean transcript with no "money"/"boom" words gives the model nothing to score. A light pop
-  // on each kept beat still gives the export an edited rhythm without inventing any spoken words.
+  // A clean transcript with no obvious sound cues gives the model nothing to score. A sparse,
+  // quiet accent on alternating beats keeps an edited rhythm without becoming a meme track.
   if (sfxEnabled && plan.sfx.length === 0) {
     videoClips.forEach((clip, index) => {
-      if (clip.duration < 0.5) return;
+      if (clip.duration < 0.5 || index % 2 === 1) return;
       const startOnTimeline = round3(clip.startOnTimeline + 0.06);
       if (sfxClips.some((existing) => Math.abs(existing.startOnTimeline - startOnTimeline) < 0.8)) return;
       sfxClips.push({
         id: `sfx_beat_${index}`,
-        name: 'Beat Pop',
+        name: 'Beat Accent',
         type: 'sfx',
         sfxAssetId: 'pop',
         startOnTimeline,
-        duration: 0.4,
+        duration: 0.25,
         sourceStartOffset: 0,
-        audioModifiers: { pitchShiftCents: 0, volume: 0.85, fadeInSec: 0, fadeOutSec: 0.1 },
+        audioModifiers: { pitchShiftCents: 0, volume: 0.42, fadeInSec: 0, fadeOutSec: 0.08 },
       });
     });
   }

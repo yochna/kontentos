@@ -150,10 +150,10 @@ describe('reel variants', () => {
     }
   });
 
-  it('gives the rapid option a visible punch on every snapped beat', () => {
+  it('gives the rapid option a restrained but visible reframe on every snapped beat', () => {
     const rapid = buildReelVariants(base, sourceStats, getPreset('punchy'))[2];
     const clips = videoClips(rapid.project);
-    expect(clips.every((clip) => clip.keyframes.some((k) => k.scale > 1.25))).toBe(true);
+    expect(clips.every((clip) => clip.keyframes.some((k) => k.scale > 1.2 && k.scale < 1.3))).toBe(true);
     expect(rapid.stats.punchZoomsCount).toBeGreaterThan(sourceStats.punchZoomsCount);
   });
 

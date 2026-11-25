@@ -72,7 +72,7 @@ function quickPunch(duration: number, seed: number, peakScale: number): Transfor
     {
       timeOffset: peakAt,
       scale: peakScale,
-      position: { x: seed % 2 === 0 ? 0.02 : -0.02, y: -0.05 },
+      position: { x: seed % 2 === 0 ? 0.015 : -0.015, y: -0.025 },
       easing: 'easeInOut',
     },
     { timeOffset: settleAt, scale: 1 + (peakScale - 1) * 0.35, position: { x: 0, y: 0 }, easing: 'easeOut' },
@@ -88,8 +88,8 @@ function softenClip(clip: VideoClip): VideoClip {
     keyframes: normalizeKeyframes(
       clip.keyframes.map((k) => ({
         ...k,
-        scale: 1 + (Math.max(1, k.scale) - 1) * 0.42,
-        position: { x: k.position.x * 0.5, y: k.position.y * 0.5 },
+        scale: 1 + (Math.max(1, k.scale) - 1) * 0.2,
+        position: { x: k.position.x * 0.25, y: k.position.y * 0.25 },
       })),
       clip.duration,
     ),
@@ -134,8 +134,8 @@ function mergeCleanClips(clips: VideoClip[]): VideoClip[] {
       clip.keyframes.map((keyframe) => ({
         ...keyframe,
         timeOffset: clip.startOnTimeline - start + keyframe.timeOffset,
-        scale: 1 + (Math.max(1, keyframe.scale) - 1) * 0.42,
-        position: { x: keyframe.position.x * 0.5, y: keyframe.position.y * 0.5 },
+        scale: 1 + (Math.max(1, keyframe.scale) - 1) * 0.2,
+        position: { x: keyframe.position.x * 0.25, y: keyframe.position.y * 0.25 },
       })),
     );
     return [
@@ -158,7 +158,7 @@ function splitRapidClips(clips: VideoClip[]): VideoClip[] {
     if (clip.duration < 1.1) {
       const boosted = clip.keyframes.map((k) => ({
         ...k,
-        scale: 1 + (Math.max(1, k.scale) - 1) * 1.1,
+        scale: Math.min(1.28, 1 + (Math.max(1, k.scale) - 1) * 1.04),
       }));
       return [
         {
@@ -166,7 +166,7 @@ function splitRapidClips(clips: VideoClip[]): VideoClip[] {
           id: `v_rapid_${clip.id}`,
           name: `${clip.name} · Snap`,
           keyframes: normalizeKeyframes(
-            boosted.length ? boosted : quickPunch(clip.duration, index, 1.46),
+            boosted.length ? boosted : quickPunch(clip.duration, index, 1.24),
             clip.duration,
           ),
         },
@@ -183,11 +183,11 @@ function splitRapidClips(clips: VideoClip[]): VideoClip[] {
         .map((k) => ({
           ...k,
           timeOffset: k.timeOffset - partStart,
-          scale: 1 + (Math.max(1, k.scale) - 1) * 1.08,
+          scale: Math.min(1.28, 1 + (Math.max(1, k.scale) - 1) * 1.04),
         }));
       const keyframes = local.some((k) => k.scale > 1.1)
         ? local
-        : quickPunch(partDuration, index + part, 1.46);
+        : quickPunch(partDuration, index + part, 1.24);
       return {
         ...clip,
         id: `v_rapid_${clip.id}_${part}`,
@@ -255,17 +255,18 @@ function rapidVariant(base: TimelineProject, sourceStats: AutoEditStats): Timeli
   project = replaceSfxClips(project, (existing) => {
     const accents = existing.map((clip) => ({ ...clip, id: `sfx_rapid_${clip.id}` }));
     videoClips(project).forEach((clip, index) => {
+      if (index % 2 === 1) return;
       const start = round(clip.startOnTimeline + 0.04);
       if (accents.some((accent) => Math.abs(accent.startOnTimeline - start) < 0.45)) return;
       accents.push({
         id: `sfx_rapid_beat_${index}`,
-        name: 'Pop Sound',
+        name: 'Beat Accent',
         type: 'sfx',
         sfxAssetId: 'pop',
         startOnTimeline: start,
-        duration: 0.4,
+        duration: 0.25,
         sourceStartOffset: 0,
-        audioModifiers: { pitchShiftCents: 0, volume: 0.9, fadeInSec: 0, fadeOutSec: 0.1 },
+        audioModifiers: { pitchShiftCents: 0, volume: 0.45, fadeInSec: 0, fadeOutSec: 0.08 },
       });
     });
     return accents.sort((a, b) => a.startOnTimeline - b.startOnTimeline);
@@ -306,7 +307,7 @@ export function buildReelVariants(
       id: 'rapid-remix',
       label: 'Rapid Remix',
       shortLabel: 'Rapid Remix',
-      description: 'Snap cuts, bold grade, faster caption pops and extra beat accents.',
+      description: 'Tighter cuts, quicker reframes and a light rhythmic accent. Still restrained.',
       icon: 'sports_esports',
       project: rapid,
       stats: statsFromProject(rapid, sourceStats),

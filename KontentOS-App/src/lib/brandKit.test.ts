@@ -45,7 +45,7 @@ describe('Brand Kit voice', () => {
   });
 
   it('keeps the engine default tone only when the creator set none', () => {
-    expect(voiceTone({})).toBe('Viral & Punchy');
+    expect(voiceTone({})).toBe('Editorial / grounded');
     expect(voiceTone({ tone: 'Dry & Direct' })).toBe('Dry & Direct');
   });
 });

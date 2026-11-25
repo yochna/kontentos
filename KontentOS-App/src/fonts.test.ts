@@ -16,12 +16,17 @@ describe('the vendored fonts', () => {
   const css = read('src/fonts.css');
   const urls = [...css.matchAll(/url\('\/fonts\/([^']+)'\)/g)].map((m) => m[1]);
 
-  it('declares a face for every file it points at, and each one is a real woff2', () => {
+  it('declares a face for every file it points at, with vendor-approved font binaries', () => {
     expect(urls.length).toBeGreaterThan(30);
+    expect(urls).toContain('font.ttf');
     for (const name of urls) {
       const file = path.join(root, 'public/fonts', name);
       expect(existsSync(file), `public/fonts/${name} is missing`).toBe(true);
-      expect(readFileSync(file).subarray(0, 4).toString('latin1'), `${name} is not woff2`).toBe('wOF2');
+      const header = readFileSync(file).subarray(0, 4);
+      const isWoff2 = header.toString('latin1') === 'wOF2';
+      // The one TTF is the FFmpeg drawtext face, deliberately shared with the browser preview.
+      const isTtf = header.toString('hex') === '00010000';
+      expect(isWoff2 || (name === 'font.ttf' && isTtf), `${name} is not a supported font`).toBe(true);
     }
   });
 

@@ -160,21 +160,19 @@ type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'soft' | 'danger';
 type BtnSize = 'sm' | 'md';
 
 const btnBase =
-  'inline-flex items-center justify-center gap-2 rounded-btn font-body font-semibold tracking-[-0.005em] transition-all duration-150 ease-out active:scale-[0.97] kt-focus cursor-pointer select-none whitespace-nowrap';
+  'inline-flex items-center justify-center gap-2 rounded-btn font-body font-medium tracking-[-0.01em] transition-all duration-150 ease-out active:scale-[0.98] kt-focus cursor-pointer select-none whitespace-nowrap';
 
 const btnVariants: Record<BtnVariant, string> = {
   primary: 'kt-btn-primary bg-primary text-on-primary hover:bg-primary-hover',
   secondary: 'kt-btn-secondary bg-surface text-ink border border-line hover:bg-app hover:border-ink-muted',
   ghost: 'bg-transparent text-ink-muted hover:text-ink hover:bg-surface-2',
-  soft: 'bg-primary-soft text-primary hover:bg-secondary-soft',
-  /* Work that cannot be undone wears vermilion, never the amber: the brand colour is the one a
-     creator's eye already trusts, and it is the colour of every affirmative verb on the bench. */
+  soft: 'bg-primary-soft text-primary hover:bg-primary-soft/80',
   danger: 'bg-danger/10 text-danger-ink border border-danger/30 hover:bg-danger/20',
 };
 
 const btnSizes: Record<BtnSize, string> = {
-  sm: 'text-[13px] px-3 py-1.5',
-  md: 'text-sm px-4 py-2.5',
+  sm: 'text-[12.5px] px-3 py-1.5',
+  md: 'text-[13.5px] px-4 py-2',
 };
 
 export function Button({
@@ -453,14 +451,14 @@ export function PageHeader({
             <Eyebrow icon={icon}>{eyebrow}</Eyebrow>
           </div>
           <h1
-            className="kt-hero-title mt-2 break-words font-display text-[24px] font-bold leading-[1.1] tracking-[-0.02em] text-balance text-ink sm:text-[34px] kt-hero-in"
+            className="kt-hero-title mt-2 break-words font-display text-[22px] font-semibold leading-[1.12] tracking-[-0.035em] text-balance text-ink sm:text-[30px] kt-hero-in"
             style={heroDelay(60)}
           >
             {title}
           </h1>
           {description && (
             <p
-              className="mt-3 max-w-2xl text-[13.5px] leading-relaxed text-ink-muted kt-hero-in"
+              className="mt-3 max-w-2xl text-[13px] leading-relaxed text-ink-muted kt-hero-in"
               style={heroDelay(120)}
             >
               {description}

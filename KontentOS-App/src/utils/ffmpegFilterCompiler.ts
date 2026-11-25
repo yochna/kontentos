@@ -515,17 +515,19 @@ export function compileTimelineToFiltergraph(
     currentVideoOut = `[${outLabel}]`;
   });
 
+  // Grade the picture before captions are drawn, matching the preview where captions sit outside
+  // the graded video layer. Captions must stay clean and legible in the exported MP4.
+  const lookFilter = FFMPEG_LOOK_FILTERS[project.projectMetadata.visualLook || 'clean'];
+  if (lookFilter) {
+    filterSteps.push(`${currentVideoOut}${lookFilter}[v_graded]`);
+    currentVideoOut = '[v_graded]';
+  }
+
   const captionOverlay = buildCaptionOverlay(textClips, targetWidth, targetHeight, prefix);
   if (captionOverlay.hasCaptions) {
     const captionedLabel = '[v_captioned]';
     filterSteps.push(`${currentVideoOut}${captionOverlay.filter}[v_captioned]`);
     currentVideoOut = captionedLabel;
-  }
-
-  const lookFilter = FFMPEG_LOOK_FILTERS[project.projectMetadata.visualLook || 'viral'];
-  if (lookFilter) {
-    filterSteps.push(`${currentVideoOut}${lookFilter}[v_graded]`);
-    currentVideoOut = '[v_graded]';
   }
 
   filterSteps.push(`${currentVideoOut}format=yuv420p[vout]`);

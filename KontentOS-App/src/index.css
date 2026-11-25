@@ -19,80 +19,82 @@
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --app: #0d1013; /* bench floor, near-black with a cold cast */
-  --surface: #15191d; /* bench top */
-  --surface-2: #1c2228; /* raised panels, hovers */
-  --surface-3: #262e35; /* wells, tracks, rails */
-  --line: #29323a; /* hairline between machines */
-  --line-strong: #3b4750;
+  /* Editorial studio, not a toy bench: near-black graphite, hairline structure,
+     one cool violet signal and one restrained mint for secondary information. */
+  --app: #080a0d;
+  --surface: #0f1216;
+  --surface-2: #151920;
+  --surface-3: #1b2028;
+  --line: #222833;
+  --line-strong: #394151;
 
-  --ink: #e9e4d9; /* bone — printed label on the slate */
-  --ink-muted: #9ba6ad;
-  --ink-dim: #818c94; /* held above 4.5:1 on the bench top so micro-labels stay readable */
+  --ink: #f3f5f8;
+  --ink-muted: #a0a9b6;
+  --ink-dim: #7d8794;
 
-  --primary: #f0a33c; /* safelight amber */
-  --primary-hover: #ffb957;
-  --on-primary: #171004; /* labels burned into the amber, never white on it */
-  --primary-soft: rgba(240, 163, 60, 0.14);
+  --primary: #a8b4ff;
+  --primary-hover: #c4ccff;
+  --on-primary: #0a0c14;
+  --primary-soft: rgba(168, 180, 255, 0.12);
 
-  --secondary: #7fb2c4; /* steel cold-light */
-  --secondary-soft: rgba(127, 178, 196, 0.16);
-  --tertiary: #e2593b; /* vermilion — rejection, splice marks */
-  --tertiary-soft: rgba(226, 89, 59, 0.16);
+  --secondary: #6ad7be;
+  --secondary-soft: rgba(106, 215, 190, 0.12);
+  --tertiary: #f08c72;
+  --tertiary-soft: rgba(240, 140, 114, 0.13);
 
-  --success: #64c394;
-  --warning: #e8b93f;
-  --danger: #e2593b;
-  --danger-ink: #f2876c; /* the bench's vermilion, lifted far enough to read on its own wash */
-  --success-ink: #8ed9b3;
+  --success: #63c79a;
+  --warning: #e5b85c;
+  --danger: #f07b73;
+  --danger-ink: #ff9d96;
+  --success-ink: #8cdcb4;
 
-  --ring: var(--primary); /* focus: the safelight at full strength — 8.5:1 on the bench top */
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.55), 0 6px 18px rgba(0, 0, 0, 0.35);
-  --shadow-2: 0 18px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
-  --scrim: rgba(6, 8, 10, 0.74);
-  --splash-glow: rgba(240, 163, 60, 0.16);
-  --splash-shine: rgba(255, 255, 255, 0.2);
-  --kt-shimmer: rgba(255, 255, 255, 0.07);
-  --kt-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ring: var(--primary);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.55), 0 8px 24px -14px rgba(0, 0, 0, 0.7);
+  --shadow-2: 0 24px 60px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.45);
+  --scrim: rgba(4, 6, 9, 0.78);
+  --splash-glow: rgba(168, 180, 255, 0.14);
+  --splash-shine: rgba(255, 255, 255, 0.12);
+  --kt-shimmer: rgba(255, 255, 255, 0.045);
+  --kt-ease-out: cubic-bezier(0.2, 0.9, 0.25, 1);
 }
 
 [data-theme='light'] {
   color-scheme: light;
 
-  --app: #f2f3f1; /* daylight workshop: cool paper, not cream */
+  --app: #f4f5f7;
   --surface: #ffffff;
-  --surface-2: #ebeeef;
-  --surface-3: #dfe4e2;
-  --line: #d7ddd9;
-  --line-strong: #bcc6c1;
+  --surface-2: #eef0f3;
+  --surface-3: #e3e6eb;
+  --line: #d8dce3;
+  --line-strong: #b8bfca;
 
-  --ink: #141a1d;
-  --ink-muted: #4e5860;
-  --ink-dim: #5f6a72; /* on paper both clear 4.5:1; the step down from muted is narrow because pale grey text fails on white */
+  --ink: #0e1116;
+  --ink-muted: #4d5563;
+  --ink-dim: #667080;
 
-  --primary: #a35a12; /* burnt amber, deep enough to carry white text on paper */
-  --primary-hover: #8c4d0e;
-  --on-primary: #fff7ea;
-  --primary-soft: rgba(163, 90, 18, 0.1);
+  --primary: #4d5fd6;
+  --primary-hover: #3d4fb8;
+  --on-primary: #ffffff;
+  --primary-soft: rgba(77, 95, 214, 0.1);
 
-  --secondary: #3f7185;
-  --secondary-soft: rgba(63, 113, 133, 0.14);
-  --tertiary: #c1452a;
-  --tertiary-soft: rgba(193, 69, 42, 0.12);
+  --secondary: #18826f;
+  --secondary-soft: rgba(24, 130, 111, 0.1);
+  --tertiary: #b44e3a;
+  --tertiary-soft: rgba(180, 78, 58, 0.1);
 
-  --success: #2b7c5a;
-  --warning: #98701d;
-  --danger: #c1452a;
-  --danger-ink: #9a3419; /* deeper than the fill so a rejection badge stays readable on paper */
-  --success-ink: #1f5c42;
+  --success: #197a55;
+  --warning: #8a6416;
+  --danger: #b44e3a;
+  --danger-ink: #8f3527;
+  --success-ink: #155d40;
 
-  --ring: var(--primary); /* 5.2:1 on paper — an amber wash at 35% was 2.2:1 and unreadable */
-  --shadow-1: 0 1px 3px rgba(20, 26, 29, 0.06), 0 4px 12px rgba(20, 26, 29, 0.04);
-  --shadow-2: 0 10px 28px rgba(20, 26, 29, 0.1), 0 2px 6px rgba(20, 26, 29, 0.05);
-  --scrim: rgba(20, 26, 29, 0.34);
-  --splash-glow: rgba(163, 90, 18, 0.12);
-  --splash-shine: rgba(255, 255, 255, 0.7);
-  --kt-shimmer: rgba(255, 255, 255, 0.8);
+  --ring: var(--primary);
+  --shadow-1: 0 1px 2px rgba(18, 24, 34, 0.06), 0 8px 20px -12px rgba(18, 24, 34, 0.14);
+  --shadow-2: 0 24px 60px rgba(18, 24, 34, 0.16), 0 2px 8px rgba(18, 24, 34, 0.06);
+  --scrim: rgba(12, 16, 22, 0.42);
+  --splash-glow: rgba(77, 95, 214, 0.1);
+  --splash-shine: rgba(255, 255, 255, 0.75);
+  --kt-shimmer: rgba(255, 255, 255, 0.75);
 }
 
 @theme inline {
@@ -119,16 +121,14 @@
   --color-danger: var(--danger);
   --color-danger-ink: var(--danger-ink);
 
-  /* Syne sets the machine-shop display voice. The body runs in Hanken Grotesk: Space Grotesk and
-     Plus Jakarta Sans are the two faces every generated UI converges on, and a bench that sells a
-     craft process cannot wear them. The card presets below still name them, because those are
-     fonts a creator chooses for an exported post — content, not chrome. */
-  --font-display: 'Syne', 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
-  --font-body: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  /* Instrument Sans is a quiet, modern editorial face with enough structure for dense tools.
+     Hanken stays as the fallback; card presets still name their own export fonts. */
+  --font-display: 'Instrument Sans', 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Instrument Sans', 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   --radius-btn: 8px;
-  --radius-card: 14px;
+  --radius-card: 12px;
 
   --shadow-paper: var(--shadow-1);
   --shadow-float: var(--shadow-2);
@@ -194,16 +194,15 @@ body,
 body {
   margin: 0;
   background-color: var(--app);
-  /* The room has light even where a panel does not cover it. Two low-opacity washes keep the
-     bench from reading as a flat rectangle without adding a visible pattern. */
+  /* Barely-there cool wash: enough to give the room depth, never enough to read as decoration. */
   background-image:
-    radial-gradient(70% 48% at 12% -8%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 68%),
-    radial-gradient(56% 42% at 94% -6%, color-mix(in srgb, var(--secondary) 7%, transparent), transparent 70%);
+    radial-gradient(70% 48% at 8% -10%, color-mix(in srgb, var(--primary) 4%, transparent), transparent 70%),
+    radial-gradient(56% 42% at 96% -8%, color-mix(in srgb, var(--secondary) 3%, transparent), transparent 72%);
   background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-body);
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 14.5px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   transition: background-color 0.25s ease, color 0.25s ease;
@@ -214,10 +213,8 @@ h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  /* Syne only shows its character at 600+, but tight tracking at small sizes makes headings
-     crowd their own letters. Keep the display face and give each word room to breathe. */
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.035em;
   color: var(--ink);
   margin: 0;
 }
@@ -276,85 +273,70 @@ h4 {
   box-shadow: var(--shadow-1);
 }
 
-/* A plate catches the safelight along its top edge. Hover strengthens the edge, never lifts the card. */
+/* A plate is a flat machined surface. It answers the pointer with a clearer edge, never a lift. */
 .kt-plate {
-  background-image:
-    radial-gradient(
-      115% 90% at 0% 0%,
-      color-mix(in srgb, var(--surface-2) 65%, transparent),
-      transparent 58%
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface-2) 28%, transparent),
-      transparent 42%
-    );
-  box-shadow: var(--shadow-1), inset 0 1px 0 var(--kt-shimmer);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 38%, transparent), transparent 34%);
+  box-shadow: var(--shadow-1);
 }
 .kt-plate:hover {
   border-color: var(--line-strong);
-  box-shadow: var(--shadow-2), inset 0 1px 0 var(--kt-shimmer);
+  box-shadow: var(--shadow-1), inset 0 1px 0 var(--kt-shimmer);
 }
 
-/* The hero is the one lit panel in the room: a slow sheen and a hairline safelight at its crown. */
+/* Reserved for the one hero panel that needs a signal line, not a glow. */
 .kt-sheen {
-  background-image:
-    linear-gradient(115deg, transparent 8%, var(--kt-shimmer) 44%, transparent 64%),
-    radial-gradient(70% 130% at 100% 0%, var(--primary-soft), transparent 72%);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--primary) 5%, transparent), transparent 38%);
 }
 .kt-sheen::after {
   content: '';
   position: absolute;
   inset: 0 0 auto;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--primary), transparent);
-  opacity: 0.55;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 55%, transparent), transparent);
+  opacity: 0.6;
 }
 
 .kt-hero-title::after {
   content: '';
   display: block;
-  width: 48px;
+  width: 32px;
   height: 2px;
-  margin-top: 13px;
+  margin-top: 12px;
   border-radius: 2px;
-  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--secondary) 70%, transparent));
+  background: var(--primary);
   opacity: 0.85;
 }
 
-/* Station page head: one lit plate per view. The station glyph sits behind the copy as
-   texture, so the header carries identity without adding another row of chrome. */
+/* Station page head: a quiet editorial masthead. The station glyph is almost invisible texture. */
 .kt-page-head {
-  background-image:
-    radial-gradient(90% 130% at 0% 0%, color-mix(in srgb, var(--primary) 13%, transparent), transparent 62%),
-    radial-gradient(70% 110% at 100% 0%, color-mix(in srgb, var(--secondary) 10%, transparent), transparent 68%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 72%, transparent), color-mix(in srgb, var(--surface) 94%, transparent));
-  box-shadow: var(--shadow-1), inset 0 1px 0 var(--kt-shimmer);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 55%, transparent), transparent 70%);
+  box-shadow: var(--shadow-1);
 }
 .kt-page-head::before {
   content: '';
   position: absolute;
-  inset: 0 0 auto;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 70%, transparent), transparent);
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--primary), transparent 82%);
+  opacity: 0.7;
 }
 .kt-page-head__wash {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background-image: radial-gradient(circle at 1px 1px, var(--kt-shimmer) 1px, transparent 0);
-  background-size: 22px 22px;
-  opacity: 0.45;
-  -webkit-mask-image: linear-gradient(90deg, transparent, black 32%, transparent 88%);
-  mask-image: linear-gradient(90deg, transparent, black 32%, transparent 88%);
+  background-size: 24px 24px;
+  opacity: 0.22;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 28%, transparent 84%);
+  mask-image: linear-gradient(90deg, transparent, black 28%, transparent 84%);
 }
 .kt-page-head__mark {
   position: absolute;
   right: 28px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--ink);
-  opacity: 0.045;
+  color: var(--primary);
+  opacity: 0.025;
   line-height: 1;
   pointer-events: none;
 }
@@ -362,7 +344,7 @@ h4 {
   font-size: 150px !important;
 }
 @media (max-width: 1023px) {
-  .kt-page-head__mark { right: 6px; opacity: 0.03; }
+  .kt-page-head__mark { right: 6px; opacity: 0.02; }
   .kt-page-head__mark .material-symbols-outlined { font-size: 112px !important; }
 }
 
@@ -376,20 +358,32 @@ h4 {
 }
 
 .kt-btn-primary {
-  background-image: linear-gradient(180deg, color-mix(in srgb, var(--primary-hover) 78%, var(--primary)), var(--primary));
-  box-shadow:
-    inset 0 1px 0 var(--splash-shine),
-    0 10px 24px -12px color-mix(in srgb, var(--primary) 75%, transparent);
+  background-image: none;
+  background-color: var(--primary);
+  color: var(--on-primary);
+  box-shadow: inset 0 1px 0 var(--splash-shine);
 }
 .kt-btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 var(--splash-shine),
-    0 14px 30px -12px color-mix(in srgb, var(--primary) 85%, transparent);
+  background-color: var(--primary-hover);
+  box-shadow: inset 0 1px 0 var(--splash-shine), 0 8px 20px -12px color-mix(in srgb, var(--primary) 70%, transparent);
 }
 .kt-btn-secondary {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 80%, transparent), transparent);
   box-shadow: inset 0 1px 0 var(--kt-shimmer);
 }
+
+/* Route cards: an editorial index mark makes the choice legible before the copy is read. */
+.kt-route-card { position: relative; }
+.kt-route-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--line-strong);
+  transition: background-color 160ms;
+}
+.kt-route-card[data-route='magic']::before { background: var(--primary); }
+.kt-route-card:hover { border-color: var(--line-strong); }
 
 .kt-topic {
   transition: transform 180ms var(--kt-ease-out), background-color 180ms, border-color 180ms, color 180ms;
@@ -431,26 +425,27 @@ h4 {
   .kt-signal { display: none; }
 }
 
-/* One quiet label face for the whole room. Tiny uppercase mono with wide tracking made every
-   panel shout; the body face at a readable size keeps station eyebrows legible without noise. */
+/* Section labels are technical and small, but read as an editorial index rather than a shout. */
 .kt-eyebrow {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
 }
 
-/* Phase markers on the rail (In / Cut / Out / Read) are the one place the display face is
-   allowed in chrome: the amber lift makes them landmarks, not another stack of labels. */
+/* Phase markers on the rail are landmarks: quiet by default, lit only in the current phase. */
 .kt-phase-label {
   font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   line-height: 1.2;
-  color: var(--primary);
+  color: var(--ink-dim);
 }
+.kt-phase-label[data-active='true'] { color: var(--primary); }
 
 /* A small dot carries the highlight; no pill, no border, no filled block. The current phase
    gets the full dot, the others keep a quiet one so the rail stays calm. */
@@ -477,21 +472,20 @@ h4 {
    Kinetic caption animations (Reel preview)
    ========================================================================== */
 @keyframes ktCapPop {
-  0% { transform: scale(0.7); opacity: 0; }
-  60% { transform: scale(1.08); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+  from { transform: translateY(3px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 @keyframes ktCapFade {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes ktCapWave {
-  0% { opacity: 0; transform: translateY(8px) rotate(-2deg); }
-  100% { opacity: 1; transform: translateY(0) rotate(0); }
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-.kt-cap-pop { animation: ktCapPop 260ms var(--kt-ease-out) both; }
-.kt-cap-fade { animation: ktCapFade 220ms ease-out both; }
-.kt-cap-wave { animation: ktCapWave 200ms ease-out both; }
+.kt-cap-pop { animation: ktCapPop 180ms ease-out both; }
+.kt-cap-fade { animation: ktCapFade 180ms ease-out both; }
+.kt-cap-wave { animation: ktCapWave 180ms ease-out both; }
 
 /* ==========================================================================
    Magical KontentOS splash
@@ -884,27 +878,22 @@ h4 {
      'backwards', not 'both': the stage must stop owning transform once it lands,
      or the spotlight tiles inside it can never lift on hover. */
   @keyframes ktStationIn {
-    from { opacity: 0; transform: translate3d(16px, 0, 0); }
+    from { opacity: 0; transform: translate3d(10px, 0, 0); }
     to { opacity: 1; transform: translate3d(0, 0, 0); }
   }
-  .kt-station { animation: ktStationIn 340ms var(--kt-ease-out) backwards; }
+  .kt-station { animation: ktStationIn 260ms var(--kt-ease-out) backwards; }
 
-  /* The bench itself carries two pools of light, so the room reads as a place rather than a
-     stack of panels. It stays behind every opaque surface and never moves under the pointer. */
+  /* The room is deliberately quiet: a single cool wash, no decorative light pools. */
   .kt-bench {
-    background-image:
-      radial-gradient(60% 44% at 4% -6%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 70%),
-      radial-gradient(48% 38% at 98% -4%, color-mix(in srgb, var(--secondary) 8%, transparent), transparent 72%);
+    background-image: radial-gradient(70% 50% at 0% -10%, color-mix(in srgb, var(--primary) 4%, transparent), transparent 70%);
   }
 
-  /* The spine is the room's instrument column: lit at the crown, quiet at the feet. */
+  /* The spine is an instrument column, not a lit menu. */
   .kt-spine {
-    background-image:
-      radial-gradient(90% 28% at 50% 0%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 72%),
-      linear-gradient(180deg, transparent 62%, color-mix(in srgb, var(--secondary) 5%, transparent));
+    background-image: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 45%, transparent), transparent 34%);
   }
   .kt-brand-bay {
-    background-image: radial-gradient(70% 100% at 50% 0%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 74%);
+    background-image: none;
   }
   .kt-brand-mark {
     position: relative;
@@ -912,22 +901,22 @@ h4 {
     place-items: center;
     width: 34px;
     height: 34px;
-    border-radius: 9px;
-    background: linear-gradient(145deg, var(--primary-hover), var(--primary));
-    color: var(--on-primary);
-    box-shadow:
-      inset 0 1px 0 var(--splash-shine),
-      0 10px 22px -10px color-mix(in srgb, var(--primary) 85%, transparent);
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--line));
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-size: 15px;
+    box-shadow: inset 0 1px 0 var(--kt-shimmer);
   }
   .kt-brand-mark::after {
     content: '';
     position: absolute;
     inset: -4px;
-    border: 1px solid color-mix(in srgb, var(--primary) 32%, transparent);
-    border-radius: 12px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
   }
 
-  /* A hairline bus runs behind the station keys; the active icon gets its own lit socket. */
+  /* A hairline bus runs behind the station keys; the active icon gets a restrained socket. */
   .kt-spine-nav { position: relative; }
   .kt-spine-nav::before {
     content: '';
@@ -936,12 +925,12 @@ h4 {
     bottom: 20px;
     left: 15px;
     width: 1px;
-    background: linear-gradient(to bottom, transparent, var(--line) 12%, var(--line) 88%, transparent);
+    background: var(--line);
   }
   .kt-station-icon {
     display: grid;
     place-items: center;
-    transition: background-color 180ms, color 180ms, transform 180ms var(--kt-ease-out);
+    transition: background-color 160ms, color 160ms, transform 160ms var(--kt-ease-out);
   }
   .kt-station-key[data-active='true'] .kt-station-icon {
     border-radius: 6px;
@@ -951,65 +940,39 @@ h4 {
   .kt-station-key:hover .kt-station-icon { transform: translateY(-1px); }
 
   /* --- machine table backdrop ----------------------------------------------
-     Light falling from a lamp above the bench: brightest under the rail, gone
-     before the dock. A tiled hairline grid would say "blueprint", and nothing
-     here is drawn to scale — the only measured surface is the card canvas. */
+     A quiet surface with depth, not a glowing stage. The work is the content. */
   .kt-graph {
     background-image:
-      radial-gradient(
-        48% 34% at 14% -6%,
-        color-mix(in srgb, var(--primary) 12%, transparent),
-        transparent 70%
-      ),
-      radial-gradient(
-        38% 28% at 88% 0%,
-        color-mix(in srgb, var(--secondary) 9%, transparent),
-        transparent 72%
-      ),
-      radial-gradient(
-        125% 72% at 50% -10%,
-        color-mix(in srgb, var(--surface-2) 85%, transparent),
-        transparent 60%
-      ),
-      linear-gradient(
-        to bottom,
-        transparent 0%,
-        color-mix(in srgb, var(--app) 38%, transparent) 78%,
-        var(--app) 100%
-      );
+      radial-gradient(120% 70% at 50% -12%, color-mix(in srgb, var(--surface-2) 60%, transparent), transparent 62%),
+      linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--app) 42%, transparent) 78%, var(--app) 100%);
   }
 
-  /* The rail, dock and inspector are the bench fixtures. A one-pixel warm edge on each
-     makes the room feel engineered instead of merely padded. */
+  /* The rail, dock and inspector are bench fixtures: hairline structure, no warm glow. */
   .kt-rail {
     position: relative;
-    background-image:
-      linear-gradient(90deg, color-mix(in srgb, var(--primary) 7%, transparent), transparent 38%),
-      linear-gradient(270deg, color-mix(in srgb, var(--secondary) 5%, transparent), transparent 42%);
+    background-image: linear-gradient(90deg, color-mix(in srgb, var(--primary) 3%, transparent), transparent 34%);
   }
   .kt-rail::after {
     content: '';
     position: absolute;
     inset: auto 0 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+    background: var(--line);
   }
   .kt-dock {
-    background-image:
-      linear-gradient(180deg, color-mix(in srgb, var(--primary) 5%, transparent), transparent 46%),
-      linear-gradient(0deg, color-mix(in srgb, var(--secondary) 4%, transparent), transparent 60%);
+    background-image: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 55%, transparent), transparent 70%);
   }
   .kt-command-trigger {
-    border-radius: 999px;
+    border-radius: 8px;
     box-shadow: inset 0 1px 0 var(--kt-shimmer);
   }
   .kt-command-trigger:hover {
-    border-color: color-mix(in srgb, var(--primary) 45%, var(--line-strong));
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--line-strong));
     background: var(--primary-soft);
   }
   .kt-inspector {
-    background-image: linear-gradient(180deg, color-mix(in srgb, var(--primary) 5%, transparent), transparent 26%);
-    box-shadow: -18px 0 50px rgba(0, 0, 0, 0.16);
+    background-image: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 35%, transparent), transparent 30%);
+    box-shadow: -18px 0 50px rgba(0, 0, 0, 0.22);
   }
 
   /* --- cut tile -------------------------------------------------------------

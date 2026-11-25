@@ -121,16 +121,19 @@ describe('compileTimelineToFiltergraph', () => {
     expect(compiled.filterComplex).toContain('y=1566');
   });
 
-  it('bakes the strong shared look grade and vignette into the exported MP4', () => {
+  it('bakes the restrained shared look grade before drawing clean captions', () => {
     const graded = project();
     graded.projectMetadata.visualLook = 'bold';
     const compiled = compileTimelineToFiltergraph(graded, {
       sourceHasAudio: { '/uploads/a.mp4': false },
     });
 
-    expect(compiled.filterComplex).toContain('eq=contrast=1.48:brightness=0.03:saturation=1.72');
-    expect(compiled.filterComplex).toContain('vignette=PI/3.5');
+    expect(compiled.filterComplex).toContain('eq=contrast=1.18:brightness=0.008:saturation=1.2');
+    expect(compiled.filterComplex).toContain('vignette=PI/5.2');
     expect(compiled.filterComplex).toContain('[v_graded]');
+    expect(compiled.filterComplex.indexOf('[v_graded]')).toBeLessThan(
+      compiled.filterComplex.indexOf('[v_captioned]')
+    );
   });
 
   it('exports the manual original look without adding a grade or vignette', () => {

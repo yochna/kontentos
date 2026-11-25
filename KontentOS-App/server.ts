@@ -663,10 +663,10 @@ async function createApp() {
             });
 
             const base64Media = mediaBuffer.toString('base64');
-            const prompt = `You are an elite speech-to-text (STT) transcription and subtitle synchronization AI for viral short-form video (Instagram Reels / TikTok / YouTube Shorts).
+            const prompt = `You are a precise speech-to-text (STT) transcription and subtitle synchronization engine for short-form video.
 Transcribe every spoken sentence verbatim into target language: "${targetLanguage}".
 Provide exact millisecond-accurate timestamps in SRT format ("00:00:01,200 --> 00:00:03,450").
-Split into short, punchy segments (2 to 5 words each).
+Split into readable caption phrases of 3 to 5 words, breaking on natural thought boundaries. Never paraphrase or invent words.
 Output valid JSON:
 {
   "language": "${targetLanguage}",

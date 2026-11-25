@@ -38,7 +38,7 @@ export const PRESS_STYLES: PressStyle[] = [
     minSeconds: 18,
     maxSeconds: 34,
     slides: 4,
-    tone: 'Viral & Punchy',
+    tone: 'Editorial / direct',
   },
   {
     id: 'explainer',

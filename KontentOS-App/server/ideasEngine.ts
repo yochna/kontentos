@@ -73,15 +73,15 @@ export async function generateIdeas(
   const query = (topic || '').trim();
   const ai = getGeminiClient();
   const brandVoice = String(opts.context || '').trim();
-  const tone = String(opts.tone || '').trim() || 'Viral & Punchy';
+  const tone = String(opts.tone || '').trim() || 'Editorial / grounded';
   const temperature = Number.isFinite(Number(opts.temperature))
     ? Math.min(1, Math.max(0, Number(opts.temperature)))
     : 0.7;
 
   if (ai && query) {
     try {
-      const prompt = `You are an elite short-form video creator, scriptwriter, and viral content strategist.
-Given the topic "${query}", niche "${niche}" and tone "${tone}", generate 6 unique, scroll-stopping content ideas and detailed blueprints.
+      const prompt = `You are a precise editorial content strategist for short-form video.
+Given the topic "${query}", niche "${niche}" and tone "${tone}", generate 6 distinct, grounded content ideas and detailed blueprints.
 
 Categories to cover across the 6 ideas:
 1. Trending Sprint (categoryTone: "tertiary")
@@ -92,17 +92,17 @@ Categories to cover across the 6 ideas:
 6. Evergreen (categoryTone: "neutral")
 
 For each idea, return:
-- title: punchy, compelling title (under 60 chars)
+- title: specific, non-clickbait title (under 60 chars)
 - excerpt: one concise sentence summarizing the core angle
 - category: one of the 6 categories above
 - categoryTone: matching categoryTone
 - format: suggested duration/format (e.g. "Reel · 30 sec", "Carousel · 7 slides", "Short · 45s")
 - metric: a short label for the angle, 24 characters or fewer
 - blueprint:
-  - focus: angle archetype (e.g. "Contrarian Focus", "Operator Playbook", "BTS Breakdown")
-  - why: 2 sentences explaining why this works psychologically on the viewer
+  - focus: angle archetype (e.g. "Operator Playbook", "BTS Breakdown", "Field Notes")
+  - why: 2 plain sentences explaining what the viewer takes away
   - formats: array of 3-4 formats (e.g. ["Reel (30s)", "Carousel", "LinkedIn Post", "Short"])
-  - hook: exact opening spoken hook in quotation marks (must stop the scroll in 3 seconds)
+  - hook: exact opening line in quotation marks, grounded in the topic and free of fake urgency
   - hookScore: your own read of that hook from 0 to 100. The app shows it as an estimate, never as a measurement — so give it only if you can argue for it.
   - beats: array of 3 timed beats with { label: "Beat 1: The Trap", time: "0:00 - 0:04", body: "visual + spoken action" }
 
