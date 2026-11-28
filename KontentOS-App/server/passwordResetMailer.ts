@@ -23,10 +23,15 @@ export function passwordResetBaseUrl(): string | null {
   }
 }
 
+export function passwordResetDeliveryProvider(): 'brevo' | 'smtp' | null {
+  if ((process.env.BREVO_API_KEY || '').trim()) return 'brevo';
+  if ((process.env.SMTP_URL || '').trim()) return 'smtp';
+  return null;
+}
+
 export function passwordResetDeliveryConfigured(): boolean {
   const from = (process.env.MAIL_FROM || '').trim();
-  const provider = (process.env.BREVO_API_KEY || '').trim() || (process.env.SMTP_URL || '').trim();
-  return Boolean(provider && from && passwordResetBaseUrl());
+  return Boolean(passwordResetDeliveryProvider() && from && passwordResetBaseUrl());
 }
 
 function senderAddress(from: string): { name?: string; email: string } {
@@ -109,6 +114,6 @@ export const smtpPasswordResetMailer: PasswordResetMailer = async ({ to, resetUr
 };
 
 export const passwordResetMailer: PasswordResetMailer = async (email) => {
-  if ((process.env.BREVO_API_KEY || '').trim()) return brevoPasswordResetMailer(email);
+  if (passwordResetDeliveryProvider() === 'brevo') return brevoPasswordResetMailer(email);
   return smtpPasswordResetMailer(email);
 };

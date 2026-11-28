@@ -3,6 +3,7 @@ import {
   brevoPasswordResetMailer,
   passwordResetBaseUrl,
   passwordResetDeliveryConfigured,
+  passwordResetDeliveryProvider,
   passwordResetMailer,
   smtpPasswordResetMailer,
 } from './passwordResetMailer.js';
@@ -52,6 +53,7 @@ afterEach(() => {
 
 describe('password reset delivery', () => {
   it('requires every delivery setting before claiming recovery is configured', () => {
+    expect(passwordResetDeliveryProvider()).toBe('smtp');
     expect(passwordResetDeliveryConfigured()).toBe(true);
     delete process.env.MAIL_FROM;
     expect(passwordResetDeliveryConfigured()).toBe(false);
@@ -60,6 +62,7 @@ describe('password reset delivery', () => {
   it('accepts Brevo without SMTP and prefers its HTTPS API', async () => {
     delete process.env.SMTP_URL;
     process.env.BREVO_API_KEY = 'synthetic-brevo-key';
+    expect(passwordResetDeliveryProvider()).toBe('brevo');
     expect(passwordResetDeliveryConfigured()).toBe(true);
 
     const resetUrl = 'https://studio.example.test/reset-password?token=abc';
@@ -90,18 +93,13 @@ describe('password reset delivery', () => {
       json: async () => ({ message: 'Unauthorized' }),
     });
 
-    await expect(brevoPasswordResetMailer({
+    const error = await brevoPasswordResetMailer({
       to: 'creator@example.test',
       resetUrl: 'https://studio.example.test/reset-password?token=abc',
-    })).rejects.toThrow(/Brevo.*401.*Unauthorized/);
-    try {
-      await brevoPasswordResetMailer({
-        to: 'creator@example.test',
-        resetUrl: 'https://studio.example.test/reset-password?token=abc',
-      });
-    } catch (error) {
-      expect(String(error)).not.toContain('synthetic-brevo-key');
-    }
+    }).catch((reason: unknown) => reason);
+    expect(error).toBeInstanceOf(Error);
+    expect(String(error)).toMatch(/Brevo.*401.*Unauthorized/);
+    expect(String(error)).not.toContain('synthetic-brevo-key');
   });
 
   it('rejects a plaintext public app origin in production', () => {

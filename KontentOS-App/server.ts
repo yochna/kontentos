@@ -20,6 +20,7 @@ import { isValidGeminiKey, envGeminiKey } from './server/geminiKey.js';
 import { asId } from './server/safeId.js';
 import { cspOptions, noStoreApi } from './server/securityHeaders.js';
 import { attachSession, createAuthRouter, requireUser } from './server/auth.js';
+import { passwordResetDeliveryConfigured, passwordResetDeliveryProvider } from './server/passwordResetMailer.js';
 
 // Local backend routes and database
 import * as db from './server/db.js';
@@ -483,6 +484,10 @@ async function createApp() {
       port: PORT,
       authRequired: true,
       timestamp: new Date().toISOString(),
+      mail: {
+        configured: passwordResetDeliveryConfigured(),
+        provider: passwordResetDeliveryProvider(),
+      },
       // Whether footage written here survives the container is the one durability question with no
       // other outside answer, and the creator should not have to sign in and read a banner for a
       // supporter to check it. Only the clause: not the bucket name, and never a key.
