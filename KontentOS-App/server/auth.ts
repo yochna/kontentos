@@ -13,7 +13,7 @@ import { safeMessage } from './errorText.js';
 import {
   passwordResetBaseUrl,
   passwordResetDeliveryConfigured,
-  smtpPasswordResetMailer,
+  passwordResetMailer,
   type PasswordResetMailer,
 } from './passwordResetMailer.js';
 
@@ -198,7 +198,7 @@ function requireSameOrigin(req: Request, res: Response, next: NextFunction) {
 export function createAuthRouter(options: AuthRouterOptions = {}): express.Router {
   const router = express.Router();
   const now = options.now || (() => new Date());
-  const mailer = options.mailer || smtpPasswordResetMailer;
+  const mailer = options.mailer || passwordResetMailer;
   const baseUrl = (options.appBaseUrl?.trim() || passwordResetBaseUrl() || '').replace(/\/$/, '');
   const resetDeliveryReady = Boolean(baseUrl && (options.mailer || passwordResetDeliveryConfigured()));
   const genericResetRequest = { success: true, message: 'If an account matches that email, a password reset link has been requested.' };

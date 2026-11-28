@@ -31,13 +31,14 @@ npm run preview  # preview the production build
 
 ## Password reset email
 
-Password recovery uses your existing SMTP service. Set these server environment variables:
+Password recovery uses Brevo's HTTPS email API when `BREVO_API_KEY` is set, or SMTP otherwise. Set these server environment variables:
 
-- `SMTP_URL` — SMTP connection URL, including credentials if required. TLS is required.
-- `MAIL_FROM` — verified sender address for reset emails.
+- `BREVO_API_KEY` — Brevo transactional email API key. HTTPS works on Render's free plan, which blocks outbound SMTP ports.
+- `MAIL_FROM` — verified sender address for reset emails, such as `KontentOS <you@gmail.com>`.
 - `APP_BASE_URL` — public HTTPS app origin in production, such as `https://kontentos.onrender.com`.
+- `SMTP_URL` — optional SMTP fallback for local or paid deployments. TLS is required.
 
-Without all three, the forgot-password endpoint returns a clear configuration error instead of claiming an email was sent. Reset links expire after 30 minutes, work once, and revoke every existing session when used.
+Without `MAIL_FROM`, `APP_BASE_URL`, and either `BREVO_API_KEY` or `SMTP_URL`, the forgot-password endpoint returns a clear configuration error instead of claiming an email was sent. Reset links expire after 30 minutes, work once, and revoke every existing session when used.
 
 ## Structure
 

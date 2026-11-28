@@ -25,9 +25,11 @@ services:
       - key: APP_BASE_URL
         value: https://kontentos.onrender.com
       - key: MAIL_FROM
-        sync: false   # e.g. KontentOS <you@gmail.com>
+        sync: false   # e.g. KontentOS <you@gmail.com>; verify this sender in Brevo
+      - key: BREVO_API_KEY
+        sync: false   # HTTPS email API; works on Render's free plan
       - key: SMTP_URL
-        sync: false   # Gmail: smtps://you%40gmail.com:APP_PASSWORD@smtp.gmail.com:465
+        sync: false   # Optional local/paid SMTP fallback; Render free blocks SMTP ports
       # Never add a VITE_* key here: anything prefixed VITE_ is inlined into the public bundle.
       # Connection string from a MongoDB cluster (Atlas free M0 works). Collections and unique
       # indexes are created by the app on first boot, so no manual schema step is needed.

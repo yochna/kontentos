@@ -48,6 +48,7 @@ beforeAll(async () => {
   fs.rmSync(dataDir, { recursive: true, force: true });
   fs.mkdirSync(dataDir, { recursive: true });
   process.env.SMTP_URL = '';
+  process.env.BREVO_API_KEY = '';
   process.env.MAIL_FROM = '';
   process.env.APP_BASE_URL = '';
 
