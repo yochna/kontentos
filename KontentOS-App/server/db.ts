@@ -27,6 +27,8 @@ const SCRYPT_OPTS = { N: 16384, r: 8, p: 1 } as const;
 
 export interface Account extends User {
   password_hash: string;
+  /** Changes with the password so a session row that survives cleanup still cannot authenticate. */
+  session_epoch?: string;
   /**
    * Kept in the store because old rows have them; declared here, and nowhere in the browser's
    * User type, because publicUser removes them and no code path reads them back.
@@ -38,8 +40,21 @@ export interface Account extends User {
 export interface SessionRow {
   id: string;
   user_id: string;
+  session_epoch?: string;
   created_at: string;
   expires_at: string;
+}
+
+export interface PasswordResetRow {
+  id: string;
+  user_id: string;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface ResolvedSession {
+  userId: string;
+  expiresAt: number;
 }
 
 /** The shape the API is allowed to hand to a browser: no hash, and no platform credentials. */
@@ -47,6 +62,7 @@ export function publicUser(account: Partial<Account> | null | undefined): User |
   if (!account) return null;
   const {
     password_hash: _hash,
+    session_epoch: _sessionEpoch,
     instagram_token: _igToken,
     instagram_user_id: _igUserId,
     ...rest
@@ -87,6 +103,14 @@ export function newSessionToken(): string {
   return crypto.randomBytes(32).toString('base64url');
 }
 
+export function newPasswordResetToken(): string {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+export function hashPasswordResetToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 
 // ==========================================
 // MongoDB storage layer
@@ -125,6 +149,7 @@ interface Models {
   publishingHistory: Model<any>;
   user: Model<any>;
   session: Model<any>;
+  passwordReset: Model<any>;
   scheduledPost: Model<any>;
   savedIdea: Model<any>;
 }
@@ -216,6 +241,7 @@ function buildModels(conn: Connection): Models {
       id: stringId,
       email: String,
       password_hash: String,
+      session_epoch: String,
       full_name: String,
       avatar_url: String,
       instagram_token: String,
@@ -238,6 +264,7 @@ function buildModels(conn: Connection): Models {
     {
       id: stringId,
       user_id: { type: String, required: true },
+      session_epoch: String,
       created_at: String,
       expires_at: String,
     },
@@ -245,6 +272,18 @@ function buildModels(conn: Connection): Models {
   );
   sessionSchema.index({ id: 1 }, idIndex);
   sessionSchema.index({ user_id: 1 });
+
+  const passwordResetSchema = new Schema(
+    {
+      id: stringId,
+      user_id: { type: String, required: true },
+      created_at: String,
+      expires_at: String,
+    },
+    docOptions,
+  );
+  passwordResetSchema.index({ id: 1 }, idIndex);
+  passwordResetSchema.index({ user_id: 1 }, { unique: true });
 
   const scheduledSchema = new Schema(
     {
@@ -292,6 +331,7 @@ function buildModels(conn: Connection): Models {
     publishingHistory: conn.model('PublishingRecord', publishingSchema, 'publishing_history'),
     user: conn.model('User', userSchema, 'users'),
     session: conn.model('Session', sessionSchema, 'sessions'),
+    passwordReset: conn.model('PasswordReset', passwordResetSchema, 'password_resets'),
     scheduledPost: conn.model('ScheduledPost', scheduledSchema, 'scheduled_posts'),
     savedIdea: conn.model('SavedIdea', ideaSchema, 'saved_ideas'),
   };
@@ -398,6 +438,7 @@ interface SavedIdeaRow {
 interface LocalStoreSchema {
   users: Account[];
   sessions: SessionRow[];
+  password_resets: PasswordResetRow[];
   videos: Video[];
   subtitles: Subtitle[];
   captions: Caption[];
@@ -443,6 +484,7 @@ function loadLocalStore(): LocalStoreSchema {
   const empty: LocalStoreSchema = {
     users: [],
     sessions: [],
+    password_resets: [],
     videos: [],
     subtitles: [],
     captions: [],
@@ -464,6 +506,7 @@ function loadLocalStore(): LocalStoreSchema {
     const parsed = JSON.parse(raw);
     if (!parsed.scheduled_posts) parsed.scheduled_posts = [];
     if (!parsed.sessions) parsed.sessions = [];
+    if (!parsed.password_resets) parsed.password_resets = [];
     if (!parsed.users) parsed.users = [];
     if (!parsed.saved_ideas) parsed.saved_ideas = [];
     return parsed;
@@ -633,16 +676,101 @@ export async function updateUserProfile(
   return store.users[idx];
 }
 
-export async function changePassword(userId: string, password_hash: string): Promise<boolean> {
+export async function changePasswordAndRevokeSessions(userId: string, password_hash: string): Promise<boolean> {
+  const id = asId(userId);
+  if (!id) return false;
+  const session_epoch = crypto.randomUUID();
   const m = await mongoModels();
   if (m) {
-    const res = await m.user.updateOne({ id: userId }, { $set: { password_hash } });
-    return (res.modifiedCount || res.matchedCount || 0) > 0;
+    // Revoke recovery links first: if this write fails, the password has not changed yet.
+    await m.passwordReset.deleteMany({ user_id: id });
+    const res = await m.user.updateOne({ id }, { $set: { password_hash, session_epoch } });
+    if ((res.modifiedCount || res.matchedCount || 0) === 0) return false;
+    try {
+      await m.session.deleteMany({ user_id: id });
+    } catch (err) {
+      // The epoch already invalidates every old session if housekeeping is unavailable.
+      console.warn('Password changed, but old session rows could not be removed:', err);
+    }
+    return true;
   }
   const store = loadLocalStore();
-  const idx = store.users.findIndex((u) => u.id === userId);
+  const idx = store.users.findIndex((u) => u.id === id);
   if (idx === -1) return false;
-  store.users[idx] = { ...store.users[idx], password_hash };
+  store.users[idx] = { ...store.users[idx], password_hash, session_epoch };
+  store.sessions = store.sessions.filter((s) => s.user_id !== id);
+  store.password_resets = (store.password_resets || []).filter((item) => item.user_id !== id);
+  saveLocalStore(store);
+  return true;
+}
+
+const PASSWORD_RESET_COOLDOWN_MS = 60_000;
+
+export async function createPasswordReset(
+  tokenHash: string,
+  userId: string,
+  ttlSeconds: number,
+  now = new Date(),
+): Promise<boolean> {
+  const id = asId(userId);
+  if (!id) return false;
+  const row: PasswordResetRow = {
+    id: tokenHash,
+    user_id: id,
+    created_at: now.toISOString(),
+    expires_at: new Date(now.getTime() + ttlSeconds * 1000).toISOString(),
+  };
+  const cutoff = new Date(now.getTime() - PASSWORD_RESET_COOLDOWN_MS).toISOString();
+  const m = await mongoModels();
+  if (m) {
+    try {
+      // The unique user_id index makes concurrent first requests race at the upsert; only one wins.
+      const updated = await m.passwordReset.findOneAndUpdate(
+        {
+          user_id: id,
+          $or: [{ expires_at: { $lte: row.created_at } }, { created_at: { $lte: cutoff } }],
+        },
+        { $set: row },
+        { upsert: true, new: true },
+      );
+      return Boolean(updated);
+    } catch (err: any) {
+      if (err?.code === 11000) return false;
+      throw err;
+    }
+  }
+
+  const store = loadLocalStore();
+  const existing = (store.password_resets || []).find((item) => item.user_id === id);
+  if (existing && existing.expires_at > row.created_at && existing.created_at > cutoff) return false;
+  store.password_resets = (store.password_resets || []).filter((item) => item.user_id !== id);
+  store.password_resets.push(row);
+  saveLocalStore(store);
+  return true;
+}
+
+export async function resetPasswordWithToken(
+  tokenHash: string,
+  password_hash: string,
+  now = new Date(),
+): Promise<boolean> {
+  const m = await mongoModels();
+  if (m) {
+    const token = plain<PasswordResetRow>(
+      await m.passwordReset.findOneAndDelete({ id: tokenHash, expires_at: { $gt: now.toISOString() } }).lean(),
+    );
+    return token ? changePasswordAndRevokeSessions(token.user_id, password_hash) : false;
+  }
+
+  const store = loadLocalStore();
+  const nowIso = now.toISOString();
+  const token = (store.password_resets || []).find((item) => item.id === tokenHash && item.expires_at > nowIso);
+  if (!token) return false;
+  const idx = store.users.findIndex((user) => user.id === token.user_id);
+  if (idx === -1) return false;
+  store.users[idx] = { ...store.users[idx], password_hash, session_epoch: crypto.randomUUID() };
+  store.password_resets = (store.password_resets || []).filter((item) => item.id !== tokenHash);
+  store.sessions = store.sessions.filter((session) => session.user_id !== token.user_id);
   saveLocalStore(store);
   return true;
 }
@@ -658,6 +786,9 @@ export async function createSession(tokenHash: string, userId: string, ttlSecond
 
   const m = await mongoModels();
   if (m) {
+    const account = plain<Account>(await m.user.findOne({ id: userId }).lean());
+    if (!account) throw new Error('Cannot create a session for a missing account.');
+    row.session_epoch = account.session_epoch || '';
     await m.session.findOneAndUpdate({ id: tokenHash }, { $set: row }, { upsert: true });
     // Housekeeping on the write path keeps a long-lived database from accumulating dead rows.
     await m.session.deleteMany({ expires_at: { $lt: row.created_at } });
@@ -665,22 +796,38 @@ export async function createSession(tokenHash: string, userId: string, ttlSecond
   }
 
   const store = loadLocalStore();
+  const account = store.users.find((user) => user.id === userId);
+  if (!account) throw new Error('Cannot create a session for a missing account.');
+  row.session_epoch = account.session_epoch || '';
   store.sessions = store.sessions.filter((s) => s.id !== tokenHash && s.expires_at > row.created_at);
   store.sessions.push(row);
   saveLocalStore(store);
 }
 
-/** Returns the owning user id, or null when the session is unknown or expired. */
-export async function resolveSession(tokenHash: string): Promise<string | null> {
+/** Returns the owning user id and absolute expiry, or null when the session cannot authenticate. */
+export async function resolveSessionRecord(tokenHash: string): Promise<ResolvedSession | null> {
   if (!tokenHash) return null;
+  const now = new Date().toISOString();
   const m = await mongoModels();
   if (m) {
     const row = plain<SessionRow>(await m.session.findOne({ id: tokenHash }).lean());
-    return row && row.expires_at > new Date().toISOString() ? row.user_id : null;
+    if (!row || row.expires_at <= now) return null;
+    const account = plain<Account>(await m.user.findOne({ id: row.user_id }).lean());
+    if (!account || (account.session_epoch || '') !== (row.session_epoch || '')) return null;
+    const expiresAt = Date.parse(row.expires_at);
+    return Number.isFinite(expiresAt) ? { userId: row.user_id, expiresAt } : null;
   }
   const store = loadLocalStore();
   const row = store.sessions.find((s) => s.id === tokenHash);
-  return row && row.expires_at > new Date().toISOString() ? row.user_id : null;
+  if (!row || row.expires_at <= now) return null;
+  const account = store.users.find((user) => user.id === row.user_id);
+  if (!account || (account.session_epoch || '') !== (row.session_epoch || '')) return null;
+  const expiresAt = Date.parse(row.expires_at);
+  return Number.isFinite(expiresAt) ? { userId: row.user_id, expiresAt } : null;
+}
+
+export async function resolveSession(tokenHash: string): Promise<string | null> {
+  return (await resolveSessionRecord(tokenHash))?.userId ?? null;
 }
 
 export async function deleteSession(tokenHash: string): Promise<void> {

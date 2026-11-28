@@ -418,13 +418,13 @@ export default function Settings() {
                     )}
                     <div className="sm:col-span-2 flex items-center justify-between gap-3">
                       <p className="text-[12px] text-ink-dim">
-                        Changing it signs you out of this browser. Minimum 8 characters.
+                        Changing it signs out every device. Minimum 12 characters.
                       </p>
                       <Button
                         type="submit"
                         variant="secondary"
                         icon="vpn_key"
-                        disabled={!currentPw || nextPw.length < 8 || pwBusy}
+                        disabled={!currentPw || nextPw.length < 12 || pwBusy}
                       >
                         {pwBusy ? 'Updating…' : 'Change password'}
                       </Button>

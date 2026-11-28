@@ -29,6 +29,16 @@ npm run build    # type-check + production build to dist/
 npm run preview  # preview the production build
 ```
 
+## Password reset email
+
+Password recovery uses your existing SMTP service. Set these server environment variables:
+
+- `SMTP_URL` — SMTP connection URL, including credentials if required. TLS is required.
+- `MAIL_FROM` — verified sender address for reset emails.
+- `APP_BASE_URL` — public HTTPS app origin in production, such as `https://kontentos.onrender.com`.
+
+Without all three, the forgot-password endpoint returns a clear configuration error instead of claiming an email was sent. Reset links expire after 30 minutes, work once, and revoke every existing session when used.
+
 ## Structure
 
 ```

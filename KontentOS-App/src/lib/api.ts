@@ -154,6 +154,28 @@ export const api = {
     return d.data;
   },
 
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    const d = await json<{ success: boolean; message: string }>(
+      await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      }),
+    );
+    return { message: d.message };
+  },
+
+  async resetPassword(token: string, password: string): Promise<{ message: string }> {
+    const d = await json<{ success: boolean; message: string }>(
+      await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      }),
+    );
+    return { message: d.message };
+  },
+
   async signOut(): Promise<void> {
     await json<{ success: boolean }>(
       await fetch('/api/auth/logout', { method: 'POST' }),

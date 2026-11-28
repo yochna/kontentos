@@ -64,7 +64,10 @@ export default function App() {
     );
   }
 
-  if (account === null) {
+  const recoveryRoute = window.location.pathname === '/forgot-password'
+    || window.location.pathname === '/reset-password'
+    || new URLSearchParams(window.location.search).has('token');
+  if (account === null || recoveryRoute) {
     return <AuthScreen onSignedIn={setAccount} />;
   }
 

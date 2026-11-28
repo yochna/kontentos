@@ -62,14 +62,20 @@ export function AuthScreen({
           </h2>
           <p className="-mt-2 text-[14px] text-ink-soft">
             {mode === 'signup'
-              ? 'Your email and a password of at least 8 characters. That is all it asks for.'
+              ? 'Your email and a password of at least 12 characters. That is all it asks for.'
               : 'Same account as the bench — your Kit voice and Room engine carry over.'}
           </p>
 
           {mode === 'signup' && (
             <div>
               <Label htmlFor="st-name">Name</Label>
-              <Field id="st-name" value={fullName} onChange={setFullName} placeholder="Your name" />
+              <Field
+                id="st-name"
+                value={fullName}
+                onChange={setFullName}
+                placeholder="Your name"
+                autoComplete="name"
+              />
             </div>
           )}
 
@@ -81,6 +87,7 @@ export function AuthScreen({
               value={email}
               onChange={setEmail}
               placeholder="you@studio.com"
+              autoComplete="email"
             />
           </div>
 
@@ -91,7 +98,9 @@ export function AuthScreen({
               type="password"
               value={password}
               onChange={setPassword}
-              placeholder="••••••••"
+              placeholder="At least 12 characters"
+              minLength={mode === 'signup' ? 12 : undefined}
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
             />
           </div>
 
@@ -101,7 +110,7 @@ export function AuthScreen({
             </p>
           )}
 
-          <Button type="submit" disabled={busy || !email || !password}>
+          <Button type="submit" disabled={busy || !email || !password || (mode === 'signup' && !fullName.trim())}>
             {busy
               ? 'One moment…'
               : mode === 'signup'
@@ -119,6 +128,11 @@ export function AuthScreen({
           >
             {mode === 'signup' ? 'Already have an account — sign in' : 'No account yet — create one'}
           </button>
+          {mode === 'signin' && (
+            <a href="/forgot-password" className="meta-label text-ink-soft underline-offset-4 hover:text-moss hover:underline">
+              Forgot password?
+            </a>
+          )}
         </form>
       </section>
     </div>

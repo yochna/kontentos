@@ -22,6 +22,12 @@ services:
       # Same-origin requests from the app itself need no entry.
       - key: ALLOWED_ORIGINS
         sync: false   # e.g. https://kontentos.onrender.com
+      - key: APP_BASE_URL
+        value: https://kontentos.onrender.com
+      - key: MAIL_FROM
+        sync: false   # e.g. KontentOS <you@gmail.com>
+      - key: SMTP_URL
+        sync: false   # Gmail: smtps://you%40gmail.com:APP_PASSWORD@smtp.gmail.com:465
       # Never add a VITE_* key here: anything prefixed VITE_ is inlined into the public bundle.
       # Connection string from a MongoDB cluster (Atlas free M0 works). Collections and unique
       # indexes are created by the app on first boot, so no manual schema step is needed.

@@ -29,6 +29,8 @@ export function Field({
   placeholder,
   type = 'text',
   maxLength,
+  minLength,
+  autoComplete,
 }: {
   id: string;
   value: string;
@@ -36,6 +38,8 @@ export function Field({
   placeholder?: string;
   type?: string;
   maxLength?: number;
+  minLength?: number;
+  autoComplete?: string;
 }) {
   return (
     <input
@@ -43,6 +47,8 @@ export function Field({
       type={type}
       value={value}
       maxLength={maxLength}
+      minLength={minLength}
+      autoComplete={autoComplete}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       className="mt-1.5 w-full rounded-[8px] border border-rule bg-white px-3 py-2 text-[15px] text-ink placeholder:text-ink-faint focus:border-moss focus:outline-none focus:ring-2 focus:ring-moss/15"

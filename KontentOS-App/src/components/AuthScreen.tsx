@@ -6,7 +6,7 @@ import { Field, Input } from '@/components/ui/field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { User } from '@/lib/types';
 
-type Mode = 'signin' | 'signup';
+type Mode = 'signin' | 'signup' | 'forgot' | 'reset';
 
 const STEPS = [
   { n: 1, title: 'Upload a clip', body: 'Any take, straight from your phone.' },
@@ -71,19 +71,44 @@ function PressPreview() {
  * browser never keeps a credential the page's scripts could read.
  */
 export function AuthScreen({ onSignedIn }: { onSignedIn: (user: User) => void }) {
-  const [mode, setMode] = useState<Mode>('signin');
+  const [resetToken] = useState(() => new URLSearchParams(window.location.search).get('token')?.trim() || '');
+  const [mode, setMode] = useState<Mode>(() => {
+    if (window.location.pathname === '/forgot-password') return 'forgot';
+    if (window.location.pathname === '/reset-password' || window.location.search.includes('token=')) return 'reset';
+    return 'signin';
+  });
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [resetComplete, setResetComplete] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const isSignup = mode === 'signup';
-  const canSubmit = email.trim() && password && (!isSignup || fullName.trim()) && !busy;
+  const isForgot = mode === 'forgot';
+  const isReset = mode === 'reset';
+  const canSubmit = !busy && !resetComplete && (
+    isForgot
+      ? Boolean(email.trim())
+      : isReset
+        ? Boolean(resetToken && password.length >= 12 && password === confirmPassword)
+        : Boolean(email.trim() && password && (!isSignup || fullName.trim()))
+  );
 
   const switchMode = (next: Mode) => {
     setMode(next);
     setError('');
+    setNotice('');
+    setPassword('');
+    setConfirmPassword('');
+    setResetComplete(false);
+  };
+
+  const returnToSignIn = () => {
+    window.history.replaceState({}, '', '/');
+    switchMode('signin');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,17 +116,49 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (user: User) => void })
     if (!canSubmit) return;
     setBusy(true);
     setError('');
+    setNotice('');
     try {
-      const user = isSignup
-        ? await api.signUp({ email: email.trim(), full_name: fullName.trim(), password })
-        : await api.signIn(email.trim(), password);
-      onSignedIn(user);
+      if (isForgot) {
+        const result = await api.requestPasswordReset(email.trim());
+        setNotice(result.message);
+      } else if (isReset) {
+        const result = await api.resetPassword(resetToken, password);
+        window.history.replaceState({}, '', '/');
+        setNotice(result.message);
+        setResetComplete(true);
+        setPassword('');
+        setConfirmPassword('');
+      } else {
+        const user = isSignup
+          ? await api.signUp({ email: email.trim(), full_name: fullName.trim(), password })
+          : await api.signIn(email.trim(), password);
+        onSignedIn(user);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not reach the studio. Try again.');
     } finally {
       setBusy(false);
     }
   };
+
+  const heading = resetComplete
+    ? 'Password updated.'
+    : isReset
+      ? 'Choose a new password.'
+      : isForgot
+        ? 'Reset your password.'
+        : isSignup
+          ? 'Start with one recording.'
+          : 'Welcome back.';
+  const description = resetComplete
+    ? 'Every old session is signed out. Use your new password to get back into the studio.'
+    : isReset
+      ? 'Choose a strong new password. The link works once and expires 30 minutes after it was requested.'
+      : isForgot
+        ? 'Enter your account email. We will only send a reset link if it matches an account.'
+        : isSignup
+          ? 'Create an empty workspace, then turn your first clip into a complete post set.'
+          : 'Sign in to pick up your clips, drafts and schedule.';
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app px-5 py-10 font-body text-ink">
@@ -149,87 +206,216 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (user: User) => void })
             </div>
           </div>
 
-          <Tabs value={mode} onValueChange={(v) => switchMode(v as Mode)} className="contents">
-            <TabsList
-              variant="pill"
-              aria-label="Account access"
-              className="mb-5 grid grid-cols-2 gap-1 rounded-btn bg-surface-2/60 p-1"
-            >
-              <TabsTrigger variant="pill" value="signin" className="px-3 py-1.5 duration-200 ease-out">
-                Sign in
-              </TabsTrigger>
-              <TabsTrigger variant="pill" value="signup" className="px-3 py-1.5 duration-200 ease-out">
-                Create account
-              </TabsTrigger>
-            </TabsList>
+          <div className="mb-5">
+            <h2 className="font-display text-[25px] font-bold leading-tight text-ink">{heading}</h2>
+            <p className="mt-2 text-[12.5px] leading-relaxed text-pretty text-ink-muted">{description}</p>
+          </div>
 
-            {/* One panel whose fields change with the tab, so the content is keyed on the mode rather
-                than split into two near-identical blocks. */}
-            <TabsContent value={mode} className="mt-0">
-              {/* key={mode} remounts the field group, so switching tabs replays the entrance. */}
-              <form key={mode} onSubmit={handleSubmit} className="kt-stagger--fade space-y-3">
-                <Field label="Email">
-                  {({ id }) => (
-                    <Input
-                      id={id}
-                      type="email"
-                      autoComplete="email"
-                      autoFocus
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="py-2.5 text-[14px]"
-                    />
-                  )}
-                </Field>
-                {isSignup && (
-                  <Field label="What should the studio call you?">
+          {!isForgot && !isReset && (
+            <Tabs value={mode} onValueChange={(v) => switchMode(v as Mode)} className="contents">
+              <TabsList
+                variant="pill"
+                aria-label="Account access"
+                className="mb-5 grid grid-cols-2 gap-1 rounded-btn bg-surface-2/60 p-1"
+              >
+                <TabsTrigger variant="pill" value="signin" className="px-3 py-1.5 duration-200 ease-out">
+                  Sign in
+                </TabsTrigger>
+                <TabsTrigger variant="pill" value="signup" className="px-3 py-1.5 duration-200 ease-out">
+                  Create account
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value={mode} className="mt-0">
+                <form key={mode} onSubmit={handleSubmit} className="kt-stagger--fade space-y-3">
+                  <Field label="Email">
                     {({ id }) => (
                       <Input
                         id={id}
-                        type="text"
-                        autoComplete="name"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
+                        type="email"
+                        autoComplete="email"
+                        autoFocus
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         className="py-2.5 text-[14px]"
                       />
                     )}
                   </Field>
-                )}
-                <Field label="Password">
-                  {({ id }) => (
-                    <Input
-                      id={id}
-                      type="password"
-                      autoComplete={isSignup ? 'new-password' : 'current-password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="py-2.5 text-[14px]"
-                    />
+                  {isSignup && (
+                    <Field label="What should the studio call you?">
+                      {({ id }) => (
+                        <Input
+                          id={id}
+                          type="text"
+                          autoComplete="name"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          className="py-2.5 text-[14px]"
+                        />
+                      )}
+                    </Field>
                   )}
-                </Field>
-                {error && (
-                  <p key={error} className="kt-shake flex items-start gap-1.5 text-[12.5px] font-semibold text-danger">
-                    <Icon name="error_outline" size={15} className="mt-px shrink-0" />
-                    {error}
-                  </p>
+                  <Field label="Password" hint={isSignup ? 'Use at least 12 characters.' : undefined}>
+                    {({ id, describedBy }) => (
+                      <Input
+                        id={id}
+                        aria-describedby={describedBy}
+                        type="password"
+                        autoComplete={isSignup ? 'new-password' : 'current-password'}
+                        minLength={isSignup ? 12 : undefined}
+                        maxLength={200}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="py-2.5 text-[14px]"
+                      />
+                    )}
+                  </Field>
+                  {error && (
+                    <p key={error} role="alert" className="kt-shake flex items-start gap-1.5 text-[12.5px] font-semibold text-danger">
+                      <Icon name="error_outline" size={15} className="mt-px shrink-0" />
+                      {error}
+                    </p>
+                  )}
+                  <Button
+                    type="submit"
+                    icon={isSignup ? 'person_add' : 'login'}
+                    iconSpin={busy}
+                    disabled={!canSubmit}
+                    className="w-full justify-center"
+                  >
+                    {busy ? 'Please wait…' : isSignup ? 'Create my studio' : 'Sign in'}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
+          )}
+
+          {isForgot && (
+            <form onSubmit={handleSubmit} className="kt-stagger--fade space-y-3">
+              <Field label="Email">
+                {({ id }) => (
+                  <Input
+                    id={id}
+                    type="email"
+                    autoComplete="email"
+                    autoFocus
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="py-2.5 text-[14px]"
+                  />
                 )}
-                <Button
-                  type="submit"
-                  icon={isSignup ? 'person_add' : 'login'}
-                  iconSpin={busy}
-                  disabled={!canSubmit}
-                  className="w-full justify-center"
-                >
-                  {busy ? 'Please wait…' : isSignup ? 'Create my studio' : 'Sign in'}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+              </Field>
+              {error && (
+                <p key={error} role="alert" className="kt-shake flex items-start gap-1.5 text-[12.5px] font-semibold text-danger">
+                  <Icon name="error_outline" size={15} className="mt-px shrink-0" />
+                  {error}
+                </p>
+              )}
+              {notice && (
+                <p role="status" className="flex items-start gap-2 rounded-btn border border-line bg-surface-2 px-3 py-3 text-[13px] leading-relaxed text-ink">
+                  <Icon name="mark_email_read" size={17} className="mt-0.5 shrink-0 text-primary" />
+                  {notice} Check your spam folder too.
+                </p>
+              )}
+              <Button type="submit" icon="send" iconSpin={busy} disabled={!canSubmit} className="w-full justify-center">
+                {busy ? 'Please wait…' : 'Send reset link'}
+              </Button>
+              <button type="button" onClick={returnToSignIn} className="kt-focus mx-auto block rounded-btn text-[13px] font-semibold text-ink-muted hover:text-ink">
+                Back to sign in
+              </button>
+            </form>
+          )}
+
+          {isReset && resetComplete && (
+            <div role="status" className="rounded-card border border-line bg-surface-2 p-5">
+              <Icon name="task_alt" size={24} className="text-primary" />
+              <p className="mt-3 text-[14px] font-semibold text-ink">{notice}</p>
+              <Button type="button" icon="login" onClick={returnToSignIn} className="mt-5 w-full justify-center">
+                Sign in
+              </Button>
+            </div>
+          )}
+
+          {isReset && !resetComplete && !resetToken && (
+            <div className="rounded-card border border-line bg-surface-2 p-5">
+              <Icon name="link_off" size={24} className="text-danger" />
+              <p className="mt-3 text-[14px] leading-relaxed text-ink">This reset link is missing its token. Request a new one.</p>
+              <Button type="button" variant="secondary" onClick={() => {
+                window.history.replaceState({}, '', '/forgot-password');
+                switchMode('forgot');
+              }} className="mt-5 w-full justify-center">
+                Request a new link
+              </Button>
+            </div>
+          )}
+
+          {isReset && !resetComplete && resetToken && (
+            <form onSubmit={handleSubmit} className="kt-stagger--fade space-y-3">
+              <Field label="New password" hint="Use at least 12 characters.">
+                {({ id, describedBy }) => (
+                  <Input
+                    id={id}
+                    aria-describedby={describedBy}
+                    type="password"
+                    autoComplete="new-password"
+                    autoFocus
+                    required
+                    minLength={12}
+                    maxLength={200}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="py-2.5 text-[14px]"
+                  />
+                )}
+              </Field>
+              <Field label="Confirm new password">
+                {({ id }) => (
+                  <Input
+                    id={id}
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={12}
+                    maxLength={200}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="py-2.5 text-[14px]"
+                  />
+                )}
+              </Field>
+              {error && (
+                <p key={error} role="alert" className="kt-shake flex items-start gap-1.5 text-[12.5px] font-semibold text-danger">
+                  <Icon name="error_outline" size={15} className="mt-px shrink-0" />
+                  {error}
+                </p>
+              )}
+              <Button type="submit" icon="vpn_key" iconSpin={busy} disabled={!canSubmit} className="w-full justify-center">
+                {busy ? 'Please wait…' : 'Update password'}
+              </Button>
+              <button type="button" onClick={returnToSignIn} className="kt-focus mx-auto block rounded-btn text-[13px] font-semibold text-ink-muted hover:text-ink">
+                Back to sign in
+              </button>
+            </form>
+          )}
+
+          {mode === 'signin' && (
+            <button type="button" onClick={() => {
+              window.history.replaceState({}, '', '/forgot-password');
+              switchMode('forgot');
+            }} className="kt-focus mt-4 block rounded-btn text-[13px] font-semibold text-primary hover:underline">
+              Forgot password?
+            </button>
+          )}
 
           <p className="mt-4 text-[12px] leading-relaxed text-pretty text-ink-dim">
-            {isSignup
-              ? 'Passwords are stored only as a salted hash. A new account gets an empty workspace — nothing is shared with anyone else.'
-              : 'Sessions last 30 days on this browser. Signing out ends it immediately.'}
+            {isReset
+              ? 'Reset links are single-use and stored only as a hash. A successful reset signs out every device.'
+              : isForgot
+                ? 'For your security, this page gives the same answer whether or not an account exists.'
+                : isSignup
+                  ? 'Passwords are stored only as a salted scrypt hash. A new account gets an empty workspace — nothing is shared with anyone else.'
+                  : 'Sessions last 30 days on this browser. Signing out ends it immediately.'}
           </p>
         </div>
       </div>

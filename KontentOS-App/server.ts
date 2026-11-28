@@ -153,6 +153,10 @@ async function createApp() {
   // Nothing under /api is a public page: a shared cache must not hold one creator's transcript,
   // caption or schedule where the next visitor could read it.
   app.use('/api', noStoreApi);
+  app.use((req, res, next) => {
+    if (req.path === '/reset-password') res.header('Cache-Control', 'no-store');
+    next();
+  });
 
   // Two body sizes, because only the upload routes carry footage. The widest non-upload payload is
   // a full transcript (400k characters, and a Devanagari one is escaped to about six bytes a
@@ -172,6 +176,8 @@ async function createApp() {
     return requireUser(req, res, next);
   });
 
+  app.use('/api/auth', express.json({ limit: '16kb' }));
+  app.use('/api/auth', express.urlencoded({ extended: false, limit: '16kb' }));
   app.use((req, res, next) => {
     const isUpload = req.path === '/api/upload' || req.path.startsWith('/api/upload/');
     if (isUpload) return uploadJson(req, res, (err) => (err ? next(err) : uploadUrlencoded(req, res, next)));

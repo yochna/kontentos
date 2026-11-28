@@ -10,6 +10,12 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import rateLimit from 'express-rate-limit';
 import * as db from './db.js';
 import { safeMessage } from './errorText.js';
+import {
+  passwordResetBaseUrl,
+  passwordResetDeliveryConfigured,
+  smtpPasswordResetMailer,
+  type PasswordResetMailer,
+} from './passwordResetMailer.js';
 
 declare global {
   namespace Express {
@@ -37,7 +43,32 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 export const SESSION_COOKIE = IS_PROD ? '__Host-kt_session' : 'kt_session';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-export const MIN_PASSWORD_LENGTH = 8;
+const OPAQUE_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
+export const MIN_PASSWORD_LENGTH = 12;
+export const MAX_PASSWORD_LENGTH = 200;
+export const PASSWORD_RESET_MAX_AGE_SECONDS = 30 * 60;
+
+export interface AuthRouterOptions {
+  mailer?: PasswordResetMailer;
+  appBaseUrl?: string;
+  now?: () => Date;
+}
+
+function stringField(body: unknown, key: string): string {
+  if (!body || typeof body !== 'object') return '';
+  const value = (body as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function validEmail(email: string): boolean {
+  return email.length <= 254 && EMAIL_RE.test(email);
+}
+
+function passwordProblem(password: string): string | null {
+  if (password.length < MIN_PASSWORD_LENGTH) return `Use at least ${MIN_PASSWORD_LENGTH} characters for your password.`;
+  if (password.length > MAX_PASSWORD_LENGTH) return 'That password is too long.';
+  return null;
+}
 
 /** A well-formed hash of nothing, used when no account matches so the work factor stays equal. */
 const DUMMY_HASH = `scrypt$16384$8$1$${Buffer.alloc(16).toString('base64')}$${Buffer.alloc(32).toString('base64')}`;
@@ -47,7 +78,13 @@ function readCookie(header: string | undefined, name: string): string | null {
   for (const part of header.split(';')) {
     const eq = part.indexOf('=');
     if (eq === -1) continue;
-    if (part.slice(0, eq).trim() === name) return decodeURIComponent(part.slice(eq + 1).trim());
+    if (part.slice(0, eq).trim() !== name) continue;
+    try {
+      const value = decodeURIComponent(part.slice(eq + 1).trim());
+      return OPAQUE_TOKEN_RE.test(value) ? value : null;
+    } catch {
+      return null;
+    }
   }
   return null;
 }
@@ -63,39 +100,10 @@ export function attachSession(req: Request, _res: Response, next: NextFunction) 
   next();
 }
 
-/**
- * Sessions are resolved at most once a minute per token. A scrubbing <video> element fires many
- * range requests at /uploads and each one is authenticated; without this they would each pay for
- * a storage read, which the local JSON engine answers by re-parsing the whole database.
- * Revocation (sign-out, password change) clears the entry directly.
- */
-const SESSION_CACHE_MS = 60 * 1000;
-const sessionCache = new Map<string, { userId: string; expiresAt: number }>();
-
-function cacheSession(tokenHash: string, userId: string) {
-  if (sessionCache.size > 500) sessionCache.clear();
-  sessionCache.set(tokenHash, { userId, expiresAt: Date.now() + SESSION_CACHE_MS });
-}
-
-function forgetSession(tokenHash: string) {
-  sessionCache.delete(tokenHash);
-}
-
-/**
- * Drop every cached session. Only for the rare account-wide revocation — a password change, where
- * the rows are gone but a cached hit would keep a signed-out device working for a minute.
- */
-function forgetAllSessions() {
-  sessionCache.clear();
-}
-
+// Resolve every request so a revocation on another server instance takes effect immediately.
 async function resolveToken(tokenHash: string): Promise<string | null> {
-  const hit = sessionCache.get(tokenHash);
-  if (hit && hit.expiresAt > Date.now()) return hit.userId;
-  if (hit) sessionCache.delete(tokenHash);
-  const userId = await db.resolveSession(tokenHash);
-  if (userId) cacheSession(tokenHash, userId);
-  return userId;
+  const session = await db.resolveSessionRecord(tokenHash);
+  return session?.userId ?? null;
 }
 
 /**
@@ -157,8 +165,46 @@ const logoutLimiter = rateLimit({
   message: { error: 'Too many attempts. Please wait a moment.' },
 });
 
-export function createAuthRouter(): express.Router {
+const resetRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many reset requests. Please wait a few minutes and try again.' },
+});
+
+const resetAttemptLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 12,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many reset attempts. Please wait a few minutes and try again.' },
+});
+
+function requireSameOrigin(req: Request, res: Response, next: NextFunction) {
+  const origin = req.get('origin');
+  if (!origin) return next();
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== `${req.protocol}:` || url.host !== req.get('host')) {
+      return res.status(403).json({ error: 'This request must come from the KontentOS site.' });
+    }
+    next();
+  } catch {
+    res.status(403).json({ error: 'This request must come from the KontentOS site.' });
+  }
+}
+
+export function createAuthRouter(options: AuthRouterOptions = {}): express.Router {
   const router = express.Router();
+  const now = options.now || (() => new Date());
+  const mailer = options.mailer || smtpPasswordResetMailer;
+  const baseUrl = (options.appBaseUrl?.trim() || passwordResetBaseUrl() || '').replace(/\/$/, '');
+  const resetDeliveryReady = Boolean(baseUrl && (options.mailer || passwordResetDeliveryConfigured()));
+  const genericResetRequest = { success: true, message: 'If an account matches that email, a password reset link has been requested.' };
+  const invalidResetLink = 'This reset link is invalid, expired, or already used.';
+
+  router.use((req, res, next) => req.method === 'GET' ? next() : requireSameOrigin(req, res, next));
 
   router.get('/me', async (req, res) => {
     try {
@@ -172,22 +218,18 @@ export function createAuthRouter(): express.Router {
 
   router.post('/signup', authLimiter, async (req, res) => {
     try {
-      const email = String(req.body?.email ?? '').trim().toLowerCase();
-      const fullName = String(req.body?.full_name ?? '').trim();
-      const password = String(req.body?.password ?? '');
+      const email = stringField(req.body, 'email').trim().toLowerCase();
+      const fullName = stringField(req.body, 'full_name').trim();
+      const password = stringField(req.body, 'password');
 
-      if (!EMAIL_RE.test(email) || email.length > 254) {
+      if (!validEmail(email)) {
         return res.status(400).json({ error: 'Enter a valid email address.' });
       }
       if (!fullName || fullName.length > 80) {
         return res.status(400).json({ error: 'Tell us what to call you (up to 80 characters).' });
       }
-      if (password.length < MIN_PASSWORD_LENGTH) {
-        return res.status(400).json({ error: `Use at least ${MIN_PASSWORD_LENGTH} characters for your password.` });
-      }
-      if (password.length > 200) {
-        return res.status(400).json({ error: 'That password is too long.' });
-      }
+      const problem = passwordProblem(password);
+      if (problem) return res.status(400).json({ error: problem });
 
       const password_hash = await db.hashPassword(password);
       // The very first account inherits whatever the passcode-era workspace already held, so a
@@ -207,9 +249,12 @@ export function createAuthRouter(): express.Router {
 
   router.post('/login', authLimiter, async (req, res) => {
     try {
-      const email = String(req.body?.email ?? '').trim().toLowerCase();
-      const password = String(req.body?.password ?? '');
-      const account = email ? await db.getAccountByEmail(email) : null;
+      const email = stringField(req.body, 'email').trim().toLowerCase();
+      const password = stringField(req.body, 'password');
+      if (!validEmail(email) || !password || password.length > MAX_PASSWORD_LENGTH) {
+        return res.status(400).json({ error: 'Enter a valid email address and password.' });
+      }
+      const account = await db.getAccountByEmail(email);
       // A wrong email still pays the full scrypt cost: replying instantly would let anyone time
       // the endpoint into a list of registered addresses.
       const ok = await db.verifyPassword(password, account?.password_hash ?? DUMMY_HASH);
@@ -226,15 +271,15 @@ export function createAuthRouter(): express.Router {
   });
 
   router.post('/logout', logoutLimiter, async (req, res) => {
+    res.setHeader('Set-Cookie', sessionCookie('', 0));
     try {
       if (req.sessionToken) {
         const hash = db.hashSessionToken(req.sessionToken);
-        forgetSession(hash);
         await db.deleteSession(hash);
       }
-    } finally {
-      res.setHeader('Set-Cookie', sessionCookie('', 0));
       res.json({ success: true });
+    } catch (err: any) {
+      res.status(503).json({ error: safeMessage(err, 'This browser is signed out, but the server could not revoke the session.') });
     }
   });
 
@@ -244,8 +289,11 @@ export function createAuthRouter(): express.Router {
    */
   router.post('/change-password', changePasswordLimiter, requireUser, async (req, res) => {
     try {
-      const current = String(req.body?.current ?? '');
-      const next = String(req.body?.next ?? '');
+      const current = stringField(req.body, 'current');
+      const next = stringField(req.body, 'next');
+      if (!current || current.length > MAX_PASSWORD_LENGTH) {
+        return res.status(400).json({ error: 'Enter your current password.' });
+      }
       const account = await db.getAccountById(req.userId);
       if (!account || !(await db.verifyPassword(current, account.password_hash))) {
         // 403, not 401: this creator IS signed in and their session is still good. A 401 reads as
@@ -253,17 +301,70 @@ export function createAuthRouter(): express.Router {
         // screen for typing one wrong character in the current-password box.
         return res.status(403).json({ error: 'Your current password is wrong.' });
       }
-      if (next.length < MIN_PASSWORD_LENGTH || next.length > 200) {
-        return res.status(400).json({ error: `New password needs at least ${MIN_PASSWORD_LENGTH} characters.` });
-      }
-      await db.changePassword(account.id, await db.hashPassword(next));
-      if (req.sessionToken) forgetSession(db.hashSessionToken(req.sessionToken));
-      await db.deleteSessionsForUser(account.id);
-      forgetAllSessions();
+      const problem = passwordProblem(next);
+      if (problem) return res.status(400).json({ error: `New password: ${problem}` });
+      if (next === current) return res.status(400).json({ error: 'Choose a password different from your current one.' });
+      const changed = await db.changePasswordAndRevokeSessions(account.id, await db.hashPassword(next));
+      if (!changed) return res.status(404).json({ error: 'This account could not be found.' });
       res.setHeader('Set-Cookie', sessionCookie('', 0));
       res.json({ success: true, message: 'Password changed. Every device is signed out; please sign in again.' });
     } catch (err: any) {
-      res.status(500).json({ error: safeMessage(err, 'Could not change the password.') });
+      res.status(503).json({ error: safeMessage(err, 'Could not change the password.') });
+    }
+  });
+
+  router.post('/forgot-password', resetRequestLimiter, async (req, res) => {
+    const email = stringField(req.body, 'email').trim().toLowerCase();
+    if (!validEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
+    if (!resetDeliveryReady) {
+      return res.status(503).json({ error: 'Password reset email is not configured on this server. Contact support.' });
+    }
+
+    try {
+      const account = await db.getAccountByEmail(email);
+      if (account) {
+        const token = db.newPasswordResetToken();
+        const created = await db.createPasswordReset(
+          db.hashPasswordResetToken(token),
+          account.id,
+          PASSWORD_RESET_MAX_AGE_SECONDS,
+          now(),
+        );
+        if (created) {
+          const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+          res.json(genericResetRequest);
+          setImmediate(() => {
+            void mailer({ to: account.email, resetUrl }).catch((err) => {
+              console.error('Password reset email delivery failed:', err instanceof Error ? err.message : 'Unknown mail error');
+            });
+          });
+          return;
+        }
+      }
+      res.json(genericResetRequest);
+    } catch (err: any) {
+      res.status(503).json({ error: safeMessage(err, 'Could not request a password reset right now.') });
+    }
+  });
+
+  router.post('/reset-password', resetAttemptLimiter, async (req, res) => {
+    const token = stringField(req.body, 'token').trim();
+    const next = stringField(req.body, 'password');
+    if (!OPAQUE_TOKEN_RE.test(token)) return res.status(400).json({ error: invalidResetLink });
+    const problem = passwordProblem(next);
+    if (problem) return res.status(400).json({ error: problem });
+
+    try {
+      const reset = await db.resetPasswordWithToken(
+        db.hashPasswordResetToken(token),
+        await db.hashPassword(next),
+        now(),
+      );
+      if (!reset) return res.status(400).json({ error: invalidResetLink });
+      res.setHeader('Set-Cookie', sessionCookie('', 0));
+      res.json({ success: true, message: 'Password updated. Sign in with your new password.' });
+    } catch (err: any) {
+      res.status(503).json({ error: safeMessage(err, 'Could not reset the password right now.') });
     }
   });
 

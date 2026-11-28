@@ -4,8 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import express from 'express';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { attachSession, createAuthRouter, requireUser, SESSION_COOKIE } from './auth.js';
+import * as db from './db.js';
 
 // Own scratch directory: the local JSON store is a whole-file read-modify-write, so two test
 // files sharing it would race and lose each other's writes.
@@ -99,7 +100,7 @@ describe('account endpoints', () => {
     expect((await post('/api/auth/signup', { email: 'not-an-email', full_name: 'X', password: PASSWORD })).status).toBe(400);
     const tooShort = await post('/api/auth/signup', { email: 'ok@example.test', full_name: 'X', password: 'short' });
     expect(tooShort.status).toBe(400);
-    expect((await json(tooShort)).error).toMatch(/at least 8 characters/i);
+    expect((await json(tooShort)).error).toMatch(/at least 12 characters/i);
   });
 
   it('answers a repeated email with 409, not with a silent second account', async () => {
@@ -126,8 +127,14 @@ describe('account endpoints', () => {
 
     const me = await json(await get('/api/auth/me', cookie));
     expect(me.data.email).toBe('creator@test.example');
-    const shared = await json(await get('/api/private', cookie));
-    expect(shared.userId).toBe(me.data.id);
+    const resolver = vi.spyOn(db, 'resolveSessionRecord');
+    try {
+      expect((await get('/api/private', cookie)).status).toBe(200);
+      expect((await get('/api/private', cookie)).status).toBe(200);
+      expect(resolver).toHaveBeenCalledTimes(2);
+    } finally {
+      resolver.mockRestore();
+    }
   });
 
   it('ends the session immediately on sign-out', async () => {
@@ -138,7 +145,6 @@ describe('account endpoints', () => {
     expect(out.status).toBe(200);
     expect(cookieFrom(out)).toBe(`${SESSION_COOKIE}=`);
 
-    // The resolver caches sessions for a minute; revocation has to beat that cache.
     expect((await get('/api/private', cookie)).status).toBe(401);
     expect((await json(await get('/api/auth/me', cookie))).data).toBeNull();
   });
